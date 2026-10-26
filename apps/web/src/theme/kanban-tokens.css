@@ -17,6 +17,7 @@
   --atrium-kanban-card-padding: var(--space-8);
   --atrium-kanban-status-bar: 4px; /* left bar of the compact status label on a card */
   --atrium-kanban-icon: 16px;
+  --atrium-kanban-footer-icon: 20px;
   --atrium-kanban-battery-width: 112px;
   --atrium-kanban-battery-height: 24px;
   --atrium-kanban-gutter: var(--atrium-board-gutter);
@@ -26,17 +27,18 @@
   --atrium-kanban-lane-count-font: 400 14px / 21px var(--font-family);
   --atrium-kanban-card-title-font: 400 14px / 18px var(--font-family);
   --atrium-kanban-field-font: 400 14px / 21px var(--font-family);
-  --atrium-kanban-count-font: 400 14px / 18px var(--font-family);
+  --atrium-kanban-count-font: 400 15px / 22.5px var(--font-family);
 
   /* ---- Colours ---- */
   --atrium-kanban-lane-bg: var(--allgrey-background-color);
+  --atrium-kanban-board-bg: transparent;
   --atrium-kanban-header-text: var(--atrium-white);
   --atrium-kanban-empty-header: var(--color-explosive);
-  --atrium-kanban-card-bg: var(--atrium-surface-bg);
-  --atrium-kanban-card-border: var(--border-width) var(--border-style) var(--ui-border-color);
+  --atrium-kanban-card-bg: var(--primary-background-color);
+  --atrium-kanban-card-border: var(--border-width) var(--border-style) var(--layout-border-color);
   --atrium-kanban-card-hover: var(--primary-background-hover-color);
   --atrium-kanban-field-icon: var(--secondary-text-color);
-  --atrium-kanban-status-bg: var(--allgrey-background-color);
+  --atrium-kanban-status-bg: var(--primary-background-hover-color);
   --atrium-kanban-drop-marker: var(--primary-color);
 
   /* ---- Shape ---- */
@@ -44,4 +46,12 @@
   --atrium-kanban-card-radius: var(--border-radius-medium);
   --atrium-kanban-marker-height: 3px;
   --atrium-kanban-drag-tilt: 2deg;
+}
+
+/* Dark and black: the lanes are lighter than the board behind them (Vibe --dark-background-color:
+   #393b53 in dark, #2c2c2c in black). */
+.dark-app-theme,
+.black-app-theme {
+  --atrium-kanban-lane-bg: var(--dark-background-color);
+  --atrium-kanban-board-bg: var(--primary-background-color);
 }

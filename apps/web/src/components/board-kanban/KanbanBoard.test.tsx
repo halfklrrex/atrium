@@ -140,6 +140,25 @@ describe('KanbanBoard', () => {
     expect(empty.queryByText('Cover the lanes')).toBeNull();
   });
 
+  it('renders the plain updates icon (no plus) without updates, and dims an empty subitems icon', () => {
+    open();
+    const plain = within(screen.getByRole('button', { name: 'Build board' }));
+    const updates = plain.getByRole('button', { name: 'Updates for Build board' });
+    // The Update bubble only: the AddUpdate icon draws an extra plus path.
+    expect(updates.querySelectorAll('svg')).toHaveLength(1);
+    expect(updates.querySelectorAll('path').length).toBeLessThanOrEqual(1);
+    expect(plain.getByRole('button', { name: 'Subitems' }).className).toMatch(/footerEmpty/);
+    const withSub = within(screen.getByRole('button', { name: 'Write spec' }));
+    expect(withSub.getByRole('button', { name: '1 subitem' }).className).not.toMatch(/footerEmpty/);
+  });
+
+  it('draws the status chip as a bar element and the label text', () => {
+    open({ cardColumnIds: ['status'] });
+    const card = within(screen.getByRole('button', { name: 'Write spec' }));
+    const text = card.getByText('To do');
+    expect(text.previousElementSibling?.className).toMatch(/statusBar/);
+  });
+
   it('collapses and expands a lane, and counts it as an unsaved view change', async () => {
     open();
     await userEvent.click(screen.getByRole('button', { name: 'Collapse Done lane' }));
