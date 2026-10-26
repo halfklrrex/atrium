@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   FIRESTORE_DATABASE_ID,
   boardSchema,
+  boardViewSchema,
   columnRegistry,
   favoriteSchema,
   itemSchema,
@@ -58,6 +59,7 @@ test('every document re-validates against its shared schema', () => {
   const { docs } = build();
   const byPattern = [
     [/^boards\/[^/]+$/, boardSchema],
+    [/^boards\/[^/]+\/views\/[^/]+$/, boardViewSchema],
     [/^boards\/[^/]+\/items\/[^/]+$/, itemSchema],
     [/^boards\/[^/]+\/items\/[^/]+\/updates\/[^/]+$/, itemUpdateSchema],
     [/^boards\/[^/]+\/items\/[^/]+\/updates\/[^/]+\/replies\/[^/]+$/, updateReplySchema],
@@ -539,6 +541,36 @@ test('re-running converges to the same state and prunes showcase docs that are n
   const again = await seed(client);
   assert.equal(again.deleteCount, 0);
   assert.equal(snapshot(client), first);
+});
+
+test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
+  const { docs, summary } = build();
+  const views = docs.filter((d) => /^boards\/showcase-main\/views\/[^/]+$/.test(d.path));
+  assert.equal(summary.views, 1);
+  assert.equal(views.length, 1);
+  const view = views[0].data;
+  assert.equal(view.name, 'Due this week');
+  assert.equal(view.type, 'table');
+  assert.equal(view.ownerId, null);
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const columnIds = new Set(board.columns.map((c) => c.id));
+  assert.equal(view.settings.hiddenColumnIds.length, 2);
+  for (const id of view.settings.hiddenColumnIds) assert.ok(columnIds.has(id), id);
+  assert.deepEqual(view.settings.filter.sortConditions, [{ columnId: 'due', direction: 'asc' }]);
+  const [from, to] = view.settings.filter.filterGroup.conditions;
+  assert.equal(from.columnId, 'due');
+  assert.equal(from.value, '2026-10-23');
+  assert.equal(to.value, '2026-10-31');
+});
+
+test('a view that left the content is pruned on the next run', async () => {
+  const client = fakeFirestore(baseWorld());
+  await seed(client);
+  client.store.set('boards/showcase-main/views/showcase-old-view', { name: 'Old' });
+  const plan = await seed(client);
+  assert.equal(plan.deleteCount, 1);
+  assert.ok(!client.store.has('boards/showcase-main/views/showcase-old-view'));
+  assert.ok(client.store.has('boards/showcase-main/views/showcase-due-this-week'));
 });
 
 test('--reset deletes the showcase boards recursively, even unknown sub-collections, then recreates them', async () => {

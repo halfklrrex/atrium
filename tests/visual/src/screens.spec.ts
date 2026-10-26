@@ -1,6 +1,13 @@
 import { PARK_IN_HEADER, appReady, boardReady, expect, homeReady, shoot, test } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
-import { FULL_VIEW_ITEM, IDS, clearRecents, createEmptyWorkspace } from './seed';
+import {
+  FULL_VIEW_ITEM,
+  IDS,
+  addView,
+  clearRecents,
+  createEmptyWorkspace,
+  removeView,
+} from './seed';
 
 /** True when `target` is what a click at its centre would hit, i.e. nothing is painted over it. */
 const isOnTop = (target: Locator) =>
@@ -83,6 +90,34 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto(`/boards/${IDS.roadmap}`);
       await boardReady(page);
       await shoot(page, `board-${theme}`, PARK_IN_HEADER);
+    });
+
+    test('board: view tabs with unsaved changes', async ({ page }) => {
+      await addView();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/main`);
+        await boardReady(page);
+        await expect(page.getByRole('tab', { name: 'Due soon' })).toBeVisible();
+        // Hiding a column is an unsaved change: a dot on the tab and "Save to this view".
+        await page.getByRole('button', { name: 'Hide columns' }).click();
+        await page.getByRole('checkbox', { name: 'Budget' }).click();
+        await page.keyboard.press('Escape');
+        await expect(page.getByRole('button', { name: 'Save to this view' })).toBeVisible();
+        await expect(page.getByRole('img', { name: 'Unsaved changes' })).toBeVisible();
+        await shoot(page, `board-views-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeView();
+      }
+    });
+
+    test('board: Hide columns popover', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}/views/main`);
+      await boardReady(page);
+      await page.getByRole('button', { name: 'Hide columns' }).click();
+      const panel = page.getByRole('dialog', { name: 'Hide columns' });
+      await expect(panel.getByRole('checkbox', { name: 'Budget' })).toBeVisible();
+      await panel.getByRole('checkbox', { name: 'Area' }).click();
+      await shoot(page, `board-hide-popover-${theme}`, PARK_IN_HEADER);
     });
 
     test('board: full item view', async ({ page }) => {
