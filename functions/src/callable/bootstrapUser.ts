@@ -1,8 +1,12 @@
 import { bootstrapUserRequestSchema, bootstrapUserResultSchema } from '@atrium/shared';
 import { FieldValue } from 'firebase-admin/firestore';
+import { logger } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { actorFromRequest } from '../lib/actor';
 import { adminBootstrapTx, db } from '../lib/admin';
 import { bootstrapUserInTransaction, type Identity } from '../lib/bootstrap';
+import { syncMemberProfiles } from '../lib/membership';
+import { adminMemberProfileStore } from '../lib/membership-admin';
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 
@@ -37,6 +41,13 @@ export const bootstrapUser = onCall(async (request) => {
       FieldValue.serverTimestamp(),
     ),
   );
+
+  // Keep the caller's name and photo current on their member docs (best effort, never blocks sign-in).
+  try {
+    await syncMemberProfiles(adminMemberProfileStore(firestore), actorFromRequest(request));
+  } catch (error) {
+    logger.warn('Member profile sync failed', error);
+  }
 
   return bootstrapUserResultSchema.parse(result);
 });

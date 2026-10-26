@@ -13,6 +13,8 @@ export type InviteStatus = z.infer<typeof inviteStatusSchema>;
 
 /** Invites stay valid for this long (milliseconds). */
 export const INVITE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+/** Canonical origin used to build invite links in callable results. */
+export const APP_BASE_URL = 'https://atrium-workboards.web.app';
 /** Pending invites allowed per workspace. */
 export const MAX_PENDING_INVITES = 50;
 
@@ -114,6 +116,30 @@ export const acceptInviteResultSchema = z
   .object({ workspaceId: idSchema, role: workspaceRoleSchema })
   .strict();
 export type AcceptInviteResult = z.infer<typeof acceptInviteResultSchema>;
+
+export const GET_INVITE_STATUS_CALLABLE = 'getInviteStatus';
+
+export const getInviteStatusRequestSchema = revokeInviteRequestSchema;
+export type GetInviteStatusRequest = z.infer<typeof getInviteStatusRequestSchema>;
+
+/** Why an invite link can or cannot be used by the signed-in caller (no invitee data is leaked). */
+export const getInviteStatusResultSchema = z
+  .object({
+    state: z.enum([
+      'pending',
+      'accepted',
+      'declined',
+      'revoked',
+      'expired',
+      'wrong_email',
+      'not_found',
+    ]),
+    workspaceName: z.string().optional(),
+    invitedByName: z.string().optional(),
+    role: inviteRoleSchema.optional(),
+  })
+  .strict();
+export type GetInviteStatusResult = z.infer<typeof getInviteStatusResultSchema>;
 
 export const declineInviteRequestSchema = revokeInviteRequestSchema;
 export type DeclineInviteRequest = z.infer<typeof declineInviteRequestSchema>;
