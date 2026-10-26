@@ -20,6 +20,7 @@ import {
   itemUpdateSchema,
   recentSchema,
   updateReplySchema,
+  workspaceMemberSchema,
 } from '@atrium/shared';
 
 /**
@@ -46,6 +47,23 @@ export const SHOWCASE_ARCHIVED_ID = 'showcase-archived-demo';
 export const SHOWCASE_TRASHED_ID = 'showcase-trashed-demo';
 export const SHOWCASE_BOARD_IDS = [SHOWCASE_MAIN_ID, SHOWCASE_ARCHIVED_ID, SHOWCASE_TRASHED_ID];
 export const SHOWCASE_PREFIX = 'showcase-';
+
+/**
+ * Three fake people, so People cells show names and initials instead of "Board member". They get a
+ * `workspaces/{id}/members/{uid}` profile doc ONLY: they are not in the workspace's `roles` or
+ * `memberIds`, so they are not real accounts, cannot sign in and never appear in the Members dialog.
+ */
+export const SHOWCASE_MEMBERS = [
+  { key: 'jordan', uid: 'showcase-user-jordan', displayName: 'Jordan Lee' },
+  { key: 'sam', uid: 'showcase-user-sam', displayName: 'Sam Rivera' },
+  { key: 'casey', uid: 'showcase-user-casey', displayName: 'Casey Morgan' },
+].map((m) => ({ ...m, email: `${m.displayName.toLowerCase().replace(' ', '.')}@example.com` }));
+export const SHOWCASE_MEMBER_UIDS = SHOWCASE_MEMBERS.map((m) => m.uid);
+const memberUid = (key) => {
+  const member = SHOWCASE_MEMBERS.find((m) => m.key === key);
+  if (!member) throw new Error(`Unknown showcase member "${key}"`);
+  return member.uid;
+};
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
@@ -265,7 +283,8 @@ function descriptionOf(blocks) {
 
 /**
  * Compact item description. `due` is days from today (negative = past), `created` is days ago.
- * Omit a field to leave the cell empty. `owner: true` puts the board owner in the people cell.
+ * Omit a field to leave the cell empty. `owner: true` puts the board owner in the people cell;
+ * `people: ['jordan', 'sam']` adds fake members (see SHOWCASE_MEMBERS) to it.
  */
 const ITEMS = [
   // ---- This week ----
@@ -286,6 +305,7 @@ const ITEMS = [
         ],
       },
     ],
+    people: ['jordan'],
     group: 'this_week',
     name: 'Finalize homepage hero copy',
     owner: true,
@@ -341,6 +361,7 @@ const ITEMS = [
       },
       { ul: ['Plan cards with a clear highlight', 'FAQ underneath', 'Annual toggle'] },
     ],
+    people: ['sam', 'casey'],
     group: 'this_week',
     name: 'Design new pricing page',
     owner: true,
@@ -395,6 +416,7 @@ const ITEMS = [
   },
   {
     key: 'staging',
+    people: ['jordan', 'sam'],
     group: 'this_week',
     name: 'Set up staging environment',
     owner: true,
@@ -419,6 +441,7 @@ const ITEMS = [
   },
   {
     key: 'blog-migration',
+    people: ['casey'],
     group: 'this_week',
     name: 'Migrate blog posts to the new CMS',
     owner: true,
@@ -495,6 +518,7 @@ const ITEMS = [
         ],
       },
     ],
+    people: ['sam'],
     group: 'this_week',
     name: 'Accessibility audit (WCAG AA)',
     owner: true,
@@ -566,6 +590,7 @@ const ITEMS = [
   },
   {
     key: 'team-photos',
+    people: ['jordan', 'casey'],
     group: 'next_up',
     name: 'Photography brief for the team page',
     priority: 'low',
@@ -586,6 +611,7 @@ const ITEMS = [
   },
   {
     key: 'case-study',
+    people: ['casey'],
     group: 'next_up',
     name: 'Write case study: Northwind',
     owner: true,
@@ -784,6 +810,7 @@ const ITEMS = [
   // ---- Done ----
   {
     key: 'kickoff',
+    people: ['jordan', 'sam', 'casey'],
     group: 'done',
     name: 'Kick-off workshop with stakeholders',
     owner: true,
@@ -1015,7 +1042,10 @@ export function parseCell(columnsById, columnId, value, itemName) {
 /** The raw values of an item description, one entry per filled cell. */
 function rawValues(spec, ownerUid, anchor) {
   const values = {};
-  if (spec.owner) values.person = { personsAndTeams: [{ id: ownerUid, kind: 'person' }] };
+  const people = [...(spec.owner ? [ownerUid] : []), ...(spec.people ?? []).map(memberUid)];
+  if (people.length > 0) {
+    values.person = { personsAndTeams: people.map((id) => ({ id, kind: 'person' })) };
+  }
   if (spec.status) values.status = { index: STATUS[spec.status] };
   if (spec.priority) values.priority = { index: PRIORITY[spec.priority] };
   if (spec.due !== undefined) values.due = { date: isoDate(anchor, spec.due) };
@@ -1365,6 +1395,22 @@ export function buildShowcase({
   summary.boards[SHOWCASE_ARCHIVED_ID] = { items: 0 };
   summary.boards[SHOWCASE_TRASHED_ID] = { items: 0 };
 
+  // ---- Fake members' profile docs (members/{uid} only; never roles or memberIds) ----
+  for (const member of SHOWCASE_MEMBERS) {
+    docs.push({
+      path: `workspaces/${workspaceId}/members/${member.uid}`,
+      data: workspaceMemberSchema.parse({
+        displayName: member.displayName,
+        photoURL: null,
+        email: member.email,
+        role: 'member',
+        joinedAt: ago(30 * DAY),
+        updatedAt: ago(30 * DAY),
+      }),
+    });
+  }
+  summary.members = SHOWCASE_MEMBERS.length;
+
   // ---- The owner's favourite and recent visit for the main board ----
   docs.push({
     path: `users/${ownerUid}/favorites/${SHOWCASE_MAIN_ID}`,
@@ -1398,14 +1444,25 @@ export function buildShowcase({
 
 /**
  * Whether the seed script may create, update or delete the document at `path`. The only paths it
- * owns are: `boards/showcase-*` and everything below them, and the owner's `favorites` and
- * `recents` documents named like a showcase board. Nothing else, ever.
+ * owns are: `boards/showcase-*` and everything below them, the owner's `favorites` and
+ * `recents` documents named like a showcase board, and the fake members' `members` docs in the
+ * workspace being seeded. Nothing else, ever.
  */
-export function isOwnedPath(path, ownerUid) {
+export function isOwnedPath(path, ownerUid, workspaceId) {
   const parts = path.split('/');
   if (parts.some((p) => p === '' || p === '.' || p === '..')) return false;
   if (parts[0] === 'boards') {
     return parts.length >= 2 && SHOWCASE_BOARD_IDS.includes(parts[1]);
+  }
+  if (parts[0] === 'workspaces') {
+    // Only the fake members' profile docs, and only in the workspace being seeded.
+    return (
+      workspaceId !== undefined &&
+      parts.length === 4 &&
+      parts[1] === workspaceId &&
+      parts[2] === 'members' &&
+      SHOWCASE_MEMBER_UIDS.includes(parts[3])
+    );
   }
   if (parts[0] === 'users') {
     return (

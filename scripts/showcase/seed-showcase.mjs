@@ -8,7 +8,7 @@
 //
 // Safety: the script only ever creates, updates or deletes the documents it owns (see
 // `isOwnedPath` in data.mjs): the `showcase-*` boards with their items, updates, replies and views, and the
-// owner's favourite/recent entries for them. It refuses to run when the workspace is missing or the
+// owner's favourite/recent entries for them, plus the 3 fake members' `members` profile docs. It refuses to run when the workspace is missing or the
 // owner is not a member, and aborts if a write would fall outside that allow-list.
 //
 // Run through tsx (it imports the TypeScript in @atrium/shared): see the `showcase` package script.
@@ -17,7 +17,13 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { FIRESTORE_DATABASE_ID } from '@atrium/shared';
 import { portOffset, ports } from '../env.mjs';
-import { buildShowcase, isOwnedPath, SHOWCASE_BOARD_IDS, anchorOf } from './data.mjs';
+import {
+  buildShowcase,
+  isOwnedPath,
+  SHOWCASE_BOARD_IDS,
+  SHOWCASE_MEMBER_UIDS,
+  anchorOf,
+} from './data.mjs';
 import { createFirestoreRest } from './firestore-rest.mjs';
 
 const PRODUCTION_ORIGIN = 'https://firestore.googleapis.com';
@@ -285,6 +291,13 @@ export async function runSeed({
       }
     }
   }
+  // A reset also recreates the fake members' profile docs from scratch.
+  if (reset) {
+    for (const uid of SHOWCASE_MEMBER_UIDS) {
+      const path = `workspaces/${workspaceId}/members/${uid}`;
+      if (await client.getDoc(path)) deletes.add(path);
+    }
+  }
   const operations = [
     ...[...deletes].map((path) => ({ op: 'delete', path })),
     ...docs.map(({ path, data }) => ({ op: 'set', path, data })),
@@ -294,7 +307,7 @@ export async function runSeed({
 
   // ---- 4. The allow-list: nothing outside the showcase may be touched ----
   for (const { path } of operations) {
-    if (!isOwnedPath(path, ownerUid)) {
+    if (!isOwnedPath(path, ownerUid, workspaceId)) {
       throw new Error(
         `Safety check failed: "${path}" is not a showcase document. Nothing was written.`,
       );
@@ -308,7 +321,8 @@ export async function runSeed({
   );
   log(
     `  content    ${summary.items} active items (+${summary.subitems} subitems), ${summary.archived} archived, ${summary.trashed} trashed, ` +
-      `${summary.updates} updates, ${summary.replies} replies, ${SHOWCASE_BOARD_IDS.length} boards`,
+      `${summary.updates} updates, ${summary.replies} replies, ${SHOWCASE_BOARD_IDS.length} boards, ` +
+      `${summary.members} fake member profiles`,
   );
   log(`  documents  ${writeCount} to write, ${deleteCount} to delete`);
   for (const boardId of SHOWCASE_BOARD_IDS) log(`  board      boards/${boardId}`);

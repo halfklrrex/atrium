@@ -15,11 +15,14 @@ import {
   itemUpdateSchema,
   recentSchema,
   updateReplySchema,
+  workspaceMemberSchema,
 } from '@atrium/shared';
 import {
   PENDING_TYPES,
   SHOWCASE_BOARD_IDS,
   SHOWCASE_COLUMN_TYPES,
+  SHOWCASE_MEMBERS,
+  SHOWCASE_MEMBER_UIDS,
   SHOWCASE_MAIN_ID,
   anchorOf,
   buildShowcase,
@@ -65,6 +68,7 @@ test('every document re-validates against its shared schema', () => {
     [/^boards\/[^/]+\/items\/[^/]+\/updates\/[^/]+\/replies\/[^/]+$/, updateReplySchema],
     [/^users\/[^/]+\/favorites\/[^/]+$/, favoriteSchema],
     [/^users\/[^/]+\/recents\/[^/]+$/, recentSchema],
+    [/^workspaces\/[^/]+\/members\/[^/]+$/, workspaceMemberSchema],
   ];
   for (const { path, data } of docs) {
     const entry = byPattern.find(([pattern]) => pattern.test(path));
@@ -316,7 +320,50 @@ test('orderKey yields ascending keys', () => {
   assert.throws(() => orderKey(62));
 });
 
+test('the fake members get profile docs only, never roles or memberIds', async () => {
+  const { docs } = build();
+  const members = docs.filter((d) => d.path.includes('/members/'));
+  assert.deepEqual(
+    members.map((d) => d.path).sort(),
+    SHOWCASE_MEMBER_UIDS.map((uid) => `workspaces/${WORKSPACE}/members/${uid}`).sort(),
+  );
+  for (const { data } of members) assert.match(data.email, /@example.com$/);
+  assert.equal(SHOWCASE_MEMBERS.length, 3);
+  // Nothing in the seed touches the workspace document itself.
+  assert.ok(!docs.some((d) => d.path === `workspaces/${WORKSPACE}`));
+
+  const client = fakeFirestore(baseWorld());
+  await seed(client);
+  const workspace = client.store.get(`workspaces/${WORKSPACE}`);
+  for (const uid of SHOWCASE_MEMBER_UIDS) {
+    assert.ok(client.store.has(`workspaces/${WORKSPACE}/members/${uid}`));
+    assert.ok(!workspace.memberIds.includes(uid));
+    assert.ok(!(uid in workspace.roles));
+  }
+});
+
+test('People cells reference the fake members', () => {
+  const { docs } = build();
+  const used = new Set(
+    docs
+      .filter((d) => MAIN_ITEM.test(d.path))
+      .flatMap((d) => d.data.values.person?.personsAndTeams ?? [])
+      .map((p) => p.id),
+  );
+  for (const uid of SHOWCASE_MEMBER_UIDS) assert.ok(used.has(uid), uid);
+});
+
 test('ownership allow-list', () => {
+  assert.ok(
+    isOwnedPath(`workspaces/${WORKSPACE}/members/${SHOWCASE_MEMBER_UIDS[0]}`, OWNER, WORKSPACE),
+  );
+  // Member docs are only ours inside the workspace being seeded, and only for the fake uids.
+  assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}/members/${SHOWCASE_MEMBER_UIDS[0]}`, OWNER));
+  assert.ok(!isOwnedPath(`workspaces/other/members/${SHOWCASE_MEMBER_UIDS[0]}`, OWNER, WORKSPACE));
+  assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}/members/${OWNER}`, OWNER, WORKSPACE));
+  assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}/members/real-user`, OWNER, WORKSPACE));
+  assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}`, OWNER, WORKSPACE));
+  assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}/invites/showcase-user-sam`, OWNER, WORKSPACE));
   assert.ok(isOwnedPath('boards/showcase-main', OWNER));
   assert.ok(isOwnedPath('boards/showcase-main/items/x/updates/y/replies/z', OWNER));
   assert.ok(isOwnedPath(`users/${OWNER}/favorites/showcase-main`, OWNER));
@@ -471,7 +518,9 @@ const seed = (client, extra = {}) =>
 const snapshot = (client) =>
   JSON.stringify([...client.store.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
 const isShowcasePath = (p) =>
-  /^boards\/showcase-/.test(p) || /\/(favorites|recents)\/showcase-/.test(p);
+  /^boards\/showcase-/.test(p) ||
+  /\/(favorites|recents)\/showcase-/.test(p) ||
+  /^workspaces\/[^/]+\/members\/showcase-user-/.test(p);
 const foreignDocs = (client) =>
   Object.fromEntries([...client.store.entries()].filter(([p]) => !isShowcasePath(p)));
 
@@ -515,7 +564,7 @@ test('seeding creates the showcase and leaves everything else alone', async () =
   );
   assert.equal(update.authorName, 'Avery Quinn');
   for (const commit of client.commits) {
-    for (const w of commit) assert.ok(isOwnedPath(w.path, OWNER), w.path);
+    for (const w of commit) assert.ok(isOwnedPath(w.path, OWNER, WORKSPACE), w.path);
   }
 });
 

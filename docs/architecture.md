@@ -77,7 +77,19 @@ kind: 'open'|'closed'                     // monday parity; closed = invite-only
 createdAt, createdBy, updatedAt
 ```
 Query "my workspaces": `where('memberIds','array-contains',uid)`.
-Invariant: `memberIds` equals `keys(roles)`. Clients may **create** a workspace only with themselves as sole owner. Membership changes go through callable functions (P4) to keep the invariant.
+Invariant: `memberIds` equals `keys(roles)`. Clients may **create** a workspace only with themselves as sole owner. Membership changes go through callable functions (P4a, below) to keep the invariant.
+
+### 5.2a `workspaces/{workspaceId}/members/{uid}` and `.../invites/{inviteId}` (P4a)
+```
+members/{uid}:  displayName, photoURL|null, email, role (display copy), joinedAt, updatedAt
+invites/{id}:   email (lowercased), role 'admin'|'member'|'viewer', invitedBy, invitedByName,
+                workspaceName, createdAt, expiresAt (+14 days), status 'pending'|'accepted'|'declined'|'revoked'
+```
+- **Member profiles are denormalised** so every member sees the others' names and photos while `users/{uid}` stays self-only. Functions only write them (rules: read for any member, write `false`). The authoritative role stays in `workspace.roles`; `members.role` is a display copy.
+- **Who writes them:** `bootstrapUser` (the owner's doc on a new workspace, and a refresh of the caller's name, photo and email on up to 20 of their workspaces, which also creates a missing doc for workspaces created in the browser), `createInvite` (heals the inviter's own doc), `acceptInvite`, `changeMemberRole`, `removeMember` / `leaveWorkspace`. Run `scripts/backfill-members.mjs` once for workspaces that existed before P4a.
+- **Invites** are accepted by **verified** Google email, compared lowercased. Only Functions write them; owners and admins read them. No email is sent: the inviter copies the link `/invite/{workspaceId}/{inviteId}`, which never grants access by itself. Invitees use the `listMyInvites` and `getInviteStatus` callables (a collection-group query on `invites`, indexed by `email` + `status`).
+- **Callables** (`functions/src/callable/`, logic in `functions/src/lib/membership.ts`): `createInvite`, `revokeInvite`, `listMyInvites`, `getInviteStatus`, `acceptInvite`, `declineInvite`, `changeMemberRole` (also ownership transfer), `removeMember`, `leaveWorkspace`. Each runs in a transaction that changes `roles`, `memberIds` and the member docs together. Removal then strips the uid from `access` / `accessUids` on the workspace's boards in follow-up batches (housekeeping: rules already deny a removed member through `isWsMember`).
+- **Web:** `useWorkspaceMembers(wsId)` (one cached listener per open workspace) and `useUserLookup(wsId?)` (`uid -> {name, photoURL}`, defaulting to the workspace the shell shows) feed avatars, people cells, filters and group-by. The Members dialog (`components/membership/`) and the `/invite/:workspaceId/:inviteId` page call the callables.
 
 ### 5.3 `workspaces/{workspaceId}/folders/{folderId}`
 `name, parentFolderId|null, color, position`
@@ -119,7 +131,7 @@ Loading a board means one listener on `items where state == 'active'`, which is 
 - `boards/{boardId}/views/{viewId}`: `name, type (table|kanban), position, ownerId|null (null = shared view, a uid = personal), settings {filter, hiddenColumnIds, kanban?}, createdAt/By, updatedAt/By` (P3). `main` is the fixed Main table view, created lazily on its first save. `ownerId` and `type` never change ("make personal/shared" writes a copy and deletes the original). The client lists views with two queries (`ownerId == null` and `ownerId == uid`) because the rules engine refuses `ownerId in [null, uid]`. Details: `docs/specs/P3-saved-views.md`.
 - `boards/{boardId}/activity/{id}`: append-only, written only by Functions (P1/P4). Rules deny every client read and write, explicitly (FW2)
 - `boards/{boardId}/automations/{id}` (P5) · `dashboards/{id}` (P6) · `docs/{id}` (P7)
-- `users/{uid}/notifications/{id}` (P4) · `invites/{inviteId}` (P4)
+- `users/{uid}/notifications/{id}` (P4) · workspace `invites` and `members`: see 5.2a (P4a)
 
 ## 6. Column-type registry (`packages/shared/src/columns/`)
 
