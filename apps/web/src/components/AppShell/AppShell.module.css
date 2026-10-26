@@ -1,0 +1,123 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--atrium-app-bg);
+  color: var(--primary-text-color);
+}
+
+/* ---------- Top bar ---------- */
+
+/* Sits straight on the app background: no fill of its own. */
+.topBar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--atrium-topbar-height);
+  padding: 0 var(--space-24) 0 var(--space-16);
+}
+
+.menuToggle {
+  display: none;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4);
+  border-radius: var(--border-radius-small);
+  color: var(--primary-text-color);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.brandName {
+  font: var(--atrium-logo-font);
+}
+
+.brandSuffix {
+  color: var(--secondary-text-color);
+  font: var(--atrium-logo-suffix-font);
+}
+
+/* 40px buttons on a 44px pitch. */
+.topBarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--atrium-topbar-gap);
+  margin-inline-start: auto;
+}
+
+.topBarActions > span {
+  display: inline-flex;
+}
+
+.appsButton {
+  margin-inline-start: var(--atrium-topbar-apps-gap);
+}
+
+.avatarSlot {
+  display: inline-grid;
+  place-items: center;
+  width: var(--atrium-topbar-button);
+  height: var(--atrium-topbar-button);
+}
+
+/* ---------- Surface: floating sidebar + content panel on the app background ---------- */
+
+.surface {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding-inline-start: var(--atrium-surface-inset);
+}
+
+/* The panel's own rounded top-left corner shows the sidebar gradient behind it. */
+.content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-start-start-radius: var(--atrium-surface-radius);
+  background: var(--atrium-surface-bg);
+}
+
+.scrim {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .menuToggle {
+    display: inline-flex;
+  }
+
+  .topBar {
+    padding-inline: var(--space-8) var(--space-12);
+  }
+
+  .surface {
+    padding-inline-start: 0;
+  }
+
+  .brandSuffix,
+  .topBarActions > .hideNarrow {
+    display: none;
+  }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: var(--atrium-z-scrim);
+    display: block;
+    border: 0;
+    background: var(--atrium-scrim);
+  }
+}

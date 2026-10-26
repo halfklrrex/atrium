@@ -1,0 +1,18 @@
+.root {
+  position: relative;
+  min-width: 0;
+}
+
+/* Portalled to <body> and placed with fixed coordinates by Popover.tsx. */
+.panel {
+  position: fixed;
+  z-index: var(--atrium-z-popover);
+  max-width: calc(100vw - var(--space-16));
+  max-height: calc(100vh - var(--space-16));
+  overflow: auto;
+  background: var(--primary-background-color);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-medium);
+  box-shadow: var(--atrium-menu-shadow);
+  color: var(--primary-text-color);
+}

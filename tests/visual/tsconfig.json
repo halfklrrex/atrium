@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": false,
+    "paths": {
+      "@atrium/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "playwright.config.ts"]
+}

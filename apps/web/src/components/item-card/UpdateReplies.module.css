@@ -1,0 +1,135 @@
+/* Replies live inside the parent update card, under the action row. */
+.repliesThread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  border-top: var(--border-width) solid var(--layout-border-color);
+}
+
+.replyList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.replyRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-16);
+}
+
+.avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.replyMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.replyBubble {
+  background: var(--allgrey-background-color);
+  border-radius: var(--border-radius-8);
+  padding: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.replyHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+}
+
+.authorName {
+  font: var(--font-text2-bold);
+  color: var(--primary-text-color);
+}
+
+.timestamp {
+  font: var(--font-text2-normal);
+  color: var(--secondary-text-color);
+}
+
+.replyContent {
+  font: var(--atrium-reply-body-font);
+  color: var(--primary-text-color);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.replyFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.likeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-4);
+  padding: var(--space-4) var(--space-8);
+  font: var(--font-text2-normal);
+  color: var(--secondary-text-color);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.likeButton:hover {
+  background: var(--primary-background-hover-color);
+  color: var(--primary-text-color);
+}
+
+.liked {
+  color: var(--primary-color);
+  font-weight: var(--font-weight-bold);
+}
+
+.replyComposer {
+  display: flex;
+  gap: var(--space-16);
+  align-items: flex-start;
+}
+
+.composerInputWrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.replyInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-8) var(--space-16);
+  border: var(--border-width) solid var(--layout-border-color);
+  border-radius: var(--border-radius-8);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-reply-body-font);
+  resize: vertical;
+  min-height: var(--space-40);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.replyInput::placeholder {
+  color: var(--secondary-text-color);
+}
+
+.replyInput:focus {
+  border-color: var(--primary-color);
+  box-shadow: inset 0 0 0 var(--border-width) var(--primary-color);
+}

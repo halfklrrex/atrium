@@ -1,0 +1,16 @@
+node_modules
+dist
+functions/lib
+coverage
+.emulator-data
+.firebase
+pnpm-lock.yaml
+*.rules
+docs/architecture.md
+CLAUDE.md
+HANDOFF.md
+.impeccable
+.firebase.emulators.json
+.claude/worktrees
+THIRD_PARTY_NOTICES.md
+LICENSE

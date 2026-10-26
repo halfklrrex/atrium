@@ -1,0 +1,22 @@
+{
+  "name": "@atrium/rules-tests",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "description": "Firestore security rules tests. Run through `pnpm test:rules` from the repo root (starts the emulator).",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:rules": "vitest run"
+  },
+  "devDependencies": {
+    "@atrium/shared": "workspace:*",
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@types/node": "^22.20.0",
+    "firebase": "^13.1.0",
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

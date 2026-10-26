@@ -1,0 +1,13 @@
+.popup {
+  position: fixed;
+  z-index: var(--atrium-table-z-popup);
+  max-width: calc(100vw - var(--space-16));
+  max-height: calc(100vh - var(--space-16));
+  overflow: auto;
+  border: var(--border-width) var(--border-style) var(--atrium-table-popup-border);
+  border-radius: var(--atrium-table-card-radius);
+  background: var(--atrium-table-popup-bg);
+  box-shadow: var(--atrium-table-popup-shadow);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+}

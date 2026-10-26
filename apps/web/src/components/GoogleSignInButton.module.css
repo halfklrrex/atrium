@@ -1,0 +1,113 @@
+/*
+ * "Sign in with Google" button, following Google Identity branding guidelines:
+ * 40px high, 12px side padding, 10px logo/label gap, 4px radius, Roboto Medium 14/20.
+ * Light theme is the default; dark and black Vibe themes get the dark variant.
+ *
+ * The brand colours and metrics below are fixed by Google's guidelines, so they deliberately do
+ * not use Atrium tokens. Each literal is allow-listed with a targeted stylelint-disable comment.
+ */
+.button {
+  /* stylelint-disable-next-line color-no-hex -- Google brand colour */
+  --gsi-background: #ffffff;
+  /* stylelint-disable-next-line color-no-hex -- Google brand colour */
+  --gsi-border: #747775;
+  /* stylelint-disable-next-line color-no-hex -- Google brand colour */
+  --gsi-text: #1f1f1f;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* stylelint-disable-next-line declaration-property-unit-disallowed-list -- Google brand metric */
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  /* stylelint-disable-next-line declaration-property-unit-disallowed-list -- Google brand metric */
+  padding: 0 12px;
+  border: 1px solid var(--gsi-border);
+  /* stylelint-disable-next-line declaration-property-unit-disallowed-list -- Google brand metric */
+  border-radius: 4px;
+  background: var(--gsi-background);
+  color: var(--gsi-text);
+  /* stylelint-disable declaration-property-unit-disallowed-list -- Google brand metric (multi-line) */
+  font:
+    500 14px/20px Roboto,
+    Arial,
+    sans-serif;
+  /* stylelint-enable declaration-property-unit-disallowed-list */
+  /* stylelint-disable-next-line declaration-property-unit-disallowed-list -- Google brand metric */
+  letter-spacing: 0.25px;
+  white-space: nowrap;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:global(.dark-app-theme) .button,
+:global(.black-app-theme) .button {
+  /* stylelint-disable-next-line color-no-hex -- Google brand colour */
+  --gsi-background: #131314;
+  /* stylelint-disable-next-line color-no-hex -- Google brand colour */
+  --gsi-border: #8e918f;
+  /* stylelint-disable-next-line color-no-hex -- Google brand colour */
+  --gsi-text: #e3e3e3;
+}
+
+/* State overlay: 8% of the text colour on hover, 12% while pressed. */
+.button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gsi-text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.button:hover:not(:disabled)::after {
+  opacity: 0.08;
+}
+
+.button:active:not(:disabled)::after {
+  opacity: 0.12;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.icon {
+  display: block;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.spinner {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--gsi-text);
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.label {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

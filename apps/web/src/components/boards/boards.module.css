@@ -1,0 +1,43 @@
+/* Favourite star */
+.star {
+  color: var(--icon-color);
+}
+
+.starOn {
+  color: var(--color-egg_yolk);
+}
+
+/* Board thumbnail illustration */
+.thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.thumbSheet {
+  fill: var(--primary-background-color);
+}
+
+.thumbTitle {
+  fill: var(--primary-color);
+}
+
+.thumbBar {
+  fill: var(--primary-color);
+}
+
+.thumbLine {
+  fill: var(--layout-border-color);
+}
+
+.cellGreen {
+  fill: var(--color-done-green);
+}
+
+.cellOrange {
+  fill: var(--color-working_orange);
+}
+
+.cellRed {
+  fill: var(--color-stuck-red);
+}

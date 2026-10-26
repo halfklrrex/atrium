@@ -1,0 +1,1146 @@
+/* ------------------------------------------------------------------------------------------------
+ * The board table. One grid template (`--atrium-table-cols`, set on the scroll container) is shared
+ * by every row of every group: [sticky name area] [value columns...] ["+" column].
+ * ---------------------------------------------------------------------------------------------- */
+
+.root {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  outline: 0;
+}
+
+.content {
+  width: max-content;
+  min-width: 100%;
+  padding: var(--space-24) var(--atrium-table-gutter) var(--space-80)
+    var(--atrium-table-gutter-start);
+}
+
+/* ---- Group ---- */
+
+.group {
+  width: var(--atrium-table-width);
+  margin-block-end: var(--atrium-table-group-gap);
+  --group-gap: var(--atrium-table-group-gap);
+}
+
+.groupLifted {
+  position: relative;
+  z-index: var(--atrium-table-z-header-sticky);
+  border-radius: var(--atrium-table-card-radius);
+  background: var(--atrium-table-bg);
+  box-shadow: var(--atrium-table-drag-shadow);
+  cursor: grabbing;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--atrium-table-group-title-height);
+  padding-inline-start: var(--space-4);
+
+  /* Sits at the left edge while the table scrolls sideways. */
+  position: sticky;
+  inset-inline-start: 0;
+  width: max-content;
+  max-width: 100%;
+}
+
+.chevron {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  padding: 0;
+  border: 0;
+  border-radius: var(--atrium-table-radius);
+  background: transparent;
+  color: var(--group-color);
+  cursor: pointer;
+}
+
+.chevron:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.chevron:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.groupTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--group-color);
+  font: var(--font-h3-normal);
+}
+
+.groupCount {
+  flex: none;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+  opacity: 0;
+}
+
+.groupCountShown {
+  opacity: 1;
+}
+
+.virtualList {
+  position: relative;
+  width: var(--atrium-table-width);
+}
+
+.virtualRow {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: var(--atrium-table-width);
+}
+
+.titleRow:hover .groupCount,
+.titleRow:has(:focus-visible) .groupCount {
+  opacity: 1;
+}
+
+.groupMenu {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: calc(var(--atrium-table-handle-offset) * -1);
+  display: grid;
+  place-items: center;
+  width: var(--atrium-table-handle-size);
+  height: var(--atrium-table-handle-size);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-bg);
+  transform: translateY(-50%);
+  opacity: 0;
+}
+
+.groupMenu:hover,
+.groupMenu:has([aria-expanded='true']) {
+  background: var(--primary-background-hover-color);
+}
+
+.groupMenu button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+
+.groupMenu svg {
+  width: var(--atrium-table-handle-glyph);
+  height: var(--atrium-table-handle-glyph);
+}
+
+/* The handle hangs in the left gutter, so the hover area reaches across it: the pointer never
+   crosses a dead strip on its way from the title to the handle. */
+.titleRow::before,
+.collapsedRow::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 100%;
+  width: var(--atrium-table-gutter-start);
+}
+
+.collapsedRow:hover .groupMenu,
+.collapsedRow:has(:focus-visible) .groupMenu,
+.titleRow:hover .groupMenu,
+.titleRow:has(:focus-visible) .groupMenu,
+.groupMenu:focus-within,
+.groupMenu:has([aria-expanded='true']) {
+  opacity: 1;
+}
+
+/* ---- Rows ---- */
+
+.tinted {
+  background-color: var(--atrium-table-bg);
+  background-image: linear-gradient(var(--row-tint), var(--row-tint));
+}
+
+.row {
+  --row-tint: transparent;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--atrium-table-cols);
+  width: var(--atrium-table-width);
+  height: var(--atrium-table-row-height);
+}
+
+.row:hover {
+  --row-tint: var(--atrium-table-row-hover);
+}
+
+.rowSelected,
+.rowSelected:hover {
+  --row-tint: var(--atrium-table-row-selected);
+}
+
+.rowSelected:hover {
+  --row-tint: var(--atrium-table-row-selected-hover);
+}
+
+.rowLifted {
+  --row-tint: var(--atrium-table-drag-ghost);
+
+  box-shadow: var(--atrium-table-drag-shadow);
+  opacity: 0.95;
+  cursor: grabbing;
+}
+
+.dropBefore {
+  box-shadow: inset 0 var(--space-2) 0 0 var(--primary-color);
+}
+
+.dropAfter {
+  box-shadow: inset 0 calc(var(--space-2) * -1) 0 0 var(--primary-color);
+}
+
+.rowGhost {
+  opacity: 0.35;
+}
+
+.sticky {
+  position: sticky;
+
+  /* Pins to the very edge of the scroll area, so scrolled cells never show in the gutter. */
+  inset-inline-start: 0;
+  z-index: var(--atrium-table-z-sticky);
+  display: flex;
+  min-width: 0;
+  box-shadow: var(--atrium-table-sticky-active);
+}
+
+.bar {
+  flex: none;
+  align-self: stretch;
+  width: var(--atrium-table-bar-width);
+  background: var(--group-color);
+}
+
+.barTop {
+  border-start-start-radius: var(--atrium-table-bar-radius);
+
+  /* A lip of table background on the top edge, as monday draws it. */
+  box-shadow: inset 0 var(--space-2) 0 0 var(--atrium-table-bg);
+}
+
+/* The faded bar of the "+ Add item" row closes the group's left edge, so it rounds off too. */
+.barFaded {
+  border-end-start-radius: var(--atrium-table-bar-radius);
+  opacity: 0.5;
+}
+
+/* The group's outer corners at the right: the "+" header cell on top, the last summary below. */
+.headerRow > :last-child {
+  border-start-end-radius: var(--atrium-table-block-radius);
+}
+
+.summaryCell:has(+ .summaryBlank:last-child) {
+  border-end-end-radius: var(--atrium-table-block-radius);
+}
+
+.rowMenu {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: calc(var(--atrium-table-menu-button) * -1);
+  display: grid;
+  place-items: center;
+  width: var(--atrium-table-menu-button);
+  height: var(--atrium-table-menu-button);
+  transform: translateY(-50%);
+  opacity: 0;
+}
+
+.row:hover .rowMenu,
+.row:has(:focus-visible) .rowMenu,
+.rowMenu[data-open] {
+  opacity: 1;
+}
+
+.checkCell {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--atrium-table-check-width);
+  border-block-end: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+}
+
+.nameCell {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  padding: 0 var(--space-8) 0 var(--atrium-table-name-indent);
+  border-block-end: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+  font: var(--atrium-table-cell-font);
+  color: var(--primary-text-color);
+}
+
+.nameText {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nameInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.openButton {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  padding: 0;
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-bg);
+  color: var(--icon-color);
+  cursor: pointer;
+}
+
+.openButton:hover {
+  color: var(--primary-text-color);
+}
+
+.openButton svg {
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+.row:hover .openButton,
+.row:has(:focus-visible) .openButton {
+  display: inline-flex;
+}
+
+.bubble {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--atrium-table-bubble-width);
+  border-block-end: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+}
+
+.bubbleButton {
+  display: inline-grid;
+  place-items: center;
+  width: var(--space-32);
+  height: var(--space-32);
+  padding: 0;
+  border: 0;
+  border-radius: var(--atrium-table-radius);
+  background: transparent;
+  color: var(--atrium-table-bubble);
+  cursor: pointer;
+}
+
+.bubbleButton:hover {
+  background: var(--primary-background-hover-color);
+}
+
+/* An item with updates: a brand-colour outline bubble with a small filled count badge at its
+   bottom-right corner (monday style). */
+.bubbleWithCount {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  color: var(--primary-color);
+}
+
+.bubbleBadge {
+  position: absolute;
+  inset-block-end: calc(var(--space-4) * -1);
+  inset-inline-end: calc(var(--space-4) * -1);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: var(--atrium-table-bubble-badge-size);
+  height: var(--atrium-table-bubble-badge-size);
+  padding-inline: var(--space-2);
+  border-radius: var(--atrium-table-bubble-badge-size);
+  background: var(--primary-color);
+  color: var(--text-color-on-primary);
+  font: var(--atrium-table-bubble-count-font);
+}
+
+.bubbleButton svg {
+  width: var(--space-20);
+  height: var(--space-20);
+}
+
+/* ---- Cells ---- */
+
+.cell {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-block-end: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+  cursor: default;
+}
+
+.cellActive {
+  z-index: var(--atrium-z-raised);
+  outline: var(--atrium-table-focus-outline);
+  outline-offset: calc(var(--border-width) * -1);
+  overflow: visible;
+}
+
+.activeName {
+  outline: var(--atrium-table-focus-outline);
+  outline-offset: calc(var(--border-width) * -1);
+}
+
+.filler {
+  border-block-end: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+}
+
+/* ---- Header row ---- */
+
+.headerRow {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--atrium-table-z-header);
+  --row-tint: transparent;
+
+  display: grid;
+  grid-template-columns: var(--atrium-table-cols);
+  width: var(--atrium-table-width);
+  height: var(--atrium-table-header-height);
+}
+
+.headerSticky {
+  z-index: var(--atrium-table-z-header-sticky);
+}
+
+.headerCheck {
+  border-block-start: var(--atrium-table-border);
+}
+
+.headerName {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  border-block: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+  color: var(--atrium-table-header-text);
+  font: var(--atrium-table-header-font);
+}
+
+.headerCell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  border-block: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+  color: var(--atrium-table-header-text);
+  font: var(--atrium-table-header-font);
+}
+
+.headerCell:hover,
+.headerName:hover {
+  background-color: var(--atrium-table-row-hover);
+}
+
+.headerDragging {
+  z-index: var(--atrium-table-z-header-sticky);
+  box-shadow: var(--atrium-table-drag-shadow);
+}
+
+.headerTitle {
+  min-width: 0;
+  padding: 0 var(--space-24);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+
+.headerSortable {
+  cursor: grab;
+}
+
+.sortIcon {
+  position: absolute;
+  inset-inline-start: var(--space-4);
+  display: grid;
+  place-items: center;
+  color: var(--primary-color);
+}
+
+.sortIcon svg {
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+.headerMenu {
+  position: absolute;
+  inset-inline-end: var(--space-4);
+  opacity: 0;
+}
+
+.headerCell:hover .headerMenu,
+.headerName:hover .headerMenu,
+.headerCell:has(:focus-visible) .headerMenu,
+.headerName:has(:focus-visible) .headerMenu,
+.headerMenu[data-open] {
+  opacity: 1;
+}
+
+.resize {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: calc(var(--atrium-table-resize-handle) / -2);
+  z-index: var(--atrium-z-raised);
+  width: var(--atrium-table-resize-handle);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.resize:hover,
+.resizing {
+  background: linear-gradient(
+    to right,
+    transparent calc(50% - var(--space-2) / 2),
+    var(--primary-color) calc(50% - var(--space-2) / 2),
+    var(--primary-color) calc(50% + var(--space-2) / 2),
+    transparent calc(50% + var(--space-2) / 2)
+  );
+}
+
+.headerInput {
+  width: 100%;
+  margin: 0 var(--space-4);
+  text-align: center;
+}
+
+.addColumn {
+  display: grid;
+  place-items: center;
+  border-block: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+  color: var(--icon-color);
+}
+
+.addColumnButton {
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.addColumnButton:hover {
+  background: var(--atrium-table-add-hover);
+  color: var(--primary-text-color);
+}
+
+.addColumnButton svg {
+  width: var(--space-20);
+  height: var(--space-20);
+}
+
+/* ---- Checkbox ---- */
+
+.checkbox {
+  display: inline-grid;
+  place-items: center;
+  width: var(--atrium-table-checkbox);
+  height: var(--atrium-table-checkbox);
+  padding: 0;
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-bg);
+  color: var(--atrium-table-on-fill);
+  cursor: pointer;
+}
+
+.checkbox:hover:not(:disabled) {
+  border-color: var(--primary-color);
+}
+
+.checkbox:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.checkboxOn {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+}
+
+.checkbox:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.checkbox svg {
+  width: var(--space-12);
+  height: var(--space-12);
+}
+
+/* ---- Add item row ---- */
+
+.addRow {
+  display: grid;
+  grid-template-columns: var(--atrium-table-cols);
+  width: var(--atrium-table-width);
+  height: var(--atrium-table-row-height);
+}
+
+.addName {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--space-8) 0 var(--atrium-table-name-indent);
+  border-block-end: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+}
+
+.addButton {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--secondary-text-color);
+  font: var(--atrium-table-cell-font);
+  text-align: start;
+  cursor: text;
+}
+
+.addButton:hover {
+  color: var(--primary-text-color);
+}
+
+.addInput {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-table-cell-font);
+}
+
+/* ---- Summary / collapsed rows ---- */
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: var(--atrium-table-cols);
+  width: var(--atrium-table-width);
+  height: var(--atrium-table-row-height);
+}
+
+.summaryBlank {
+  /* The area under the name column is blank and borderless, as in monday. */
+  background-color: var(--atrium-table-bg);
+}
+
+.summaryCell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: var(--atrium-table-border);
+  border-inline-start: 0;
+  color: var(--primary-text-color);
+  font: var(--atrium-table-cell-font);
+}
+
+.summaryBlank + .summaryCell {
+  border-inline-start: var(--atrium-table-border);
+}
+
+.summaryCaption {
+  color: var(--secondary-text-color);
+  font: var(--atrium-table-caption-font);
+}
+
+.battery {
+  position: absolute;
+
+  /* 24px tall, centred in the row, with 4px on each side. */
+  inset-block: calc(
+    (var(--atrium-table-row-height) - var(--atrium-table-battery-height)) / 2 - var(--border-width)
+  );
+  inset-inline: var(--atrium-table-battery-inset);
+  display: flex;
+  overflow: hidden;
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-status-empty);
+}
+
+.segment {
+  height: 100%;
+  min-width: 0;
+}
+
+.rangePill {
+  max-width: 100%;
+  padding: 0 var(--space-12);
+  overflow: hidden;
+  border-radius: var(--border-radius-big);
+  background: var(--group-color);
+  color: var(--atrium-table-on-fill);
+  font: var(--font-text3-normal);
+  line-height: var(--atrium-table-battery-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapsedRow {
+  --row-tint: transparent;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--atrium-table-cols);
+  width: var(--atrium-table-width);
+  height: var(--atrium-table-row-height);
+}
+
+.collapsedName {
+  overflow: hidden;
+  white-space: nowrap;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding-inline: var(--space-4) var(--space-8);
+  border-block: var(--atrium-table-border);
+  border-inline-end: var(--atrium-table-border);
+}
+
+.collapsedBar {
+  border-start-start-radius: var(--atrium-table-radius);
+  border-end-start-radius: var(--atrium-table-radius);
+}
+
+/* ---- Add group ---- */
+
+.addGroup {
+  margin-block-start: var(--space-8);
+}
+
+/* ---- Batch bar ---- */
+
+.batch {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: var(--atrium-table-batch-bottom);
+  z-index: var(--atrium-table-z-batch);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.batchCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: var(--atrium-table-batch-height);
+  padding-inline-end: var(--space-8);
+  overflow: hidden;
+  border-radius: var(--atrium-table-card-radius);
+  background: var(--atrium-table-batch-bg);
+  box-shadow: var(--atrium-table-batch-shadow);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  pointer-events: auto;
+}
+
+.batchCount {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  min-width: var(--atrium-table-batch-height);
+  padding: 0 var(--space-12);
+  background: var(--atrium-table-batch-count-bg);
+  color: var(--atrium-table-on-fill);
+  font: var(--font-h3-normal);
+}
+
+.batchDots {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.batchDot {
+  width: var(--atrium-table-batch-dot);
+  height: var(--atrium-table-batch-dot);
+  border-radius: 50%;
+}
+
+.batchDivider {
+  align-self: stretch;
+  width: var(--border-width);
+  margin-block: var(--space-8);
+  background: var(--layout-border-color);
+}
+
+.batchActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* ---- Toolbar ---- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-16) var(--atrium-board-gutter) 0;
+}
+
+.toolWrap {
+  display: inline-flex;
+}
+
+.searchBox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: var(--atrium-table-search-width);
+  height: var(--atrium-control-height);
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--primary-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-bg);
+  color: var(--icon-color);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.searchInput::placeholder {
+  color: var(--placeholder-color);
+}
+
+.searchClear {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--icon-color);
+  cursor: pointer;
+}
+
+.empty {
+  padding: var(--space-48) var(--space-16);
+  color: var(--secondary-text-color);
+  font: var(--font-text1-normal);
+  text-align: center;
+}
+
+/* ---- Menus and pickers ---- */
+
+.pickerBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: var(--atrium-table-add-column-width);
+  padding: var(--space-16);
+}
+
+.pickerTitle {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-medium);
+}
+
+.pickerGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.pickerItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: var(--atrium-control-height);
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  border-radius: var(--atrium-table-radius);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  text-align: start;
+  cursor: pointer;
+}
+
+.pickerItem:hover,
+.pickerItem:focus-visible {
+  background: var(--primary-background-hover-color);
+  outline: 0;
+}
+
+.tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--atrium-table-tile);
+  height: var(--atrium-table-tile);
+  border-radius: var(--atrium-table-radius);
+  color: var(--atrium-table-on-fill);
+}
+
+.tile svg {
+  width: var(--space-20);
+  height: var(--space-20);
+}
+
+.toneGreen {
+  background: var(--color-done-green);
+}
+
+.toneOrange {
+  background: var(--color-working_orange);
+}
+
+.toneBlue {
+  background: var(--color-bright-blue);
+}
+
+.tonePurple {
+  background: var(--color-purple);
+}
+
+.tonePink {
+  background: var(--color-lipstick);
+}
+
+.toneTeal {
+  background: var(--color-aquamarine);
+}
+
+.toneIndigo {
+  background: var(--color-indigo);
+}
+
+.toneRed {
+  background: var(--color-stuck-red);
+}
+
+.toneGrey {
+  background: var(--color-american_gray);
+}
+
+.swatchGrid {
+  display: grid;
+  grid-template-columns: repeat(var(--atrium-table-palette-columns), var(--atrium-table-swatch));
+  gap: var(--space-8);
+  padding: var(--space-12);
+}
+
+.swatchButton {
+  width: var(--atrium-table-swatch);
+  height: var(--atrium-table-swatch);
+  padding: 0;
+  border: var(--space-2) solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.swatchOn {
+  border-color: var(--primary-text-color);
+  box-shadow: inset 0 0 0 var(--space-2) var(--atrium-table-popup-bg);
+}
+
+.groupDot {
+  display: inline-block;
+  width: var(--atrium-table-batch-dot);
+  height: var(--atrium-table-batch-dot);
+  border-radius: 50%;
+}
+
+@media (max-width: 767px) {
+  .toolbar {
+    padding-inline: var(--space-16);
+  }
+
+  .content {
+    padding-inline: var(--space-16);
+  }
+}
+
+/* Dark and black themes: lift dark group colours (e.g. grass green) towards the text colour. */
+:global(.dark-app-theme) .groupTitle,
+:global(.black-app-theme) .groupTitle,
+:global(.dark-app-theme) .chevron,
+:global(.black-app-theme) .chevron {
+  color: color-mix(in srgb, var(--group-color) 65%, var(--primary-text-color));
+}
+
+/* ---- Subitems ---- */
+
+/* The arrow lives in the name cell's left padding, so a row without subitems does not shift. */
+.expandArrow {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: var(--space-8);
+  display: grid;
+  place-items: center;
+  width: var(--atrium-subitem-arrow-size);
+  height: var(--atrium-subitem-arrow-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--atrium-table-radius);
+  background: transparent;
+  color: var(--icon-color);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.expandArrow svg {
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+  transition: transform var(--atrium-subitem-motion);
+}
+
+.expandArrowOpen svg {
+  transform: rotate(90deg);
+}
+
+.expandArrow:hover {
+  background: var(--atrium-table-row-hover);
+  color: var(--primary-text-color);
+}
+
+.expandArrow:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.expandArrowShown,
+.row:hover .expandArrow,
+.row:has(:focus-visible) .expandArrow {
+  opacity: 1;
+}
+
+.subitemBadge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--atrium-table-pill-height);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--atrium-table-radius);
+  background: transparent;
+  color: var(--secondary-text-color);
+  font: var(--atrium-table-pill-font);
+  cursor: pointer;
+}
+
+.subitemBadge:hover {
+  background: var(--atrium-table-row-hover);
+  color: var(--primary-text-color);
+}
+
+.subitemBadge svg {
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+}
+
+/*
+ * The mini table under an open parent. It re-uses the row, header and add-row styles above with
+ * its own grid (set inline), compact heights and a thinner group bar through variable overrides;
+ * only what differs from the main table is written here.
+ */
+.subBlock {
+  --atrium-table-row-height: var(--atrium-subitem-row-height);
+  --atrium-table-header-height: var(--atrium-subitem-row-height);
+  --atrium-table-bar-width: var(--atrium-subitem-bar-width);
+
+  position: relative;
+  width: var(--atrium-table-width);
+  margin-inline-start: var(--atrium-subitem-indent);
+}
+
+/* The vertical connector from the parent row down the left side of the block. */
+.subBlock::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--atrium-subitem-connector-offset) * -1);
+  width: var(--border-width);
+  background: var(--atrium-subitem-connector);
+}
+
+/* The name area pins at the same distance from the scroll edge as it sits from the table edge. */
+.subBlock .sticky {
+  inset-inline-start: var(--atrium-subitem-indent);
+}
+
+/* A lighter header that scrolls with the block instead of sticking under the group's header. */
+.subBlock .headerRow {
+  --atrium-table-bg: var(--atrium-subitem-header-bg);
+
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expandArrow svg {
+    transition: none;
+  }
+}

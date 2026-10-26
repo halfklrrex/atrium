@@ -1,0 +1,453 @@
+/* Cell displays: each root fills the whole table cell (the cell itself has no padding). */
+
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0 var(--space-8);
+  font: var(--atrium-table-cell-font);
+  color: var(--primary-text-color);
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start {
+  justify-content: flex-start;
+}
+
+.start .text {
+  text-align: start;
+}
+
+/* ---- Status: full-bleed colour with a folded corner on hover ---- */
+
+.status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-8);
+  background: var(--atrium-table-status-empty);
+  color: var(--atrium-table-on-fill);
+  font: var(--atrium-table-cell-font);
+}
+
+.status::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 var(--atrium-table-corner) var(--atrium-table-corner) 0;
+  border-color: transparent var(--atrium-table-corner-color) transparent transparent;
+  opacity: 0;
+}
+
+.status:hover::after {
+  opacity: 0.6;
+}
+
+.statusText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Hover hints on empty cells (calendar, person) ---- */
+
+.hint {
+  display: inline-flex;
+  color: var(--atrium-table-muted-text);
+  opacity: 0;
+}
+
+.root:hover .hint {
+  opacity: 0.6;
+}
+
+.hint svg,
+.overdue svg {
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+}
+
+/* ---- Date ---- */
+
+.overdue {
+  display: inline-flex;
+  margin-inline-end: var(--space-4);
+  color: var(--atrium-table-overdue);
+}
+
+/* ---- People ---- */
+
+.avatars {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--atrium-table-avatar);
+  height: var(--atrium-table-avatar);
+  margin-inline-start: calc(var(--space-4) * -1);
+  overflow: hidden;
+  border: var(--border-width) var(--border-style) var(--atrium-table-bg);
+  border-radius: 50%;
+  background: var(--color-bright-blue);
+  color: var(--atrium-table-on-fill);
+  font: var(--font-text3-medium);
+}
+
+.avatar:first-child {
+  margin-inline-start: 0;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarOther {
+  background: var(--color-winter);
+}
+
+.avatarMore {
+  background: var(--ui-background-color);
+  color: var(--primary-text-color);
+}
+
+/* ---- Dropdown pills ---- */
+
+.pills {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.pill {
+  min-width: 0;
+  max-width: 100%;
+  height: var(--atrium-table-pill-height);
+  padding: 0 var(--space-8);
+  overflow: hidden;
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-pill-bg);
+  color: var(--atrium-table-pill-text);
+  font: var(--atrium-table-pill-font);
+  line-height: var(--atrium-table-pill-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.more {
+  flex: none;
+  color: var(--atrium-table-muted-text);
+  font: var(--atrium-table-pill-font);
+}
+
+/* ---- Checkbox ---- */
+
+.check {
+  display: inline-grid;
+  place-items: center;
+  width: var(--atrium-table-checkbox);
+  height: var(--atrium-table-checkbox);
+  padding: 0;
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-bg);
+  color: var(--atrium-table-done);
+  cursor: pointer;
+}
+
+.check:hover {
+  border-color: var(--primary-color);
+}
+
+.check:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.checkOn {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* ---- Link ---- */
+
+.link {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--atrium-table-link);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Inline editors ---- */
+
+.input {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0 var(--space-8);
+  border: 0;
+  outline: 0;
+  background: var(--atrium-table-bg);
+  color: var(--primary-text-color);
+  font: var(--atrium-table-cell-font);
+  text-align: center;
+}
+
+.input:focus {
+  background: var(--atrium-table-bg);
+}
+
+.inputInvalid {
+  color: var(--negative-color);
+}
+
+/* ---- Rating ---- */
+
+.ratingRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.ratingBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-border-color);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ratingBtn:hover {
+  transform: scale(1.15);
+}
+
+.ratingBtnActiveStar {
+  color: var(--color-egg_yolk);
+}
+
+.ratingBtnActiveHeart {
+  color: var(--color-lipstick);
+}
+
+.ratingIcon {
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+}
+
+/* ---- Vote ---- */
+
+.voteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  height: var(--atrium-table-pill-height);
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-bg);
+  color: var(--secondary-text-color);
+  font: var(--atrium-table-pill-font);
+  cursor: pointer;
+}
+
+.voteBtn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-text-color);
+}
+
+.voteBtnActive {
+  border-color: var(--primary-color);
+  background: var(--primary-selected-color);
+  color: var(--primary-color);
+}
+
+.voteIcon {
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+}
+
+/* ---- Color Picker Swatch Chip ---- */
+
+.colorChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+}
+
+.swatchDot {
+  flex: none;
+  width: var(--space-16);
+  height: var(--space-16);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: 50%;
+}
+
+.colorHex {
+  overflow: hidden;
+  color: var(--primary-text-color);
+  font: var(--atrium-table-cell-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Country ---- */
+
+.countryCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.countryFlag {
+  flex: none;
+  font-size: var(--font-size-20);
+  line-height: 1;
+}
+
+.countryName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Email & Phone ---- */
+
+.cellLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--atrium-table-link);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellLink:hover {
+  text-decoration: underline;
+}
+
+.cellIcon {
+  flex: none;
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+  color: var(--icon-color);
+}
+
+/* ---- Tags ---- */
+
+.tagPill {
+  min-width: 0;
+  max-width: 100%;
+  height: var(--atrium-table-pill-height);
+  padding: 0 var(--space-8);
+  overflow: hidden;
+  border-radius: var(--atrium-table-radius);
+  background: var(--color-bright-blue);
+  color: var(--atrium-table-on-fill);
+  font: var(--atrium-table-pill-font);
+  line-height: var(--atrium-table-pill-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Progress ---- */
+
+.progressBar {
+  position: relative;
+  width: 100%;
+  height: var(--atrium-table-pill-height);
+  overflow: hidden;
+  border-radius: var(--atrium-table-radius);
+  background: var(--allgrey-background-color);
+}
+
+.progressFill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-done);
+  transition: width var(--motion-productive-short) ease-in-out;
+}
+
+.progressText {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-text-color);
+  font: var(--atrium-table-pill-font);
+  pointer-events: none;
+}
+
+/* ---- Auto Number & Item ID ---- */
+
+.idBadge {
+  display: inline-flex;
+  align-items: center;
+  height: var(--atrium-table-pill-height);
+  padding: 0 var(--space-8);
+  border-radius: var(--atrium-table-radius);
+  background: var(--label-background-color);
+  color: var(--secondary-text-color);
+  font: var(--atrium-table-pill-font);
+}
+
+/* ---- Creation Log & Last Updated ---- */
+
+.logCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.logTime {
+  overflow: hidden;
+  color: var(--secondary-text-color);
+  font: var(--atrium-table-cell-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

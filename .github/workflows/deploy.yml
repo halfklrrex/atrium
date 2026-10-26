@@ -1,0 +1,88 @@
+name: Deploy
+
+# Every merge to main ships to Firebase project atrium-board. See docs/DEPLOY.md for the one-time
+# Google Cloud setup. Until the repo variable GCP_WIF_PROVIDER is set, this workflow does nothing.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Deploys queue up and run one at a time. A running deploy is never cancelled half-way.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # workflow_dispatch can be started from any branch; only ever ship main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write # lets the job request an OIDC token for Workload Identity Federation
+    env:
+      # Repo *variables* (not secrets): these values are not sensitive.
+      GCP_WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+      GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+    steps:
+      - name: Check deploy configuration
+        id: config
+        run: |
+          if [ -z "$GCP_WIF_PROVIDER" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::Repo variable GCP_WIF_PROVIDER is not set, so nothing was deployed. Finish the Google Cloud setup in docs/DEPLOY.md to enable deploy-on-merge."
+          elif [ -z "$GCP_DEPLOY_SERVICE_ACCOUNT" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Deploy skipped::GCP_WIF_PROVIDER is set but GCP_DEPLOY_SERVICE_ACCOUNT is not. See docs/DEPLOY.md."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.enabled == 'true'
+
+      # pnpm version comes from the "packageManager" field in package.json.
+      - uses: pnpm/action-setup@v4
+        if: steps.config.outputs.enabled == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.config.outputs.enabled == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Same checks as CI so a broken main never deploys. Rules tests already ran on the PR.
+      - name: Lint
+        if: steps.config.outputs.enabled == 'true'
+        run: pnpm lint
+
+      - name: Typecheck
+        if: steps.config.outputs.enabled == 'true'
+        run: pnpm typecheck
+
+      - name: Unit tests
+        if: steps.config.outputs.enabled == 'true'
+        run: pnpm test
+
+      - name: Build
+        if: steps.config.outputs.enabled == 'true'
+        run: pnpm build
+
+      # Keyless login: GitHub's OIDC token is exchanged for short-lived Google credentials.
+      - name: Authenticate to Google Cloud
+        if: steps.config.outputs.enabled == 'true'
+        uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      # Uses the firebase-tools version pinned in pnpm-lock.yaml. --force stops the artifact
+      # cleanup policy step from prompting.
+      - name: Deploy to Firebase
+        if: steps.config.outputs.enabled == 'true'
+        run: pnpm exec firebase deploy --project atrium-board --non-interactive --force

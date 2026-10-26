@@ -1,0 +1,40 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--atrium-app-bg);
+  color: var(--primary-text-color);
+  font-family: var(--font-family);
+  font-size: var(--font-size-20);
+  line-height: var(--font-line-height-20);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Every Vibe floating layer (MenuButton, Tooltip, Dialog, Tipseen) renders in a portal on <body>
+ * inside this wrapper, with no z-index of its own. Without this it would paint under the table's
+ * sticky header and name column. Tier values live in theme/tokens.css (stacking scale).
+ */
+.monday-style-dialog-content-wrapper {
+  z-index: var(--atrium-z-dropdown);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

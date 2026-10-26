@@ -1,0 +1,125 @@
+/*
+ * Board table tokens (P1b). Sizes and colours measured from monday's main table (docs/reference),
+ * built on Vibe variables; theme differences are inherited from those variables, so dark and black
+ * need no overrides here except where noted. Keep every table colour, size, radius and shadow in
+ * this file so the component stylesheets only reference tokens.
+ */
+
+:root {
+  /* ---- Geometry ---- */
+  --atrium-table-row-height: 36px;
+  --atrium-table-header-height: 36px;
+  --atrium-table-bar-width: var(--atrium-group-bar-width);
+  --atrium-table-check-width: 36px;
+  --atrium-table-bubble-width: 48px;
+  --atrium-table-bubble-count-font: 700 10px / 1 var(--font-family); /* count in the badge on the updates bubble */
+  --atrium-table-bubble-badge-size: 14px;
+  --atrium-table-name-width: 400px; /* bar + checkbox + name + updates bubble */
+  --atrium-table-value-width: 140px;
+  --atrium-table-name-indent: calc(
+    var(--space-32) + var(--space-2)
+  ); /* item names start 34px after the checkbox cell */
+  --atrium-table-add-width: 36px;
+  --atrium-table-gutter: var(--space-24);
+
+  /* Left gutter (40px, as in monday): the group handle hangs in it, 12px from the panel edge. */
+  --atrium-table-gutter-start: var(--atrium-board-gutter);
+  --atrium-table-handle-size: 24px;
+  --atrium-table-handle-glyph: 14px;
+  --atrium-table-handle-offset: calc(var(--atrium-table-handle-size) + var(--space-4));
+  --atrium-table-group-gap: var(--space-24);
+  --atrium-table-group-title-height: 40px;
+  --atrium-table-avatar: 26px;
+  --atrium-table-checkbox: 18px;
+  --atrium-table-pill-height: 20px;
+  --atrium-table-chip-height: 32px;
+  --atrium-table-battery-height: 24px;
+  --atrium-table-battery-inset: var(--space-4);
+  --atrium-table-corner: 8px; /* folded-corner triangle on status cells */
+  --atrium-table-resize-handle: 8px;
+  --atrium-table-menu-button: 24px;
+  --atrium-table-icon: 16px;
+  --atrium-table-search-width: 200px;
+  --atrium-table-picker-width: 292px;
+  --atrium-table-picker-columns: 2;
+  --atrium-table-text-popover-width: 300px;
+  --atrium-table-text-popover-height: 160px;
+  --atrium-table-menu-width: 220px;
+  --atrium-table-add-column-width: 440px;
+  --atrium-table-palette-columns: 5;
+  --atrium-table-swatch: 24px;
+  --atrium-table-tile: 32px;
+  --atrium-table-batch-bottom: var(--space-24);
+  --atrium-table-batch-height: 48px;
+  --atrium-table-batch-dot: 10px;
+  --atrium-table-focus-outline: 1px solid var(--primary-color);
+
+  /* ---- Stacking ---- */
+  --atrium-table-z-sticky: var(--atrium-z-sticky);
+  --atrium-table-z-header: calc(var(--atrium-z-sticky) + 1);
+  --atrium-table-z-header-sticky: calc(var(--atrium-z-sticky) + 2);
+  --atrium-table-z-batch: var(--atrium-z-batch);
+  --atrium-table-z-popup: var(--atrium-z-dropdown);
+
+  /* ---- Typography ---- */
+  --atrium-table-cell-font: 400 var(--font-size-20) / var(--font-line-height-20) var(--font-family);
+  --atrium-table-header-font: 400 var(--font-size-20) / var(--font-line-height-20)
+    var(--font-family);
+  --atrium-table-pill-font: 400 13px / 18px var(--font-family);
+  --atrium-table-caption-font: 400 10px / 12px var(--font-family);
+
+  /* ---- Colours ---- */
+  --atrium-table-border: var(--border-width) var(--border-style) var(--layout-border-color);
+  --atrium-table-bg: var(--atrium-surface-bg);
+  --atrium-table-row-hover: var(--primary-background-hover-color);
+  --atrium-table-row-selected: var(--primary-selected-color);
+  --atrium-table-row-selected-hover: var(--primary-selected-hover-color);
+  --atrium-table-active-row: var(--primary-highlighted-color);
+  --atrium-table-header-text: var(--primary-text-color);
+  --atrium-table-muted-text: var(--secondary-text-color);
+  --atrium-table-on-fill: var(--atrium-white);
+  --atrium-table-status-empty: var(--color-explosive);
+  --atrium-table-corner-color: var(--atrium-white);
+  --atrium-table-pill-bg: var(--label-background-color);
+  --atrium-table-pill-text: var(--primary-text-color);
+  --atrium-table-link: var(--link-color);
+  --atrium-table-overdue: var(--negative-color);
+  --atrium-table-done: var(--positive-color);
+  --atrium-table-highlight: var(--warning-color-selected);
+  --atrium-table-highlight-text: var(--fixed-dark-color);
+  --atrium-table-bubble: var(--icon-color);
+  --atrium-table-add-hover: var(--primary-background-hover-color);
+  --atrium-table-popup-bg: var(--primary-background-color);
+  --atrium-table-popup-border: var(--layout-border-color);
+  --atrium-table-batch-bg: var(--primary-background-color);
+  --atrium-table-batch-count-bg: var(--primary-color);
+  --atrium-table-drag-ghost: var(--primary-selected-color);
+  --atrium-table-chip-ring: var(--primary-color);
+
+  /* ---- Elevation ---- */
+  --atrium-table-popup-shadow: var(--box-shadow-medium);
+  --atrium-table-batch-shadow: var(--box-shadow-large);
+  --atrium-table-drag-shadow: var(--box-shadow-medium);
+  --atrium-table-sticky-shadow: 6px 0 8px -6px var(--illus-shadow);
+  --atrium-table-sticky-active: none; /* the table swaps this for the shadow while scrolled sideways */
+
+  /* ---- Shape ---- */
+  --atrium-table-radius: var(--border-radius-small);
+  --atrium-table-card-radius: var(--border-radius-medium);
+  --atrium-table-block-radius: var(--border-radius-medium); /* group table block: 8px */
+  --atrium-table-bar-radius: 6px; /* the group colour bar's rounded corners */
+
+  /* ---- Per-board values set inline by the table (declared here so they always resolve) ---- */
+  --atrium-table-cols: var(--atrium-table-name-width) var(--atrium-table-add-width);
+  --atrium-table-width: calc(var(--atrium-table-name-width) + var(--atrium-table-add-width));
+}
+
+/* Dark and black: Vibe's dark surfaces are translucent greys, so the fold and the highlight need help. */
+.dark-app-theme,
+.black-app-theme {
+  --atrium-table-highlight: var(--warning-color);
+  --atrium-table-pill-bg: var(--primary-selected-color);
+  --atrium-table-batch-bg: var(--secondary-background-color);
+  --atrium-table-popup-bg: var(--secondary-background-color);
+  --atrium-table-batch-shadow: var(--box-shadow-medium);
+}

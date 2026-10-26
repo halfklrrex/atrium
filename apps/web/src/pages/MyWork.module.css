@@ -1,0 +1,86 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: var(--space-24) var(--atrium-page-gutter) 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.title {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--atrium-page-title-font);
+}
+
+.info {
+  color: var(--icon-color);
+}
+
+.tabs {
+  margin-block-start: var(--space-8);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-inline: calc(var(--atrium-page-gutter) * -1);
+  padding: var(--space-8) var(--atrium-page-gutter);
+  border-block-start: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.search {
+  width: var(--atrium-toolbar-search-width);
+}
+
+/* monday sits the illustration about 90px under the toolbar, above the 150px page spec. */
+.page .empty {
+  padding-block-start: calc(var(--space-64) + var(--space-24));
+}
+
+.help {
+  display: inline-block;
+}
+
+.learn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link-color);
+  font: var(--font-text1-normal);
+  cursor: pointer;
+}
+
+.learn:hover {
+  text-decoration: underline;
+}
+
+.learn:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: var(--space-2);
+  border-radius: var(--border-radius-small);
+}
+
+.helpPanel {
+  inset-inline-start: 50%;
+  width: var(--atrium-help-panel-width);
+  padding: var(--space-16);
+  text-align: start;
+  transform: translateX(-50%);
+}
+
+.helpTitle {
+  margin: 0 0 var(--space-4);
+  font: var(--font-text2-medium);
+}
+
+.helpBody {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}

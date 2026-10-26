@@ -1,0 +1,220 @@
+.feedContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-16);
+}
+
+/* Composer: one white bordered box. Collapsed = placeholder only; focused = toolbar + editor + button. */
+.composerBox {
+  background: var(--primary-background-color);
+  border: var(--border-width) solid var(--layout-border-color);
+  border-radius: var(--border-radius-8);
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease;
+  overflow: hidden;
+}
+
+.composerBoxFocused {
+  border-color: var(--primary-color);
+  box-shadow: inset 0 0 0 var(--border-width) var(--primary-color);
+}
+
+.composerToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-12) 0;
+  background: var(--primary-background-color);
+}
+
+.toolButton {
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-4);
+  padding: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--secondary-text-color);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.toolButton:hover {
+  background: var(--primary-background-hover-color);
+  color: var(--primary-text-color);
+}
+
+.composerTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-12) var(--space-16);
+  border: none;
+  outline: none;
+  resize: none;
+  min-height: var(--atrium-composer-collapsed-height);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-update-body-font);
+}
+
+.composerTextarea::placeholder {
+  color: var(--secondary-text-color);
+}
+
+.composerTextareaExpanded {
+  min-height: var(--atrium-composer-expanded-height);
+  resize: vertical;
+}
+
+.composerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+  background: var(--primary-background-color);
+}
+
+.composerHints {
+  font: var(--atrium-meta-font);
+  color: var(--secondary-text-color);
+}
+
+.updatesList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+/* Update card: flat, white, 1px border, no shadow. Header, body and action row own their padding. */
+.updateCard {
+  background: var(--primary-background-color);
+  border: var(--border-width) solid var(--layout-border-color);
+  border-radius: var(--border-radius-8);
+  display: flex;
+  flex-direction: column;
+}
+
+.updateHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-16);
+}
+
+.authorMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-inline-end: var(--space-4);
+}
+
+/* Vibe's avatar sizes jump from 32px to 50px; monday's update avatar is 40px. */
+.avatar > * {
+  width: var(--atrium-update-avatar-size);
+  height: var(--atrium-update-avatar-size);
+}
+
+.authorName {
+  font: var(--font-text2-bold);
+  color: var(--primary-text-color);
+}
+
+.timestamp {
+  font: var(--font-text2-normal);
+  color: var(--secondary-text-color);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.updateContent {
+  padding: 0 var(--space-16) var(--space-16);
+  font: var(--atrium-update-body-font);
+  color: var(--primary-text-color);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.updateContent a {
+  color: var(--link-color);
+  text-decoration: none;
+}
+
+.reactionRow {
+  padding: 0 var(--space-16) var(--space-16);
+}
+
+.reactionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--border-radius-small);
+  background: var(--allgrey-background-color);
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+/* Action row: full-width divider above, 48px tall. */
+.updateFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--space-48);
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-16);
+  border-top: var(--border-width) solid var(--layout-border-color);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-32) var(--space-16);
+  gap: var(--space-8);
+}
+
+.emptyIconWrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--atrium-thumb-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  margin-bottom: var(--space-8);
+}
+
+.emptyTitle {
+  margin: 0;
+  font: var(--font-text1-bold);
+  color: var(--primary-text-color);
+}
+
+.emptyDescription {
+  margin: 0;
+  font: var(--font-text2-normal);
+  color: var(--secondary-text-color);
+  max-width: 320px;
+}
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-32);
+}

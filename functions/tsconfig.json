@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "paths": {
+      "@atrium/shared": ["../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "tsup.config.ts", "vitest.config.mts"]
+}

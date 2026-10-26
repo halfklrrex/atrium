@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "atrium-board"
+  },
+  "targets": {
+    "atrium-board": {
+      "hosting": {
+        "app": [
+          "atrium-workboards"
+        ],
+        "legacy": [
+          "atrium-board"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

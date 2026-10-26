@@ -1,0 +1,504 @@
+/* ---------- Container ---------- */
+
+/*
+ * The sidebar floats on the app background, 12px in from the window edge, with only its top-left
+ * corner rounded. Its gradient runs 12px under the content panel so that panel's own rounded
+ * corner reads against it, like monday's.
+ */
+.sidebar {
+  position: relative;
+  flex: none;
+  width: var(--atrium-sidebar-width);
+  height: 100%;
+}
+
+.sidebarBg {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: calc(100% + var(--atrium-surface-radius));
+  border-start-start-radius: var(--atrium-surface-radius);
+  background: var(--atrium-sidebar-bg);
+  pointer-events: none;
+}
+
+.inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--atrium-sidebar-group-gap);
+  width: var(--atrium-sidebar-width);
+  height: 100%;
+  padding: var(--atrium-sidebar-padding);
+  overflow: hidden;
+}
+
+.collapsed {
+  width: 0;
+}
+
+.collapsed .inner,
+.collapsed .sidebarBg {
+  visibility: hidden;
+}
+
+/* While collapsed, a thin strip at the window edge keeps the handle reachable by hover. */
+.collapsed::before {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--atrium-surface-inset) * -1);
+  z-index: var(--atrium-z-raised);
+  width: calc(var(--atrium-surface-inset) + var(--space-16));
+  content: '';
+}
+
+/* Collapse / expand handle straddling the right edge; only shown while hovering the sidebar. */
+.collapseHandle {
+  position: absolute;
+  inset-block-start: var(--space-16);
+  inset-inline-end: calc(var(--space-12) * -1);
+  z-index: var(--atrium-z-chrome);
+  display: grid;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  padding: 0;
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: 50%;
+  background: var(--atrium-surface-bg);
+  color: var(--icon-color);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--motion-productive-medium) var(--motion-timing-transition);
+}
+
+.sidebar:hover .collapseHandle,
+.collapseHandle:focus-visible {
+  opacity: 1;
+}
+
+.collapsed .collapseHandle {
+  inset-inline-end: auto;
+  inset-inline-start: calc(var(--space-12) * -1);
+}
+
+.collapseHandle:hover {
+  color: var(--primary-color);
+}
+
+.handleIcon {
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+/* ---------- Rows (shared by nav, favourites and the tree) ---------- */
+
+.nav,
+.plainList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: var(--atrium-nav-row-height);
+  padding: 0 var(--atrium-nav-inset);
+  border-radius: var(--border-radius-small);
+  color: var(--atrium-nav-text);
+  font: var(--font-text2-normal);
+  text-decoration: none;
+}
+
+.row:hover {
+  background: var(--atrium-nav-hover-bg);
+}
+
+.rowActive,
+.rowActive:hover {
+  background: var(--atrium-nav-selected-bg);
+  color: var(--atrium-nav-text-active);
+}
+
+.row:focus-visible,
+.treeMain:focus-visible,
+.switchButton:focus-visible,
+.switchItem:focus-visible,
+.sectionToggle:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(var(--space-2) * -1);
+}
+
+.rowIcon {
+  flex: none;
+  color: var(--icon-color);
+}
+
+.rowLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noMatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-8) var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.note {
+  margin: 0;
+  padding: var(--space-4) var(--atrium-nav-inset);
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+/* ---------- Sections ---------- */
+
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: fit-content;
+  min-height: var(--atrium-section-label-height);
+  padding: 0 var(--atrium-nav-inset);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-section-label-font);
+  text-align: start;
+  cursor: pointer;
+}
+
+.sectionToggle:hover {
+  background: var(--atrium-nav-hover-bg);
+}
+
+.chevron {
+  flex: none;
+  color: var(--icon-color);
+  transition: transform var(--motion-productive-medium) var(--motion-timing-transition);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+.workspaceSection {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-height: 0;
+  margin-block-start: calc(var(--atrium-sidebar-workspace-gap) - var(--atrium-sidebar-group-gap));
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--atrium-section-label-height);
+  padding: 0 0 0 var(--atrium-nav-inset);
+}
+
+.sectionTitle {
+  color: var(--primary-text-color);
+  font: var(--atrium-section-label-font);
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filterInput {
+  width: 100%;
+  height: var(--atrium-control-height);
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.filterInput:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+.treeScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-inline: calc(var(--space-4) * -1);
+  padding-inline: var(--space-4);
+  padding-block-end: var(--space-24);
+}
+
+/* ---------- Workspace switcher ---------- */
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.switcher {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Bordered box: avatar, name, chevron. */
+.switchButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  height: var(--atrium-control-height);
+  padding: 0 var(--space-4);
+  border: var(--border-width) var(--border-style) var(--atrium-switcher-border);
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-workspace-name-font);
+  text-align: start;
+  cursor: pointer;
+}
+
+.switchButton:hover {
+  background: var(--atrium-nav-hover-bg);
+}
+
+.switchChevron {
+  flex: none;
+  color: var(--icon-color);
+}
+
+.switchName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switchPanel {
+  width: calc(var(--atrium-sidebar-width) - var(--space-16));
+  padding: var(--space-8) 0;
+}
+
+.switchSearch {
+  padding: 0 var(--space-8) var(--space-8);
+}
+
+.switchScroll {
+  max-height: var(--atrium-popover-max-height);
+  overflow-y: auto;
+}
+
+.menuTitle {
+  margin: 0;
+  padding: var(--space-4) var(--space-12);
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.switchList {
+  margin: 0;
+  padding: 0 var(--space-8);
+  list-style: none;
+}
+
+.switchItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  min-height: var(--atrium-menu-row-height);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  text-align: start;
+  cursor: pointer;
+}
+
+.switchItem:hover {
+  background: var(--atrium-nav-hover-bg);
+}
+
+.switchItem.rowActive {
+  background: var(--atrium-nav-selected-bg);
+}
+
+.switchFooter {
+  margin-top: var(--space-8);
+  padding: var(--space-8) var(--space-8) 0;
+  border-top: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+/* The blue "+" */
+.addButton {
+  flex: none;
+}
+
+.plus {
+  display: inline-grid;
+  place-items: center;
+  width: var(--atrium-control-height);
+  height: var(--atrium-control-height);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-color);
+  color: var(--atrium-white);
+}
+
+.plus:hover {
+  background: var(--primary-hover-color);
+}
+
+/* ---------- Tree ---------- */
+
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.treeItem {
+  position: relative;
+  touch-action: none;
+}
+
+.dragging {
+  z-index: var(--atrium-z-chrome);
+  opacity: 0.7;
+}
+
+.treeRow {
+  display: flex;
+  align-items: center;
+  min-height: var(--atrium-nav-row-height);
+  padding-inline-start: calc(var(--atrium-nav-inset) + var(--depth, 0) * var(--atrium-nav-indent));
+  border-radius: var(--border-radius-small);
+  color: var(--atrium-nav-text);
+  font: var(--font-text2-normal);
+}
+
+.treeRow:hover {
+  background: var(--atrium-nav-hover-bg);
+}
+
+.treeRow.rowActive {
+  background: var(--atrium-nav-selected-bg);
+  color: var(--atrium-nav-text-active);
+}
+
+.dropTarget {
+  background: var(--atrium-nav-selected-bg);
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(var(--space-2) * -1);
+}
+
+.treeMain {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  min-height: var(--atrium-nav-row-height);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.treeEdit {
+  font: var(--font-text2-normal);
+}
+
+.rowActions {
+  display: none;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  padding-inline-end: var(--space-4);
+}
+
+.treeRow:hover .rowActions,
+.treeRow:focus-within .rowActions,
+.menuOpen .rowActions {
+  display: flex;
+}
+
+.count {
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+/* ---------- Narrow screens: off-canvas ---------- */
+
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: var(--atrium-z-nav);
+    width: min(var(--atrium-sidebar-width), 86vw);
+    background: var(--atrium-sidebar-bg);
+    transform: translateX(-100%);
+    transition: transform var(--motion-productive-long) var(--motion-timing-transition);
+  }
+
+  .collapsed {
+    width: min(var(--atrium-sidebar-width), 86vw);
+  }
+
+  .collapsed .inner {
+    visibility: visible;
+  }
+
+  .sidebarBg {
+    display: none;
+  }
+
+  .collapsed::before {
+    display: none;
+  }
+
+  .mobileOpen {
+    box-shadow: var(--atrium-menu-shadow);
+    transform: none;
+  }
+
+  .collapseHandle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .chevron {
+    transition: none;
+  }
+}

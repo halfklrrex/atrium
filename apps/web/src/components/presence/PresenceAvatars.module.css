@@ -1,0 +1,14 @@
+.presenceWrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  cursor: pointer;
+}
+
+.liveIndicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--positive-color);
+  margin-right: var(--space-2);
+}

@@ -1,0 +1,504 @@
+rules_version = '2';
+
+// Atrium Firestore rules - P0 scope plus P1a: favorites, recents, board listing (architecture section 7).
+// Everything not matched below is denied by default.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------------
+    // Identity helpers
+    // ---------------------------------------------------------------------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // ---------------------------------------------------------------------
+    // Workspace helpers (each costs one get(); repeats of the same doc are cached per request)
+    // ---------------------------------------------------------------------
+    function wsPath(wsId) {
+      return /databases/$(database)/documents/workspaces/$(wsId);
+    }
+
+    // Caller's role in the workspace, or null when the workspace is missing / caller is not a member.
+    function wsRole(wsId) {
+      return exists(wsPath(wsId)) ? get(wsPath(wsId)).data.roles.get(uid(), null) : null;
+    }
+
+    function isWsMember(wsId) {
+      return exists(wsPath(wsId)) && uid() in get(wsPath(wsId)).data.memberIds;
+    }
+
+    function isWsAdmin(wsId) {
+      return wsRole(wsId) in ['owner', 'admin'];
+    }
+
+    function canCreateInWs(wsId) {
+      return wsRole(wsId) in ['owner', 'admin', 'member'];
+    }
+
+    // ---------------------------------------------------------------------
+    // Board helpers
+    // ---------------------------------------------------------------------
+
+    // Board role implied by a workspace role on a `main` board.
+    function mainBoardRole(role) {
+      return role in ['owner', 'admin'] ? 'owner'
+           : role == 'member' ? 'editor'
+           : role == 'viewer' ? 'viewer'
+           : null;
+    }
+
+    // Effective role of the caller on a board document's data. Nothing counts unless the caller is
+    // still a member of the board's workspace (so a removed member's stale `access` entry is dead).
+    // Then explicit access wins, otherwise `main` boards derive the role from the workspace role.
+    function boardRole(board) {
+      return !isWsMember(board.workspaceId) ? null
+           : uid() in board.access ? board.access[uid()]
+           : board.kind == 'main' ? mainBoardRole(wsRole(board.workspaceId))
+           : null;
+    }
+
+    // A folder id must point at an existing folder of the given workspace.
+    function folderExistsIn(wsId, folderId) {
+      return exists(/databases/$(database)/documents/workspaces/$(wsId)/folders/$(folderId));
+    }
+
+    function boardPath(boardId) {
+      return /databases/$(database)/documents/boards/$(boardId);
+    }
+
+    // Same as boardRole(), but looked up by id (used by item and other board-scoped subcollections).
+    function boardRoleById(boardId) {
+      return exists(boardPath(boardId)) ? boardRole(get(boardPath(boardId)).data) : null;
+    }
+
+    function canReadBoard(boardId) {
+      return boardRoleById(boardId) in ['owner', 'editor', 'viewer'];
+    }
+
+    function canEditBoard(boardId) {
+      return boardRoleById(boardId) in ['owner', 'editor'];
+    }
+
+    function canManageBoard(boardId) {
+      return boardRoleById(boardId) == 'owner';
+    }
+
+    // ---------------------------------------------------------------------
+    // users/{uid}: readable and (partially) writable by self only. Created by the bootstrapUser callable.
+    // ---------------------------------------------------------------------
+    match /users/{userId} {
+      allow read: if signedIn() && uid() == userId;
+
+      allow update: if signedIn() && uid() == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['timezone', 'locale', 'lastWorkspaceId', 'theme'])
+        && request.resource.data.timezone is string && request.resource.data.timezone.size() <= 64
+        && request.resource.data.locale is string && request.resource.data.locale.size() <= 32
+        && request.resource.data.theme in ['light', 'dark', 'black', 'system']
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastWorkspaceId'])
+          || (request.resource.data.lastWorkspaceId is string
+              && isWsMember(request.resource.data.lastWorkspaceId))
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // users/{uid}/favorites/{boardId} and users/{uid}/recents/{boardId}: self only. The document id
+    // is the board id. Whether the board exists is not checked: the data is private to the user.
+    // ---------------------------------------------------------------------
+    match /users/{userId}/favorites/{boardId} {
+      function validFavorite(d) {
+        return d.keys().hasOnly(['boardId', 'workspaceId', 'addedAt', 'position'])
+          && d.keys().hasAll(['boardId', 'workspaceId', 'addedAt', 'position'])
+          && d.boardId == boardId
+          && d.workspaceId is string && d.workspaceId.size() >= 1 && d.workspaceId.size() <= 128
+          && d.addedAt is timestamp
+          && d.position is string && d.position.size() >= 1 && d.position.size() <= 64;
+      }
+
+      allow read: if signedIn() && uid() == userId;
+      allow create: if signedIn() && uid() == userId && validFavorite(request.resource.data)
+        && request.resource.data.addedAt == request.time;
+      // Reordering changes `position` only.
+      allow update: if signedIn() && uid() == userId && validFavorite(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['position']);
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    match /users/{userId}/recents/{boardId} {
+      function validRecent(d) {
+        return d.keys().hasOnly(['boardId', 'workspaceId', 'visitedAt'])
+          && d.keys().hasAll(['boardId', 'workspaceId', 'visitedAt'])
+          && d.boardId == boardId
+          && d.workspaceId is string && d.workspaceId.size() >= 1 && d.workspaceId.size() <= 128
+          && d.visitedAt == request.time;
+      }
+
+      allow read: if signedIn() && uid() == userId;
+      allow create, update: if signedIn() && uid() == userId && validRecent(request.resource.data);
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // ---------------------------------------------------------------------
+    // workspaces/{workspaceId}
+    // ---------------------------------------------------------------------
+    match /workspaces/{workspaceId} {
+      function validWorkspaceFields(d) {
+        return d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+          && d.description is string && d.description.size() <= 500
+          && d.icon is string && d.icon.size() >= 1 && d.icon.size() <= 8
+          && d.color is string && d.color.matches('^#[0-9a-fA-F]{6}$');
+      }
+
+      // A client may only create a workspace in which it is the sole owner.
+      function validWorkspaceCreate(d) {
+        return d.keys().hasOnly(['name', 'description', 'icon', 'color', 'ownerId', 'memberIds',
+                                 'roles', 'kind', 'createdAt', 'createdBy', 'updatedAt'])
+          && d.keys().hasAll(['name', 'description', 'icon', 'color', 'ownerId', 'memberIds',
+                              'roles', 'kind', 'createdAt', 'createdBy', 'updatedAt'])
+          && validWorkspaceFields(d)
+          && d.ownerId == uid()
+          && d.createdBy == uid()
+          && d.memberIds == [uid()]
+          && d.roles == {(uid()): 'owner'}
+          && d.kind in ['open', 'closed']
+          && d.createdAt == request.time
+          && d.updatedAt == request.time;
+      }
+
+      allow read: if signedIn() && uid() in resource.data.memberIds;
+
+      allow create: if signedIn() && validWorkspaceCreate(request.resource.data);
+
+      // Owner/admin may edit presentation fields only; membership and roles change via callables (P4).
+      allow update: if signedIn()
+        && resource.data.roles.get(uid(), null) in ['owner', 'admin']
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['name', 'description', 'icon', 'color', 'updatedAt'])
+        && validWorkspaceFields(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+
+      // -------------------------------------------------------------------
+      // workspaces/{workspaceId}/folders/{folderId}
+      // -------------------------------------------------------------------
+      match /folders/{folderId} {
+        function validFolderFields(d) {
+          return d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+            && (d.parentFolderId == null || d.parentFolderId is string)
+            && d.color is string && d.color.matches('^#[0-9a-fA-F]{6}$')
+            && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
+            && d.updatedAt == request.time;
+        }
+
+        allow read: if signedIn() && isWsMember(workspaceId);
+
+        allow create: if signedIn() && isWsAdmin(workspaceId)
+          && request.resource.data.keys().hasOnly(['name', 'parentFolderId', 'color', 'position',
+                                                   'createdAt', 'createdBy', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['name', 'parentFolderId', 'color', 'position',
+                                                  'createdAt', 'createdBy', 'updatedAt'])
+          && validFolderFields(request.resource.data)
+          && request.resource.data.createdBy == uid()
+          && request.resource.data.createdAt == request.time;
+
+        allow update: if signedIn() && isWsAdmin(workspaceId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['name', 'parentFolderId', 'color', 'position', 'updatedAt'])
+          && validFolderFields(request.resource.data);
+
+        allow delete: if signedIn() && isWsAdmin(workspaceId);
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // boards/{boardId}
+    // ---------------------------------------------------------------------
+    match /boards/{boardId} {
+      function validBoardCreate(d) {
+        return d.keys().hasOnly(['workspaceId', 'folderId', 'name', 'description', 'kind', 'access',
+                                 'accessUids', 'position', 'icon', 'columns', 'subitemColumns',
+                                 'groups', 'itemTerminology', 'state', 'deletedAt', 'createdAt',
+                                 'createdBy', 'updatedAt', 'derivedColumnIds',
+                                 'serverManagedColumnIds'])
+          && d.keys().hasAll(['workspaceId', 'folderId', 'name', 'description', 'kind', 'access',
+                              'accessUids', 'position', 'icon', 'columns', 'subitemColumns',
+                              'groups', 'itemTerminology', 'state', 'deletedAt', 'createdAt',
+                              'createdBy', 'updatedAt', 'derivedColumnIds',
+                              'serverManagedColumnIds'])
+          && d.workspaceId is string
+          && canCreateInWs(d.workspaceId)
+          && (d.folderId == null
+              || (d.folderId is string && folderExistsIn(d.workspaceId, d.folderId)))
+          && d.name is string && d.name.size() >= 1 && d.name.size() <= 120
+          && d.description is string && d.description.size() <= 1000
+          && d.kind in ['main', 'private', 'shareable']
+          && d.access == {(uid()): 'owner'}
+          && d.accessUids == [uid()]
+          && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
+          && d.icon == null
+          && d.columns is list && d.subitemColumns is list && d.groups is list
+          && d.derivedColumnIds == []
+          && d.serverManagedColumnIds == []
+          && d.itemTerminology is string && d.itemTerminology.size() >= 1
+          && d.state == 'active'
+          && d.deletedAt == null
+          && d.createdBy == uid()
+          && d.createdAt == request.time
+          && d.updatedAt == request.time;
+      }
+
+      // Editors may change structure (columns, groups, name...) and move the board (`folderId`,
+      // `position`). Access, kind and lifecycle state are owner-only; workspaceId, `icon`,
+      // `derivedColumnIds` and `serverManagedColumnIds` (both maintained by the
+      // onBoardColumnsWritten function) and audit fields are immutable for clients. `accessUids`
+      // must always be the key set of `access`.
+      function validBoardUpdate() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        let role = boardRole(resource.data);
+        return role in ['owner', 'editor']
+          && changed.hasOnly(['folderId', 'position', 'name', 'description', 'columns',
+                              'subitemColumns', 'groups', 'itemTerminology', 'access', 'accessUids',
+                              'kind', 'state', 'deletedAt', 'updatedAt'])
+          && (!changed.hasAny(['access', 'accessUids', 'kind', 'state', 'deletedAt'])
+              || role == 'owner')
+          && request.resource.data.accessUids is list
+          && request.resource.data.accessUids.toSet() == request.resource.data.access.keys().toSet()
+          && request.resource.data.accessUids.size() == request.resource.data.access.keys().size()
+          && request.resource.data.position is string
+          && request.resource.data.position.size() >= 1
+          && request.resource.data.position.size() <= 64
+          && (!changed.hasAny(['folderId']) || request.resource.data.folderId == null
+              || (request.resource.data.folderId is string
+                  && folderExistsIn(resource.data.workspaceId, request.resource.data.folderId)))
+          && request.resource.data.name is string && request.resource.data.name.size() >= 1
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.columns is list
+          && request.resource.data.subitemColumns is list
+          && request.resource.data.groups is list
+          && request.resource.data.kind in ['main', 'private', 'shareable']
+          && request.resource.data.state in ['active', 'archived', 'deleted']
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      allow get: if signedIn() && boardRole(resource.data) in ['owner', 'editor', 'viewer'];
+
+      // Queries cannot be authorised from the `access` map, so there are two listable shapes (the
+      // client runs both and merges them), each only for workspaces the caller still belongs to:
+      //   where('workspaceId', '==', id) + where('kind', '==', 'main')
+      //   where('workspaceId', '==', id) + where('accessUids', 'array-contains', uid)
+      allow list: if signedIn() && isWsMember(resource.data.workspaceId)
+        && (resource.data.kind == 'main' || uid() in resource.data.accessUids);
+      allow create: if signedIn() && validBoardCreate(request.resource.data);
+      allow update: if signedIn() && validBoardUpdate();
+      // Boards are soft-deleted through `state`; purging is a server concern.
+      allow delete: if false;
+
+      // -------------------------------------------------------------------
+      // boards/{boardId}/activity/{eventId}: append-only audit log, written and read only by Cloud
+      // Functions (architecture section 5.6). Clients get nothing, not even for board owners; stated
+      // explicitly so a later change to the default deny can't open it by accident.
+      // -------------------------------------------------------------------
+      match /activity/{eventId} {
+        allow read, write: if false;
+      }
+
+      // -------------------------------------------------------------------
+      // boards/{boardId}/presence/{presenceUid} - active board viewers
+      // -------------------------------------------------------------------
+      match /presence/{presenceUid} {
+        function validPresence(d) {
+          return d.keys().hasAll(['uid', 'lastActiveAt', 'expiresAt'])
+            && d.keys().hasOnly(['uid', 'displayName', 'photoURL', 'lastActiveAt', 'expiresAt'])
+            && d.uid == uid()
+            && d.get('displayName', null) == request.auth.token.get('name', null)
+            && d.get('photoURL', null) == request.auth.token.get('picture', null)
+            && (d.get('displayName', null) == null || (d.displayName is string && d.displayName.size() <= 100))
+            && (d.get('photoURL', null) == null || (d.photoURL is string && d.photoURL.size() <= 2000))
+            && d.lastActiveAt == request.time
+            && d.expiresAt is timestamp
+            && d.expiresAt >= request.time
+            && d.expiresAt <= request.time + duration.value(1, 'h') + duration.value(2, 'm');
+        }
+
+        allow read: if signedIn() && canReadBoard(boardId);
+        allow create, update: if signedIn() && canReadBoard(boardId) && uid() == presenceUid
+          && validPresence(request.resource.data);
+        allow delete: if signedIn() && canReadBoard(boardId) && uid() == presenceUid;
+      }
+
+      // -------------------------------------------------------------------
+      // boards/{boardId}/items/{itemId} - authorised through the parent board
+      // -------------------------------------------------------------------
+      match /items/{itemId} {
+        // Columns clients may not write (`values.<id>`), as the two lists the onBoardColumnsWritten
+        // function maintains on the board: derived columns (FW1: formula, progress, ... store no
+        // value, they are computed on read) and server-managed ones (FW2: time tracking, files,
+        // buttons, which only Cloud Functions write through the Admin SDK). Boards created before
+        // either field existed lack it, so each defaults to []. Everything reads the board through
+        // this one get(), the same document canEditBoard() already read (repeated reads of a
+        // document are cached per request, so it is still one billed read).
+        function boardData() {
+          return get(boardPath(boardId)).data;
+        }
+
+        function blockedColumnIds() {
+          let board = boardData();
+          return board.get('derivedColumnIds', []).concat(board.get('serverManagedColumnIds', []));
+        }
+
+        // A subitem (non-null parentItemId) is one level deep: its parent exists in this board, is a
+        // top-level active item and shares the group. getAfter() so a duplicated parent created in
+        // the same batch counts (the parent path stays inside this board, so no cross-board parent).
+        function validSubitemParent(d) {
+          let parentPath = /databases/$(database)/documents/boards/$(boardId)/items/$(d.parentItemId);
+          return existsAfter(parentPath)
+            && getAfter(parentPath).data.parentItemId == null
+            && getAfter(parentPath).data.state == 'active'
+            && getAfter(parentPath).data.groupId == d.groupId;
+        }
+
+        function validItemCreate(d) {
+          return d.keys().hasOnly(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
+                                   'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+            && d.keys().hasAll(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
+                                'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+            && d.name is string && d.name.size() >= 1 && d.name.size() <= 500
+            && d.groupId is string
+            && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
+            && (d.parentItemId == null || (d.parentItemId is string && validSubitemParent(d)))
+            && d.values is map
+            && !d.values.keys().hasAny(blockedColumnIds())
+            && d.state == 'active'
+            && d.deletedAt == null
+            && d.createdBy == uid() && d.updatedBy == uid()
+            && d.createdAt == request.time && d.updatedAt == request.time;
+        }
+
+        function validItemUpdate() {
+          let changed = request.resource.data.diff(resource.data).affectedKeys();
+          // parentItemId is immutable: converting between item and subitem is not supported.
+          return changed.hasOnly(['name', 'groupId', 'position', 'values', 'state',
+                                  'deletedAt', 'updatedAt', 'updatedBy'])
+            && request.resource.data.name is string && request.resource.data.name.size() >= 1
+            && request.resource.data.name.size() <= 500
+            && request.resource.data.values is map
+            && !request.resource.data.values.diff(resource.data.values).affectedKeys()
+                 .hasAny(blockedColumnIds())
+            && request.resource.data.state in ['active', 'archived', 'deleted']
+            && request.resource.data.updatedBy == uid()
+            && request.resource.data.updatedAt == request.time;
+        }
+
+        allow read: if signedIn() && canReadBoard(boardId);
+        allow create: if signedIn() && canEditBoard(boardId) && validItemCreate(request.resource.data);
+        // The updates counter shown in the row's bubble: posting or deleting an update moves it by
+        // exactly one, and that is the only field such a write may touch (items from before the
+        // counter lack it, which reads as 0).
+        function validUpdatesCountBump() {
+          let changed = request.resource.data.diff(resource.data).affectedKeys();
+          let before = resource.data.get('updatesCount', 0);
+          return changed.hasOnly(['updatesCount'])
+            && request.resource.data.updatesCount is int
+            && request.resource.data.updatesCount >= 0
+            && (request.resource.data.updatesCount == before + 1
+                || request.resource.data.updatesCount == before - 1);
+        }
+
+        allow update: if signedIn() && canEditBoard(boardId)
+          && (validItemUpdate() || validUpdatesCountBump());
+        allow delete: if signedIn() && canEditBoard(boardId);
+
+        // -----------------------------------------------------------------
+        // boards/{boardId}/items/{itemId}/updates/{updateId}
+        // -----------------------------------------------------------------
+        match /updates/{updateId} {
+          function validLikesUpdate() {
+            let oldLikes = resource.data.likes.toSet();
+            let newLikes = request.resource.data.likes.toSet();
+            return request.resource.data.likes is list
+              && request.resource.data.likes.size() == newLikes.size()
+              && newLikes.difference(oldLikes).hasOnly([uid()])
+              && oldLikes.difference(newLikes).hasOnly([uid()]);
+          }
+
+          function validUpdateCreate(d) {
+            return d.keys().hasOnly(['itemId', 'authorId', 'authorName', 'authorPhotoUrl',
+                                     'content', 'likes', 'repliesCount', 'createdAt', 'updatedAt'])
+              && d.keys().hasAll(['itemId', 'authorId', 'content', 'likes', 'repliesCount',
+                                  'createdAt', 'updatedAt'])
+              && d.itemId == itemId
+              && d.authorId == uid()
+              && (!('authorName' in d) || d.authorName is string)
+              && (!('authorPhotoUrl' in d) || d.authorPhotoUrl == null || d.authorPhotoUrl is string)
+              && d.content is string && d.content.size() >= 1 && d.content.size() <= 50000
+              && d.likes == []
+              && d.repliesCount == 0
+              && d.createdAt == request.time && d.updatedAt == request.time;
+          }
+
+          function validUpdateUpdate() {
+            let changed = request.resource.data.diff(resource.data).affectedKeys();
+            return changed.hasOnly(['content', 'likes', 'repliesCount', 'updatedAt'])
+              && (!changed.hasAny(['content']) || resource.data.authorId == uid() || canManageBoard(boardId))
+              && (!changed.hasAny(['content']) || (request.resource.data.content is string && request.resource.data.content.size() >= 1 && request.resource.data.content.size() <= 50000))
+              && (!changed.hasAny(['likes']) || validLikesUpdate())
+              && (!changed.hasAny(['repliesCount']) || (
+                  request.resource.data.repliesCount is int
+                  && request.resource.data.repliesCount >= 0
+                  && (request.resource.data.repliesCount == resource.data.repliesCount + 1
+                      || request.resource.data.repliesCount == resource.data.repliesCount - 1)
+                 ))
+              && (!changed.hasAny(['updatedAt']) || request.resource.data.updatedAt == request.time);
+          }
+
+          allow read: if signedIn() && canReadBoard(boardId);
+          allow create: if signedIn() && canEditBoard(boardId) && validUpdateCreate(request.resource.data);
+          allow update: if signedIn() && canEditBoard(boardId) && validUpdateUpdate();
+          allow delete: if signedIn() && canEditBoard(boardId)
+            && (resource.data.authorId == uid() || canManageBoard(boardId));
+
+          // ---------------------------------------------------------------
+          // boards/{boardId}/items/{itemId}/updates/{updateId}/replies/{replyId}
+          // ---------------------------------------------------------------
+          match /replies/{replyId} {
+            function validReplyCreate(d) {
+              return d.keys().hasOnly(['updateId', 'authorId', 'authorName', 'authorPhotoUrl',
+                                       'content', 'likes', 'createdAt', 'updatedAt'])
+                && d.keys().hasAll(['updateId', 'authorId', 'content', 'likes',
+                                    'createdAt', 'updatedAt'])
+                && d.updateId == updateId
+                && d.authorId == uid()
+                && (!('authorName' in d) || d.authorName is string)
+                && (!('authorPhotoUrl' in d) || d.authorPhotoUrl == null || d.authorPhotoUrl is string)
+                && d.content is string && d.content.size() >= 1 && d.content.size() <= 50000
+                && d.likes == []
+                && d.createdAt == request.time && d.updatedAt == request.time;
+            }
+
+            function validReplyUpdate() {
+              let changed = request.resource.data.diff(resource.data).affectedKeys();
+              return changed.hasOnly(['content', 'likes', 'updatedAt'])
+                && (!changed.hasAny(['content']) || resource.data.authorId == uid() || canManageBoard(boardId))
+                && (!changed.hasAny(['content']) || (request.resource.data.content is string && request.resource.data.content.size() >= 1 && request.resource.data.content.size() <= 50000))
+                && (!changed.hasAny(['likes']) || validLikesUpdate())
+                && (!changed.hasAny(['updatedAt']) || request.resource.data.updatedAt == request.time);
+            }
+
+            allow read: if signedIn() && canReadBoard(boardId);
+            allow create: if signedIn() && canEditBoard(boardId) && validReplyCreate(request.resource.data);
+            allow update: if signedIn() && canEditBoard(boardId) && validReplyUpdate();
+            allow delete: if signedIn() && canEditBoard(boardId)
+              && (resource.data.authorId == uid() || canManageBoard(boardId));
+          }
+        }
+      }
+    }
+  }
+}

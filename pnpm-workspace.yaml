@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - functions
+  - packages/*
+  - tests/*
+
+# Only esbuild's postinstall (native binary) is needed; the rest are optional and stay disabled.
+allowBuilds:
+  esbuild: true
+  protobufjs: false
+  '@firebase/util': false
+  # Optional native dep of firebase-tools; not needed. Denied explicitly so pnpm 12 skips
+  # its build instead of failing CI with ERR_PNPM_IGNORED_BUILDS.
+  re2: false

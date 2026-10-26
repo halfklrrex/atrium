@@ -1,0 +1,6 @@
+.mark {
+  padding: 0;
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-table-highlight);
+  color: var(--atrium-table-highlight-text);
+}

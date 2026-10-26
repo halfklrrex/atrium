@@ -1,0 +1,127 @@
+/*
+ * A non-modal dock under the top bar, as wide as the panel only: no scrim and nothing outside the
+ * panel is covered, so the board behind it keeps receiving clicks.
+ */
+.dock {
+  position: fixed;
+  inset: var(--atrium-topbar-height) 0 0 auto;
+  z-index: var(--atrium-z-drawer);
+  display: flex;
+  max-width: 100%;
+}
+
+.drawer {
+  width: var(--atrium-item-card-width);
+  max-width: 100%;
+  height: 100%;
+  background: var(--primary-background-color);
+  box-shadow: var(--box-shadow-small);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    animation: none;
+  }
+}
+
+.header {
+  padding: var(--space-16) var(--space-16) var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  background: var(--primary-background-color);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex: 1;
+  min-width: 0;
+}
+
+.navArrows {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.itemNameWrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemTitle {
+  font: var(--atrium-item-card-title-font);
+  color: var(--primary-text-color);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-shrink: 0;
+}
+
+.tabsContainer {
+  padding: 0 var(--space-16);
+  background: var(--primary-background-color);
+  font: var(--atrium-item-card-tab-font);
+}
+
+.contentArea {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--primary-background-color);
+}
+
+.activityLog {
+  padding: var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.activityEntry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  background: var(--primary-background-color);
+  border-radius: var(--border-radius-8);
+  border: 1px solid var(--layout-border-color);
+}
+
+.activityMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.activityText {
+  font: var(--font-text2-normal);
+  color: var(--primary-text-color);
+}
+
+.activityTime {
+  font: var(--font-text2-normal);
+  color: var(--secondary-text-color);
+}

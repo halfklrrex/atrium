@@ -1,0 +1,114 @@
+name: Update visual baselines
+
+# Re-creates the Linux screenshot baselines in the same container CI uses and commits them back to
+# the branch you name. Run it from the Actions tab (or `gh workflow run update-visual-baselines.yml
+# -f branch=<branch>`), then review the image diffs in the PR's "Files changed" tab.
+# See docs/visual-testing.md. It never runs on main: baselines change only through a reviewed PR.
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to update baselines on (not main)
+        required: true
+        type: string
+
+concurrency:
+  group: update-visual-baselines-${{ inputs.branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # push the baseline commit
+  actions: write # start CI for that commit
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      # Keep in step with @playwright/test in tests/visual/package.json (scripts/visual-ci.test.mjs checks).
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host --init
+    env:
+      TARGET_BRANCH: ${{ inputs.branch }}
+    steps:
+      - name: Refuse to run on main
+        run: |
+          case "$TARGET_BRANCH" in
+            main | master | refs/heads/main | refs/heads/master | "")
+              echo "::error title=Refused::Baselines are never updated on '$TARGET_BRANCH'. Run this on a feature branch and merge it through a pull request."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Update snapshots
+        run: pnpm test:visual:update
+
+      - name: Commit new baselines
+        id: commit
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/visual/__screenshots__
+          if git diff --cached --quiet; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            echo "Baselines are already up to date; nothing to commit."
+          else
+            git commit -m "chore: update visual baselines"
+            git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Prove the committed baselines are stable: a second, plain run must pass without changes.
+      - name: Verify the baselines
+        run: pnpm test:visual
+
+      - name: Upload visual report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-report
+          path: |
+            tests/visual/playwright-report
+            tests/visual/test-results
+          retention-days: 14
+
+      # A push made with GITHUB_TOKEN starts no workflows, so start CI for the new commit by hand.
+      - name: Start CI for the new commit
+        if: steps.commit.outputs.pushed == 'true'
+        continue-on-error: true # a convenience; the baselines are already committed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The Playwright image has no `gh`, so call the REST API from Node (already set up above).
+        run: |
+          node -e '
+            const { GH_TOKEN, GITHUB_REPOSITORY, GITHUB_API_URL, TARGET_BRANCH } = process.env;
+            const url = `${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches`;
+            fetch(url, {
+              method: "POST",
+              headers: { authorization: `Bearer ${GH_TOKEN}`, accept: "application/vnd.github+json" },
+              body: JSON.stringify({ ref: TARGET_BRANCH }),
+            }).then(async (r) => {
+              if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+              console.log("Started CI on " + TARGET_BRANCH);
+            }).catch((e) => { console.error(e); process.exit(1); });
+          '

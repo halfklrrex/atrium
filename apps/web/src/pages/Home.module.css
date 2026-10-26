@@ -1,0 +1,349 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* White header strip */
+.strip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-16) var(--space-24);
+  border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
+  background: var(--atrium-surface-bg);
+}
+
+.greeting {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.subtitle {
+  margin: var(--space-4) 0 0;
+  color: var(--primary-text-color);
+  font: 500 var(--font-size-40) / var(--font-line-height-40) var(--font-family);
+}
+
+.stripActions .feedbackButton {
+  border-color: transparent;
+  background: var(--atrium-cover-bg);
+  color: var(--primary-text-color);
+}
+
+.stripActions .feedbackButton:hover {
+  background: var(--atrium-nav-hover-bg);
+}
+
+.stripActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* Grey area with the white card and the right rail */
+.body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) var(--atrium-home-rail-width);
+  gap: var(--space-24);
+  align-items: start;
+  padding: var(--space-24);
+  background: var(--atrium-home-bg);
+}
+
+.main {
+  min-width: 0;
+  padding: var(--space-24);
+  border-radius: var(--border-radius-medium);
+  background: var(--atrium-card-bg);
+  box-shadow: var(--box-shadow-xs);
+}
+
+.muted {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+/* Recently visited */
+.cards,
+.workspaces {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--atrium-card-min-width), 1fr));
+  gap: var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-block-end: var(--space-8);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--atrium-card-bg);
+  overflow: hidden;
+  transition: box-shadow var(--motion-productive-medium) var(--motion-timing-transition);
+}
+
+.card:hover {
+  box-shadow: var(--box-shadow-small);
+}
+
+.cardLink {
+  display: block;
+  text-decoration: none;
+}
+
+.cardLink:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(var(--space-2) * -1);
+}
+
+.cardThumb {
+  display: block;
+  height: var(--atrium-card-thumb-height);
+  padding: var(--space-8) var(--space-16) 0;
+  background: var(--atrium-thumb-bg);
+}
+
+.cardInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0 var(--space-8);
+}
+
+.cardIcon {
+  flex: none;
+  color: var(--icon-color);
+}
+
+.cardName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--primary-text-color);
+  font: var(--font-text2-medium);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardName:hover {
+  text-decoration: underline;
+}
+
+.cardCrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0 var(--space-8);
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.crumbText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.showAll {
+  display: flex;
+  justify-content: center;
+  margin-block-start: var(--space-16);
+}
+
+/* My workspaces */
+.workspaces {
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--atrium-card-min-width) * 1.3), 1fr));
+}
+
+.workspaceCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-medium);
+  color: var(--primary-text-color);
+  text-decoration: none;
+}
+
+.workspaceCard:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.workspaceCard:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.workspaceText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.workspaceName {
+  overflow: hidden;
+  font: var(--font-text1-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspaceMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+/* Right rail */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.railCard {
+  padding: var(--space-16);
+  border-radius: var(--border-radius-medium);
+  background: var(--atrium-card-bg);
+  box-shadow: var(--box-shadow-xs);
+}
+
+.railTitle {
+  margin: 0 0 var(--space-12);
+  font: var(--font-text1-medium);
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0 0 var(--space-12);
+  padding: 0;
+  list-style: none;
+  font: var(--font-text2-normal);
+}
+
+.step,
+.stepDone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.step {
+  color: var(--secondary-text-color);
+}
+
+.stepDone {
+  color: var(--positive-color);
+}
+
+.stepMark {
+  flex: none;
+  width: var(--space-12);
+  height: var(--space-12);
+  border: var(--border-width) var(--border-style) currentColor;
+  border-radius: 50%;
+}
+
+.stepDone .stepMark {
+  background: currentColor;
+}
+
+.progress {
+  height: var(--space-8);
+  border-radius: var(--border-radius-small);
+  background: var(--layout-border-color);
+  overflow: hidden;
+}
+
+.progressFill {
+  width: 100%;
+  height: 100%;
+  background: var(--primary-color);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left center;
+  transition: transform var(--motion-productive-long) var(--motion-timing-enter);
+}
+
+.railHeading {
+  margin: var(--space-8) 0 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.learn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-16);
+  border: 0;
+  border-radius: var(--border-radius-medium);
+  background: var(--atrium-card-bg);
+  box-shadow: var(--box-shadow-xs);
+  color: var(--primary-text-color);
+  text-align: start;
+  cursor: pointer;
+}
+
+.learn:hover {
+  box-shadow: var(--box-shadow-small);
+}
+
+.learnTitle {
+  font: var(--font-text2-medium);
+}
+
+.srOnly {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressFill,
+  .card {
+    transition: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .strip {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-inline: var(--space-16);
+  }
+
+  .body {
+    padding: var(--space-12);
+  }
+
+  .main {
+    padding: var(--space-16);
+  }
+}

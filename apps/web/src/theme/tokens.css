@@ -1,0 +1,188 @@
+/*
+ * Atrium design tokens. This is the ONLY place for Atrium-specific colours and layout sizes.
+ * Everything else builds on Vibe's CSS variables (loaded first from '@vibe/core/tokens') and on the
+ * `--atrium-*` variables below. Values are measured from monday's in-app UI (docs/reference).
+ *
+ * Themes: Vibe puts `light-app-theme` / `dark-app-theme` / `black-app-theme` on <html>; the dark and
+ * black blocks below override only what differs from light.
+ */
+
+:root {
+  /* ---- Layout ---- */
+  --atrium-topbar-height: 48px;
+  --atrium-sidebar-width: 255px;
+  --atrium-surface-inset: var(--space-12); /* gap between the window edge and the floating panels */
+  --atrium-surface-radius: var(--border-radius-12);
+  --atrium-sidebar-padding: var(--space-8) var(--space-16) 0;
+  --atrium-sidebar-group-gap: var(--space-16);
+  --atrium-sidebar-workspace-gap: var(--space-24);
+  --atrium-section-label-height: var(--space-24);
+  --atrium-topbar-button: var(--space-40);
+  --atrium-topbar-gap: var(--space-4);
+  --atrium-topbar-apps-gap: var(--space-8);
+  --atrium-nav-row-height: 32px;
+  --atrium-nav-inset: var(--space-8);
+  --atrium-nav-indent: var(--space-16);
+  --atrium-control-height: 32px;
+  --atrium-row-height: 40px;
+  --atrium-table-row-height: 36px;
+  --atrium-menu-row-height: 28px;
+
+  /* ---- Avatars (workspace tiles) ---- */
+  --atrium-avatar-xs: 20px;
+  --atrium-avatar-sm: 24px;
+  --atrium-avatar-md: 40px;
+  --atrium-avatar-lg: 56px;
+  --atrium-avatar-xl: 72px;
+
+  /* ---- Pages ---- */
+  --atrium-cover-height: 200px;
+  --atrium-page-max-width: 1100px;
+  --atrium-home-rail-width: 300px;
+  --atrium-card-thumb-height: 120px;
+  --atrium-card-min-width: 220px;
+  --atrium-group-bar-width: 6px;
+  --atrium-page-gutter: var(--space-32);
+  --atrium-popover-max-height: 280px;
+  --atrium-list-columns: minmax(0, 1fr) 160px 140px 100px 80px;
+  --atrium-list-columns-narrow: minmax(0, 1fr) 80px;
+  --atrium-focus-ring: 2px solid var(--primary-color);
+  --atrium-board-gutter: var(--space-40); /* title, toolbar and groups start 40px in (monday) */
+  --atrium-toolbar-search-width: 200px; /* My work toolbar search box */
+  --atrium-help-panel-width: 320px; /* "Learn more" popover panel */
+  --atrium-message-max-width: 440px; /* full-page message column (loading, errors) */
+  --atrium-login-copy-max-width: 420px; /* login brand panel text column */
+  --atrium-login-card-width: 400px; /* login form column */
+  --atrium-login-watermark-inset: -90px; /* login brand mark bleeds off the panel corner */
+
+  /* ---- Subitems ---- */
+  --atrium-subitem-indent: var(
+    --space-32
+  ); /* the subitem table starts this far right of its parent */
+  --atrium-subitem-row-height: 32px; /* compact rows and header */
+  --atrium-subitem-bar-width: var(--space-4); /* thinner group-colour bar than the main table */
+  --atrium-subitem-arrow-size: var(--space-20); /* expand arrow button in the parent's name cell */
+  --atrium-subitem-connector: var(--layout-border-color); /* vertical line down the block's left */
+  --atrium-subitem-connector-offset: var(--space-16);
+  --atrium-subitem-header-bg: var(--secondary-background-color); /* lighter header row */
+  --atrium-subitem-motion: 150ms; /* arrow rotation */
+
+  /* ---- Typography ---- */
+  --atrium-page-title-font: 500 var(--font-size-60) / 1.2 var(--title-font-family);
+  --atrium-board-title-font: 500 var(--font-size-50) / 1.25 var(--title-font-family);
+  --atrium-group-title-font: 500 var(--font-size-40) / 1.35 var(--title-font-family);
+  --atrium-workspace-name-font: 600 var(--font-size-30) / 1.25 var(--font-family);
+  --atrium-section-label-font: 600 12px / 16px var(--font-family);
+  --atrium-logo-font: 700 var(--font-size-30) / 1 var(--title-font-family);
+  --atrium-logo-suffix-font: 400 var(--font-size-30) / 1 var(--font-family);
+  --atrium-font-weight-semibold: 600; /* Vibe stops at 500 (--font-weight-bold) */
+  --atrium-tagline-font: 700 36px / 1.15 Figtree, sans-serif; /* login brand panel headline */
+  --atrium-tagline-letter-spacing: -0.02em;
+
+  /* ---- Colours: light theme ---- */
+  --atrium-app-bg: #edf1fc; /* behind the top bar */
+  --atrium-surface-bg: var(--primary-background-color); /* content panel, top of the sidebar */
+  --atrium-sidebar-bg: linear-gradient(
+    135deg,
+    var(--atrium-surface-bg) 5%,
+    var(--atrium-app-bg) 100%
+  ); /* fades into the app background toward the bottom-right */
+  --atrium-home-bg: var(--allgrey-background-color); /* grey area behind Home cards */
+  --atrium-card-bg: var(--primary-background-color);
+  --atrium-nav-text: var(--secondary-text-color);
+  --atrium-nav-text-active: var(--primary-text-color);
+  --atrium-nav-selected-bg: rgba(194, 213, 255, 0.4);
+  --atrium-switcher-border: var(--ui-border-color);
+  --atrium-nav-hover-bg: var(--primary-background-hover-color);
+  --atrium-thumb-bg: var(--primary-selected-color);
+  --atrium-cover-bg: #ebedf3;
+  --atrium-scrim: rgba(0, 0, 0, 0.45);
+  --atrium-white: #ffffff; /* text on coloured tiles and the primary button */
+  --atrium-brand-bg: #1b1d36; /* login brand panel */
+  --atrium-brand-text: var(--atrium-white);
+  --atrium-brand-text-muted: #b4b7d6;
+
+  /* ---- Illustrations (empty states) ---- */
+  --illus-indigo: #7c7cff; /* the Atrium mark's four colours */
+  --illus-pink: #ff6f91;
+  --illus-teal: #26c6b0;
+  --illus-orange: #ffb03a;
+  --illus-surface: #ffffff; /* cards and rows */
+  --illus-line: #dcdff0; /* faded rows, outlines */
+  --illus-glow: #eceefc; /* soft backdrop blob */
+  --illus-shadow: rgba(50, 51, 56, 0.12);
+  --illus-on-accent: #ffffff; /* glyphs drawn on the four accents */
+  --atrium-empty-top: 150px; /* page empty state: gap under the page header */
+  --atrium-empty-width: 435px; /* page empty state: text column */
+  --atrium-notifications-width: 480px;
+  --atrium-motion-panel: 200ms; /* empty-state rise and the notifications slide */
+  --atrium-panel-title-font: 500 20px / 28px var(--title-font-family);
+  --atrium-panel-shadow: -4px 0 16px var(--illus-shadow);
+
+  /* ---- Item card and updates thread (VF5, measured from monday) ---- */
+  --atrium-item-card-width: clamp(480px, 36vw, 720px); /* about 700px at 1920px */
+  --atrium-item-card-title-font: 500 24px / 34px var(--title-font-family);
+  --atrium-item-card-tab-font: 400 14px / 24px var(--font-family);
+  --atrium-update-body-font: 400 15px / 22.5px var(--font-family);
+  --atrium-reply-body-font: 400 14px / 21px var(--font-family);
+  --atrium-meta-font: 400 12px / 16px var(--font-family); /* hints and small captions */
+  --atrium-composer-collapsed-height: 44px;
+  --atrium-composer-expanded-height: 80px;
+  --atrium-update-avatar-size: 40px;
+  --atrium-reply-avatar-size: 32px;
+
+  /* ---- Elevation ---- */
+  --atrium-menu-shadow: var(--box-shadow-medium);
+
+  /*
+   * ---- Stacking scale (the ONLY source of z-index values; Stylelint bans numeric z-index) ----
+   * Lowest to highest. In-page layers (table sticky header and name column, group headers, sidebar
+   * handle, batch bar) sit below every floating layer, so a menu or popover is never painted under
+   * the table. Floating layers (Vibe MenuButton/Tooltip/Dialog popups, cell editors, Popover)
+   * render in a portal on <body> and take their tier from here; index.css gives every Vibe dialog
+   * wrapper --atrium-z-dropdown, and Vibe's Modal reads --monday-modal-z-index below.
+   */
+  --atrium-z-raised: 1; /* a cell or handle lifted just above its siblings */
+  --atrium-z-sticky: 2; /* table name column; the table adds +1 (header) and +2 (sticky header) */
+  --atrium-z-chrome: 5; /* sidebar collapse handle, dragged tree row */
+  --atrium-z-batch: 10; /* floating batch-actions bar */
+  --atrium-z-scrim: 20; /* mobile nav backdrop */
+  --atrium-z-nav: 30; /* off-canvas sidebar on narrow screens */
+  --atrium-z-panel: 40; /* notifications panel */
+  --atrium-z-drawer: 50; /* item card drawer */
+  --atrium-z-popover: 60; /* workspace switcher, board info, sort/filter panels */
+  --atrium-z-dropdown: 70; /* menus, tooltips, cell editors, column pickers; above popovers so a Dropdown opened inside a popover is not painted behind it */
+  --atrium-z-modal: 80; /* dialogs */
+  --atrium-z-toast: 90; /* toasts */
+  --monday-modal-z-index: var(--atrium-z-modal); /* Vibe Modal reads this (default 10000) */
+}
+
+.dark-app-theme {
+  --atrium-app-bg: var(--primary-background-color);
+  --atrium-surface-bg: var(--secondary-background-color);
+  --atrium-home-bg: var(--primary-background-color);
+  --atrium-card-bg: var(--secondary-background-color);
+  --atrium-nav-selected-bg: var(--primary-selected-color);
+  --atrium-nav-text: var(--secondary-text-color);
+  --atrium-cover-bg: var(--grey-background-color);
+  --atrium-scrim: rgba(0, 0, 0, 0.6);
+  --illus-surface: #4a4e7c;
+  --illus-line: #6c70a3;
+  --illus-glow: #3a3d62;
+  --illus-shadow: rgba(0, 0, 0, 0.35);
+}
+
+.black-app-theme {
+  --atrium-app-bg: var(--primary-background-color);
+  --atrium-surface-bg: var(--secondary-background-color);
+  --atrium-home-bg: var(--primary-background-color);
+  --atrium-card-bg: var(--secondary-background-color);
+  --atrium-nav-selected-bg: var(--primary-selected-color);
+  --atrium-cover-bg: var(--grey-background-color);
+  --atrium-scrim: rgba(0, 0, 0, 0.7);
+  --atrium-brand-bg: #08080a;
+  --illus-surface: #444444;
+  --illus-line: #686868;
+  --illus-glow: #383838;
+  --illus-shadow: rgba(0, 0, 0, 0.6);
+}

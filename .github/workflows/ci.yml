@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Lets "Update visual baselines" start CI for the commit it pushes (pushes made with the default
+  # GITHUB_TOKEN do not start workflows by themselves, but workflow_dispatch is allowed).
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm version comes from the "packageManager" field in package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The Firestore emulator needs a JVM.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      # Fails if THIRD_PARTY_NOTICES.md is stale (run `pnpm licenses:notices` and commit it) or if a
+      # production dependency has an unknown or AGPL-incompatible licence.
+      - name: Third-party notices and licences
+        run: pnpm licenses:check
+
+      - name: Firestore rules tests
+        run: pnpm test:rules
+
+      - name: Build
+        run: pnpm build
+
+  # Screenshot tests of the key screens. They run in the official Playwright image because fonts and
+  # anti-aliasing differ per OS: the committed baselines are Linux ones made in this very image.
+  # The image tag must equal the exact @playwright/test version (scripts/visual-ci.test.mjs checks).
+  # To change baselines on purpose, run the "Update visual baselines" workflow: docs/visual-testing.md.
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host --init
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The Firestore emulator needs a JVM, which the Playwright image does not ship.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Visual regression tests
+        run: pnpm test:visual
+
+      # The HTML report holds the expected, actual and diff image of every failed screenshot.
+      - name: Upload visual report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-report
+          path: |
+            tests/visual/playwright-report
+            tests/visual/test-results
+          retention-days: 14

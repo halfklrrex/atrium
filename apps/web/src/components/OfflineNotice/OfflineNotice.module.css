@@ -1,0 +1,9 @@
+.noticeContainer {
+  width: 100%;
+  position: relative;
+  z-index: var(--atrium-z-toast);
+}
+
+.banner {
+  box-shadow: var(--box-shadow-small);
+}

@@ -1,0 +1,9 @@
+/* Applied only while a screenshot is taken (see `stylePath` in playwright.config.ts). */
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+  caret-color: transparent !important;
+  scroll-behavior: auto !important;
+}

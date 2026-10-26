@@ -1,0 +1,107 @@
+/* Slides in from the right under the top bar; transform only, so no layout work. */
+.panel {
+  position: fixed;
+  inset-block: var(--atrium-topbar-height) 0;
+  inset-inline-end: 0;
+  z-index: var(--atrium-z-panel);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--atrium-notifications-width), 100vw);
+  background: var(--primary-background-color);
+  box-shadow: var(--atrium-panel-shadow);
+  color: var(--primary-text-color);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform var(--atrium-motion-panel) var(--motion-timing-transition),
+    visibility 0s linear var(--atrium-motion-panel);
+}
+
+.open {
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-16) var(--space-16) var(--space-8);
+}
+
+.title {
+  margin: 0;
+  font: var(--atrium-panel-title-font);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.close {
+  display: inline-grid;
+  place-items: center;
+  width: var(--atrium-control-height);
+  height: var(--atrium-control-height);
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--icon-color);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--atrium-nav-hover-bg);
+}
+
+.close:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.close svg {
+  width: var(--space-20);
+  height: var(--space-20);
+}
+
+.tabs {
+  flex: none;
+  padding-inline: var(--space-16);
+}
+
+.filters {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+}
+
+.toggleLabel {
+  flex: none;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding-block-start: var(--space-32);
+  overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
+  }
+}
