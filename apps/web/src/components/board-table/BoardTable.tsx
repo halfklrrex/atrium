@@ -27,7 +27,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { useAuth } from '../../auth/auth-context';
-import { useItems, usePresence, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
+import { useItems, useUserLookup, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
 import { comparePositions, positionBeforeAll, positionBetween } from '../../lib/positions';
 import { BatchBar } from './BatchBar';
 import { BoardToolbar } from './BoardToolbar';
@@ -96,7 +96,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
   const { data: workspace } = useWorkspace(board.workspaceId);
   const canEdit = canEditBoard(resolveBoardRole(board, uid, workspace?.roles[uid]));
   const { data: items, loading, error } = useItems(board.id);
-  const { viewers } = usePresence(board.id);
+  const memberLookup = useUserLookup(board.workspaceId);
 
   const lookup = useCallback(
     (targetUid: string): string | undefined => {
@@ -104,12 +104,9 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
         const custom = userLookupProp(targetUid);
         if (custom) return custom;
       }
-      if (user && targetUid === user.uid) return user.displayName ?? user.email ?? 'You';
-      const viewer = viewers.find((v) => v.uid === targetUid);
-      if (viewer?.displayName) return viewer.displayName;
-      return undefined;
+      return memberLookup(targetUid)?.name;
     },
-    [userLookupProp, user, viewers],
+    [userLookupProp, memberLookup],
   );
 
   const boardId = board.id;

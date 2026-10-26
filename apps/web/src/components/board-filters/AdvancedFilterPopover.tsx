@@ -4,7 +4,8 @@ import classNames from 'classnames';
 import { useMemo, useState } from 'react';
 import type { ColumnDef, FilterCondition, FilterOperator } from '@atrium/shared';
 import { useAuth } from '../../auth/auth-context';
-import type { BoardDoc } from '../../data';
+import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
+import type { BoardDoc } from '../../data/model';
 import { Popover } from '../Popover';
 import styles from './board-filters.module.css';
 import { useBoardFilter } from './filter-store';
@@ -73,14 +74,12 @@ export function AdvancedFilterPopover({ board, userLookup }: AdvancedFilterPopov
   const conditions = filterGroup.conditions;
   const conditionCount = conditions.length;
 
+  const { members } = useWorkspaceMembers(board?.workspaceId);
   const availablePeople = useMemo(() => {
-    const set = new Set<string>();
-    if (board?.accessUids) {
-      for (const uid of board.accessUids) set.add(uid);
-    }
+    const set = new Set<string>(members.map((m) => m.id));
     if (user?.uid) set.add(user.uid);
     return Array.from(set);
-  }, [board, user]);
+  }, [members, user]);
 
   const handleAddRule = () => {
     const defaultColId = board?.columns[0]?.id ?? 'name';
@@ -281,7 +280,7 @@ function ConditionValueInput({
   value?: unknown;
   onChange: (val: unknown) => void;
 }) {
-  const { user } = useAuth();
+  const memberLookup = useUserLookup();
 
   if (colType === 'status') {
     const labels = (column?.settings?.labels as { id: string; label: string }[]) || [];
@@ -352,9 +351,7 @@ function ConditionValueInput({
   if (colType === 'people') {
     const peopleOptions = (availablePeople || []).map((uid) => ({
       value: uid,
-      label:
-        userLookup?.(uid) ??
-        (uid === user?.uid ? (user?.displayName ?? user?.email ?? 'You') : 'Board member'),
+      label: userLookup?.(uid) ?? memberLookup(uid)?.name ?? UNKNOWN_PERSON_NAME,
     }));
     return (
       <div className={styles.ruleDropdown}>

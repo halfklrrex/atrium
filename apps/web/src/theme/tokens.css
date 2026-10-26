@@ -50,6 +50,8 @@
   --atrium-board-gutter: var(--space-40); /* title, toolbar and groups start 40px in (monday) */
   --atrium-toolbar-search-width: 200px; /* My work toolbar search box */
   --atrium-help-panel-width: 320px; /* "Learn more" popover panel */
+  --atrium-members-role-width: 140px; /* role dropdown column in the Members dialog */
+  --atrium-members-dialog-min-height: 320px; /* keeps the dialog steady between its tabs */
   --atrium-message-max-width: 440px; /* full-page message column (loading, errors) */
   --atrium-login-copy-max-width: 420px; /* login brand panel text column */
   --atrium-login-card-width: 400px; /* login form column */

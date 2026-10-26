@@ -1,4 +1,7 @@
 import { useEffect } from 'react';
+import { useAuth } from '../../auth/auth-context';
+import { useMembersStore } from '../../data/members-store';
+import { useInvitesStore } from '../membership/invites-store';
 import { Outlet, useNavigate } from 'react-router';
 import { useItemViewStore } from '../item-view/item-view-store';
 import { Sidebar } from '../Sidebar/Sidebar';
@@ -9,6 +12,7 @@ import { OfflineNotice } from '../OfflineNotice';
 import { NotificationsPanel } from './NotificationsPanel';
 import { ItemCardDrawer } from '../item-card/ItemCardDrawer';
 import { TopBar } from './TopBar';
+import { useCurrentWorkspace } from './useCurrentWorkspace';
 import { useUiStore } from './ui-store';
 
 /**
@@ -24,6 +28,20 @@ export function AppShell() {
     useItemViewStore.getState().setNavigate((to, options) => void navigate(to, options));
     return () => useItemViewStore.getState().setNavigate(null);
   }, [navigate]);
+
+  // Avatars and people cells resolve names against the workspace being shown.
+  const { workspace } = useCurrentWorkspace();
+  const workspaceId = workspace?.id ?? null;
+  useEffect(() => {
+    useMembersStore.getState().setActiveWorkspaceId(workspaceId);
+  }, [workspaceId]);
+
+  // Pending invitations are fetched once per session, right after bootstrap.
+  const { user } = useAuth();
+  const uid = user?.uid ?? null;
+  useEffect(() => {
+    if (uid) void useInvitesStore.getState().load(uid);
+  }, [uid]);
 
   return (
     <div className={styles.shell}>

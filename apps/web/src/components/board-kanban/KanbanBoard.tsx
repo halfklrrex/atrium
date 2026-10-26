@@ -24,7 +24,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { Loader } from '@vibe/core';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
-import { useItems, usePresence, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
+import { useItems, useUserLookup, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
 import { positionAfterAll } from '../../lib/positions';
 import { useBoardFilter, useFilterStore, useKanbanSettings } from '../board-filters';
 import { BoardToolbar } from '../board-table/BoardToolbar';
@@ -72,15 +72,12 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
   const { data: workspace } = useWorkspace(board.workspaceId);
   const canEdit = canEditBoard(resolveBoardRole(board, uid, workspace?.roles[uid]));
   const { data: items, loading, error } = useItems(board.id);
-  const { viewers } = usePresence(board.id);
+  const memberLookup = useUserLookup(board.workspaceId);
   const boardId = board.id;
 
   const lookup = useCallback(
-    (targetUid: string): string | undefined => {
-      if (user && targetUid === user.uid) return user.displayName ?? user.email ?? 'You';
-      return viewers.find((v) => v.uid === targetUid)?.displayName || undefined;
-    },
-    [user, viewers],
+    (targetUid: string): string | undefined => memberLookup(targetUid)?.name,
+    [memberLookup],
   );
 
   // Search is per session: a fresh board starts without it.

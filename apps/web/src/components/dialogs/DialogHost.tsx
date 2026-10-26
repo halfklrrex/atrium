@@ -1,6 +1,7 @@
 import { useUiStore } from '../AppShell/ui-store';
 import { AboutDialog } from './AboutDialog';
 import { BoardPermissionsDialog, NewBoardDialog } from './BoardDialogs';
+import { MembersDialog } from '../membership/MembersDialog';
 import { DeleteFolderDialog, FolderDialog } from './FolderDialogs';
 import { NewWorkspaceDialog, WorkspaceSettingsDialog } from './WorkspaceDialogs';
 
@@ -43,6 +44,10 @@ export function DialogHost() {
       );
     case 'boardPermissions':
       return <BoardPermissionsDialog boardId={dialog.boardId} onClose={close} />;
+    case 'members':
+      return (
+        <MembersDialog workspaceId={dialog.workspaceId} initialTab={dialog.tab} onClose={close} />
+      );
     case 'about':
       return <AboutDialog onClose={close} />;
   }

@@ -25,6 +25,8 @@ import {
   type User,
   type UserProfileUpdate,
   type Workspace,
+  type WorkspaceInvite,
+  type WorkspaceMember,
 } from '@atrium/shared';
 import {
   collection,
@@ -53,7 +55,9 @@ import type {
   FavoriteDoc,
   FolderDoc,
   ItemDoc,
+  InviteDoc,
   ItemUpdateDoc,
+  MemberDoc,
   RecentDoc,
   UpdateReplyDoc,
   UserDoc,
@@ -86,11 +90,15 @@ const itemUpdateConverter = converter<ItemUpdate>();
 const updateReplyConverter = converter<UpdateReply>();
 const favoriteConverter = converter<Favorite>();
 const recentConverter = converter<Recent>();
+const memberConverter = converter<WorkspaceMember>();
+const inviteConverter = converter<WorkspaceInvite>();
 
 const COLLECTIONS = {
   users: 'users',
   workspaces: 'workspaces',
   folders: 'folders',
+  members: 'members',
+  invites: 'invites',
   boards: 'boards',
   items: 'items',
   views: 'views',
@@ -115,6 +123,15 @@ export const refs = {
   folders: (workspaceId: string): CollectionReference<FolderDoc> =>
     collection(db, COLLECTIONS.workspaces, workspaceId, COLLECTIONS.folders).withConverter(
       folderConverter,
+    ),
+  members: (workspaceId: string): CollectionReference<MemberDoc> =>
+    collection(db, COLLECTIONS.workspaces, workspaceId, COLLECTIONS.members).withConverter(
+      memberConverter,
+    ),
+  /** Owner/admin only (rules); invitees see theirs through the listMyInvites callable. */
+  invites: (workspaceId: string): CollectionReference<InviteDoc> =>
+    collection(db, COLLECTIONS.workspaces, workspaceId, COLLECTIONS.invites).withConverter(
+      inviteConverter,
     ),
 
   boards: (): CollectionReference<BoardDoc> =>
@@ -204,6 +221,10 @@ export const queries = {
   /** "My workspaces" - the query the rules are written for. */
   workspacesForMember: (uid: string): Query<WorkspaceDoc> =>
     query(refs.workspaces(), where('memberIds', 'array-contains', uid)),
+
+  /** Pending invites of a workspace (owner/admin). */
+  pendingInvites: (workspaceId: string): Query<InviteDoc> =>
+    query(refs.invites(workspaceId), where('status', '==', 'pending')),
 
   /** Listing half 1: main boards of a workspace (visible to every member). */
   mainBoardsInWorkspace: (workspaceId: string): Query<BoardDoc> =>

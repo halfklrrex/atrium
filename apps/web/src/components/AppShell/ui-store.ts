@@ -17,6 +17,7 @@ export type DialogState =
     }
   | { type: 'deleteFolder'; workspaceId: string; folderId: string }
   | { type: 'boardPermissions'; boardId: string }
+  | { type: 'members'; workspaceId: string; tab?: 'members' | 'invites' }
   | { type: 'about' };
 
 interface UiState {
