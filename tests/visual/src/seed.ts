@@ -475,6 +475,52 @@ export async function removeView(): Promise<void> {
     .delete();
 }
 
+/** Id of the shared Kanban view the Kanban screens add to the roadmap board (and remove again). */
+export const KANBAN_VIEW = 'view-status-board';
+
+/** A shared Kanban view on the roadmap board: lanes from Status, cards with three fields. */
+export async function addKanbanView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(KANBAN_VIEW)
+    .set({
+      name: 'Status board',
+      type: 'kanban',
+      position: 'a1',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        kanban: {
+          columnId: 'status',
+          cardColumnIds: ['area', 'scope', 'spec'],
+          collapsedLaneIds: [],
+          showEmptyLanes: true,
+        },
+      },
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeKanbanView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(KANBAN_VIEW)
+    .delete();
+}
+
 /** Forget every recently visited board, so Home shows its "No boards visited yet" state. */
 export async function clearRecents(): Promise<void> {
   const stale = await adminDb()

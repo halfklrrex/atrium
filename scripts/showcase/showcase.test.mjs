@@ -546,9 +546,9 @@ test('re-running converges to the same state and prunes showcase docs that are n
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
   const { docs, summary } = build();
   const views = docs.filter((d) => /^boards\/showcase-main\/views\/[^/]+$/.test(d.path));
-  assert.equal(summary.views, 1);
-  assert.equal(views.length, 1);
-  const view = views[0].data;
+  assert.equal(summary.views, 2);
+  assert.equal(views.length, 2);
+  const view = views.find((v) => v.data.name === 'Due this week').data;
   assert.equal(view.name, 'Due this week');
   assert.equal(view.type, 'table');
   assert.equal(view.ownerId, null);
@@ -561,6 +561,23 @@ test('the main board has a shared "Due this week" view: date filter, date sort, 
   assert.equal(from.columnId, 'due');
   assert.equal(from.value, '2026-10-23');
   assert.equal(to.value, '2026-10-31');
+});
+
+test('the main board has a shared Kanban "Status board": lanes from Status, three card fields', () => {
+  const { docs } = build();
+  const view = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-status-board').data;
+  assert.equal(view.type, 'kanban');
+  assert.equal(view.ownerId, null);
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const status = board.columns.find((c) => c.id === view.settings.kanban.columnId);
+  assert.equal(status.type, 'status');
+  assert.equal(view.settings.kanban.cardColumnIds.length, 3);
+  for (const id of view.settings.kanban.cardColumnIds) {
+    assert.ok(
+      board.columns.some((c) => c.id === id),
+      id,
+    );
+  }
 });
 
 test('a view that left the content is pruned on the next run', async () => {

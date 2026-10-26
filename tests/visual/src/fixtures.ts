@@ -81,6 +81,16 @@ export async function boardReady(page: Page): Promise<void> {
   await expect(page.locator('[role="row"][data-item-id]')).toHaveCount(18);
 }
 
+/** The seeded roadmap as a Kanban view: lanes for the status labels and all 18 cards. */
+export async function kanbanReady(page: Page): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('heading', { name: 'Product roadmap', level: 2 })).toBeVisible();
+  for (const lane of ['Done', 'Building', 'In review', 'Stuck', 'Not started']) {
+    await expect(page.getByRole('region', { name: lane })).toBeVisible();
+  }
+  await expect(page.locator('[data-card]')).toHaveCount(18);
+}
+
 /** Home with all four seeded boards and both workspaces rendered (snapshots arrive separately). */
 export async function homeReady(page: Page): Promise<void> {
   await appReady(page);

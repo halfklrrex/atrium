@@ -25,7 +25,6 @@ const TEXT_TYPES: ReadonlySet<string> = new Set([
   'long_text',
   'email',
   'phone',
-  'numbers',
   'auto_number',
   'item_id',
 ]);

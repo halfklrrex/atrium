@@ -1295,6 +1295,37 @@ export function buildShowcase({
   });
   summary.views += 1;
 
+  // ---- A shared Kanban "Status board": lanes from the Status column, three fields on each card ----
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-status-board`,
+    data: boardViewSchema.parse({
+      name: 'Status board',
+      type: 'kanban',
+      position: 'a2',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        kanban: {
+          columnId: 'status',
+          cardColumnIds: ['area', 'due', 'person'],
+          collapsedLaneIds: [],
+          showEmptyLanes: true,
+        },
+      },
+      createdAt: ago(4 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
+
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
   const sideBoardColumns = columns

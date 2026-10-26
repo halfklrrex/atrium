@@ -1,11 +1,23 @@
-import { PARK_IN_HEADER, appReady, boardReady, expect, homeReady, shoot, test } from './fixtures';
+import {
+  PARK_IN_HEADER,
+  appReady,
+  boardReady,
+  expect,
+  homeReady,
+  kanbanReady,
+  shoot,
+  test,
+} from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 import {
   FULL_VIEW_ITEM,
   IDS,
+  KANBAN_VIEW,
+  addKanbanView,
   addView,
   clearRecents,
   createEmptyWorkspace,
+  removeKanbanView,
   removeView,
 } from './seed';
 
@@ -121,6 +133,30 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(panel.getByText('Budget', { exact: true })).toBeVisible();
       await panel.getByText('Area', { exact: true }).click();
       await shoot(page, `board-hide-popover-${theme}`, PARK_IN_HEADER);
+    });
+
+    test('board: Kanban view', async ({ page }) => {
+      await addKanbanView();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${KANBAN_VIEW}`);
+        await kanbanReady(page);
+        await shoot(page, `board-kanban-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeKanbanView();
+      }
+    });
+
+    test('board: Kanban view with a collapsed lane', async ({ page }) => {
+      await addKanbanView();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${KANBAN_VIEW}`);
+        await kanbanReady(page);
+        await page.getByRole('button', { name: 'Collapse Done lane' }).click({ force: true });
+        await expect(page.getByRole('button', { name: /^Expand Done lane/ })).toBeVisible();
+        await shoot(page, `board-kanban-collapsed-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeKanbanView();
+      }
     });
 
     test('board: full item view', async ({ page }) => {
