@@ -14,6 +14,20 @@
     - 20px footer icons, a plain updates bubble, and a dimmed subitems icon when an item has none.
 - **Visual baselines:** `update-visual-baselines.yml` takes an optional `grep` input (see `docs/visual-testing.md`).
 
+## Later the same evening
+
+- **VF7: thin scrollbars** (PR #12, merged).
+  - The owner saw "smushed" corners on the full item view. The cause was Windows' classic 17px scrollbars, with arrow buttons, running into the window's rounded corner.
+  - Now `theme/scrollbar-tokens.css` gives monday-style 4px and 6px scrollbars (measured on monday). Every scroll container opts in with `composes: atrium-scroll from global`.
+  - **Gotcha:** headless Playwright passes `--hide-scrollbars`, so no visual test or CI baseline can see scrollbars. To check them, run Playwright with `ignoreDefaultArgs: ['--hide-scrollbars']` on Windows.
+- **Flaky test fix** (PR #10): `membership.test.tsx` now waits up to 5s for Vibe's async menus (`pickMenuAction`).
+- **Owner production runs (done by the owner):**
+  - The member backfill dry run found nothing to write; `bootstrapUser` had already healed it.
+  - The showcase was re-seeded with the three fictional members.
+- **Roadmap Actionable column** (`AGENTS.md`): Yes, Agents or No.
+  - All items waiting on the owner are set to Yes, each with an update saying what to check.
+  - Explanations were posted on "Showcase board + seed script" and on "Tags, rating, vote, …".
+
 ## Gotchas
 
 - **The visual gate misses small colour-token shifts.**
@@ -24,10 +38,7 @@
 
 ## Next
 
-- **Owner, after the P4a deploy:**
-  - Run the member backfill against production: first `pnpm exec tsx scripts/backfill-members.mjs --project atrium-board` (dry run), then add `--yes`.
-  - Then re-run the showcase seed (command in `.private/project-ids.md`) so the fake member profiles appear.
-  - The agent's permission mode blocked these production runs.
+- **Start of next session:** the Roadmap items with Actionable = Agents, then the owner's reply on "VF: item card & updates sidebar" (they asked to discuss the next pass).
 - **VF "Members dialog & invite page fidelity":** capture monday's members dialog, then do the measured pass. It's low priority.
 - **Kanban:** inline subitem expansion on cards, as monday does it. People and date field rows are still unmeasured, because the owner's Roadmap Kanban shows neither field.
 - **Open question for the owner:** should the visual gate be stricter on colour (a lower per-pixel `threshold`)? It would catch token shifts but is noisier. It's unchanged for now.
