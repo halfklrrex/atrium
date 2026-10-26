@@ -239,6 +239,7 @@
 }
 
 .treeScroll {
+  composes: atrium-scroll from global;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -304,6 +305,7 @@
 }
 
 .switchScroll {
+  composes: atrium-scroll from global;
   max-height: var(--atrium-popover-max-height);
   overflow-y: auto;
 }

@@ -1,0 +1,60 @@
+/*
+ * Thin monday-style scrollbars (VF7, docs/specs/VF7-scrollbars.md). Measured on monday: 4px for panels,
+ * lists and popovers, 6px for the board table body; the thumb is --ui-border-color with a 4px radius;
+ * no track and no arrow buttons. Applied per scroll container through `composes: atrium-scroll from global`.
+ * Dark and black themes inherit through the Vibe variables.
+ *
+ * scrollbar-width / scrollbar-color are deliberately NOT set where ::-webkit-scrollbar applies: Chromium
+ * 121+ ignores the pseudo-elements on an element that has the standard properties.
+ */
+
+:root {
+  --atrium-scrollbar-size: 4px;
+  --atrium-scrollbar-size-table: 6px;
+  --atrium-scrollbar-thumb: var(--ui-border-color);
+  --atrium-scrollbar-thumb-hover: var(--icon-color);
+  --atrium-scrollbar-radius: 4px;
+}
+
+.atrium-scroll::-webkit-scrollbar {
+  width: var(--atrium-scrollbar-size);
+  height: var(--atrium-scrollbar-size);
+}
+
+.atrium-scroll-table::-webkit-scrollbar {
+  width: var(--atrium-scrollbar-size-table);
+  height: var(--atrium-scrollbar-size-table);
+}
+
+.atrium-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.atrium-scroll::-webkit-scrollbar-thumb {
+  border-radius: var(--atrium-scrollbar-radius);
+  background-color: var(--atrium-scrollbar-thumb);
+}
+
+.atrium-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--atrium-scrollbar-thumb-hover);
+}
+
+.atrium-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+
+.atrium-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* The full item view's panes run to the window's rounded bottom corners: stop the track short of them. */
+.atrium-scroll-inset::-webkit-scrollbar-track {
+  margin-block-end: var(--border-radius-big);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .atrium-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--atrium-scrollbar-thumb) transparent;
+  }
+}

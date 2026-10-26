@@ -5,6 +5,7 @@
 
 /* Portalled to <body> and placed with fixed coordinates by Popover.tsx. */
 .panel {
+  composes: atrium-scroll from global;
   position: fixed;
   z-index: var(--atrium-z-popover);
   max-width: calc(100vw - var(--space-16));

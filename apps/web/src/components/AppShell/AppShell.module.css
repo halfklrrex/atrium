@@ -81,6 +81,7 @@
 
 /* The panel's own rounded top-left corner shows the sidebar gradient behind it. */
 .content {
+  composes: atrium-scroll from global;
   position: relative;
   flex: 1;
   min-width: 0;

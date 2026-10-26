@@ -1,4 +1,5 @@
 .popup {
+  composes: atrium-scroll from global;
   position: fixed;
   z-index: var(--atrium-table-z-popup);
   max-width: calc(100vw - var(--space-16));

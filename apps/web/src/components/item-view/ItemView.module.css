@@ -98,12 +98,14 @@
 }
 
 .body {
+  composes: atrium-scroll from global;
   display: flex;
   flex: 1;
   min-height: 0;
 }
 
 .main {
+  composes: atrium-scroll atrium-scroll-inset from global;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
@@ -114,6 +116,7 @@
 }
 
 .side {
+  composes: atrium-scroll atrium-scroll-inset from global;
   flex: none;
   width: var(--atrium-item-view-fields-width);
   overflow-y: auto;
