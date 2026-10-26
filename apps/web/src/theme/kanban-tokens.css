@@ -1,0 +1,47 @@
+/*
+ * Kanban view tokens (P3). Measured from monday's Kanban at a 1718px viewport (see
+ * docs/specs/P3-kanban.md, "Measured monday reference"). Dark and black themes inherit through the
+ * Vibe variables these build on.
+ */
+
+:root {
+  /* ---- Geometry ---- */
+  --atrium-kanban-lane-width: 260px;
+  --atrium-kanban-lane-gap: var(--space-16);
+  --atrium-kanban-header-height: 40px;
+  --atrium-kanban-collapsed-width: 40px;
+  --atrium-kanban-inset: var(
+    --space-12
+  ); /* card inset inside the lane body (260px lane, 236px card) */
+  --atrium-kanban-card-gap: var(--space-8);
+  --atrium-kanban-card-padding: var(--space-8);
+  --atrium-kanban-status-bar: 4px; /* left bar of the compact status label on a card */
+  --atrium-kanban-icon: 16px;
+  --atrium-kanban-battery-width: 112px;
+  --atrium-kanban-battery-height: 24px;
+  --atrium-kanban-gutter: var(--atrium-board-gutter);
+
+  /* ---- Typography ---- */
+  --atrium-kanban-lane-title-font: 600 16px / 24px var(--font-family);
+  --atrium-kanban-lane-count-font: 400 14px / 21px var(--font-family);
+  --atrium-kanban-card-title-font: 400 14px / 18px var(--font-family);
+  --atrium-kanban-field-font: 400 14px / 21px var(--font-family);
+  --atrium-kanban-count-font: 400 14px / 18px var(--font-family);
+
+  /* ---- Colours ---- */
+  --atrium-kanban-lane-bg: var(--allgrey-background-color);
+  --atrium-kanban-header-text: var(--atrium-white);
+  --atrium-kanban-empty-header: var(--color-explosive);
+  --atrium-kanban-card-bg: var(--atrium-surface-bg);
+  --atrium-kanban-card-border: var(--border-width) var(--border-style) var(--ui-border-color);
+  --atrium-kanban-card-hover: var(--primary-background-hover-color);
+  --atrium-kanban-field-icon: var(--secondary-text-color);
+  --atrium-kanban-status-bg: var(--allgrey-background-color);
+  --atrium-kanban-drop-marker: var(--primary-color);
+
+  /* ---- Shape ---- */
+  --atrium-kanban-lane-radius: var(--border-radius-medium); /* 8px */
+  --atrium-kanban-card-radius: var(--border-radius-medium);
+  --atrium-kanban-marker-height: 3px;
+  --atrium-kanban-drag-tilt: 2deg;
+}

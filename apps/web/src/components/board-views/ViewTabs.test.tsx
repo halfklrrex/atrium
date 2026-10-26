@@ -138,7 +138,7 @@ describe('view tabs', () => {
     expect(goTo).toHaveBeenCalledWith('v1');
   });
 
-  it('adds views from the plus menu, with the other types marked as coming soon', async () => {
+  it('adds views from the plus menu, with only the later types marked as coming soon', async () => {
     renderTabs({ canEdit: true });
     fireEvent.click(screen.getByRole('button', { name: 'Add view' }));
     const items = await screen.findAllByRole('menuitem');
@@ -147,7 +147,9 @@ describe('view tabs', () => {
       expect.arrayContaining(['Table', 'Kanban', 'Calendar', 'Timeline', 'Gantt', 'Chart', 'Map']),
     );
     const kanban = items.find((item) => item.textContent === 'Kanban');
-    expect(kanban?.className).toMatch(/disabled/);
+    expect(kanban?.className).not.toMatch(/disabled/);
+    const calendar = items.find((item) => item.textContent === 'Calendar');
+    expect(calendar?.className).toMatch(/disabled/);
     const table = items.find((item) => item.textContent === 'Table');
     expect(table?.className).not.toMatch(/disabled/);
   });

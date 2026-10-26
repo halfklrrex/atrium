@@ -309,9 +309,7 @@ export function ViewTabs() {
           <MenuItem
             title="Kanban"
             icon={Board}
-            disabled
-            tooltipContent="Coming soon"
-            onClick={() => undefined}
+            onClick={() => void viewActions.add(actions, 'kanban')}
           />
           {SOON_VIEWS.map((soon) => (
             <MenuItem

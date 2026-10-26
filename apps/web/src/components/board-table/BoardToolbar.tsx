@@ -1,6 +1,6 @@
 import { Button, Menu, MenuButton, MenuItem, SplitButton } from '@vibe/core';
 import { Add, Close, Search } from '@vibe/icons';
-import { useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef, type ReactNode } from 'react';
 import type { BoardDoc, ItemDoc } from '../../data';
 import {
   AdvancedFilterPopover,
@@ -10,7 +10,7 @@ import {
   SortMenuPopover,
 } from '../board-filters';
 import { ViewSaveBar } from '../board-views/ViewSaveBar';
-import { useTableEnv } from './table-env';
+import { TableEnvContext } from './table-env';
 import { useTableStore } from './table-store';
 import styles from './table.module.css';
 
@@ -23,8 +23,12 @@ export interface BoardToolbarProps {
   board?: BoardDoc;
   items?: ItemDoc[];
   userLookup?: (uid: string) => string | undefined;
-  onNewItem: () => void;
-  onNewGroup: () => void;
+  /** `'kanban'` leaves out New item, Hide and Group by (monday's Kanban toolbar has none of them). */
+  variant?: 'table' | 'kanban';
+  /** Right-aligned extras (the Kanban status bar and settings gear). */
+  trailing?: ReactNode;
+  onNewItem?: () => void;
+  onNewGroup?: () => void;
   onDev?: (action: 'seed-1000' | 'seed-roadmap') => void;
 }
 
@@ -33,11 +37,15 @@ export function BoardToolbar({
   board,
   items,
   userLookup,
+  variant = 'table',
+  trailing,
   onNewItem,
   onNewGroup,
   onDev,
 }: BoardToolbarProps) {
-  const env = useTableEnv();
+  const kanban = variant === 'kanban';
+  // Outside the table (the Kanban view) there is no table environment, and no New item button.
+  const canEdit = useContext(TableEnvContext)?.canEdit ?? false;
   const searchOpen = useTableStore((s) => s.searchOpen);
   const search = useTableStore((s) => s.search);
   const setSearch = useTableStore((s) => s.setSearch);
@@ -50,19 +58,21 @@ export function BoardToolbar({
 
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Board tools">
-      <SplitButton
-        size="small"
-        disabled={!env.canEdit}
-        onClick={onNewItem}
-        secondaryDialogContent={
-          <Menu id="new-item-menu" size="medium">
-            <MenuItem title="New group of items" icon={Add} onClick={onNewGroup} />
-          </Menu>
-        }
-        shouldCloseOnClickInsideDialog
-      >
-        New item
-      </SplitButton>
+      {kanban ? null : (
+        <SplitButton
+          size="small"
+          disabled={!canEdit}
+          onClick={onNewItem}
+          secondaryDialogContent={
+            <Menu id="new-item-menu" size="medium">
+              <MenuItem title="New group of items" icon={Add} onClick={onNewGroup} />
+            </Menu>
+          }
+          shouldCloseOnClickInsideDialog
+        >
+          New item
+        </SplitButton>
+      )}
 
       {searchOpen ? (
         <div className={styles.searchBox}>
@@ -111,17 +121,23 @@ export function BoardToolbar({
         <SortMenuPopover board={board} />
       </span>
 
-      {/* Hide: which columns this view shows */}
-      <span className={styles.toolWrap}>
-        <HideColumnsPopover board={board} />
-      </span>
+      {kanban ? null : (
+        <>
+          {/* Hide: which columns this view shows */}
+          <span className={styles.toolWrap}>
+            <HideColumnsPopover board={board} />
+          </span>
 
-      {/* Group by */}
-      <span className={styles.toolWrap}>
-        <GroupByMenuPopover board={board} />
-      </span>
+          {/* Group by */}
+          <span className={styles.toolWrap}>
+            <GroupByMenuPopover board={board} />
+          </span>
+        </>
+      )}
 
       <ViewSaveBar />
+
+      {trailing ? <div className={styles.toolbarTrailing}>{trailing}</div> : null}
 
       {onDev && devToolsEnabled() ? (
         <MenuButton size="small" aria-label="Developer tools" closeMenuOnItemClick>

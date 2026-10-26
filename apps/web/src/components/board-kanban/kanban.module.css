@@ -1,0 +1,479 @@
+.root {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-16) var(--atrium-kanban-gutter) 0;
+  overflow: auto;
+  outline: 0;
+}
+
+.lanes {
+  display: flex;
+  align-items: stretch;
+  gap: var(--atrium-kanban-lane-gap);
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  padding-inline-end: var(--atrium-kanban-gutter);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-48) var(--space-16);
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+/* ---- Lane ---- */
+
+.lane {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--atrium-kanban-lane-width);
+}
+
+.laneHeader {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  height: var(--atrium-kanban-header-height);
+  padding-inline: var(--space-8);
+  border-radius: var(--atrium-kanban-lane-radius) var(--atrium-kanban-lane-radius) 0 0;
+  background: var(--atrium-kanban-empty-header);
+  color: var(--atrium-kanban-header-text);
+}
+
+.laneTitle {
+  min-width: 0;
+  overflow: hidden;
+  font: var(--atrium-kanban-lane-title-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.laneCount {
+  flex: none;
+  font: var(--atrium-kanban-lane-count-font);
+}
+
+.collapse {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  margin-inline-start: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.laneHeader:hover .collapse,
+.collapse:focus-visible {
+  opacity: 1;
+}
+
+.collapse:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.collapse svg {
+  width: var(--atrium-kanban-icon);
+  height: var(--atrium-kanban-icon);
+}
+
+.laneBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--atrium-kanban-card-gap);
+  padding: var(--atrium-kanban-inset);
+  border-radius: 0 0 var(--atrium-kanban-lane-radius) var(--atrium-kanban-lane-radius);
+  background: var(--atrium-kanban-lane-bg);
+}
+
+.laneOver {
+  outline: var(--border-width) var(--border-style) var(--atrium-kanban-drop-marker);
+  outline-offset: calc(var(--border-width) * -1);
+}
+
+.virtualList {
+  position: relative;
+  width: 100%;
+}
+
+.virtualItem {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+}
+
+/* Collapsed: a narrow strip with the name running down it. */
+.collapsed {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  box-sizing: border-box;
+  width: var(--atrium-kanban-collapsed-width);
+  padding: var(--space-12) 0;
+  border: 0;
+  border-radius: var(--atrium-kanban-lane-radius);
+  background: var(--atrium-kanban-empty-header);
+  color: var(--atrium-kanban-header-text);
+  cursor: pointer;
+}
+
+.collapsed:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.collapsedTitle {
+  font: var(--atrium-kanban-lane-title-font);
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+}
+
+.collapsedCount {
+  font: var(--atrium-kanban-lane-count-font);
+}
+
+/* ---- Add item ---- */
+
+.addItem {
+  flex: none;
+}
+
+.addInput {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--space-32);
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--primary-color);
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-kanban-card-bg);
+  color: var(--primary-text-color);
+  font: var(--atrium-kanban-card-title-font);
+  outline: 0;
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  height: var(--space-32);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--secondary-text-color);
+  font: var(--atrium-kanban-card-title-font);
+  cursor: pointer;
+}
+
+.addButton:hover {
+  background: var(--atrium-kanban-card-hover);
+  color: var(--primary-text-color);
+}
+
+.addButton:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.addButton svg {
+  width: var(--atrium-kanban-icon);
+  height: var(--atrium-kanban-icon);
+}
+
+/* ---- Card ---- */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--atrium-kanban-card-padding);
+  border: var(--atrium-kanban-card-border);
+  border-radius: var(--atrium-kanban-card-radius);
+  background: var(--atrium-kanban-card-bg);
+  color: var(--primary-text-color);
+  cursor: pointer;
+  outline: 0;
+  touch-action: manipulation;
+}
+
+.card:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.cardDragging {
+  opacity: 0.4;
+}
+
+.cardOverlay {
+  cursor: grabbing;
+  box-shadow: var(--box-shadow-medium);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cardOverlay {
+    transform: rotate(var(--atrium-kanban-drag-tilt));
+  }
+}
+
+.cardTitle {
+  margin: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  font: var(--atrium-kanban-card-title-font);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.fieldIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: calc(var(--space-20) + var(--space-4));
+  color: var(--atrium-kanban-field-icon);
+}
+
+.fieldIcon svg {
+  width: var(--atrium-kanban-icon);
+  height: var(--atrium-kanban-icon);
+}
+
+.fieldValue {
+  flex: 1;
+  min-width: 0;
+  font: var(--atrium-kanban-field-font);
+}
+
+.fieldText {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.fieldLink {
+  display: block;
+  overflow: hidden;
+  color: var(--atrium-table-link);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fieldLink:hover {
+  text-decoration: underline;
+}
+
+/* Table cells fill their cell; here they take their own size and start at the left. */
+.fieldCell {
+  position: relative;
+  min-height: calc(var(--space-20) + var(--space-4));
+}
+
+.fieldCell > * {
+  position: static;
+  justify-content: flex-start;
+  height: auto;
+  padding: 0;
+}
+
+/* Status on a card: a compact label with a bar in the label colour, not a filled pill. */
+.statusLabel {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  box-sizing: border-box;
+  height: calc(var(--space-20) + var(--space-4));
+  padding-inline: var(--space-8);
+  overflow: hidden;
+  border-inline-start: var(--atrium-kanban-status-bar) solid var(--status-color);
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-kanban-status-bg);
+  font: var(--atrium-kanban-field-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  color: var(--secondary-text-color);
+}
+
+.footerButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--space-24);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--icon-color);
+  font: var(--atrium-kanban-count-font);
+  cursor: pointer;
+}
+
+.footerButton:hover {
+  background: var(--atrium-kanban-card-hover);
+}
+
+.footerButton:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.footerButton svg {
+  width: var(--atrium-kanban-icon);
+  height: var(--atrium-kanban-icon);
+}
+
+.footerCount {
+  color: var(--primary-text-color);
+}
+
+/* The blue line that shows where a card dragged from another lane would land. */
+.marker {
+  flex: none;
+  height: var(--atrium-kanban-marker-height);
+  border-radius: var(--atrium-kanban-marker-height);
+  background: var(--atrium-kanban-drop-marker);
+}
+
+/* ---- Toolbar extras (right side) ---- */
+
+.trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-inline-start: auto;
+}
+
+.battery {
+  display: flex;
+  box-sizing: border-box;
+  width: var(--atrium-kanban-battery-width);
+  height: var(--atrium-kanban-battery-height);
+  overflow: hidden;
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-kanban-empty-header);
+}
+
+.segment {
+  height: 100%;
+  min-width: 0;
+}
+
+/* ---- Settings popover ---- */
+
+.settingsPanel {
+  width: 300px;
+  max-width: calc(100vw - var(--space-32));
+}
+
+.settingsLabel {
+  display: block;
+  margin-block: var(--space-12) var(--space-4);
+  color: var(--secondary-text-color);
+  font: var(--atrium-kanban-field-font);
+}
+
+.settingsLabel:first-of-type {
+  margin-block-start: 0;
+}
+
+.select {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--space-32);
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-kanban-card-bg);
+  color: var(--primary-text-color);
+  font: var(--atrium-kanban-card-title-font);
+}
+
+.select:focus-visible {
+  border-color: var(--primary-color);
+  outline: 0;
+}
+
+.fieldList {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.fieldRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--border-radius-small);
+}
+
+.fieldRow:hover {
+  background: var(--atrium-kanban-card-hover);
+}
+
+.fieldRowLabel {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.reorder {
+  display: inline-flex;
+}
+
+.settingsFooter {
+  margin-block-start: var(--space-12);
+}
+
+@media (width <= 768px) {
+  .scroll {
+    padding-inline: var(--space-16);
+  }
+}

@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import {
   MAIN_VIEW_ID,
   createDefaultFilterState,
+  defaultKanbanSettings,
   defaultViewSettings,
   type BoardFilterState,
+  type KanbanSettings,
   type FilterCondition,
   type FilterGroup,
   type SortCondition,
@@ -14,6 +17,8 @@ import {
 export interface ViewState {
   filter: BoardFilterState;
   hiddenColumnIds: string[];
+  /** Kanban lane and card settings; `null` for a view that has none (a table, or nothing saved yet). */
+  kanban: KanbanSettings | null;
 }
 
 /** `saved` mirrors the stored view; `current` is what the user sees (and may have changed). */
@@ -39,13 +44,16 @@ export function stateFromSettings(settings: ViewSettings | null | undefined): Vi
       groupByColumnId: s.filter.groupByColumnId,
     },
     hiddenColumnIds: [...s.hiddenColumnIds],
+    kanban: s.kanban ? structuredClone(s.kanban) : null,
   };
 }
 
 /** The part of a view state that is saved (search text is per session and never saved). */
 export function settingsFromState(state: ViewState, base?: ViewSettings): ViewSettings {
+  const { kanban: _stored, ...rest } = base ?? defaultViewSettings();
   return {
-    ...(base ?? defaultViewSettings()),
+    ...rest,
+    ...(state.kanban ? { kanban: state.kanban } : {}),
     filter: {
       personIds: state.filter.personIds,
       filterGroup: state.filter.filterGroup,
@@ -63,13 +71,18 @@ const fingerprint = (state: ViewState): string =>
     state.filter.sortConditions,
     state.filter.groupByColumnId,
     state.hiddenColumnIds,
+    state.kanban,
   ]);
 
 export function isViewDirty(entry: ViewEntry | undefined): boolean {
   return entry ? fingerprint(entry.saved) !== fingerprint(entry.current) : false;
 }
 
-const emptyState = (): ViewState => ({ filter: createDefaultFilterState(), hiddenColumnIds: [] });
+const emptyState = (): ViewState => ({
+  filter: createDefaultFilterState(),
+  hiddenColumnIds: [],
+  kanban: null,
+});
 
 interface FilterStoreState {
   /** The view each board currently shows; actions below act on it. */
@@ -100,6 +113,10 @@ interface FilterStoreState {
   setGroupBy: (boardId: string, groupByColumnId: string | null) => void;
   resetFilters: (boardId: string) => void;
   setHiddenColumnIds: (boardId: string, ids: string[]) => void;
+  /** Change Kanban lane and card settings (counts as an unsaved change). */
+  setKanban: (boardId: string, patch: Partial<KanbanSettings>) => void;
+  /** Collapse or expand one Kanban lane. */
+  toggleLane: (boardId: string, laneKey: string) => void;
 }
 
 export const useFilterStore = create<FilterStoreState>()((set, get) => {
@@ -259,6 +276,21 @@ export const useFilterStore = create<FilterStoreState>()((set, get) => {
 
     setHiddenColumnIds: (boardId, hiddenColumnIds) =>
       change(boardId, (current) => ({ ...current, hiddenColumnIds })),
+
+    setKanban: (boardId, patch) =>
+      change(boardId, (current) => ({
+        ...current,
+        kanban: { ...(current.kanban ?? defaultKanbanSettings()), ...patch },
+      })),
+
+    toggleLane: (boardId, laneKey) =>
+      change(boardId, (current) => {
+        const kanban = current.kanban ?? defaultKanbanSettings();
+        const collapsed = kanban.collapsedLaneIds.includes(laneKey)
+          ? kanban.collapsedLaneIds.filter((k) => k !== laneKey)
+          : [...kanban.collapsedLaneIds, laneKey];
+        return { ...current, kanban: { ...kanban, collapsedLaneIds: collapsed } };
+      }),
   };
 });
 
@@ -289,6 +321,12 @@ export function useViewDirty(boardId: string | undefined): boolean {
 /** Whether the given view of a board has unsaved changes (for the tab dot). */
 export function useViewIdDirty(boardId: string, viewId: string): boolean {
   return useFilterStore((s) => isViewDirty(s.views[viewKey(boardId, viewId)]));
+}
+
+/** The active Kanban view's settings (unsaved changes included; defaults when none are stored). */
+export function useKanbanSettings(boardId: string | undefined): KanbanSettings {
+  const kanban = useFilterStore((s) => entryOf(s, boardId ?? '__default__')?.current.kanban);
+  return useMemo(() => kanban ?? defaultKanbanSettings(), [kanban]);
 }
 
 /** Column ids the active view hides (unsaved Hide changes included). */
