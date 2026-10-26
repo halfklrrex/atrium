@@ -150,6 +150,20 @@ describe('memberRowActions', () => {
   });
 });
 
+// Vibe's menu and the confirm panel render through async popper/portal steps, so on a slow
+// CI runner the default 1000ms `findBy*` window can expire. Give those waits a real budget.
+const SLOW_UI = { timeout: 5000 };
+
+async function pickMenuAction(
+  user: ReturnType<typeof userEvent.setup>,
+  who: string,
+  item: string,
+): Promise<HTMLElement> {
+  await user.click(screen.getByRole('button', { name: `Actions for ${who}` }));
+  await user.click(await screen.findByRole('menuitem', { name: item }, SLOW_UI));
+  return screen.findByRole('alertdialog', {}, SLOW_UI);
+}
+
 describe('MembersDialog', () => {
   it('lists members with names and emails, owner first', () => {
     renderDialog('owner');
@@ -210,9 +224,7 @@ describe('MembersDialog', () => {
   it('confirms before removing and then calls removeMember', async () => {
     renderDialog('owner');
     const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: 'Actions for Sam Rivera' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Remove from workspace' }));
-    const confirm = await screen.findByRole('alertdialog');
+    const confirm = await pickMenuAction(user, 'Sam Rivera', 'Remove from workspace');
     expect(confirm).toHaveTextContent('Remove Sam Rivera from Home base?');
     expect(mocks.calls.removeMember).not.toHaveBeenCalled();
     await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
@@ -224,9 +236,7 @@ describe('MembersDialog', () => {
   it('offers ownership transfer to the owner behind a confirmation', async () => {
     renderDialog('owner');
     const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: 'Actions for Jordan Lee' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Transfer ownership' }));
-    const confirm = await screen.findByRole('alertdialog');
+    const confirm = await pickMenuAction(user, 'Jordan Lee', 'Transfer ownership');
     await user.click(within(confirm).getByRole('button', { name: 'Transfer ownership' }));
     await waitFor(() =>
       expect(mocks.calls.changeMemberRole).toHaveBeenCalledWith({
@@ -240,13 +250,8 @@ describe('MembersDialog', () => {
   it('closes and leaves the workspace for a member', async () => {
     const { onClose } = renderDialog('member');
     const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: 'Actions for Sam Rivera' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave workspace' }));
-    await user.click(
-      within(await screen.findByRole('alertdialog')).getByRole('button', {
-        name: 'Leave workspace',
-      }),
-    );
+    const confirm = await pickMenuAction(user, 'Sam Rivera', 'Leave workspace');
+    await user.click(within(confirm).getByRole('button', { name: 'Leave workspace' }));
     await waitFor(() =>
       expect(mocks.calls.leaveWorkspace).toHaveBeenCalledWith({ workspaceId: 'w1' }),
     );
@@ -305,12 +310,11 @@ describe('MembersDialog', () => {
     });
     renderDialog('owner');
     const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: 'Actions for Sam Rivera' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Remove from workspace' }));
-    await user.click(
-      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }),
-    );
-    expect(await screen.findByText(/do not have permission to remove/i)).toBeInTheDocument();
+    const confirm = await pickMenuAction(user, 'Sam Rivera', 'Remove from workspace');
+    await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
+    expect(
+      await screen.findByText(/do not have permission to remove/i, {}, SLOW_UI),
+    ).toBeInTheDocument();
   });
 });
 
