@@ -20,6 +20,28 @@ kanban: {
 - Add the zod schema to the view schema from `P3-saved-views.md`.
 - The view's `settings.filter` and `hiddenColumnIds` apply as in table views (filters, person filter and search all work). Group-by doesn't apply to Kanban, so hide that toolbar control in Kanban views.
 
+## Measured monday reference (2026-10-26, 1718px viewport, read-only)
+
+These values **override** the layout section below wherever they differ. The private screenshot is `docs/reference/monday/12-kanban.jpg` (gitignored, home copy only).
+
+- **Lanes:**
+  - **260px** wide with a **16px** gap (lane x positions 305, 581, 857…), starting at the board's content gutter.
+  - The lane is a column: header, then body.
+- **Lane header:**
+  - **40px** tall, filled with the **label colour**, radius **8px 8px 0 0**.
+  - Title in white, Figtree **16px/24px weight 600**, with about 8px left padding. The count follows in white, **14px/21px weight 400**, 4px after the title.
+  - The empty-lane header is the same; for example "Blocked 0" in red.
+- **Lane body:** background **`#F6F7FB`** (the all-grey token), radius **0 0 8px 8px**. It's plain grey, not tinted per label, and runs the full height of the board area.
+- **Cards:**
+  - **236px** wide, so a **12px** inset each side in the lane, with about 12px from the top of the body and about 8px between cards.
+  - White, **1px `#D0D4E4`** border (the ui-border token), **8px** radius, **8px** padding, **no shadow**.
+  - **Title:** Figtree **14px/18px**, primary text, up to 2-3 lines.
+  - **Field rows:** each row is the **column icon** (small, secondary colour) followed by the value. The column title is **not** shown.
+    - Tags and dropdowns are light-blue chips; long text is 2 lines at 14px/21px with an ellipsis; links show the link icon and text.
+    - **Status** on a card is a compact label with a **4px left bar in the label colour** and the label text at 14px, not a filled pill.
+  - **Footer row,** right-aligned: the updates bubble (with the count when there are updates, for example "4 💬"), then the subitems icon.
+- **The toolbar** above the lanes: Search, Person, Filter, Sort, a `⋯` menu, and on the right a small **status distribution bar** (battery) plus icons for export, settings (gear), board updates and collapse. Group by and Hide are absent in Kanban. Copy the battery bar and the settings gear; skip export and board updates for now.
+
 ## Layout (monday style, until Ophelia captures a measured reference)
 
 - **The board area:** a horizontal scroller of lanes, each about **272px** wide, with an 8px gap, under the existing board header and toolbar. It uses the same 40px gutter as the table.
