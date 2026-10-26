@@ -37,7 +37,7 @@ describe('design tokens', () => {
       used(css).forEach((name) => references.set(name, [...(references.get(name) ?? []), file]));
     }
     // Per-element custom properties that components set inline from data (group colour, tree depth...).
-    const inline = new Set(['--group-color', '--depth', '--progress']);
+    const inline = new Set(['--group-color', '--depth', '--progress', '--status-color']);
     const missing = [...references.keys()].filter(
       (name) => !known.has(name) && !local.has(name) && !inline.has(name),
     );

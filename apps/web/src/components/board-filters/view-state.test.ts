@@ -1,4 +1,4 @@
-import { defaultViewSettings, type ViewSettings } from '@atrium/shared';
+import { defaultKanbanSettings, defaultViewSettings, type ViewSettings } from '@atrium/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   currentViewState,
@@ -125,5 +125,40 @@ describe('per-view filter state', () => {
     const saved = settingsFromState(state);
     expect(saved).toEqual(filtered());
     expect(JSON.stringify(saved)).not.toContain('secret');
+  });
+});
+
+describe('kanban view state', () => {
+  const kanbanSettings = (): ViewSettings => ({
+    ...defaultViewSettings(),
+    kanban: { ...defaultKanbanSettings(), columnId: 'status', cardColumnIds: ['a'] },
+  });
+
+  it('starts from the saved kanban settings and stays clean', () => {
+    store().syncView('b1', 'k', kanbanSettings());
+    expect(currentViewState('b1').kanban?.cardColumnIds).toEqual(['a']);
+    expect(isViewDirty(store().views[viewKey('b1', 'k')])).toBe(false);
+  });
+
+  it('counts card fields, lane collapsing and the lane column as unsaved changes', () => {
+    store().syncView('b1', 'k', kanbanSettings());
+    store().setKanban('b1', { cardColumnIds: ['a', 'b'] });
+    expect(isViewDirty(store().views[viewKey('b1', 'k')])).toBe(true);
+    store().discardChanges('b1');
+    expect(currentViewState('b1').kanban?.cardColumnIds).toEqual(['a']);
+    store().toggleLane('b1', 'done');
+    expect(currentViewState('b1').kanban?.collapsedLaneIds).toEqual(['done']);
+    store().toggleLane('b1', 'done');
+    expect(currentViewState('b1').kanban?.collapsedLaneIds).toEqual([]);
+  });
+
+  it('saves the kanban settings with the rest, and a table never gains them', () => {
+    store().syncView('b1', 'k', kanbanSettings());
+    store().setKanban('b1', { showEmptyLanes: false });
+    const saved = settingsFromState(currentViewState('b1'), kanbanSettings());
+    expect(saved.kanban?.showEmptyLanes).toBe(false);
+    store().syncView('b1', 'main', null);
+    expect(currentViewState('b1').kanban).toBeNull();
+    expect(settingsFromState(currentViewState('b1')).kanban).toBeUndefined();
   });
 });

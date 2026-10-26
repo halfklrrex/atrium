@@ -9,7 +9,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
@@ -51,7 +50,6 @@ export const KanbanLane = memo(function KanbanLane(props: KanbanLaneProps) {
     id: laneDropId(lane.key),
     data: { type: 'lane', laneKey: lane.key },
   });
-  const colour = lane.color ? ({ '--lane-color': lane.color } as CSSProperties) : undefined;
 
   if (lane.collapsed) {
     return (
@@ -59,10 +57,7 @@ export const KanbanLane = memo(function KanbanLane(props: KanbanLaneProps) {
         ref={setNodeRef}
         type="button"
         className={styles.collapsed}
-        style={{
-          ...colour,
-          ...(lane.color ? { background: 'var(--lane-color)' } : null),
-        }}
+        style={lane.color ? { background: lane.color } : undefined}
         aria-label={`Expand ${lane.title} lane (${lane.items.length})`}
         aria-expanded={false}
         onClick={() => onToggle(lane.key)}
