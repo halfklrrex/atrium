@@ -8,7 +8,7 @@ The owner can invite family and friends (each with a Google account) into a work
 
 Board-level sharing (adding people to private or shareable boards, the board "Invite / N" button) is **P4b**, a separate spec.
 
-## Current state (facts at `689fb4a`)
+## Current state (facts at `689fb4a`, rechecked at `23679f5` on 2026-10-26)
 
 - **Workspace doc:** `ownerId`, `memberIds`, `roles{uid: owner|admin|member|viewer}`, `kind` (`packages/shared/src/schemas/workspace.ts:15-27`).
   - Invariant: `memberIds == keys(roles)` (`docs/architecture.md:80`).

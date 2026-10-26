@@ -6,6 +6,7 @@
 
 - `showcase-main`: the board "🧪 Atrium Showcase". It has 4 groups (This week, Next up, Backlog, Done), 26 active items, 2 archived and 2 trashed items, and every column type the board table can render today (People, two Status columns, Date, Numbers with a € unit, Dropdown, Text, Long text, Checkbox, Link). Four items carry updates and replies in the item card feed. A shared table view, "Due this week" (filtered and sorted by date, two columns hidden), shows in the view tabs. Dates are spread over the last and next 30 days, with some overdue items and some empty cells.
 - `showcase-archived-demo` and `showcase-trashed-demo`: two tiny boards, one archived and one deleted, so the workspace's **Archive & Trash** page has something to show. (That page lists boards. Archived and trashed _items_ have no screen yet; they are in the data for when one lands.)
+- **Three fake workspace members** (Jordan Lee, Sam Rivera and Casey Morgan, fixed uids `showcase-user-*`, `@example.com` emails), so People cells show names and initials instead of "Board member". They get `workspaces/{id}/members/{uid}` profile docs **only**: they are not in the workspace's `roles` or `memberIds`, are not real accounts, cannot sign in and do not appear in the Members dialog. Several items list them in the Owner column.
 - The owner's favourite and "recently visited" entries for the main board.
 
 Dates are laid out around "today" (UTC, midnight), so running it on a later day moves the whole board forward and keeps it fresh. `--now YYYY-MM-DD` pins the day.
@@ -39,7 +40,7 @@ pnpm showcase --project atrium-board --workspace <workspaceId> --owner <ownerUid
 
 ### Safety
 
-The script only ever creates, updates or deletes documents it owns: `boards/showcase-*` with their `items`, `updates` and `replies` (and any other sub-collection, on `--reset`), plus the owner's `favorites/showcase-*` and `recents/showcase-*`. Every write and delete is checked against that allow-list (`isOwnedPath` in `data.mjs`) before anything is sent. It also refuses to run when:
+The script only ever creates, updates or deletes documents it owns: `boards/showcase-*` with their `items`, `updates` and `replies` (and any other sub-collection, on `--reset`), plus the owner's `favorites/showcase-*` and `recents/showcase-*`, plus the three fake members' `workspaces/<workspace>/members/showcase-user-*` docs (only in the workspace being seeded; `--reset` recreates them). The workspace document, real members' docs, `invites` and `roles` are never touched. Every write and delete is checked against that allow-list (`isOwnedPath` in `data.mjs`) before anything is sent. It also refuses to run when:
 
 - the workspace does not exist, or the owner is not a member (or is only a viewer);
 - a `showcase-*` board id already exists in a _different_ workspace;
@@ -66,3 +67,7 @@ Everything is built with the shared zod schemas and every cell value goes throug
 ## Backfilling `updatesCount`
 
 The board table updates bubble reads the item `updatesCount`, which the app keeps current from now on. Items that already had updates before it existed (the showcase seed sets it itself) need a one-off backfill: `pnpm exec tsx scripts/backfill-updates-count.mjs [--board <id>]` runs against the emulator, and `... --project atrium-board [--board <id>] [--database <id>] --yes` against production (without `--yes` it only prints a dry run; it authenticates with `gcloud` and refuses a non-local emulator host). It counts each item `updates` sub-collection and patches only `updatesCount` (field mask), only where the stored value differs, so it is safe to re-run.
+
+## Backfilling member profiles
+
+Workspaces created before P4a have no `members` docs, so their members would show as "Board member" until each one signs in again (`bootstrapUser` writes the missing doc). `scripts/backfill-members.mjs` does it for everyone at once: `pnpm exec tsx scripts/backfill-members.mjs [--workspace <id>]` against the emulator, `... --project atrium-board [--workspace <id>] --yes` against production. It is a **dry run unless you pass `--yes`**, authenticates with `gcloud` like the showcase seed, copies name, email and photo from `users/{uid}`, only creates missing docs or fixes a stale `role` copy, and never deletes anything, so it is safe to re-run.
