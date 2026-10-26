@@ -9,6 +9,8 @@ import type {
   UpdateReply,
   User,
   Workspace,
+  WorkspaceInvite,
+  WorkspaceMember,
 } from '@atrium/shared';
 
 /** A document as the UI sees it: data plus its Firestore id. */
@@ -25,3 +27,6 @@ export type UpdateReplyDoc = WithId<UpdateReply>;
 export type UserDoc = WithId<User>;
 export type FavoriteDoc = WithId<Favorite>;
 export type RecentDoc = WithId<Recent>;
+/** `workspaces/{id}/members/{uid}`: the uid is the document id. */
+export type MemberDoc = WithId<WorkspaceMember>;
+export type InviteDoc = WithId<WorkspaceInvite>;

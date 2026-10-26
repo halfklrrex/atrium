@@ -1,0 +1,36 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-16);
+  min-height: 60vh;
+  padding: var(--space-24);
+  text-align: center;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  width: 100%;
+  max-width: var(--atrium-message-max-width);
+}
+
+.title {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-h2-normal);
+}
+
+.text {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text1-normal);
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-8);
+}

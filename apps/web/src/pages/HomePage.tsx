@@ -9,6 +9,7 @@ import { FavoriteStar } from '../components/boards/FavoriteStar';
 import { useUiStore } from '../components/AppShell/ui-store';
 import { showComingSoon } from '../components/toast-store';
 import { EmptyState } from '../components/EmptyState/EmptyState';
+import { PendingInvitations } from '../components/membership/PendingInvitations';
 import { EmptyRecents } from '../components/illustrations';
 import { WorkspaceTile } from '../components/WorkspaceTile';
 import {
@@ -82,6 +83,8 @@ export function HomePage() {
 
       <div className={styles.body}>
         <div className={styles.main}>
+          <PendingInvitations />
+
           <CollapsibleSection title="Recently visited">
             {recentsLoading || (recentIds.length > 0 && boardsLoading) ? (
               <p className={styles.muted}>Loading…</p>

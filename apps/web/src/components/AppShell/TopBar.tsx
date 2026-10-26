@@ -4,6 +4,7 @@ import classNames from 'classnames';
 import { Link } from 'react-router';
 import { AtriumMark } from '../AtriumLogo';
 import { showComingSoon } from '../toast-store';
+import { useCurrentWorkspace } from './useCurrentWorkspace';
 import { AppGridIcon } from './AppGridIcon';
 import styles from './AppShell.module.css';
 import { useUiStore } from './ui-store';
@@ -27,6 +28,15 @@ export function TopBar() {
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
   const notificationsOpen = useUiStore((s) => s.notificationsOpen);
   const setNotificationsOpen = useUiStore((s) => s.setNotificationsOpen);
+  const openDialog = useUiStore((s) => s.openDialog);
+  const { workspace } = useCurrentWorkspace();
+  const onAction = (label: string) => {
+    if (label === 'Invite members' && workspace) {
+      openDialog({ type: 'members', workspaceId: workspace.id, tab: 'invites' });
+    } else {
+      showComingSoon(label);
+    }
+  };
 
   return (
     <header className={styles.topBar}>
@@ -64,7 +74,7 @@ export function TopBar() {
               icon={icon}
               kind="tertiary"
               aria-label={label}
-              onClick={() => showComingSoon(label)}
+              onClick={() => onAction(label)}
             />
           </span>
         ))}

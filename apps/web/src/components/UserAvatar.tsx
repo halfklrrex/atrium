@@ -1,13 +1,13 @@
 import { Avatar } from '@vibe/core';
 import { Person } from '@vibe/icons';
-import { useAuth } from '../auth/auth-context';
+import { UNKNOWN_PERSON_NAME, useUserLookup } from '../data/members-store';
 import { initialsOf } from '../lib/format';
 
 type Size = 'xs' | 'small' | 'medium' | 'large';
 
 /**
- * Avatar for a user id. Uses explicit name and photoURL if provided, otherwise looks up current user
- * or falls back to a neutral person avatar.
+ * Avatar for a user id. Explicit name and photoURL win; otherwise the person is looked up among the
+ * members of the workspace being shown, and unknown people get a neutral person avatar.
  */
 export function UserAvatar({
   uid,
@@ -20,16 +20,14 @@ export function UserAvatar({
   photoURL?: string | null;
   size?: Size;
 }) {
-  const { user } = useAuth();
-  const isMe = user?.uid === uid;
-  const name =
-    explicitName ?? (isMe ? (user?.displayName ?? user?.email ?? 'You') : 'Board member');
-  const photo = explicitPhotoURL !== undefined ? explicitPhotoURL : isMe ? user?.photoURL : null;
+  const person = useUserLookup()(uid);
+  const name = explicitName ?? person?.name ?? UNKNOWN_PERSON_NAME;
+  const photo = explicitPhotoURL !== undefined ? explicitPhotoURL : (person?.photoURL ?? null);
 
   if (photo) {
     return <Avatar type="img" src={photo} size={size} aria-label={name} />;
   }
-  if (name && name !== 'Board member') {
+  if (name && name !== UNKNOWN_PERSON_NAME) {
     return (
       <Avatar
         type="text"

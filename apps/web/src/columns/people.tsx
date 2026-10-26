@@ -4,6 +4,7 @@ import classNames from 'classnames';
 import { useState } from 'react';
 import { useAuth } from '../auth/auth-context';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
+import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../data/members-store';
 import { initialsOf } from '../lib/format';
 import styles from './cells.module.css';
 import popups from './popups.module.css';
@@ -11,29 +12,28 @@ import { defineColumnUi, type CellProps, type EditorProps } from './types';
 
 const MAX_AVATARS = 3;
 
-/**
- * Who a user id is. Only the signed-in user's own profile is readable until P4, so everyone else
- * is a neutral "Board member" avatar.
- */
+/** Who a user id is: a workspace member's name and photo, or a neutral "Board member". */
 function usePerson(uid: string) {
-  const { user } = useAuth();
-  const isMe = user?.uid === uid;
-  const name = isMe ? (user?.displayName ?? user?.email ?? 'You') : 'Board member';
-  return { isMe, name, photoURL: isMe ? (user?.photoURL ?? null) : null };
+  const person = useUserLookup()(uid);
+  return {
+    known: Boolean(person),
+    name: person?.name ?? UNKNOWN_PERSON_NAME,
+    photoURL: person?.photoURL ?? null,
+  };
 }
 
 function Avatar({ uid }: { uid: string }) {
-  const { isMe, name, photoURL } = usePerson(uid);
+  const { known, name, photoURL } = usePerson(uid);
   return (
     <span
-      className={classNames(styles.avatar, !isMe && styles.avatarOther)}
+      className={classNames(styles.avatar, !known && styles.avatarOther)}
       role="img"
       aria-label={name}
       title={name}
     >
       {photoURL ? (
         <img src={photoURL} alt="" referrerPolicy="no-referrer" />
-      ) : isMe ? (
+      ) : known ? (
         initialsOf(name)
       ) : (
         <Person aria-hidden="true" />
@@ -102,21 +102,27 @@ function PeopleEditor({
   onClose,
 }: EditorProps<PeopleValue, PeopleSettings>) {
   const { user } = useAuth();
+  const lookup = useUserLookup();
+  const { members } = useWorkspaceMembers();
   const [query, setQuery] = useState('');
   const current = value?.personsAndTeams ?? [];
   const selectedIds = new Set(current.map((p) => p.id));
 
-  // Workspace members whose profile the caller can read: for now that is the caller themself, plus
-  // anyone already on the cell (shown as "Board member").
-  const candidates = [
-    ...(user ? [user.uid] : []),
-    ...current.map((p) => p.id).filter((id) => id !== user?.uid),
-  ];
+  // The picker lists the workspace's members, plus anyone already on the cell who has since left.
+  const memberIds = members.map((m) => m.id);
+  const known = new Set(memberIds);
+  // The signed-in user is always offered, even before their member profile has been written.
+  if (user && !known.has(user.uid)) {
+    memberIds.unshift(user.uid);
+    known.add(user.uid);
+  }
+  const candidates = [...memberIds, ...current.map((p) => p.id).filter((id) => !known.has(id))];
   const needle = query.trim().toLowerCase();
   const visible = candidates.filter((id) => {
     if (!needle) return true;
-    const label = id === user?.uid ? (user.displayName ?? user.email ?? 'you') : 'board member';
-    return label.toLowerCase().includes(needle);
+    const person = lookup(id);
+    const haystack = `${person?.name ?? UNKNOWN_PERSON_NAME} ${person?.email ?? ''}`.toLowerCase();
+    return haystack.includes(needle);
   });
 
   const write = (next: PersonOrTeam[]) =>

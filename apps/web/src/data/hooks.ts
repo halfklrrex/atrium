@@ -9,6 +9,7 @@ import type {
   BoardViewDoc,
   FavoriteDoc,
   FolderDoc,
+  InviteDoc,
   ItemDoc,
   RecentDoc,
   WorkspaceDoc,
@@ -32,6 +33,23 @@ export function useWorkspaces(uid: string | null): SnapshotState<WorkspaceDoc[]>
 export function useWorkspace(workspaceId: string | undefined): SnapshotState<WorkspaceDoc | null> {
   const ref = useMemo(() => (workspaceId ? refs.workspace(workspaceId) : null), [workspaceId]);
   return useDocSnapshot(ref);
+}
+
+/** Pending invites of a workspace (live, newest first). Pass `enabled: false` unless owner/admin. */
+export function useWorkspaceInvites(
+  workspaceId: string | undefined,
+  enabled: boolean,
+): SnapshotState<InviteDoc[]> {
+  const q = useMemo(
+    () => (workspaceId && enabled ? queries.pendingInvites(workspaceId) : null),
+    [workspaceId, enabled],
+  );
+  const state = useQuerySnapshot(q);
+  const sorted = useMemo(
+    () => [...state.data].sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis()),
+    [state.data],
+  );
+  return { ...state, data: sorted };
 }
 
 /** Folders of a workspace (live), ordered by `position`. */

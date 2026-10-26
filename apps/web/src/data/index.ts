@@ -1,5 +1,6 @@
 export * from './boards';
 export * from './hooks';
+export * from './members-store';
 export * from './model';
 export { plainRefs, queries, refs, writes } from './firestore';
 export * from './item-writes';

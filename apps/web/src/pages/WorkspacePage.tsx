@@ -140,7 +140,10 @@ export function WorkspacePage() {
                 <UserAvatar key={id} uid={id} />
               ))}
             </AvatarGroup>
-            <Button size="small" onClick={() => showComingSoon('Inviting members')}>
+            <Button
+              size="small"
+              onClick={() => openDialog({ type: 'members', workspaceId: workspace.id })}
+            >
               Invite / {memberIds.length}
             </Button>
             <MenuButton size="small" aria-label="Workspace options" closeMenuOnItemClick>

@@ -2,8 +2,8 @@ import { Button, Icon } from '@vibe/core';
 import { Check, Person } from '@vibe/icons';
 import classNames from 'classnames';
 import { useMemo, useState } from 'react';
-import { useAuth } from '../../auth/auth-context';
-import type { BoardDoc, ItemDoc } from '../../data';
+import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
+import type { BoardDoc, ItemDoc } from '../../data/model';
 import { Popover } from '../Popover';
 import { UserAvatar } from '../UserAvatar';
 import styles from './board-filters.module.css';
@@ -16,12 +16,13 @@ export interface PersonFilterPopoverProps {
 }
 
 export function PersonFilterPopover({ board, items = [], userLookup }: PersonFilterPopoverProps) {
-  const { user } = useAuth();
+  const memberLookup = useUserLookup(board?.workspaceId);
+  const { members } = useWorkspaceMembers(board?.workspaceId);
   const [open, setOpen] = useState(false);
   const { filterState, togglePersonFilter, setPersonIds } = useBoardFilter(board?.id);
   const selectedPersonIds = filterState.personIds;
 
-  // Extract all distinct assigned people from items (or board access uids)
+  // Extract all distinct assigned people from items (or the workspace's members)
   const availablePeople = useMemo(() => {
     const peopleSet = new Set<string>();
 
@@ -41,15 +42,13 @@ export function PersonFilterPopover({ board, items = [], userLookup }: PersonFil
       }
     }
 
-    // Also include board access members if none found in items
-    if (peopleSet.size === 0 && board?.accessUids) {
-      for (const uid of board.accessUids) {
-        peopleSet.add(uid);
-      }
+    // With nobody assigned yet, offer every member of the workspace.
+    if (peopleSet.size === 0) {
+      for (const member of members) peopleSet.add(member.id);
     }
 
     return Array.from(peopleSet);
-  }, [items, board]);
+  }, [items, board, members]);
 
   const activeCount = selectedPersonIds.length;
 
@@ -89,8 +88,7 @@ export function PersonFilterPopover({ board, items = [], userLookup }: PersonFil
             {availablePeople.map((uid) => {
               const isSelected = selectedPersonIds.includes(uid);
               const displayName =
-                userLookup?.(uid) ??
-                (uid === user?.uid ? (user?.displayName ?? user?.email ?? 'You') : 'Board member');
+                userLookup?.(uid) ?? memberLookup(uid)?.name ?? UNKNOWN_PERSON_NAME;
               return (
                 <button
                   key={uid}
