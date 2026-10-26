@@ -11,6 +11,7 @@ export * from './schemas/update';
 export * from './schemas/view';
 export * from './schemas/files-upload';
 export * from './schemas/column-actions';
+export * from './schemas/membership';
 export * from './columns';
 export * from './derived-ids';
 export * from './firebase-env';

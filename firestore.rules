@@ -215,6 +215,24 @@ service cloud.firestore {
 
         allow delete: if signedIn() && isWsAdmin(workspaceId);
       }
+
+      // -------------------------------------------------------------------
+      // workspaces/{workspaceId}/members/{uid}: denormalised profile of each member (name, photo,
+      // email, role copy). Written only by Cloud Functions; any workspace member may read.
+      // -------------------------------------------------------------------
+      match /members/{memberUid} {
+        allow read: if signedIn() && isWsMember(workspaceId);
+        allow write: if false;
+      }
+
+      // -------------------------------------------------------------------
+      // workspaces/{workspaceId}/invites/{inviteId}: Functions-only writes. Owners and admins read;
+      // invitees see theirs through the listMyInvites callable.
+      // -------------------------------------------------------------------
+      match /invites/{inviteId} {
+        allow read: if signedIn() && isWsAdmin(workspaceId);
+        allow write: if false;
+      }
     }
 
     // ---------------------------------------------------------------------
