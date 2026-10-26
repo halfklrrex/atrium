@@ -5,6 +5,7 @@ import {
   type NumbersSettings,
 } from '@atrium/shared';
 import { memo, useMemo, type CSSProperties } from 'react';
+import { BatteryBar } from '../battery/BatteryBar';
 import { formatNumber, formatRange } from '../../columns/format';
 import type { ItemDoc } from '../../data';
 import { useTableEnv } from './table-env';
@@ -40,20 +41,12 @@ function SummaryContent({ result, column }: { result: AggregateResult; column: C
     case 'distribution': {
       if (result.total === 0) return null;
       return (
-        <div className={styles.battery} role="img" aria-label={`${column.def.title} summary`}>
-          {result.segments.map((segment) => {
-            const percent = Math.round((segment.count / result.total) * 100);
-            const name = segment.label || 'Empty';
-            return (
-              <div
-                key={segment.key}
-                className={styles.segment}
-                style={{ flexGrow: segment.count, backgroundColor: segment.color }}
-                title={`${name} ${segment.count}/${result.total} · ${percent}%`}
-              />
-            );
-          })}
-        </div>
+        <BatteryBar
+          className={styles.battery}
+          segments={result.segments}
+          total={result.total}
+          label={`${column.def.title} summary`}
+        />
       );
     }
     case 'sum':

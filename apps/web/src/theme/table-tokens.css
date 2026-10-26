@@ -34,6 +34,8 @@
   --atrium-table-pill-height: 20px;
   --atrium-table-chip-height: 32px;
   --atrium-table-battery-height: 24px;
+  --atrium-battery-hover-scale: 1.25; /* 24px to 30px on hover, as monday */
+  --atrium-battery-hover-duration: 0.2s;
   --atrium-table-battery-inset: var(--space-4);
   --atrium-table-corner: 8px; /* folded-corner triangle on status cells */
   --atrium-table-resize-handle: 8px;

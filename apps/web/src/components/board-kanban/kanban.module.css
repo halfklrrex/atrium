@@ -385,18 +385,11 @@
 }
 
 .battery {
-  display: flex;
   box-sizing: border-box;
   width: var(--atrium-kanban-battery-width);
   height: var(--atrium-kanban-battery-height);
-  overflow: hidden;
   border-radius: var(--border-radius-small);
   background: var(--atrium-kanban-empty-header);
-}
-
-.segment {
-  height: 100%;
-  min-width: 0;
 }
 
 /* ---- Settings popover ---- */
