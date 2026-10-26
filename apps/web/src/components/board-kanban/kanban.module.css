@@ -7,6 +7,7 @@
 }
 
 .scroll {
+  composes: atrium-scroll atrium-scroll-table from global;
   flex: 1;
   min-height: 0;
   padding: var(--space-16) var(--atrium-kanban-gutter) 0;
@@ -445,6 +446,7 @@
 }
 
 .fieldList {
+  composes: atrium-scroll from global;
   display: flex;
   flex-direction: column;
   max-height: 240px;

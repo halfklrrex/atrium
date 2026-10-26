@@ -12,6 +12,7 @@
 }
 
 .scroll {
+  composes: atrium-scroll atrium-scroll-table from global;
   flex: 1;
   min-height: 0;
   overflow: auto;
