@@ -8,7 +8,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Icon } from '@vibe/core';
-import { AddUpdate, Subitems, Update } from '@vibe/icons';
+import { Subitems, Update } from '@vibe/icons';
 import classNames from 'classnames';
 import { memo, type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react';
 import { getColumnUi } from '../../columns/registry';
@@ -146,11 +146,11 @@ export function CardBody({
           }}
         >
           {updatesCount > 0 ? <span className={styles.footerCount}>{updatesCount}</span> : null}
-          {updatesCount > 0 ? <Update aria-hidden="true" /> : <AddUpdate aria-hidden="true" />}
+          <Update aria-hidden="true" />
         </button>
         <button
           type="button"
-          className={styles.footerButton}
+          className={classNames(styles.footerButton, subitemCount === 0 && styles.footerEmpty)}
           aria-label={
             subitemCount > 0
               ? `${subitemCount} ${subitemCount === 1 ? 'subitem' : 'subitems'}`
@@ -205,7 +205,8 @@ function CardField({
         className={styles.statusLabel}
         style={{ '--status-color': label.color } as CSSProperties}
       >
-        {label.label}
+        <span className={styles.statusBar} aria-hidden="true" />
+        <span className={styles.statusText}>{label.label}</span>
       </span>
     );
   } else if (def.type === 'link') {
