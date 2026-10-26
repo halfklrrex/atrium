@@ -96,6 +96,16 @@ export const itemWrites = {
     await updateDoc(plainRefs.item(boardId, itemId), { name, ...audit(uid) });
   },
 
+  /** Set (or with `null`, clear) the rich-text description: one field-path write plus audit fields. */
+  async setDescription(
+    uid: string,
+    boardId: string,
+    itemId: string,
+    description: { doc: Record<string, unknown>; text: string } | null,
+  ): Promise<void> {
+    await updateDoc(plainRefs.item(boardId, itemId), { description, ...audit(uid) });
+  },
+
   /** Set (or with `null`, clear) one cell: a field-path write that leaves the other cells alone. */
   async setValue(
     uid: string,

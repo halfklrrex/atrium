@@ -34,6 +34,7 @@ import { BoardToolbar } from './BoardToolbar';
 import { GroupBlock } from './GroupBlock';
 import { ItemRowBody } from './ItemRow';
 import { SubitemScope } from './SubitemBlock';
+import { useItemViewStore } from '../item-view/item-view-store';
 import { isClientReadOnlyType } from './derived';
 import { dropPosition } from './move-math';
 import { tableActions, type TableCtx } from './table-actions';
@@ -185,6 +186,13 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
     modelsRef.current = models;
     itemsRef.current = items;
   });
+  // The full item view steps through the rows shown here (after search, sort and filter).
+  useEffect(() => {
+    useItemViewStore.getState().setVisible(
+      boardId,
+      models.map((m) => ({ groupId: m.group.id, ids: m.items.map((i) => i.id) })),
+    );
+  }, [boardId, models]);
   const getModels = useCallback(() => modelsRef.current, []);
   const getItems = useCallback(() => itemsRef.current, []);
   const groupsRef = useRef<readonly GroupDef[]>(groups);

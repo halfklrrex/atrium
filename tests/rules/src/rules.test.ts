@@ -518,6 +518,51 @@ describe('items inherit board access', () => {
     await assertFails(updateDoc(ref(USERS.outsider), { updatesCount: increment(1) }));
   });
 
+  it('validates the rich-text description on create and update', async () => {
+    const uid = USERS.member;
+    const good = { doc: { type: 'doc', content: [] }, text: 'Hello' };
+    const audit = { updatedBy: uid, updatedAt: serverTimestamp() };
+    await assertSucceeds(
+      updateDoc(itemRef(uid, MAIN_BOARD, 'i1'), { description: good, ...audit }),
+    );
+    await assertSucceeds(
+      updateDoc(itemRef(uid, MAIN_BOARD, 'i1'), { description: null, ...audit }),
+    );
+    // Exactly the keys doc and text; text is a string of at most 10000 characters.
+    await assertFails(
+      updateDoc(itemRef(uid, MAIN_BOARD, 'i1'), { description: { doc: {} }, ...audit }),
+    );
+    await assertFails(
+      updateDoc(itemRef(uid, MAIN_BOARD, 'i1'), { description: { ...good, extra: 1 }, ...audit }),
+    );
+    await assertFails(
+      updateDoc(itemRef(uid, MAIN_BOARD, 'i1'), { description: { doc: 'x', text: 'a' }, ...audit }),
+    );
+    await assertFails(
+      updateDoc(itemRef(uid, MAIN_BOARD, 'i1'), {
+        description: { doc: {}, text: 'a'.repeat(10001) },
+        ...audit,
+      }),
+    );
+    await assertFails(
+      updateDoc(itemRef(uid, MAIN_BOARD, 'i1'), { description: 'plain', ...audit }),
+    );
+    await assertFails(
+      updateDoc(itemRef(USERS.viewer, MAIN_BOARD, 'i1'), {
+        description: good,
+        updatedBy: USERS.viewer,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    // New items may carry one too, under the same shape.
+    await assertSucceeds(
+      setDoc(itemRef(uid, MAIN_BOARD, 'd1'), newItem(uid, { description: good })),
+    );
+    await assertFails(
+      setDoc(itemRef(uid, MAIN_BOARD, 'd2'), newItem(uid, { description: { text: 'no doc' } })),
+    );
+  });
+
   it('denies items under a board that does not exist', async () => {
     await assertFails(getDoc(itemRef(USERS.owner, 'ghost-board')));
     await assertFails(setDoc(itemRef(USERS.owner, 'ghost-board', 'x'), newItem(USERS.owner)));

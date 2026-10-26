@@ -1,6 +1,6 @@
 import { canManageBoard, resolveBoardRole } from '@atrium/shared';
 import { Button, Heading, Loader, Text } from '@vibe/core';
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Link, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { boardActions } from '../components/boards/board-actions';
@@ -10,9 +10,13 @@ import { useBoard, useWorkspace, writes } from '../data';
 import { NotFoundPage } from './NotFoundPage';
 import styles from './Pages.module.css';
 
+const ItemView = lazy(() =>
+  import('../components/item-view/ItemView').then((m) => ({ default: m.ItemView })),
+);
+
 /** `/boards/:boardId` - header, view tab and the board table (toolbar, groups, items). */
 export function BoardPage() {
-  const { boardId } = useParams();
+  const { boardId, itemId } = useParams();
   const { user, rememberWorkspace } = useAuth();
   const uid = user?.uid ?? null;
   const { data: board, loading } = useBoard(boardId);
@@ -64,6 +68,11 @@ export function BoardPage() {
     <div className={styles.boardPage}>
       <BoardHeader board={board} />
       <BoardTable board={board} />
+      {itemId ? (
+        <Suspense fallback={null}>
+          <ItemView board={board} itemId={itemId} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

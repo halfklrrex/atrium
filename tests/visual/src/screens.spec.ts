@@ -1,6 +1,6 @@
 import { PARK_IN_HEADER, appReady, boardReady, expect, homeReady, shoot, test } from './fixtures';
-import type { Locator } from '@playwright/test';
-import { IDS, clearRecents, createEmptyWorkspace } from './seed';
+import type { Locator, Page } from '@playwright/test';
+import { FULL_VIEW_ITEM, IDS, clearRecents, createEmptyWorkspace } from './seed';
 
 /** True when `target` is what a click at its centre would hit, i.e. nothing is painted over it. */
 const isOnTop = (target: Locator) =>
@@ -15,6 +15,17 @@ const isOnTop = (target: Locator) =>
  * Names are `<screen>-<theme>`. Expect other PRs to change some of these on purpose: refresh the
  * baselines with the "Update visual baselines" workflow and review the image diff in the PR.
  */
+
+/** Open the seeded full item view and wait for its description, subitems and update. */
+async function fullViewReady(page: Page) {
+  await page.goto(`/boards/${IDS.roadmap}/items/${FULL_VIEW_ITEM}`);
+  const view = page.getByRole('dialog', { name: /^Item / });
+  await expect(view).toBeVisible();
+  await expect(view.getByText('Ship the pipeline')).toBeVisible();
+  await expect(view.getByText('Write the workflow')).toBeVisible();
+  await expect(view.getByText('The workflow runs on every pull request now.')).toBeVisible();
+  await expect(page.getByText('Loading�')).toHaveCount(0);
+}
 
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`${theme} theme`, () => {
@@ -72,6 +83,11 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto(`/boards/${IDS.roadmap}`);
       await boardReady(page);
       await shoot(page, `board-${theme}`, PARK_IN_HEADER);
+    });
+
+    test('board: full item view', async ({ page }) => {
+      await fullViewReady(page);
+      await shoot(page, `item-full-view-${theme}`);
     });
 
     test('board: status picker open', async ({ page }) => {
@@ -237,6 +253,11 @@ for (const theme of ['light', 'dark'] as const) {
 
     test.describe('mobile 390x844', () => {
       test.use({ viewport: { width: 390, height: 844 } });
+
+      test('full item view', async ({ page }) => {
+        await fullViewReady(page);
+        await shoot(page, `mobile-item-full-view-${theme}`);
+      });
 
       test('home, drawer closed', async ({ page }) => {
         await page.goto('/');

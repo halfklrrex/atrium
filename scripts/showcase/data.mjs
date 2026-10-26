@@ -229,6 +229,40 @@ function buildGroups(list = GROUPS) {
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * Rich-text description of an item (full item view): blocks `{ h }` (heading), `{ p }`, `{ ul }`
+ * (bullets), `{ todo: [[text, checked]] }` (checklist), turned into a ProseMirror doc plus its text.
+ */
+function descriptionOf(blocks) {
+  const text = (t) => ({ type: 'text', text: t });
+  const para = (t) => ({ type: 'paragraph', content: [text(t)] });
+  const content = blocks.map((b) => {
+    if (b.h) return { type: 'heading', attrs: { level: 2 }, content: [text(b.h)] };
+    if (b.ul) {
+      return {
+        type: 'bulletList',
+        content: b.ul.map((t) => ({ type: 'listItem', content: [para(t)] })),
+      };
+    }
+    if (b.todo) {
+      return {
+        type: 'taskList',
+        content: b.todo.map(([t, checked]) => ({
+          type: 'taskItem',
+          attrs: { checked },
+          content: [para(t)],
+        })),
+      };
+    }
+    return para(b.p);
+  });
+  const plain = blocks
+    .flatMap((b) => b.h ?? b.p ?? b.ul ?? b.todo.map(([t]) => t))
+    .join('\n')
+    .slice(0, 10000);
+  return { doc: { type: 'doc', content }, text: plain };
+}
+
+/**
  * Compact item description. `due` is days from today (negative = past), `created` is days ago.
  * Omit a field to leave the cell empty. `owner: true` puts the board owner in the people cell.
  */
@@ -236,6 +270,21 @@ const ITEMS = [
   // ---- This week ----
   {
     key: 'hero-copy',
+    description: [
+      { h: 'Goal' },
+      { p: 'Pick the tagline and lock the hero copy so design can finish the section.' },
+      { h: 'Shortlist' },
+      {
+        ul: ['Everything in one place', 'Plan together, finish together', 'Work, simply organised'],
+      },
+      {
+        todo: [
+          ['Collect feedback from the team', true],
+          ['Run a quick poll', false],
+          ['Sign off', false],
+        ],
+      },
+    ],
     group: 'this_week',
     name: 'Finalize homepage hero copy',
     owner: true,
@@ -284,6 +333,13 @@ const ITEMS = [
   },
   {
     key: 'pricing-page',
+    description: [
+      { h: 'Context' },
+      {
+        p: 'The current page buries the free tier. The redesign should make the three plans comparable at a glance.',
+      },
+      { ul: ['Plan cards with a clear highlight', 'FAQ underneath', 'Annual toggle'] },
+    ],
     group: 'this_week',
     name: 'Design new pricing page',
     owner: true,
@@ -424,6 +480,20 @@ const ITEMS = [
   },
   {
     key: 'a11y-audit',
+    description: [
+      { h: 'Scope' },
+      {
+        p: 'Audit the marketing site against WCAG 2.2 AA: keyboard use, contrast, focus order and screen reader labels.',
+      },
+      {
+        todo: [
+          ['Keyboard walkthrough', true],
+          ['Contrast check', true],
+          ['Screen reader pass', false],
+          ['Write up findings', false],
+        ],
+      },
+    ],
     group: 'this_week',
     name: 'Accessibility audit (WCAG AA)',
     owner: true,
@@ -1123,6 +1193,7 @@ export function buildShowcase({
         state,
         deletedAt: state === 'deleted' ? ago(spec.deletedDaysAgo * DAY) : null,
         updatesCount: spec.updates?.length ?? 0,
+        ...(spec.description ? { description: descriptionOf(spec.description) } : {}),
         createdAt,
         createdBy: ownerUid,
         updatedAt,

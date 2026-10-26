@@ -178,6 +178,10 @@ describe('board and item schemas', () => {
     expect(columnRegistry.parseValue('status', parsed.values.status).success).toBe(true);
     expect(columnRegistry.parseValue('status', { index: -3 }).success).toBe(false);
     expect(itemSchema.safeParse({ ...item, name: '' }).success).toBe(false);
+    const description = { doc: { type: 'doc', content: [] }, text: 'Hi' };
+    expect(itemSchema.safeParse({ ...item, description }).success).toBe(true);
+    expect(itemSchema.safeParse({ ...item, description: null }).success).toBe(true);
+    expect(itemSchema.safeParse({ ...item, description: { text: 'x' } }).success).toBe(false);
   });
 });
 
