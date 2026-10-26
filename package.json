@@ -23,7 +23,8 @@
     "licenses:notices": "node scripts/third-party-notices.mjs",
     "licenses:check": "node scripts/third-party-notices.mjs --check",
     "format": "prettier --write .",
-    "showcase": "tsx scripts/showcase/seed-showcase.mjs"
+    "showcase": "tsx scripts/showcase/seed-showcase.mjs",
+    "e2e:membership": "tsx scripts/e2e-membership.mjs"
   },
   "devDependencies": {
     "@atrium/shared": "workspace:*",
