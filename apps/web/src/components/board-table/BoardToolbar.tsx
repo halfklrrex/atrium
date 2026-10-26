@@ -1,18 +1,18 @@
-import { Button, Menu, MenuButton, MenuItem, SplitButton, Tooltip } from '@vibe/core';
-import { Add, Close, Hide, Search } from '@vibe/icons';
+import { Button, Menu, MenuButton, MenuItem, SplitButton } from '@vibe/core';
+import { Add, Close, Search } from '@vibe/icons';
 import { useEffect, useRef } from 'react';
 import type { BoardDoc, ItemDoc } from '../../data';
 import {
   AdvancedFilterPopover,
   GroupByMenuPopover,
+  HideColumnsPopover,
   PersonFilterPopover,
   SortMenuPopover,
 } from '../board-filters';
+import { ViewSaveBar } from '../board-views/ViewSaveBar';
 import { useTableEnv } from './table-env';
 import { useTableStore } from './table-store';
 import styles from './table.module.css';
-
-const SOON = 'Coming soon';
 
 /** Whether the developer-only menu (seed sample data) is on: dev server and `?dev` in the address. */
 function devToolsEnabled(): boolean {
@@ -111,19 +111,17 @@ export function BoardToolbar({
         <SortMenuPopover board={board} />
       </span>
 
-      {/* Hide (placeholder) */}
-      <Tooltip content={SOON}>
-        <span className={styles.toolWrap}>
-          <Button kind="tertiary" size="small" leftIcon={Hide} disabled>
-            Hide
-          </Button>
-        </span>
-      </Tooltip>
+      {/* Hide: which columns this view shows */}
+      <span className={styles.toolWrap}>
+        <HideColumnsPopover board={board} />
+      </span>
 
       {/* Group by */}
       <span className={styles.toolWrap}>
         <GroupByMenuPopover board={board} />
       </span>
+
+      <ViewSaveBar />
 
       {onDev && devToolsEnabled() ? (
         <MenuButton size="small" aria-label="Developer tools" closeMenuOnItemClick>

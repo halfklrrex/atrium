@@ -103,7 +103,6 @@ describe('group model with subitems', () => {
     columns: buildColumnViews(boardColumns),
     subitemColumns: buildColumnViews(subColumns),
     search: '',
-    sort: null,
   };
 
   it('keeps subitems out of the top-level rows and exposes them per parent, in order', () => {

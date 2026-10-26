@@ -1,5 +1,10 @@
 import { useItemCardStore } from '../item-card/item-card-store';
-import { FROM_BOARD_STATE, itemViewPath, useItemViewStore } from '../item-view/item-view-store';
+import {
+  FROM_BOARD_STATE,
+  boardPath,
+  itemViewPath,
+  useItemViewStore,
+} from '../item-view/item-view-store';
 
 /**
  * Open an item's side panel (the updates bubble). The full item view and the panel never show at
@@ -8,7 +13,7 @@ import { FROM_BOARD_STATE, itemViewPath, useItemViewStore } from '../item-view/i
 export function openItem(boardId: string, itemId: string): void {
   const view = useItemViewStore.getState();
   if (view.openBoardId && view.navigate)
-    view.navigate(`/boards/${view.openBoardId}`, { replace: true });
+    view.navigate(boardPath(view.openBoardId), { replace: true });
   useItemCardStore.getState().open(boardId, itemId);
 }
 

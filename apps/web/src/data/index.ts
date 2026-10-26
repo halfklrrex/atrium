@@ -6,6 +6,8 @@ export * from './item-writes';
 export type { NewItemInput } from './seed-items';
 export * from './structure-writes';
 export * from './updates';
+export * from './views';
+export * from './view-writes';
 export * from './presence';
 export type { BoardPatch } from './firestore';
 export type { SnapshotState } from './useSnapshot';

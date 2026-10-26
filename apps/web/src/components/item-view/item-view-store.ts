@@ -14,22 +14,34 @@ interface ItemViewState {
   /** The table publishes what it shows, so the window can step through a group's visible rows. */
   visible: Record<string, VisibleGroup[]>;
   navigate: Navigate | null;
+  /** The view each open board is showing, so item links and closing stay on that view. */
+  viewByBoard: Record<string, string>;
   setOpenBoard: (boardId: string | null) => void;
   setVisible: (boardId: string, groups: VisibleGroup[]) => void;
   setNavigate: (navigate: Navigate | null) => void;
+  setView: (boardId: string, viewId: string) => void;
 }
 
 export const useItemViewStore = create<ItemViewState>((set) => ({
   openBoardId: null,
   visible: {},
   navigate: null,
+  viewByBoard: {},
   setOpenBoard: (openBoardId) => set({ openBoardId }),
   setVisible: (boardId, groups) => set((s) => ({ visible: { ...s.visible, [boardId]: groups } })),
   setNavigate: (navigate) => set({ navigate }),
+  setView: (boardId, viewId) =>
+    set((s) => ({ viewByBoard: { ...s.viewByBoard, [boardId]: viewId } })),
 }));
 
+/** The board's URL on the view it is showing (`/boards/:id` while no view is known). */
+export const boardPath = (boardId: string): string => {
+  const viewId = useItemViewStore.getState().viewByBoard[boardId];
+  return viewId ? `/boards/${boardId}/views/${viewId}` : `/boards/${boardId}`;
+};
+
 export const itemViewPath = (boardId: string, itemId: string): string =>
-  `/boards/${boardId}/items/${itemId}`;
+  `${boardPath(boardId)}/items/${itemId}`;
 
 /** Router state set when the window was opened from the board, so closing can go back. */
 export const FROM_BOARD_STATE = { fromBoard: true } as const;

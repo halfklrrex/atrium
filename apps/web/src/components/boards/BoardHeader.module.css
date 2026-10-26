@@ -33,17 +33,6 @@
   gap: var(--space-8);
 }
 
-.viewsRow {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-4);
-  border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
-}
-
-.viewsRow > button {
-  margin-block-end: var(--space-8);
-}
-
 .infoPanel {
   width: calc(var(--atrium-sidebar-width) + var(--space-48));
 }

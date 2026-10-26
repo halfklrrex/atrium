@@ -182,3 +182,65 @@
   color: var(--primary-color);
   font-weight: var(--font-weight-bold);
 }
+
+.hidePanel {
+  width: 280px;
+  max-width: calc(100vw - var(--space-32));
+}
+
+.hideSearch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-8);
+  margin-bottom: var(--space-8);
+  border: var(--border-width) solid var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  color: var(--secondary-text-color);
+}
+
+.hideSearch:focus-within {
+  border-color: var(--primary-color);
+}
+
+.hideSearchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: inherit;
+}
+
+.hideActions {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.hideList {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.hideRow {
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--border-radius-small);
+}
+
+.hideRow:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.hideLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--primary-text-color);
+}

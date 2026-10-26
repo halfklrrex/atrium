@@ -10,6 +10,7 @@ import {
   duplicateBoardName,
   folderInputSchema,
   type Board,
+  type BoardView,
   type BoardKind,
   type CreateBoardInput,
   type CreateWorkspaceInput,
@@ -48,6 +49,7 @@ import { db } from '../lib/firebase';
 import { newBoardSeedItems } from './seed-items';
 import type {
   BoardDoc,
+  BoardViewDoc,
   FavoriteDoc,
   FolderDoc,
   ItemDoc,
@@ -78,6 +80,7 @@ const userConverter = converter<User>();
 const workspaceConverter = converter<Workspace>();
 const folderConverter = converter<Folder>();
 const boardConverter = converter<Board>();
+const viewConverter = converter<BoardView>();
 const itemConverter = converter<Item>();
 const itemUpdateConverter = converter<ItemUpdate>();
 const updateReplyConverter = converter<UpdateReply>();
@@ -90,6 +93,7 @@ const COLLECTIONS = {
   folders: 'folders',
   boards: 'boards',
   items: 'items',
+  views: 'views',
   updates: 'updates',
   replies: 'replies',
   favorites: 'favorites',
@@ -121,6 +125,10 @@ export const refs = {
     collection(db, COLLECTIONS.boards, boardId, COLLECTIONS.items).withConverter(itemConverter),
   item: (boardId: string, itemId: string): DocumentReference<ItemDoc> =>
     doc(db, COLLECTIONS.boards, boardId, COLLECTIONS.items, itemId).withConverter(itemConverter),
+  views: (boardId: string): CollectionReference<BoardViewDoc> =>
+    collection(db, COLLECTIONS.boards, boardId, COLLECTIONS.views).withConverter(viewConverter),
+  view: (boardId: string, viewId: string): DocumentReference<BoardViewDoc> =>
+    doc(db, COLLECTIONS.boards, boardId, COLLECTIONS.views, viewId).withConverter(viewConverter),
   updates: (boardId: string, itemId: string): CollectionReference<ItemUpdateDoc> =>
     collection(
       db,
@@ -182,6 +190,11 @@ export const plainRefs = {
   board: (boardId: string): DocumentReference<DocumentData> => doc(db, COLLECTIONS.boards, boardId),
   item: (boardId: string, itemId: string): DocumentReference<DocumentData> =>
     doc(db, COLLECTIONS.boards, boardId, COLLECTIONS.items, itemId),
+  view: (boardId: string, viewId: string): DocumentReference<DocumentData> =>
+    doc(db, COLLECTIONS.boards, boardId, COLLECTIONS.views, viewId),
+  /** A fresh view reference (the id is generated on the client). */
+  newView: (boardId: string): DocumentReference<DocumentData> =>
+    doc(collection(db, COLLECTIONS.boards, boardId, COLLECTIONS.views)),
   /** A fresh item reference (the id is generated on the client). */
   newItem: (boardId: string): DocumentReference<DocumentData> =>
     doc(collection(db, COLLECTIONS.boards, boardId, COLLECTIONS.items)),
@@ -210,6 +223,15 @@ export const queries = {
 
   activeItems: (boardId: string): Query<ItemDoc> =>
     query(refs.items(boardId), where('state', '==', 'active')),
+
+  /**
+   * Views the caller may list: the shared ones and their own personal ones. Two queries, because the
+   * rules engine does not accept a single `ownerId in [null, uid]` list (see firestore.rules).
+   */
+  sharedViews: (boardId: string): Query<BoardViewDoc> =>
+    query(refs.views(boardId), where('ownerId', '==', null)),
+  personalViews: (boardId: string, uid: string): Query<BoardViewDoc> =>
+    query(refs.views(boardId), where('ownerId', '==', uid)),
 
   deletedItems: (boardId: string): Query<ItemDoc> =>
     query(refs.items(boardId), where('state', '==', 'deleted')),

@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import type {
-  FilterCondition,
-  FilterGroup,
-  FilterOperator,
-  SortCondition,
-} from '../filters/types';
+import type { FilterCondition, FilterGroup, FilterOperator, SortCondition } from '../filters/types';
 import { auditFields, positionSchema, uidSchema, type WriteDoc } from './common';
 
 /** Caps that keep a saved view small (a Firestore document is limited to 1 MiB). */

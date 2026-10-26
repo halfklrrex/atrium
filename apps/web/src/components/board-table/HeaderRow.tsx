@@ -56,7 +56,7 @@ export function HeaderRow({ group, itemIds }: HeaderRowProps) {
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
-    const to = env.columns.findIndex((c) => c.def.id === over.id);
+    const to = (env.allColumns ?? env.columns).findIndex((c) => c.def.id === over.id);
     if (to === -1) return;
     // Same rule as arrayMove: the dragged column takes the target's slot, so `to` is also its index
     // among the other columns (after the target when moving right, before it when moving left).
@@ -306,7 +306,6 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
       (s) => s.columnId !== normCol && s.columnId !== columnId,
     );
     setSortConditions([{ columnId: normCol, direction }, ...withoutCol]);
-    store.getState().setSort({ columnId, direction });
   };
 
   const clearSort = () => {
@@ -314,7 +313,6 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
       (s) => s.columnId !== normCol && s.columnId !== columnId,
     );
     setSortConditions(withoutCol);
-    store.getState().setSort(null);
   };
 
   return (

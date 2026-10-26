@@ -15,7 +15,7 @@ import {
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Loader } from '@vibe/core';
 import { Add } from '@vibe/icons';
-import { useBoardFilter } from '../board-filters';
+import { useBoardFilter, useHiddenColumnIds } from '../board-filters';
 import {
   useCallback,
   useDeferredValue,
@@ -121,7 +121,14 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
   const columnDefs = useDeepStable(board.columns);
   const subitemDefs = useDeepStable(board.subitemColumns ?? []);
   const groupDefs = useDeepStable(board.groups);
-  const columns = useMemo(() => buildColumnViews(columnDefs), [columnDefs]);
+  const allColumns = useMemo(() => buildColumnViews(columnDefs), [columnDefs]);
+  // Hide: the columns this view does not show still filter, sort and group.
+  const hiddenIds = useHiddenColumnIds(board.id);
+  const columns = useMemo(
+    () =>
+      hiddenIds.length === 0 ? allColumns : allColumns.filter((c) => !hiddenIds.includes(c.def.id)),
+    [allColumns, hiddenIds],
+  );
   const subitemColumns = useMemo(() => buildColumnViews(subitemDefs), [subitemDefs]);
   // Groups just added here show at once; the board snapshot replaces them when it catches up.
   const pendingGroups = useTableStore((s) => s.pendingGroups);
@@ -161,22 +168,20 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
   // ---- View state
   const { filterState } = useBoardFilter(board.id);
   const search = useDeferredValue(useTableStore((s) => s.search)).trim();
-  const sort = useTableStore((s) => s.sort);
   const [patches, setPatches] = useState<Record<string, MovePatch>>({});
   const models = useMemo(
     () =>
       buildGroupModels({
         groups,
         items,
-        columns,
+        columns: allColumns,
         subitemColumns,
         search,
-        sort,
         patches,
         filterState,
         userLookup: lookup,
       }),
-    [groups, items, columns, subitemColumns, search, sort, patches, filterState, lookup],
+    [groups, items, allColumns, subitemColumns, search, patches, filterState, lookup],
   );
 
   // Live reads for event handlers and menus, without re-rendering rows when data arrives.
@@ -245,6 +250,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       uid,
       canEdit,
       columns,
+      allColumns,
       subitemColumns,
       groups,
       nameWidth: savedNameWidth,
@@ -259,6 +265,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       uid,
       canEdit,
       columns,
+      allColumns,
       subitemColumns,
       groups,
       savedNameWidth,
@@ -319,7 +326,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
     filterState.filterGroup.conditions.length > 0 ||
     filterState.sortConditions.length > 0 ||
     Boolean(filterState.groupByColumnId);
-  const dragDisabled = sort !== null || search !== '' || hasFilter;
+  const dragDisabled = search !== '' || hasFilter;
 
   const onDragStart = ({ active }: DragStartEvent) => {
     const kind = active.data.current?.type;

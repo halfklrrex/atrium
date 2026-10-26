@@ -1,21 +1,6 @@
 import { canEditBoard, resolveBoardRole } from '@atrium/shared';
-import {
-  AvatarGroup,
-  Button,
-  EditableHeading,
-  IconButton,
-  Tab,
-  TabList,
-  Tooltip,
-} from '@vibe/core';
-import {
-  Add,
-  Bolt,
-  DropdownChevronDown,
-  DropdownChevronUp,
-  Integrations,
-  Table,
-} from '@vibe/icons';
+import { AvatarGroup, Button, EditableHeading, IconButton, Tooltip } from '@vibe/core';
+import { Bolt, DropdownChevronDown, DropdownChevronUp, Integrations } from '@vibe/icons';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
@@ -25,6 +10,7 @@ import { InlineEdit } from '../InlineEdit';
 import { Popover } from '../Popover';
 import { showComingSoon } from '../toast-store';
 import { UserAvatar } from '../UserAvatar';
+import { ViewTabs } from '../board-views/ViewTabs';
 import { PresenceAvatars } from '../presence';
 import { boardActions } from './board-actions';
 import { BoardMenu } from './BoardMenu';
@@ -32,7 +18,7 @@ import styles from './BoardHeader.module.css';
 import { FavoriteStar } from './FavoriteStar';
 import { BOARD_KIND_OPTIONS } from './kinds';
 
-/** Board title row and the (single, for now) view tab row. */
+/** Board title row and the view tabs. */
 export function BoardHeader({ board }: { board: BoardDoc }) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
@@ -149,24 +135,7 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
         </div>
       </div>
 
-      <div className={styles.viewsRow}>
-        <TabList activeTabId={0} stretchedUnderline>
-          {[
-            <Tab key="main" icon={Table}>
-              Main table
-            </Tab>,
-          ]}
-        </TabList>
-        <Tooltip content="More views are coming soon">
-          <IconButton
-            icon={Add}
-            size="xs"
-            kind="tertiary"
-            aria-label="Add view"
-            onClick={() => showComingSoon('More views')}
-          />
-        </Tooltip>
-      </div>
+      <ViewTabs />
     </header>
   );
 }

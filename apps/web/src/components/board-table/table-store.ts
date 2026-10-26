@@ -1,7 +1,6 @@
 import type { GroupDef } from '@atrium/shared';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { SortState } from './table-model';
 
 export interface CellRef {
   itemId: string;
@@ -31,7 +30,6 @@ interface TableState {
   settingsFor: { groupId: string; columnId: string } | null;
   search: string;
   searchOpen: boolean;
-  sort: SortState | null;
   /** Parent items whose subitem block is open (in memory only, per board). */
   expanded: ReadonlySet<string>;
   /** True while a group is being dragged: every group shows collapsed. */
@@ -55,7 +53,6 @@ interface TableState {
   setSettingsFor: (value: TableState['settingsFor']) => void;
   setSearch: (search: string) => void;
   setSearchOpen: (open: boolean) => void;
-  setSort: (sort: SortState | null) => void;
   setDraggingGroup: (dragging: boolean) => void;
   toggleExpanded: (itemId: string, on?: boolean) => void;
   setDropMarker: (marker: DropMarker | null) => void;
@@ -76,7 +73,6 @@ export const useTableStore = create<TableState>()((set) => ({
   settingsFor: null,
   search: '',
   searchOpen: false,
-  sort: null,
   expanded: NONE,
   draggingGroup: false,
   dropMarker: null,
@@ -94,7 +90,6 @@ export const useTableStore = create<TableState>()((set) => ({
       settingsFor: null,
       search: '',
       searchOpen: false,
-      sort: null,
       expanded: NONE,
       draggingGroup: false,
       dropMarker: null,
@@ -125,7 +120,6 @@ export const useTableStore = create<TableState>()((set) => ({
   setSettingsFor: (settingsFor) => set({ settingsFor }),
   setSearch: (search) => set({ search }),
   setSearchOpen: (searchOpen) => set(searchOpen ? { searchOpen } : { searchOpen, search: '' }),
-  setSort: (sort) => set({ sort }),
   setDraggingGroup: (draggingGroup) => set({ draggingGroup }),
   toggleExpanded: (itemId, on) =>
     set((s) => {

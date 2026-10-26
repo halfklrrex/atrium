@@ -1,4 +1,9 @@
-import { columnRegistry, type ColumnDef, type GroupDef } from '@atrium/shared';
+import {
+  columnRegistry,
+  createDefaultFilterState,
+  type ColumnDef,
+  type GroupDef,
+} from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import type { ItemDoc } from '../../data';
 import { ts } from '../../test/fixtures';
@@ -14,6 +19,11 @@ import {
   itemMatchesSearch,
   tableWidth,
 } from './table-model';
+
+const sortBy = (columnId: string, direction: 'asc' | 'desc') => ({
+  ...createDefaultFilterState(),
+  sortConditions: [{ columnId, direction }],
+});
 
 const column = (
   id: string,
@@ -161,7 +171,7 @@ describe('group models', () => {
   ];
 
   it('orders groups and items by position and skips orphans and subitems', () => {
-    const models = buildGroupModels({ groups, items, columns, search: '', sort: null });
+    const models = buildGroupModels({ groups, items, columns, search: '' });
     expect(models.map((m) => m.group.id)).toEqual(['g1', 'g2']);
     expect(models[0]!.items.map((i) => i.id)).toEqual(['y', 'x']);
     expect(models[0]!.all).toHaveLength(2);
@@ -173,7 +183,7 @@ describe('group models', () => {
       items,
       columns,
       search: '',
-      sort: { columnId: 'n', direction: 'asc' },
+      filterState: sortBy('n', 'asc'),
     });
     expect(asc[0]!.items.map((i) => i.id)).toEqual(['x', 'y']);
     const desc = buildGroupModels({
@@ -181,7 +191,7 @@ describe('group models', () => {
       items: [...items, item('e', 'g1', 'a9')],
       columns,
       search: '',
-      sort: { columnId: 'n', direction: 'desc' },
+      filterState: sortBy('n', 'desc'),
     });
     expect(desc[0]!.items.map((i) => i.id)).toEqual(['y', 'x', 'e']);
   });
@@ -192,15 +202,15 @@ describe('group models', () => {
       items,
       columns,
       search: '',
-      sort: { columnId: NAME_COLUMN, direction: 'asc' },
+      filterState: sortBy(NAME_COLUMN, 'asc'),
     });
     expect(byName[0]!.items.map((i) => i.name)).toEqual(['alpha', 'Charlie']);
   });
 
   it('hides groups without a match while searching but keeps all items for position maths', () => {
-    const models = buildGroupModels({ groups, items, columns, search: 'bravo', sort: null });
+    const models = buildGroupModels({ groups, items, columns, search: 'bravo' });
     expect(models.map((m) => m.group.id)).toEqual(['g2']);
-    const partial = buildGroupModels({ groups, items, columns, search: 'char', sort: null });
+    const partial = buildGroupModels({ groups, items, columns, search: 'char' });
     expect(partial).toHaveLength(1);
     expect(partial[0]!.items.map((i) => i.id)).toEqual(['x']);
     expect(partial[0]!.all.map((i) => i.id)).toEqual(['y', 'x']);
@@ -212,7 +222,6 @@ describe('group models', () => {
       items,
       columns,
       search: '',
-      sort: null,
       patches: { x: { groupId: 'g2', position: 'a0V' } },
     });
     expect(models[1]!.items.map((i) => i.id)).toEqual(['z', 'x']);
@@ -238,7 +247,6 @@ describe('group models', () => {
       items: itemsWithStatus,
       columns: statusViews,
       search: '',
-      sort: null,
       filterState: {
         filterGroup: { conjunction: 'and', conditions: [] },
         sortConditions: [],
