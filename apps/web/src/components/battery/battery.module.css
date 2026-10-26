@@ -1,0 +1,36 @@
+.battery {
+  display: flex;
+  overflow: visible;
+}
+
+.segment {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  cursor: pointer;
+  transform-origin: center;
+  transition: transform var(--atrium-battery-hover-duration) ease-in-out;
+}
+
+.segment:first-child {
+  border-start-start-radius: inherit;
+  border-end-start-radius: inherit;
+}
+
+.segment:last-child {
+  border-start-end-radius: inherit;
+  border-end-end-radius: inherit;
+}
+
+.segment:hover,
+.segment:focus-visible {
+  z-index: var(--atrium-z-raised);
+  outline: none;
+  transform: scaleY(var(--atrium-battery-hover-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segment {
+    transition: none;
+  }
+}

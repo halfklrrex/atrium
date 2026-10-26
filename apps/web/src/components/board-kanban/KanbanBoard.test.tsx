@@ -229,7 +229,7 @@ describe('KanbanBoard', () => {
     expect(toolbar.queryByRole('button', { name: /Hide columns/ })).toBeNull();
     expect(toolbar.queryByRole('button', { name: /Group by/ })).toBeNull();
     expect(toolbar.getByRole('button', { name: 'Kanban settings' })).toBeInTheDocument();
-    expect(toolbar.getByRole('img', { name: 'Status summary' })).toBeInTheDocument();
+    expect(toolbar.getByRole('group', { name: 'Status summary' })).toBeInTheDocument();
   });
 
   it('asks for a status column when the board has none', () => {

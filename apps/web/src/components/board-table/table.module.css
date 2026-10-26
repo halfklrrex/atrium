@@ -718,15 +718,8 @@
     (var(--atrium-table-row-height) - var(--atrium-table-battery-height)) / 2 - var(--border-width)
   );
   inset-inline: var(--atrium-table-battery-inset);
-  display: flex;
-  overflow: hidden;
   border-radius: var(--atrium-table-radius);
   background: var(--atrium-table-status-empty);
-}
-
-.segment {
-  height: 100%;
-  min-width: 0;
 }
 
 .rangePill {

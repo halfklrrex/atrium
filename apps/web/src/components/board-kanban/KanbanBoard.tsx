@@ -1,3 +1,4 @@
+import { BatteryBar } from '../battery/BatteryBar';
 import {
   canEditBoard,
   resolveBoardRole,
@@ -287,20 +288,12 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
   const trailing = (
     <>
       {battery && battery.total > 0 ? (
-        <div
+        <BatteryBar
           className={styles.battery}
-          role="img"
-          aria-label={`${status?.def.title ?? 'Status'} summary`}
-        >
-          {battery.segments.map((segment) => (
-            <span
-              key={segment.key}
-              className={styles.segment}
-              style={{ flexGrow: segment.count, backgroundColor: segment.color }}
-              title={`${segment.label || 'Empty'}: ${segment.count}`}
-            />
-          ))}
-        </div>
+          segments={battery.segments}
+          total={battery.total}
+          label={`${status?.def.title ?? 'Status'} summary`}
+        />
       ) : null}
       <KanbanSettingsPopover
         boardId={boardId}
