@@ -40,6 +40,7 @@ As in monday, a board has **view tabs**: "Main table" plus any number of saved v
 ## Rules (`firestore.rules`, hot spot: one new nested match block plus tests)
 
 `match /views/{viewId}` inside `match /boards/{boardId}`:
+
 - **read:** `canReadBoard` and (`resource.data.ownerId == null` or `resource.data.ownerId == uid()`).
 - **create:**
   - **shared** (`ownerId == null`): `canEditBoard`;
@@ -52,6 +53,7 @@ As in monday, a board has **view tabs**: "Main table" plus any number of saved v
 - **delete:** the same as update, and **never** for `main`.
 
 Tests go in `tests/rules/src/views.test.ts`:
+
 - shared versus personal visibility (a list query by a non-owner must not return personal views; use `where('ownerId','in',[null, uid])` on the client);
 - viewer versus editor writes;
 - the immutable fields;

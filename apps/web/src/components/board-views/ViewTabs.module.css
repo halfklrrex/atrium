@@ -1,0 +1,74 @@
+.row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.add {
+  margin-block-end: var(--space-8);
+}
+
+.tab {
+  position: relative;
+}
+
+.tabContent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  touch-action: none;
+}
+
+.dragging {
+  position: relative;
+  z-index: var(--atrium-z-raised);
+  opacity: 0.8;
+}
+
+.name {
+  white-space: nowrap;
+}
+
+.renameInput {
+  width: calc(var(--space-64) * 2);
+  padding: 0 var(--space-4);
+  border: var(--border-width) var(--border-style) var(--primary-color);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: inherit;
+  outline: none;
+}
+
+.personal {
+  display: inline-flex;
+  color: var(--secondary-text-color);
+}
+
+/* Unsaved changes in this view */
+.dot {
+  flex: none;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: 50%;
+  background: var(--primary-color);
+}
+
+.more {
+  display: inline-flex;
+  opacity: 0;
+  transition: opacity var(--motion-productive-short, 70ms) ease;
+}
+
+.tab:hover .more,
+.tab:focus-within .more,
+.moreOpen {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .more {
+    transition: none;
+  }
+}

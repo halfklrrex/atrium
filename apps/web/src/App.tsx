@@ -23,8 +23,8 @@ export function App() {
           <Route path="workspaces/:workspaceId/trash" element={<TrashPage />} />
           <Route path="boards/:boardId" element={<BoardPage />} />
           <Route path="boards/:boardId/items/:itemId" element={<BoardPage />} />
-
-          {/* /boards/:boardId/views/:viewId arrives in P3 */}
+          <Route path="boards/:boardId/views/:viewId" element={<BoardPage />} />
+          <Route path="boards/:boardId/views/:viewId/items/:itemId" element={<BoardPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

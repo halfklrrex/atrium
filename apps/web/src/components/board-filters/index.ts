@@ -3,3 +3,4 @@ export * from './PersonFilterPopover';
 export * from './AdvancedFilterPopover';
 export * from './SortMenuPopover';
 export * from './GroupByMenuPopover';
+export * from './HideColumnsPopover';

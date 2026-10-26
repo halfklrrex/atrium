@@ -62,7 +62,7 @@ export function SubitemScope({
   );
 
   const scoped = useMemo<TableEnv>(
-    () => ({ ...env, columns, ctx, getItems, getModels: () => [], onResize }),
+    () => ({ ...env, columns, allColumns: columns, ctx, getItems, getModels: () => [], onResize }),
     [env, columns, ctx, getItems, onResize],
   );
 

@@ -10,7 +10,10 @@ export interface TableEnv {
   uid: string;
   /** Can this person edit cells and structure (editor or owner on the board)? */
   canEdit: boolean;
+  /** Columns this view shows (Hide applied). */
   columns: ColumnView[];
+  /** Every board column, hidden ones included (position maths and reordering); `columns` when unset. */
+  allColumns?: ColumnView[];
   /** `board.subitemColumns` ready to render; `[]` until the board's first subitem. */
   subitemColumns: ColumnView[];
   /** Groups in position order. */

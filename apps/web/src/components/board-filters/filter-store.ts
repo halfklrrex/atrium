@@ -1,14 +1,91 @@
 import { create } from 'zustand';
 import {
+  MAIN_VIEW_ID,
   createDefaultFilterState,
+  defaultViewSettings,
   type BoardFilterState,
   type FilterCondition,
   type FilterGroup,
   type SortCondition,
+  type ViewSettings,
 } from '@atrium/shared';
 
+/** What a view remembers and what the toolbar can change without saving: filters plus Hide. */
+export interface ViewState {
+  filter: BoardFilterState;
+  hiddenColumnIds: string[];
+}
+
+/** `saved` mirrors the stored view; `current` is what the user sees (and may have changed). */
+interface ViewEntry {
+  saved: ViewState;
+  current: ViewState;
+}
+
+/** Store key of one view of one board. */
+export const viewKey = (boardId: string, viewId: string): string => `${boardId}:${viewId}`;
+
+export function stateFromSettings(settings: ViewSettings | null | undefined): ViewState {
+  const s = settings ?? defaultViewSettings();
+  return {
+    filter: {
+      ...createDefaultFilterState(),
+      personIds: [...s.filter.personIds],
+      filterGroup: {
+        conjunction: s.filter.filterGroup.conjunction,
+        conditions: s.filter.filterGroup.conditions.map((c) => ({ ...c })),
+      },
+      sortConditions: s.filter.sortConditions.map((c) => ({ ...c })),
+      groupByColumnId: s.filter.groupByColumnId,
+    },
+    hiddenColumnIds: [...s.hiddenColumnIds],
+  };
+}
+
+/** The part of a view state that is saved (search text is per session and never saved). */
+export function settingsFromState(state: ViewState, base?: ViewSettings): ViewSettings {
+  return {
+    ...(base ?? defaultViewSettings()),
+    filter: {
+      personIds: state.filter.personIds,
+      filterGroup: state.filter.filterGroup,
+      sortConditions: state.filter.sortConditions,
+      groupByColumnId: state.filter.groupByColumnId,
+    },
+    hiddenColumnIds: state.hiddenColumnIds,
+  };
+}
+
+const fingerprint = (state: ViewState): string =>
+  JSON.stringify([
+    state.filter.personIds,
+    state.filter.filterGroup,
+    state.filter.sortConditions,
+    state.filter.groupByColumnId,
+    state.hiddenColumnIds,
+  ]);
+
+export function isViewDirty(entry: ViewEntry | undefined): boolean {
+  return entry ? fingerprint(entry.saved) !== fingerprint(entry.current) : false;
+}
+
+const emptyState = (): ViewState => ({ filter: createDefaultFilterState(), hiddenColumnIds: [] });
+
 interface FilterStoreState {
-  boardFilters: Record<string, BoardFilterState>;
+  /** The view each board currently shows; actions below act on it. */
+  activeView: Record<string, string>;
+  views: Record<string, ViewEntry>;
+
+  /**
+   * Show a view and sync it with its stored settings (`null` = nothing stored yet). Unsaved changes
+   * survive a re-sync; an untouched view follows the stored settings.
+   */
+  syncView: (boardId: string, viewId: string, settings: ViewSettings | null) => void;
+  /** After a save: what is on screen is now what is stored. */
+  markSaved: (boardId: string) => void;
+  /** Throw away unsaved changes. */
+  discardChanges: (boardId: string) => void;
+
   getFilterState: (boardId: string) => BoardFilterState;
   setSearchQuery: (boardId: string, searchQuery: string) => void;
   togglePersonFilter: (boardId: string, personId: string) => void;
@@ -22,193 +99,210 @@ interface FilterStoreState {
   toggleSort: (boardId: string, columnId: string) => void;
   setGroupBy: (boardId: string, groupByColumnId: string | null) => void;
   resetFilters: (boardId: string) => void;
+  setHiddenColumnIds: (boardId: string, ids: string[]) => void;
 }
 
-export const useFilterStore = create<FilterStoreState>()((set, get) => ({
-  boardFilters: {},
-
-  getFilterState: (boardId: string) => get().boardFilters[boardId] ?? createDefaultFilterState(),
-
-  setSearchQuery: (boardId: string, searchQuery: string) =>
+export const useFilterStore = create<FilterStoreState>()((set, get) => {
+  /** Change the current state of the board's active view. */
+  const change = (boardId: string, fn: (current: ViewState) => ViewState) =>
     set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: { ...current, searchQuery },
-        },
-      };
-    }),
+      const key = viewKey(boardId, state.activeView[boardId] ?? MAIN_VIEW_ID);
+      const entry = state.views[key] ?? { saved: emptyState(), current: emptyState() };
+      return { views: { ...state.views, [key]: { ...entry, current: fn(entry.current) } } };
+    });
+  const changeFilter = (boardId: string, fn: (filter: BoardFilterState) => BoardFilterState) =>
+    change(boardId, (current) => ({ ...current, filter: fn(current.filter) }));
 
-  togglePersonFilter: (boardId: string, personId: string) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      const exists = current.personIds.includes(personId);
-      const nextPersonIds = exists
-        ? current.personIds.filter((id) => id !== personId)
-        : [...current.personIds, personId];
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: { ...current, personIds: nextPersonIds },
-        },
-      };
-    }),
+  return {
+    activeView: {},
+    views: {},
 
-  setPersonIds: (boardId: string, personIds: string[]) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: { ...current, personIds },
-        },
-      };
-    }),
+    syncView: (boardId, viewId, settings) =>
+      set((state) => {
+        const key = viewKey(boardId, viewId);
+        const saved = stateFromSettings(settings);
+        const existing = state.views[key];
+        const entry: ViewEntry = !existing
+          ? { saved, current: structuredClone(saved) }
+          : isViewDirty(existing)
+            ? { saved, current: existing.current }
+            : {
+                saved,
+                // Keep the session's search text when a stored view re-syncs.
+                current: {
+                  ...structuredClone(saved),
+                  filter: {
+                    ...structuredClone(saved).filter,
+                    searchQuery: existing.current.filter.searchQuery,
+                  },
+                },
+              };
+        return {
+          activeView: { ...state.activeView, [boardId]: viewId },
+          views: { ...state.views, [key]: entry },
+        };
+      }),
 
-  addCondition: (boardId: string, condition: FilterCondition) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: {
-            ...current,
-            filterGroup: {
-              ...current.filterGroup,
-              conditions: [...current.filterGroup.conditions, condition],
+    markSaved: (boardId) =>
+      set((state) => {
+        const key = viewKey(boardId, state.activeView[boardId] ?? MAIN_VIEW_ID);
+        const entry = state.views[key];
+        if (!entry) return state;
+        return {
+          views: { ...state.views, [key]: { ...entry, saved: structuredClone(entry.current) } },
+        };
+      }),
+
+    discardChanges: (boardId) =>
+      set((state) => {
+        const key = viewKey(boardId, state.activeView[boardId] ?? MAIN_VIEW_ID);
+        const entry = state.views[key];
+        if (!entry) return state;
+        const searchQuery = entry.current.filter.searchQuery;
+        const saved = structuredClone(entry.saved);
+        return {
+          views: {
+            ...state.views,
+            [key]: {
+              saved: entry.saved,
+              current: { ...saved, filter: { ...saved.filter, searchQuery } },
             },
           },
-        },
-      };
-    }),
+        };
+      }),
 
-  updateCondition: (boardId: string, index: number, patch: Partial<FilterCondition>) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      const conditions = current.filterGroup.conditions.map((c, i) =>
-        i === index ? { ...c, ...patch } : c,
+    getFilterState: (boardId) => {
+      const { activeView, views } = get();
+      return (
+        views[viewKey(boardId, activeView[boardId] ?? MAIN_VIEW_ID)]?.current.filter ??
+        createDefaultFilterState()
       );
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: {
-            ...current,
-            filterGroup: {
-              ...current.filterGroup,
-              conditions,
-            },
-          },
+    },
+
+    setSearchQuery: (boardId, searchQuery) =>
+      changeFilter(boardId, (filter) => ({ ...filter, searchQuery })),
+
+    togglePersonFilter: (boardId, personId) =>
+      changeFilter(boardId, (filter) => ({
+        ...filter,
+        personIds: filter.personIds.includes(personId)
+          ? filter.personIds.filter((id) => id !== personId)
+          : [...filter.personIds, personId],
+      })),
+
+    setPersonIds: (boardId, personIds) =>
+      changeFilter(boardId, (filter) => ({ ...filter, personIds })),
+
+    addCondition: (boardId, condition) =>
+      changeFilter(boardId, (filter) => ({
+        ...filter,
+        filterGroup: {
+          ...filter.filterGroup,
+          conditions: [...filter.filterGroup.conditions, condition],
         },
-      };
-    }),
+      })),
 
-  removeCondition: (boardId: string, index: number) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      const conditions = current.filterGroup.conditions.filter((_, i) => i !== index);
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: {
-            ...current,
-            filterGroup: {
-              ...current.filterGroup,
-              conditions,
-            },
-          },
+    updateCondition: (boardId, index, patch) =>
+      changeFilter(boardId, (filter) => ({
+        ...filter,
+        filterGroup: {
+          ...filter.filterGroup,
+          conditions: filter.filterGroup.conditions.map((c, i) =>
+            i === index ? { ...c, ...patch } : c,
+          ),
         },
-      };
-    }),
+      })),
 
-  setConjunction: (boardId: string, conjunction: 'and' | 'or') =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: {
-            ...current,
-            filterGroup: {
-              ...current.filterGroup,
-              conjunction,
-            },
-          },
+    removeCondition: (boardId, index) =>
+      changeFilter(boardId, (filter) => ({
+        ...filter,
+        filterGroup: {
+          ...filter.filterGroup,
+          conditions: filter.filterGroup.conditions.filter((_, i) => i !== index),
         },
-      };
-    }),
+      })),
 
-  setFilterGroup: (boardId: string, filterGroup: FilterGroup) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: { ...current, filterGroup },
-        },
-      };
-    }),
+    setConjunction: (boardId, conjunction) =>
+      changeFilter(boardId, (filter) => ({
+        ...filter,
+        filterGroup: { ...filter.filterGroup, conjunction },
+      })),
 
-  setSortConditions: (boardId: string, sortConditions: SortCondition[]) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: { ...current, sortConditions },
-        },
-      };
-    }),
+    setFilterGroup: (boardId, filterGroup) =>
+      changeFilter(boardId, (filter) => ({ ...filter, filterGroup })),
 
-  toggleSort: (boardId: string, columnId: string) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      const existing = current.sortConditions.find((s) => s.columnId === columnId);
-      let nextSorts: SortCondition[];
+    setSortConditions: (boardId, sortConditions) =>
+      changeFilter(boardId, (filter) => ({ ...filter, sortConditions })),
 
-      if (!existing) {
-        nextSorts = [...current.sortConditions, { columnId, direction: 'asc' }];
-      } else if (existing.direction === 'asc') {
-        nextSorts = current.sortConditions.map((s) =>
-          s.columnId === columnId ? { ...s, direction: 'desc' as const } : s,
-        );
-      } else {
-        nextSorts = current.sortConditions.filter((s) => s.columnId !== columnId);
-      }
+    toggleSort: (boardId, columnId) =>
+      changeFilter(boardId, (filter) => {
+        const existing = filter.sortConditions.find((s) => s.columnId === columnId);
+        let sortConditions: SortCondition[];
+        if (!existing) {
+          sortConditions = [...filter.sortConditions, { columnId, direction: 'asc' }];
+        } else if (existing.direction === 'asc') {
+          sortConditions = filter.sortConditions.map((s) =>
+            s.columnId === columnId ? { ...s, direction: 'desc' as const } : s,
+          );
+        } else {
+          sortConditions = filter.sortConditions.filter((s) => s.columnId !== columnId);
+        }
+        return { ...filter, sortConditions };
+      }),
 
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: { ...current, sortConditions: nextSorts },
-        },
-      };
-    }),
+    setGroupBy: (boardId, groupByColumnId) =>
+      changeFilter(boardId, (filter) => ({ ...filter, groupByColumnId })),
 
-  setGroupBy: (boardId: string, groupByColumnId: string | null) =>
-    set((state) => {
-      const current = state.boardFilters[boardId] ?? createDefaultFilterState();
-      return {
-        boardFilters: {
-          ...state.boardFilters,
-          [boardId]: { ...current, groupByColumnId },
-        },
-      };
-    }),
+    /** Clear every filter, sort and group-by of the view; hidden columns stay. */
+    resetFilters: (boardId) =>
+      change(boardId, (current) => ({ ...current, filter: createDefaultFilterState() })),
 
-  resetFilters: (boardId: string) =>
-    set((state) => ({
-      boardFilters: {
-        ...state.boardFilters,
-        [boardId]: createDefaultFilterState(),
-      },
-    })),
-}));
+    setHiddenColumnIds: (boardId, hiddenColumnIds) =>
+      change(boardId, (current) => ({ ...current, hiddenColumnIds })),
+  };
+});
 
 const DEFAULT_FILTER_STATE: BoardFilterState = createDefaultFilterState();
+const NO_HIDDEN: string[] = [];
+
+/** What the board's active view shows right now (unsaved changes included). */
+export function currentViewState(boardId: string): ViewState {
+  const s = useFilterStore.getState();
+  return entryOf(s, boardId)?.current ?? emptyState();
+}
+
+/** The id of the view the board is showing. */
+export function useActiveViewId(boardId: string | undefined): string {
+  return useFilterStore((s) => s.activeView[boardId ?? '__default__'] ?? MAIN_VIEW_ID);
+}
+
+const entryOf = (
+  s: Pick<FilterStoreState, 'activeView' | 'views'>,
+  boardId: string,
+): ViewEntry | undefined => s.views[viewKey(boardId, s.activeView[boardId] ?? MAIN_VIEW_ID)];
+
+/** Whether the board's active view has unsaved filter, sort, group-by or Hide changes. */
+export function useViewDirty(boardId: string | undefined): boolean {
+  return useFilterStore((s) => isViewDirty(entryOf(s, boardId ?? '__default__')));
+}
+
+/** Whether the given view of a board has unsaved changes (for the tab dot). */
+export function useViewIdDirty(boardId: string, viewId: string): boolean {
+  return useFilterStore((s) => isViewDirty(s.views[viewKey(boardId, viewId)]));
+}
+
+/** Column ids the active view hides (unsaved Hide changes included). */
+export function useHiddenColumnIds(boardId: string | undefined): string[] {
+  return useFilterStore(
+    (s) => entryOf(s, boardId ?? '__default__')?.current.hiddenColumnIds ?? NO_HIDDEN,
+  );
+}
 
 export function useBoardFilter(boardId: string | undefined) {
   const currentBoardId = boardId ?? '__default__';
-  const filterState = useFilterStore((s) => s.boardFilters[currentBoardId] ?? DEFAULT_FILTER_STATE);
+  const filterState = useFilterStore(
+    (s) => entryOf(s, currentBoardId)?.current.filter ?? DEFAULT_FILTER_STATE,
+  );
 
   const activeFilterCount =
     (filterState.searchQuery?.trim() ? 1 : 0) +

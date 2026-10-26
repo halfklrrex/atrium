@@ -145,7 +145,7 @@ describe('Board Filters, Sort, Search & Group-by', () => {
       expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Sort' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Group by' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Hide' })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: 'Hide columns' })).toBeEnabled();
     });
 
     it('opens search input and updates search query', async () => {
@@ -375,7 +375,6 @@ describe('Board Filters, Sort, Search & Group-by', () => {
         items: itemsWithNamedPeople,
         columns,
         search: '',
-        sort: null,
         filterState: {
           ...useFilterStore.getState().getFilterState('b1'),
           groupByColumnId: 'col_people',
@@ -390,7 +389,6 @@ describe('Board Filters, Sort, Search & Group-by', () => {
         items: itemsWithNamedPeople,
         columns,
         search: '',
-        sort: null,
         filterState: {
           ...useFilterStore.getState().getFilterState('b1'),
           groupByColumnId: 'col_people',

@@ -3,7 +3,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { comparePositions } from '../lib/positions';
 import { activeBoards, mergeBoards } from './boards';
 import { queries, refs } from './firestore';
-import type { BoardDoc, FavoriteDoc, FolderDoc, ItemDoc, RecentDoc, WorkspaceDoc } from './model';
+import { mergeViews } from './views';
+import type {
+  BoardDoc,
+  BoardViewDoc,
+  FavoriteDoc,
+  FolderDoc,
+  ItemDoc,
+  RecentDoc,
+  WorkspaceDoc,
+} from './model';
 import { useDocSnapshot, useQuerySnapshot, type SnapshotState } from './useSnapshot';
 
 /** Workspaces the user belongs to (live), sorted by name. */
@@ -65,6 +74,35 @@ export function useBoards(
 export function useBoard(boardId: string | undefined): SnapshotState<BoardDoc | null> {
   const ref = useMemo(() => (boardId ? refs.board(boardId) : null), [boardId]);
   return useDocSnapshot(ref);
+}
+
+/**
+ * The board's view tabs (live): shared views plus the user's own personal ones, in tab order, with
+ * the "Main table" view always first (synthesised until somebody saves its settings).
+ */
+export function useBoardViews(
+  boardId: string | undefined,
+  uid: string | null,
+): SnapshotState<BoardViewDoc[]> {
+  const sharedQuery = useMemo(
+    () => (boardId && uid ? queries.sharedViews(boardId) : null),
+    [boardId, uid],
+  );
+  const personalQuery = useMemo(
+    () => (boardId && uid ? queries.personalViews(boardId, uid) : null),
+    [boardId, uid],
+  );
+  const shared = useQuerySnapshot(sharedQuery);
+  const personal = useQuerySnapshot(personalQuery);
+  const data = useMemo(
+    () => mergeViews(shared.data, personal.data, uid ?? ''),
+    [shared.data, personal.data, uid],
+  );
+  return {
+    data,
+    loading: shared.loading || personal.loading,
+    error: shared.error ?? personal.error,
+  };
 }
 
 /**

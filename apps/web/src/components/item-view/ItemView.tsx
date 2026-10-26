@@ -21,7 +21,13 @@ import { showToast } from '../toast-store';
 import { FieldsPanel } from './FieldsPanel';
 import { ItemSubitems } from './ItemSubitems';
 import type { DescriptionValue } from './description';
-import { FROM_BOARD_STATE, itemViewPath, neighbours, useItemViewStore } from './item-view-store';
+import {
+  FROM_BOARD_STATE,
+  boardPath,
+  itemViewPath,
+  neighbours,
+  useItemViewStore,
+} from './item-view-store';
 import styles from './ItemView.module.css';
 
 const DescriptionEditor = lazy(() => import('./DescriptionEditor'));
@@ -90,7 +96,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
   const fromBoard = (location.state as { fromBoard?: boolean } | null)?.fromBoard === true;
   const close = useCallback(() => {
     if (fromBoard) navigate(-1);
-    else navigate(`/boards/${boardId}`, { replace: true });
+    else navigate(boardPath(boardId), { replace: true });
   }, [fromBoard, navigate, boardId]);
 
   const goTo = (id: string | null) => {

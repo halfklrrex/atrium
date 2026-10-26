@@ -97,11 +97,6 @@ export function tableWidth(nameWidth: number, columns: readonly ColumnView[], ad
   return `calc(${fixed}px + ${add})`;
 }
 
-export interface SortState {
-  columnId: string;
-  direction: 'asc' | 'desc';
-}
-
 export interface GroupModel {
   group: GroupDef;
   /** Items to show, in order (after search and sort). */
@@ -127,7 +122,6 @@ export interface ModelInput {
   subitemColumns?: readonly ColumnView[];
   /** Case-insensitive search term, already trimmed; empty = no search. */
   search: string;
-  sort: SortState | null;
   /** Local moves not yet confirmed by the server (while dragging and until the write lands). */
   patches?: Readonly<Record<string, MovePatch>>;
   filterState?: BoardFilterState;
@@ -204,33 +198,12 @@ export function subitemTableWidth(
   return `calc(${nameTrack} - ${indent} + ${fixed}px + ${add})`;
 }
 
-function compareBySort(
-  a: ItemDoc,
-  b: ItemDoc,
-  sort: SortState,
-  columns: readonly ColumnView[],
-): number {
-  const sign = sort.direction === 'asc' ? 1 : -1;
-  if (sort.columnId === NAME_COLUMN) {
-    return sign * a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
-  }
-  const column = columns.find((c) => c.def.id === sort.columnId);
-  if (!column) return 0;
-  const va = a.values[column.def.id];
-  const vb = b.values[column.def.id];
-  const aEmpty = va === null || va === undefined;
-  const bEmpty = vb === null || vb === undefined;
-  // Empty cells sort last in both directions, like monday.
-  if (aEmpty || bEmpty) return aEmpty === bEmpty ? 0 : aEmpty ? 1 : -1;
-  return sign * columnRegistry.compare(column.def.type, va, vb, column.settings);
-}
-
 /**
  * Groups in position order with their items. Items whose group no longer exists are not shown.
  * With a search term, groups without a match are left out entirely.
  */
 export function buildGroupModels(input: ModelInput): GroupModel[] {
-  const { groups, items, columns, search, sort, patches, filterState, userLookup } = input;
+  const { groups, items, columns, search, patches, filterState, userLookup } = input;
   const subitemColumns = input.subitemColumns ?? [];
   const resolvedColumnDefs = columns.map((c) => ({
     ...c.def,
@@ -316,8 +289,6 @@ export function buildGroupModels(input: ModelInput): GroupModel[] {
         let shown = grp.items as ItemDoc[];
         if (filterState.sortConditions.length > 0) {
           shown = sortItems(shown, filterState.sortConditions, resolvedColumnDefs) as ItemDoc[];
-        } else if (sort) {
-          shown = [...shown].sort((a, b) => compareBySort(a, b, sort, columns));
         }
         models.push({
           group: {
@@ -362,8 +333,6 @@ export function buildGroupModels(input: ModelInput): GroupModel[] {
     }
     if (filterState && filterState.sortConditions.length > 0) {
       shown = sortItems(shown, filterState.sortConditions, resolvedColumnDefs) as ItemDoc[];
-    } else if (sort) {
-      shown = [...shown].sort((a, b) => compareBySort(a, b, sort, columns));
     }
     if (hasFiltering && shown.length === 0) continue;
     models.push({ group, items: shown, all, subitemsByParent, autoExpanded });
