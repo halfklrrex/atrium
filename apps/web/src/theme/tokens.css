@@ -131,6 +131,18 @@
   --atrium-update-avatar-size: 40px;
   --atrium-reply-avatar-size: 32px;
 
+  /* ---- Full item view (floating window) ---- */
+  --atrium-scrim-light: rgba(0, 0, 0, 0.2); /* focus-mode scrim, lighter than the dialog one */
+  --atrium-item-view-width: min(1100px, 92vw);
+  --atrium-item-view-height: min(86vh, 900px);
+  --atrium-item-view-fields-width: 38%;
+  --atrium-item-view-subitem-cell-width: 140px;
+  --atrium-doc-h1-font: 600 24px / 32px var(--title-font-family);
+  --atrium-doc-h2-font: 600 20px / 28px var(--title-font-family);
+  --atrium-doc-h3-font: 600 16px / 24px var(--title-font-family);
+  --atrium-doc-code-font: 400 13px / 20px monospace;
+  --atrium-doc-editor-min-height: 120px;
+
   /* ---- Elevation ---- */
   --atrium-menu-shadow: var(--box-shadow-medium);
 
@@ -166,6 +178,7 @@
   --atrium-nav-text: var(--secondary-text-color);
   --atrium-cover-bg: var(--grey-background-color);
   --atrium-scrim: rgba(0, 0, 0, 0.6);
+  --atrium-scrim-light: rgba(0, 0, 0, 0.35);
   --illus-surface: #4a4e7c;
   --illus-line: #6c70a3;
   --illus-glow: #3a3d62;
@@ -180,6 +193,7 @@
   --atrium-nav-selected-bg: var(--primary-selected-color);
   --atrium-cover-bg: var(--grey-background-color);
   --atrium-scrim: rgba(0, 0, 0, 0.7);
+  --atrium-scrim-light: rgba(0, 0, 0, 0.5);
   --atrium-brand-bg: #08080a;
   --illus-surface: #444444;
   --illus-line: #686868;

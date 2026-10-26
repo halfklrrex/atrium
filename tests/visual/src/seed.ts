@@ -2,6 +2,7 @@ import {
   FIRESTORE_DATABASE_ID,
   columnRegistry,
   defaultBoardStructure,
+  defaultSubitemColumns,
   type BoardStructure,
   type BoardWrite,
   type ColumnDef,
@@ -282,24 +283,25 @@ function roadmapStructure(): BoardStructure {
     { id: 'roadmap-vf', title: 'VF · Visual fidelity', color: '#ff5ac4', position: 'a1' },
     { id: 'roadmap-p1', title: 'P1 · Core boards', color: '#579bfc', position: 'a2' },
   ];
+  const columns = [
+    column('area', 'dropdown', 'Area', 'a0', {
+      limitSelect: false,
+      labels: AREAS.map((label, id) => ({ id, label })),
+    }),
+    column('scope', 'long_text', 'Scope', 'a1'),
+    column('spec', 'link', 'Spec / PR', 'a2'),
+    column('status', 'status', 'Status', 'a3', status),
+    column('priority', 'status', 'Priority', 'a4', priority),
+    column('date', 'date', 'Date', 'a5'),
+    column('person', 'people', 'Person', 'a6'),
+    column('budget', 'numbers', 'Budget', 'a7', {
+      unit: { symbol: '$', direction: 'left' },
+      decimals: null,
+    }),
+  ];
   return {
-    columns: [
-      column('area', 'dropdown', 'Area', 'a0', {
-        limitSelect: false,
-        labels: AREAS.map((label, id) => ({ id, label })),
-      }),
-      column('scope', 'long_text', 'Scope', 'a1'),
-      column('spec', 'link', 'Spec / PR', 'a2'),
-      column('status', 'status', 'Status', 'a3', status),
-      column('priority', 'status', 'Priority', 'a4', priority),
-      column('date', 'date', 'Date', 'a5'),
-      column('person', 'people', 'Person', 'a6'),
-      column('budget', 'numbers', 'Budget', 'a7', {
-        unit: { symbol: '$', direction: 'left' },
-        decimals: null,
-      }),
-    ],
-    subitemColumns: [],
+    columns,
+    subitemColumns: defaultSubitemColumns(columns.map((c) => c.id)),
     groups,
     itemTerminology: 'item',
   };
@@ -355,10 +357,60 @@ function roadmapItems(): { id: string; item: ItemWrite }[] {
   return out;
 }
 
+/** The item the full item view screens open: a description, three subitems and an update. */
+export const FULL_VIEW_ITEM = 'roadmap-item-17';
+
+const para = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+const FULL_VIEW_DESCRIPTION = {
+  type: 'doc',
+  content: [
+    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Goal' }] },
+    para('Ship the pipeline so every merge to main is built, tested and deployed automatically.'),
+    {
+      type: 'bulletList',
+      content: [
+        'Lint, typecheck and unit tests',
+        'Rules tests on the emulator',
+        'Preview deploys',
+      ].map((t) => ({ type: 'listItem', content: [para(t)] })),
+    },
+    para('Details live in the spec linked from this item.'),
+  ],
+};
+
 async function seedRoadmapItems(firestore: Firestore): Promise<void> {
   const batch = firestore.batch();
+  const items = firestore.collection('boards').doc(IDS.roadmap).collection('items');
   for (const { id, item } of roadmapItems()) {
-    batch.set(firestore.collection('boards').doc(IDS.roadmap).collection('items').doc(id), item);
+    if (id !== FULL_VIEW_ITEM) {
+      batch.set(items.doc(id), item);
+      continue;
+    }
+    batch.set(items.doc(id), {
+      ...item,
+      description: { doc: FULL_VIEW_DESCRIPTION, text: 'Goal Ship the pipeline' },
+      updatesCount: 1,
+    });
+    ['Write the workflow', 'Cache dependencies', 'Add the deploy job'].forEach((name, i) => {
+      batch.set(items.doc(`${id}-sub-${i + 1}`), {
+        ...item,
+        name,
+        position: `a${i}`,
+        parentItemId: id,
+        values: { sub_status: { index: i } },
+      });
+    });
+    batch.set(items.doc(id).collection('updates').doc('full-view-update'), {
+      itemId: id,
+      authorId: AVERY.uid,
+      authorName: AVERY.displayName,
+      authorPhotoUrl: null,
+      content: 'The workflow runs on every pull request now.',
+      likes: [],
+      repliesCount: 0,
+      createdAt: ago(2 * HOUR),
+      updatedAt: ago(2 * HOUR),
+    });
   }
   await batch.commit();
 }

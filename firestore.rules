@@ -366,7 +366,7 @@ service cloud.firestore {
 
         function validItemCreate(d) {
           return d.keys().hasOnly(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
-                                   'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+                                   'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'description'])
             && d.keys().hasAll(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
                                 'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
             && d.name is string && d.name.size() >= 1 && d.name.size() <= 500
@@ -374,6 +374,7 @@ service cloud.firestore {
             && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
             && (d.parentItemId == null || (d.parentItemId is string && validSubitemParent(d)))
             && d.values is map
+            && (!d.keys().hasAny(['description']) || validDescription(d.description))
             && !d.values.keys().hasAny(blockedColumnIds())
             && d.state == 'active'
             && d.deletedAt == null
@@ -381,11 +382,19 @@ service cloud.firestore {
             && d.createdAt == request.time && d.updatedAt == request.time;
         }
 
+        // The rich-text description: null, or a map of exactly { doc: map, text: string <= 10000 }.
+        function validDescription(v) {
+          return v == null
+            || (v is map && v.keys().hasOnly(['doc', 'text']) && v.keys().hasAll(['doc', 'text'])
+                && v.doc is map && v.text is string && v.text.size() <= 10000);
+        }
+
         function validItemUpdate() {
           let changed = request.resource.data.diff(resource.data).affectedKeys();
           // parentItemId is immutable: converting between item and subitem is not supported.
           return changed.hasOnly(['name', 'groupId', 'position', 'values', 'state',
-                                  'deletedAt', 'updatedAt', 'updatedBy'])
+                                  'deletedAt', 'updatedAt', 'updatedBy', 'description'])
+            && (!changed.hasAny(['description']) || validDescription(request.resource.data.description))
             && request.resource.data.name is string && request.resource.data.name.size() >= 1
             && request.resource.data.name.size() <= 500
             && request.resource.data.values is map
