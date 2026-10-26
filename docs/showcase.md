@@ -4,7 +4,7 @@
 
 ## What it creates
 
-- `showcase-main`: the board "🧪 Atrium Showcase". It has 4 groups (This week, Next up, Backlog, Done), 26 active items, 2 archived and 2 trashed items, and every column type the board table can render today (People, two Status columns, Date, Numbers with a € unit, Dropdown, Text, Long text, Checkbox, Link). Four items carry updates and replies in the item card feed. Dates are spread over the last and next 30 days, with some overdue items and some empty cells.
+- `showcase-main`: the board "🧪 Atrium Showcase". It has 4 groups (This week, Next up, Backlog, Done), 26 active items, 2 archived and 2 trashed items, and every column type the board table can render today (People, two Status columns, Date, Numbers with a € unit, Dropdown, Text, Long text, Checkbox, Link). Four items carry updates and replies in the item card feed. A shared table view, "Due this week" (filtered and sorted by date, two columns hidden), shows in the view tabs. Dates are spread over the last and next 30 days, with some overdue items and some empty cells.
 - `showcase-archived-demo` and `showcase-trashed-demo`: two tiny boards, one archived and one deleted, so the workspace's **Archive & Trash** page has something to show. (That page lists boards. Archived and trashed _items_ have no screen yet; they are in the data for when one lands.)
 - The owner's favourite and "recently visited" entries for the main board.
 

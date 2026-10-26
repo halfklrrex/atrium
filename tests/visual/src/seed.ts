@@ -435,6 +435,46 @@ export async function createEmptyWorkspace(): Promise<void> {
     });
 }
 
+/** Id of the shared view the "view tabs" screen adds to the roadmap board (and removes again). */
+export const EXTRA_VIEW = 'view-due-soon';
+
+/** A shared table view on the roadmap board, so the tab row shows two tabs. Pair with `removeView`. */
+export async function addView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(EXTRA_VIEW)
+    .set({
+      name: 'Due soon',
+      type: 'table',
+      position: 'a1',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+      },
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(EXTRA_VIEW)
+    .delete();
+}
+
 /** Forget every recently visited board, so Home shows its "No boards visited yet" state. */
 export async function clearRecents(): Promise<void> {
   const stale = await adminDb()

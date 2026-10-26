@@ -52,7 +52,7 @@ Decision (2026-10-25, owner): Atrium uses the named database `atrium-1` (`eur3`,
 
 - **React 18 or 19:** use whichever `@vibe/core`'s peer dependencies support (check before installing).
 - **UI:** `@vibe/core` components + `@vibe/icons`; Vibe's ThemeProvider with light / dark / black themes. Font: Figtree (Google Fonts). Never use monday's logo, name or marketing art. Atrium has its own wordmark.
-- **Routing:** React Router (library mode). Routes: `/login`, `/` (redirects to last workspace), `/workspaces/:workspaceId`, `/boards/:boardId`, `/boards/:boardId/views/:viewId` (P3).
+- **Routing:** React Router (library mode). Routes: `/login`, `/` (redirects to last workspace), `/workspaces/:workspaceId`, `/boards/:boardId`, `/boards/:boardId/views/:viewId[/items/:itemId]` (P3; `/boards/:boardId` opens the last view used, `atrium.lastView.<boardId>` in localStorage).
 - **Data access:** thin hooks over `onSnapshot` (`useWorkspaces`, `useBoard`, `useItems`) in `apps/web/src/data/`. All Firestore paths and converters live in one module so components never build paths by hand.
 - **UI state:** Zustand for local UI state (selection, open item card, sidebar). No Redux.
 - **Large lists:** `@tanstack/react-virtual` for the board table. **Drag & drop:** `@dnd-kit`.
@@ -116,7 +116,7 @@ Loading a board means one listener on `items where state == 'active'`, which is 
 
 ### 5.6 Later subcollections (shape reserved, built in later phases)
 - `boards/{boardId}/items/{itemId}/updates/{updateId}`: rich-text updates, replies via `parentUpdateId` (P1)
-- `boards/{boardId}/views/{viewId}`: `type, name, settings, ownerId|null` (null = shared view) (P3)
+- `boards/{boardId}/views/{viewId}`: `name, type (table|kanban), position, ownerId|null (null = shared view, a uid = personal), settings {filter, hiddenColumnIds, kanban?}, createdAt/By, updatedAt/By` (P3). `main` is the fixed Main table view, created lazily on its first save. `ownerId` and `type` never change ("make personal/shared" writes a copy and deletes the original). The client lists views with two queries (`ownerId == null` and `ownerId == uid`) because the rules engine refuses `ownerId in [null, uid]`. Details: `docs/specs/P3-saved-views.md`.
 - `boards/{boardId}/activity/{id}`: append-only, written only by Functions (P1/P4). Rules deny every client read and write, explicitly (FW2)
 - `boards/{boardId}/automations/{id}` (P5) · `dashboards/{id}` (P6) · `docs/{id}` (P7)
 - `users/{uid}/notifications/{id}` (P4) · `invites/{inviteId}` (P4)

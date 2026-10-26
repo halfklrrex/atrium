@@ -10,6 +10,7 @@
 import {
   DEFAULT_BOARD_STATUS_LABELS,
   boardSchema,
+  boardViewSchema,
   columnDefSchema,
   columnRegistry,
   defaultSubitemColumns,
@@ -1089,6 +1090,7 @@ export function buildShowcase({
     trashed: 0,
     updates: 0,
     replies: 0,
+    views: 0,
   };
 
   const columns = buildColumns();
@@ -1259,6 +1261,39 @@ export function buildShowcase({
   summary.boards[SHOWCASE_MAIN_ID] = {
     items: summary.items + summary.subitems + summary.archived + summary.trashed,
   };
+
+  // ---- Saved views: a shared "Due this week" table (date filter, date sort, two columns hidden) ----
+  // `main` is not written: until somebody saves it the app shows it with default settings.
+  const isoDay = (offset) => new Date(anchor + offset * DAY).toISOString().slice(0, 10);
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-due-this-week`,
+    data: boardViewSchema.parse({
+      name: 'Due this week',
+      type: 'table',
+      position: 'a1',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: {
+            conjunction: 'and',
+            conditions: [
+              { columnId: 'due', operator: 'greater_than', value: isoDay(-1) },
+              { columnId: 'due', operator: 'less_than', value: isoDay(7) },
+            ],
+          },
+          sortConditions: [{ columnId: 'due', direction: 'asc' }],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: ['brief', 'next_step'],
+      },
+      createdAt: ago(5 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
 
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
