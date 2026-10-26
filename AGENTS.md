@@ -19,9 +19,10 @@ Atrium: a personal, self-hosted work-management app modelled on monday.com's top
 Workspace "Monday Clone": see `.private/project-ids.md` (gitignored, local only) for the URL and ids.
 
 - **Roadmap** board: groups are phases (P0–P11, plus VF for visual fidelity) and items are epics. Columns: **Actionable**, Status, Priority, Area, Scope, Spec / PR, **Agent**, **Branch**.
-- **Actionable** (owner decision, 2026-10-26) tells the owner at a glance where something waits on them. It has two values: red **Yes** and blue **No**.
+- **Actionable** (owner decision, 2026-10-26) shows at a glance whose move it is on an item. It has three values: red **Yes**, purple **Agents** and blue **No**.
   - Set **Yes** whenever you leave the owner something to read or do on an item: a question or comment, a request to check a live feature (every move to In review), a decision, or a step only the owner can run.
-  - Set **No** once it's handled: the owner replied and you've acted on it, or the owner has signed the item off.
+  - The owner sets **Agents** after answering or acting on a Yes, so it's back with the agents. Agents pick these up at the start of each session (see below).
+  - Set **No** once it's handled: you've acted on the owner's answer, or the owner has signed the item off.
   - When the owner asks a question on an item, reply on it, then set Yes if your reply needs their answer or action, and No if it doesn't.
   - A Yes always comes with an update on the item saying exactly what's needed, so the owner never has to guess.
 - **Decisions & Questions** board: the architecture decision log. Accepted decisions are binding.
@@ -57,7 +58,8 @@ The agents can't message each other. **Pull-request comments are the channel**: 
 
    Split the bugs sensibly between the agents: take ones in your own area, and leave a note if the other agent owns that code. Bug fixes follow the normal PR flow. Reply on the owner's update when the fix is live. If you can't access monday, ask the owner to paste the new bug-inbox updates for you.
 
-6. **Only then start new work**, within the 2-open-PR limit, after checking what's in flight. Open bugs rank above new features unless the owner says otherwise.
+6. **Check Actionable = Agents.** On the Roadmap, find the items whose Actionable is **Agents**: the owner has answered or acted on them. Read the newest updates on each item in your area and act on them: sign the item off, fix what they found, or reply. Then set Actionable to No (handled) or Yes (you need something more from them).
+7. **Only then start new work**, within the 2-open-PR limit, after checking what's in flight. Open bugs rank above new features unless the owner says otherwise.
 
 **Ophelia (Claude Opus, as lead):** at the start of each session, she also checks every open PR from either agent for new commits or replies, re-reviews what changed, and merges what's ready.
 
