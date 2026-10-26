@@ -53,11 +53,36 @@ export const viewFilterSettingsSchema = z.object({
   groupByColumnId: z.string().min(1).max(128).nullable(),
 });
 
+/** Caps for a Kanban view's settings. */
+export const KANBAN_LIMITS = { cardColumns: 20, collapsedLanes: 60 } as const;
+
+/** How many columns a Kanban card shows until the user picks others. */
+export const KANBAN_DEFAULT_CARD_COLUMNS = 3;
+
+/** Key of the lane for items without a status label (every other lane is keyed by its label id). */
+export const KANBAN_EMPTY_LANE = '__empty';
+
+/** Settings of a Kanban view (`views/{id}.settings.kanban`). */
+export const kanbanSettingsSchema = z.object({
+  /** The status column whose labels make the lanes; null = the board's first status column. */
+  columnId: z.string().min(1).max(128).nullable(),
+  /** Columns shown on the cards, in order; null = the first three non-status, non-derived columns. */
+  cardColumnIds: z.array(z.string().min(1).max(128)).max(KANBAN_LIMITS.cardColumns).nullable(),
+  /** Lane keys the user collapsed (label ids, or `__empty`). */
+  collapsedLaneIds: z.array(z.string().min(1).max(128)).max(KANBAN_LIMITS.collapsedLanes),
+  showEmptyLanes: z.boolean(),
+});
+export type KanbanSettings = z.infer<typeof kanbanSettingsSchema>;
+
+export function defaultKanbanSettings(): KanbanSettings {
+  return { columnId: null, cardColumnIds: null, collapsedLaneIds: [], showEmptyLanes: true };
+}
+
 export const viewSettingsSchema = z.object({
   filter: viewFilterSettingsSchema,
   hiddenColumnIds: z.array(z.string().min(1).max(128)).max(VIEW_LIMITS.hiddenColumns),
-  /** Defined by the Kanban view spec; absent for tables. */
-  kanban: z.record(z.string(), z.unknown()).optional(),
+  /** Only Kanban views have these. */
+  kanban: kanbanSettingsSchema.optional(),
 });
 export type ViewSettings = z.infer<typeof viewSettingsSchema>;
 export type ViewFilterSettings = z.infer<typeof viewFilterSettingsSchema>;

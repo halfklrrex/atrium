@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   VIEW_LIMITS,
   boardViewSchema,
+  defaultKanbanSettings,
   defaultViewSettings,
   uniqueViewName,
   viewSettingsSchema,
@@ -103,5 +104,33 @@ describe('board view schemas', () => {
     expect(uniqueViewName('Table', ['Main table'])).toBe('Table');
     expect(uniqueViewName('Table', ['Table'])).toBe('Table 2');
     expect(uniqueViewName('Table', ['table', 'Table 2'])).toBe('Table 3');
+  });
+});
+
+describe('kanban view settings', () => {
+  it('defaults to the first status column, automatic card fields and visible empty lanes', () => {
+    expect(defaultKanbanSettings()).toEqual({
+      columnId: null,
+      cardColumnIds: null,
+      collapsedLaneIds: [],
+      showEmptyLanes: true,
+    });
+  });
+
+  it('is accepted inside the view settings and validated', () => {
+    const settings = { ...defaultViewSettings(), kanban: defaultKanbanSettings() };
+    expect(viewSettingsSchema.safeParse(settings).success).toBe(true);
+    const explicit = {
+      ...settings,
+      kanban: {
+        columnId: 'status',
+        cardColumnIds: ['a', 'b'],
+        collapsedLaneIds: ['__empty'],
+        showEmptyLanes: false,
+      },
+    };
+    expect(viewSettingsSchema.safeParse(explicit).success).toBe(true);
+    const bad = { ...settings, kanban: { ...defaultKanbanSettings(), showEmptyLanes: 'yes' } };
+    expect(viewSettingsSchema.safeParse(bad).success).toBe(false);
   });
 });
