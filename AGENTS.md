@@ -18,7 +18,12 @@ Atrium: a personal, self-hosted work-management app modelled on monday.com's top
 
 Workspace "Monday Clone": see `.private/project-ids.md` (gitignored, local only) for the URL and ids.
 
-- **Roadmap** board: groups are phases (P0–P11, plus VF for visual fidelity) and items are epics. Columns: Status, Priority, Area, Scope, Spec / PR, **Agent**, **Branch**.
+- **Roadmap** board: groups are phases (P0–P11, plus VF for visual fidelity) and items are epics. Columns: **Actionable**, Status, Priority, Area, Scope, Spec / PR, **Agent**, **Branch**.
+- **Actionable** (owner decision, 2026-10-26) tells the owner at a glance where something waits on them. It has two values: red **Yes** and blue **No**.
+  - Set **Yes** whenever you leave the owner something to read or do on an item: a question or comment, a request to check a live feature (every move to In review), a decision, or a step only the owner can run.
+  - Set **No** once it's handled: the owner replied and you've acted on it, or the owner has signed the item off.
+  - When the owner asks a question on an item, reply on it, then set Yes if your reply needs their answer or action, and No if it doesn't.
+  - A Yes always comes with an update on the item saying exactly what's needed, so the owner never has to guess.
 - **Decisions & Questions** board: the architecture decision log. Accepted decisions are binding.
 
 ## Who's who: Ophelia (Claude Opus 5.5) leads, Ava (Antigravity) pairs (owner decision, 2026-10-24)
