@@ -126,5 +126,5 @@ function ViewBody({ board }: { board: BoardDoc }) {
       </div>
     );
   }
-  return <BoardTable key={ctx.view.id} board={board} />;
+  return <BoardTable board={board} />;
 }

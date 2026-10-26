@@ -51,7 +51,8 @@ export function BoardViewsProvider({
     useItemViewStore.getState().setView(boardId, view.id);
   }, [boardId, view.id]);
 
-  const ready = useFilterStore((s) => s.activeView[boardId] === view.id);
+  // The layout effect above runs before paint, so a view switch never shows the previous view's filters.
+  const ready = useFilterStore((s) => s.activeView[boardId] !== undefined);
 
   const goTo = useCallback(
     (viewId: string, options?: { replace?: boolean }) =>

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BoardViewDoc } from '../../data';
@@ -8,7 +9,13 @@ import { BoardViewsContext, type BoardViewsValue } from './view-context';
 import { viewPermissions } from './view-permissions';
 import { ViewTabs } from './ViewTabs';
 
+const rename = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+
 vi.mock('../../lib/firebase', () => ({ db: {} }));
+vi.mock('../../data', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  viewWrites: { rename },
+}));
 
 const view = (
   id: string,
@@ -110,6 +117,19 @@ describe('view tabs', () => {
     renderTabs({ canEdit: true });
     openMenuOf('My tasks');
     expect(menuItems()).toEqual(['Rename', 'Duplicate', 'Make shared', 'Delete']);
+  });
+
+  it('renames a view inline: Rename, type, Enter', async () => {
+    renderTabs({ canEdit: true });
+    openMenuOf('Due this week');
+    await userEvent
+      .setup({ pointerEventsCheck: 0 })
+      .click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    const input = await screen.findByRole('textbox', { name: 'View name' });
+    fireEvent.change(input, { target: { value: 'Due soon' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(rename).toHaveBeenCalledWith('b1', 'me', 'v1', 'Due soon'));
+    expect(screen.queryByRole('textbox', { name: 'View name' })).toBeNull();
   });
 
   it('navigates to a view when its tab is clicked', () => {
