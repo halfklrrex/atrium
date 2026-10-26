@@ -92,6 +92,8 @@ export function CardBody({
   const updatesCount = item.updatesCount ?? 0;
   const open = () => openItemFull(boardId, item.id);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // dnd-kit's keyboard sensor listens here too (Space picks the card up).
+    (dragProps?.onKeyDown as ((e: KeyboardEvent<HTMLDivElement>) => void) | undefined)?.(event);
     // Space starts a keyboard drag (dnd-kit); Enter opens the item.
     if (event.key === 'Enter' && event.target === event.currentTarget && !dragging) {
       event.preventDefault();
