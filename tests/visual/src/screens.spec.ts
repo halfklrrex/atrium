@@ -100,7 +100,10 @@ for (const theme of ['light', 'dark'] as const) {
         await expect(page.getByRole('tab', { name: 'Due soon' })).toBeVisible();
         // Hiding a column is an unsaved change: a dot on the tab and "Save to this view".
         await page.getByRole('button', { name: 'Hide columns' }).click();
-        await page.getByRole('checkbox', { name: 'Budget' }).click();
+        await page
+          .getByRole('dialog', { name: 'Hide columns' })
+          .getByText('Budget', { exact: true })
+          .click();
         await page.keyboard.press('Escape');
         await expect(page.getByRole('button', { name: 'Save to this view' })).toBeVisible();
         await expect(page.getByRole('img', { name: 'Unsaved changes' })).toBeVisible();
@@ -115,8 +118,8 @@ for (const theme of ['light', 'dark'] as const) {
       await boardReady(page);
       await page.getByRole('button', { name: 'Hide columns' }).click();
       const panel = page.getByRole('dialog', { name: 'Hide columns' });
-      await expect(panel.getByRole('checkbox', { name: 'Budget' })).toBeVisible();
-      await panel.getByRole('checkbox', { name: 'Area' }).click();
+      await expect(panel.getByText('Budget', { exact: true })).toBeVisible();
+      await panel.getByText('Area', { exact: true }).click();
       await shoot(page, `board-hide-popover-${theme}`, PARK_IN_HEADER);
     });
 
