@@ -312,6 +312,10 @@ async function removeInTransaction(
   const targetRole = ws.roles[targetUid];
   if (!actorRole) throw denied('You are not a member of this workspace.');
   if (!targetRole) throw new HttpsError('not-found', 'That person is not a member.');
+  const isSelf = targetUid === actor.uid;
+  if (!isSelf && actorRole !== 'owner' && actorRole !== 'admin') {
+    throw denied('You do not have permission to remove that person.');
+  }
   if (targetRole === 'owner') {
     throw new HttpsError(
       'failed-precondition',
@@ -319,7 +323,6 @@ async function removeInTransaction(
       { reason: 'owner' },
     );
   }
-  const isSelf = targetUid === actor.uid;
   if (!isSelf && !canRemoveMember(actorRole, targetRole, false)) {
     throw denied('You do not have permission to remove that person.');
   }
