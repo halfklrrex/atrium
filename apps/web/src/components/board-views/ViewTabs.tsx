@@ -28,11 +28,11 @@ import {
 import classNames from 'classnames';
 import {
   forwardRef,
+  useCallback,
   useEffect,
   type ComponentProps,
   useRef,
   useState,
-  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
 } from 'react';
@@ -43,6 +43,9 @@ import { viewActions } from './view-actions';
 import { useBoardViewsContext } from './view-context';
 import { viewPermissions } from './view-permissions';
 import styles from './ViewTabs.module.css';
+
+/** Wait for the tab menu to close (and give focus back) before the rename input takes it. */
+const RENAME_DELAY_MS = 150;
 
 const VIEW_ICONS = { table: Table, kanban: Board } as const;
 
@@ -68,23 +71,36 @@ interface ViewTabProps extends VibeTabProps {
 }
 
 /**
- * One view tab: type icon, name (an input while renaming), a person icon for personal views, a dot
- * for unsaved changes and the "..." menu. `TabList` clones its children, so this forwards everything
- * it is given to the Vibe `Tab` it renders.
+ * Inline rename: Enter or blur saves, Escape cancels; reports once. Vibe's tab list handles Enter
+ * and the arrow keys with a native listener that stops them, so the keys are caught natively here,
+ * on the input itself, before they bubble that far.
  */
-/** Inline rename: Enter or blur saves, Escape cancels; reports once. */
 function RenameInput({ name, onDone }: { name: string; onDone: (name: string | null) => void }) {
   const ref = useRef<HTMLInputElement>(null);
   const finished = useRef(false);
+  const focused = useRef(false);
+  const latest = useRef(onDone);
   useEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
-  }, []);
-  const finish = (value: string | null) => {
+    latest.current = onDone;
+  });
+  const finish = useCallback((value: string | null) => {
     if (finished.current) return;
     finished.current = true;
-    onDone(value);
-  };
+    latest.current(value);
+  }, []);
+  useEffect(() => {
+    const input = ref.current;
+    if (!input) return;
+    input.focus();
+    input.select();
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      event.stopPropagation();
+      if (event.key === 'Enter') finish(input.value);
+      else if (event.key === 'Escape') finish(null);
+    };
+    input.addEventListener('keydown', onKeyDown);
+    return () => input.removeEventListener('keydown', onKeyDown);
+  }, [finish]);
   return (
     <input
       ref={ref}
@@ -94,16 +110,20 @@ function RenameInput({ name, onDone }: { name: string; onDone: (name: string | n
       maxLength={60}
       onClick={(event) => event.stopPropagation()}
       onKeyUp={(event) => event.stopPropagation()}
-      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-        event.stopPropagation();
-        if (event.key === 'Enter') finish(event.currentTarget.value);
-        else if (event.key === 'Escape') finish(null);
+      onFocus={() => {
+        focused.current = true;
       }}
-      onBlur={(event) => finish(event.currentTarget.value)}
+      // A blur before the input ever had focus is not the user leaving it.
+      onBlur={(event) => focused.current && finish(event.currentTarget.value)}
     />
   );
 }
 
+/**
+ * One view tab: type icon, name (an input while renaming), a person icon for personal views, a dot
+ * for unsaved changes and the "..." menu. `TabList` clones its children, so this forwards everything
+ * it is given to the Vibe `Tab` it renders.
+ */
 const ViewTab = forwardRef<HTMLLIElement, ViewTabProps>(function ViewTab(
   { view, boardId, renaming, menuOpen, menu, onMenuOpenChange, onRenameDone, ...tabProps },
   forwardedRef,
@@ -203,7 +223,14 @@ export function ViewTabs() {
     return (
       <Menu id={`view-menu-${view.id}`} size="medium">
         {perms.canRename ? (
-          <MenuItem title="Rename" icon={Edit} onClick={() => setRenamingId(view.id)} />
+          <MenuItem
+            title="Rename"
+            icon={Edit}
+            onClick={() => {
+              // The menu hands focus back to its button as it closes; start renaming after that.
+              window.setTimeout(() => setRenamingId(view.id), RENAME_DELAY_MS);
+            }}
+          />
         ) : null}
         <MenuItem
           title="Duplicate"
