@@ -6,7 +6,7 @@ Both Claude Code (`CLAUDE.md` adds Claude-only rules on top) and Antigravity rea
 
 Atrium: a personal, self-hosted work-management app modelled on monday.com's top-tier feature set and in-app visual style. Hosted on Firebase. Not monetised. Users are the owner plus invited family and friends, all signing in with Google. Any user can create unlimited workspaces.
 
-- **GitHub:** https://github.com/halfklrrex/atrium (private). `main` is the live site.
+- **GitHub:** https://github.com/halfklrrex/atrium (**public** since 2026-10-26). `main` is the live site. The history and PRs from before that date are in a private archive repo that only the owner and the lead can open.
 - **Firebase project:** `atrium-board` (Blaze plan).
 - **Regions:** Firestore `eur3` (permanent), Storage `europe-west1`, Functions `europe-west1`.
 - **Firestore database:** the **named** database `atrium-1` (`eur3`, scheduled backups on). The project's `(default)` database (`nam5`) is unused legacy; leave it alone. The id lives in one constant, `FIRESTORE_DATABASE_ID` in `packages/shared/src/firebase-env.ts`: the web app, the functions (admin client **and** every Firestore trigger's `database` option), the scripts and the test seeds import it, and `scripts/database-id.test.mjs` fails on a hard-coded id or a Firestore client or trigger without it. `firebase.json` can't import it, so it lists the same id in the array form of `firestore` (a test keeps the two equal).
@@ -92,7 +92,7 @@ Atrium is licensed **AGPL-3.0-only** (`LICENSE`, `NOTICE`; owner decision, 2026-
 - **Register every copy.** Copied or adapted third-party code keeps its upstream copyright and licence header and gets a row in `docs/PROVENANCE.md` (upstream, commit SHA, paths, changes, date, agent) in the same PR. Add `// Modified for Atrium (AGPL-3.0-only), <date>` to changed files.
 - **Never copy** from commercial or enterprise folders and files (Twenty `@license Enterprise`, Docmost `ee/`, Baserow `premium/` and `enterprise/`, Planka `.pe.`), from licence-incompatible projects (Huly, Planka, NocoDB, n8n, Outline, tldraw), or brand assets.
 - **Dependencies:** run `pnpm licenses:notices` whenever you add, remove or upgrade a dependency and commit `THIRD_PARTY_NOTICES.md`. CI (`pnpm licenses:check`) fails when the file is stale or a production dependency has an unknown or AGPL-incompatible licence. Commercial packages need the owner's approval.
-- **Source offer (AGPL section 13):** the About dialog and the login page link to the source code. The repository is private for now; before other people use an app that contains copied AGPL code, the owner must make it public, give those users read access, or provide a source archive.
+- **Source offer (AGPL section 13):** the About dialog and the login page link to the source code. The repository is public, which satisfies the source offer.
 
 ## Visual identity (top priority for the owner)
 
@@ -126,4 +126,6 @@ This repository is public. Rules for every agent and contributor:
 - Say "the owner" in prose.
 - Use fictional names on `example.com` (for example "Avery Quinn", `avery@example.com`) in tests and sample data.
 - Keep private ids (monday workspace and board ids, showcase workspace id, owner uid) in `.private/project-ids.md`. It is gitignored and local only.
-- Commits must use a GitHub noreply email (`<id>+<user>@users.noreply.github.com`).
+- Commits must use a GitHub noreply email (`<id>+<user>@users.noreply.github.com`), and the author date in UTC (`+0000`) where your tools allow it.
+- Merge PRs with **rebase** (`gh pr merge --rebase`), not squash: a squash or merge commit is authored by the account that merges and can carry its email.
+- Never push a branch that was created before 2026-10-26 (it carries the old private history). Start every branch from the public `origin/main`.
