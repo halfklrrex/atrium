@@ -126,6 +126,32 @@ export const itemWrites = {
   },
 
   /**
+   * Set (or with `null`, clear) one cell and change the item's position in the same document
+   * write, so a Kanban drop can never leave the status changed but the card in the old place (or
+   * the reverse). Field paths again: other cells are untouched.
+   */
+  async setValueAndMove(
+    uid: string,
+    boardId: string,
+    itemId: string,
+    columnId: string,
+    value: unknown,
+    position: string,
+  ): Promise<void> {
+    await updateDoc(
+      plainRefs.item(boardId, itemId),
+      new FieldPath('values', columnId),
+      value === null || value === undefined ? deleteField() : value,
+      'position',
+      position,
+      'updatedAt',
+      serverTimestamp(),
+      'updatedBy',
+      uid,
+    );
+  },
+
+  /**
    * Toggle a vote atomically using `arrayUnion` or `arrayRemove` on `values.<columnId>.votersIds`.
    * This prevents concurrent votes from clobbering each other.
    */

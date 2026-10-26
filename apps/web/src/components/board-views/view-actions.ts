@@ -1,4 +1,5 @@
 import {
+  defaultKanbanSettings,
   defaultViewSettings,
   uniqueViewName,
   type ViewSettings,
@@ -48,7 +49,10 @@ export const viewActions = {
         ),
         ownerId: newViewOwner(ctx.uid, ctx.canEdit),
         position: positionAfterAll(ctx.views.filter((v) => v.id !== 'main')),
-        settings: defaultViewSettings(),
+        settings:
+          type === 'kanban'
+            ? { ...defaultViewSettings(), kanban: defaultKanbanSettings() }
+            : defaultViewSettings(),
       });
       ctx.goTo(id);
     } catch (error) {

@@ -136,13 +136,14 @@ export const tableActions = {
   /** Create an item; returns its id, or `null` when the write failed. */
   async addItem(
     ctx: TableCtx,
-    input: { groupId: string; position: string; name?: string },
+    input: { groupId: string; position: string; name?: string; values?: Record<string, unknown> },
   ): Promise<string | null> {
     try {
       return await itemWrites.create(ctx.uid, ctx.boardId, {
         name: input.name?.trim() || 'New item',
         groupId: input.groupId,
         position: input.position,
+        ...(input.values ? { values: input.values } : {}),
       });
     } catch (error) {
       console.error('Could not add the item', error);
@@ -228,6 +229,29 @@ export const tableActions = {
     return attempt(
       () => itemWrites.setValue(ctx.uid, ctx.boardId, itemId, columnId, value),
       'Could not save the change.',
+    );
+  },
+
+  /**
+   * Validate, then write one cell and the item's new `position` in a single document write (a
+   * Kanban drop into another lane: new status, new place). Resolves to whether it was written.
+   */
+  async setCellAndMove(
+    ctx: TableCtx,
+    itemId: string,
+    columnId: string,
+    value: unknown,
+    position: string,
+    item?: ItemDoc,
+  ): Promise<boolean> {
+    const check = validateCellWrite(ctx.boardId, ctx.columns, columnId, value, item);
+    if (!check.ok) {
+      showToast(check.message, { type: 'negative' });
+      return false;
+    }
+    return attempt(
+      () => itemWrites.setValueAndMove(ctx.uid, ctx.boardId, itemId, columnId, value, position),
+      'Could not move the card.',
     );
   },
 

@@ -6,6 +6,7 @@ import { App } from './App';
 import { AuthProvider } from './auth/AuthProvider';
 import './theme/tokens.css';
 import './theme/table-tokens.css';
+import './theme/kanban-tokens.css';
 import './index.css';
 import { startThemeSync } from './theme/theme';
 
