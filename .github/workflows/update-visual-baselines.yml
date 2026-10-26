@@ -11,6 +11,11 @@ on:
         description: Branch to update baselines on (not main)
         required: true
         type: string
+      grep:
+        description: Only these screens (Playwright -g pattern). Rewrites them even when they pass the gate, for subtle token changes.
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: update-visual-baselines-${{ inputs.branch }}
@@ -60,7 +65,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Update snapshots
-        run: pnpm test:visual:update
+        env:
+          GREP: ${{ inputs.grep }}
+        run: |
+          if [ -n "$GREP" ]; then
+            pnpm --filter @atrium/visual-tests exec playwright test --update-snapshots=all -g "$GREP"
+          else
+            pnpm test:visual:update
+          fi
 
       - name: Commit new baselines
         id: commit

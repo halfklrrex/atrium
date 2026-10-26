@@ -8,7 +8,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test:visual": "playwright test",
-    "test:visual:update": "playwright test --update-snapshots=all"
+    "test:visual:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@atrium/shared": "workspace:*"

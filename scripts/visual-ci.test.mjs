@@ -30,3 +30,11 @@ test('the baseline workflow refuses to run on main', () => {
   assert.match(workflow, /main \| master/);
   assert.match(workflow, /exit 1/);
 });
+
+test('the baseline workflow passes the grep input through env, never into run', () => {
+  const workflow = read('.github/workflows/update-visual-baselines.yml');
+  assert.match(workflow, /GREP: \$\{\{ inputs\.grep \}\}/);
+  assert.match(workflow, /-g "\$GREP"/);
+  // The only place the expression may appear is the env mapping.
+  assert.equal(workflow.split('inputs.grep').length - 1, 1);
+});
