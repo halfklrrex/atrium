@@ -697,7 +697,12 @@
 }
 
 .summaryBlank + .summaryCell {
+  /* The summary block starts under the first value column. Its left border is pulled over the
+     "+ Add item" row's right border so the two form one straight line (no one-pixel step), and the
+     block gets the rounded bottom-left corner. */
+  margin-inline-start: calc(var(--border-width) * -1);
   border-inline-start: var(--atrium-table-border);
+  border-end-start-radius: var(--atrium-table-block-radius);
 }
 
 .summaryCaption {
