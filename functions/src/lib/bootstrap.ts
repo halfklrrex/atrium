@@ -1,4 +1,5 @@
 import {
+  normalizeEmail,
   personalWorkspaceName,
   type BootstrapUserRequest,
   type BootstrapUserResult,
@@ -6,6 +7,7 @@ import {
   type UserWrite,
   type WorkspaceWrite,
 } from '@atrium/shared';
+import type { MemberProfile } from './membership';
 
 /** Verified identity taken from the Auth token (never from client-supplied data). */
 export interface Identity {
@@ -28,6 +30,8 @@ export interface BootstrapTx {
   createUser(uid: string, data: UserWrite): void;
   setLastWorkspace(uid: string, workspaceId: string): void;
   createWorkspace(workspaceId: string, data: WorkspaceWrite): void;
+  /** Writes the owner's `members/{uid}` profile doc for a workspace created in this transaction. */
+  createMember(workspaceId: string, uid: string, profile: MemberProfile): void;
 }
 
 export const DEFAULT_WORKSPACE_COLOR = '#6161ff';
@@ -77,6 +81,11 @@ export async function bootstrapUserInTransaction(
       createdAt: serverTimestamp,
       createdBy: uid,
       updatedAt: serverTimestamp,
+    });
+    tx.createMember(workspaceId, uid, {
+      displayName: identity.displayName ?? identity.email ?? '',
+      photoURL: identity.photoURL,
+      email: identity.email ? normalizeEmail(identity.email) : '',
     });
   }
 

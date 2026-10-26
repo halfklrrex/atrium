@@ -3,6 +3,7 @@ import type { WorkspaceRole } from '@atrium/shared';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import {
   FieldPath,
+  FieldValue,
   getFirestore,
   type Firestore,
   type Transaction,
@@ -47,6 +48,13 @@ export function adminBootstrapTx(firestore: Firestore, tx: Transaction): Bootstr
     setLastWorkspace: (uid, workspaceId) =>
       void tx.update(userRef(uid), { lastWorkspaceId: workspaceId }),
     createWorkspace: (id, data) => void tx.create(workspaceRef(id), data),
+    createMember: (workspaceId, uid, profile) =>
+      void tx.create(workspaceRef(workspaceId).collection('members').doc(uid), {
+        ...profile,
+        role: 'owner',
+        joinedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }),
   };
 }
 

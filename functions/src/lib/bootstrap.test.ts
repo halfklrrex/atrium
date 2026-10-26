@@ -66,6 +66,11 @@ class FakeTx implements BootstrapTx {
     if (!u) throw new Error('no such user');
     u.lastWorkspaceId = workspaceId;
   }
+  members = new Map<string, Record<string, unknown>>();
+  createMember(workspaceId: string, uid: string, profile: object) {
+    this.wrote = true;
+    this.members.set(`${workspaceId}/${uid}`, { ...profile });
+  }
   createWorkspace(id: string, data: object) {
     this.wrote = true;
     if (this.workspaces.has(id)) throw new Error('workspace already exists');
@@ -108,6 +113,16 @@ describe('bootstrapUserInTransaction', () => {
       locale: 'es',
       lastWorkspaceId: 'ws1',
       theme: 'system',
+    });
+  });
+
+  it('writes the owner member profile with the new workspace', async () => {
+    const store = new FakeTx();
+    await run(store, ada);
+    expect(store.members.get('ws1/u1')).toEqual({
+      displayName: 'Ada Lovelace',
+      photoURL: 'https://example.com/ada.png',
+      email: 'ada@example.com',
     });
   });
 
