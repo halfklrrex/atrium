@@ -334,6 +334,82 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------------------
+      // boards/{boardId}/views/{viewId} - saved board views (P3). `ownerId == null` is a shared view
+      // (editors write it), `ownerId == uid` a personal one (any reader may keep their own, and only
+      // they see it). `main` is the fixed "Main table" view: shared, a table, never renamed or deleted.
+      // `ownerId`, `type`, `createdAt` and `createdBy` never change; "make personal/shared" in the app
+      // creates the copy and deletes the original.
+      // -------------------------------------------------------------------
+      match /views/{viewId} {
+        function viewKeysOk(d) {
+          return d.keys().hasAll(['name', 'type', 'position', 'ownerId', 'settings', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+            && d.keys().hasOnly(['name', 'type', 'position', 'ownerId', 'settings', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy']);
+        }
+
+        function viewSettingsOk(s) {
+          return s is map
+            && s.keys().hasAll(['filter', 'hiddenColumnIds'])
+            && s.keys().hasOnly(['filter', 'hiddenColumnIds', 'kanban'])
+            && s.hiddenColumnIds is list && s.hiddenColumnIds.size() <= 200
+            && s.filter is map
+            && s.filter.keys().hasOnly(['personIds', 'filterGroup', 'sortConditions', 'groupByColumnId'])
+            && s.filter.get('personIds', []) is list && s.filter.get('personIds', []).size() <= 200
+            && s.filter.get('sortConditions', []) is list && s.filter.get('sortConditions', []).size() <= 10
+            && s.filter.get('filterGroup', {}) is map
+            && s.filter.get('filterGroup', {}).get('conditions', []) is list
+            && s.filter.get('filterGroup', {}).get('conditions', []).size() <= 50
+            && (!('kanban' in s.keys()) || s.kanban is map);
+        }
+
+        // Fields every write must get right (create and update).
+        function viewBodyOk(d) {
+          return viewKeysOk(d)
+            && d.name is string && d.name.size() >= 1 && d.name.size() <= 60
+            && d.type in ['table', 'kanban']
+            && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
+            && (d.ownerId == null || d.ownerId is string)
+            && viewSettingsOk(d.settings)
+            && d.updatedBy == uid()
+            && d.updatedAt == request.time;
+        }
+
+        function validViewCreate(d) {
+          return viewBodyOk(d)
+            && d.createdBy == uid()
+            && d.createdAt == request.time
+            && (viewId != 'main' || (d.ownerId == null && d.type == 'table' && d.name == 'Main table' && d.position == 'a0'));
+        }
+
+        function validViewUpdate() {
+          return viewBodyOk(request.resource.data)
+            && request.resource.data.ownerId == resource.data.ownerId
+            && request.resource.data.type == resource.data.type
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.createdBy == resource.data.createdBy
+            && (viewId != 'main'
+                || (request.resource.data.name == resource.data.name
+                    && request.resource.data.position == resource.data.position));
+        }
+
+        // Shared views follow board editing rights; a personal view belongs to its owner alone.
+        function canWriteView(d) {
+          return d.ownerId == null ? canEditBoard(boardId) : (d.ownerId == uid() && canReadBoard(boardId));
+        }
+
+        allow read: if signedIn() && canReadBoard(boardId)
+          && (resource.data.ownerId == null || resource.data.ownerId == uid());
+        // A list must pin ownerId: two queries, `ownerId == null` (shared) and `ownerId == uid` (own).
+        // An `in [null, uid]` query is refused by the rules engine.
+
+        allow create: if signedIn() && validViewCreate(request.resource.data)
+          && canWriteView(request.resource.data);
+
+        allow update: if signedIn() && canWriteView(resource.data) && validViewUpdate();
+
+        allow delete: if signedIn() && viewId != 'main' && canWriteView(resource.data);
+      }
+
+      // -------------------------------------------------------------------
       // boards/{boardId}/items/{itemId} - authorised through the parent board
       // -------------------------------------------------------------------
       match /items/{itemId} {
