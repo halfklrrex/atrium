@@ -32,6 +32,8 @@ Baselines are the **Linux** images made in CI's container. Fonts and anti-aliasi
 3. The workflow reruns the suite in the same container with `--update-snapshots`, commits the changed PNGs to your branch as "chore: update visual baselines", checks that a plain second run passes, and starts CI for the new commit. It refuses to run on `main`.
 4. Open the PR's **Files changed** tab and review the image diffs (GitHub shows the old and new image side by side, with swipe and onion-skin views). Only merge when every changed image is intended.
 
+The update workflow rewrites **every** baseline (`--update-snapshots=all`), not only the failing ones. Playwright's per-pixel colour threshold treats small colour shifts as equal, so a subtle colour-token change can pass the gate while the committed images go stale. Rendering is deterministic, so unchanged screens produce identical PNGs and show no diff. Whenever you change tokens, run the workflow and review the PR's image diffs even if the `visual` job is green.
+
 If you rename or remove a screen, delete its old `*-linux.png` from `tests/visual/__screenshots__/` in the same PR. Orphaned images are not detected.
 
 Because the workflow pushes with the default token, the new commit does not start CI on its own. The workflow starts CI for it with a `workflow_dispatch`, and that run appears under the PR's checks. If the checks look stale, rerun CI by pushing any commit.
