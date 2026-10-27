@@ -16,6 +16,8 @@ import {
   addKanbanView,
   addView,
   clearRecents,
+  readFullViewDescription,
+  resetFullViewDescription,
   createEmptyWorkspace,
   removeKanbanView,
   removeView,
@@ -173,10 +175,16 @@ for (const theme of ['light', 'dark'] as const) {
       await page.keyboard.type('/');
       await expect(page.getByRole('listbox', { name: 'Blocks' })).toBeVisible();
       await shoot(page, `item-slash-menu-${theme}`);
-      // Leave the shared description as it was found.
+      // Leave the shared description as it was found: undo the edit, wait until the autosave has
+      // written the cleaned doc (so no save of the "/" can land later), then reseed it exactly.
       await page.keyboard.press('Escape');
       await page.keyboard.press('Backspace');
       await page.keyboard.press('Backspace');
+      await expect
+        .poll(async () => JSON.stringify((await readFullViewDescription())?.doc).includes('"/"'))
+        .toBe(false);
+      await expect(editor).not.toContainText('/');
+      await resetFullViewDescription();
     });
 
     test('board: description expanded', async ({ page }) => {
