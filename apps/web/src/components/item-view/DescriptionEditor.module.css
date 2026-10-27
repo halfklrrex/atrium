@@ -12,6 +12,7 @@
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-8);
@@ -57,10 +58,116 @@
   color: var(--primary-color);
 }
 
+.spacer {
+  flex: 1;
+}
+
+.separator {
+  align-self: stretch;
+  width: var(--border-width);
+  margin: var(--space-4) var(--space-4);
+  background: var(--layout-border-color);
+}
+
+.toolButton:disabled {
+  opacity: var(--disabled-component-opacity);
+  cursor: default;
+  pointer-events: none;
+}
+
+.styleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: calc(var(--space-32) * 3);
+  height: var(--space-32);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--border-radius-4);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  cursor: pointer;
+}
+
+.styleButton:hover,
+.styleButton[aria-expanded='true'] {
+  background: var(--primary-background-hover-color);
+}
+
 .saveHint {
-  margin-inline-start: auto;
+  margin-inline-end: var(--space-4);
   font: var(--atrium-meta-font);
   color: var(--secondary-text-color);
+}
+
+/* Expand: the same editor, re-parented into a large centred dialog above the item view. */
+.expandedPlaceholder {
+  min-height: var(--atrium-doc-editor-min-height);
+  border: var(--border-width) dashed var(--layout-border-color);
+  border-radius: var(--border-radius-8);
+}
+
+.expandOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--atrium-z-popover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expandScrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: var(--atrium-scrim);
+  cursor: default;
+}
+
+.expandWindow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--atrium-doc-expanded-width), calc(100vw - var(--space-32)));
+  height: 80vh;
+  border-radius: var(--border-radius-big);
+  background: var(--primary-background-color);
+  box-shadow: var(--box-shadow-large);
+  overflow: hidden;
+}
+
+.rootExpanded {
+  composes: root;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.rootExpanded:focus-within {
+  border-color: transparent;
+}
+
+.contentHost {
+  position: relative;
+}
+
+.contentHostExpanded {
+  composes: atrium-scroll from global;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.rootExpanded .content {
+  min-height: 100%;
+}
+
+.rootExpanded .content :global(.ProseMirror) {
+  min-height: 60vh;
 }
 
 .content {
@@ -198,4 +305,105 @@
   padding-inline-start: var(--space-12);
   border-inline-start: var(--space-4) solid var(--layout-border-color);
   color: var(--secondary-text-color);
+}
+
+.content :global(.ProseMirror hr) {
+  height: var(--border-width);
+  margin-block: var(--space-12);
+  border: 0;
+  background: var(--layout-border-color);
+}
+
+.content :global(.ProseMirror hr.ProseMirror-selectednode) {
+  background: var(--primary-color);
+}
+
+/* Tables: the scroll wrapper is the table view's own element (see editor-extensions.ts). */
+.tableScroll {
+  composes: atrium-scroll from global;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.content :global(.ProseMirror table) {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+}
+
+.content :global(.ProseMirror th),
+.content :global(.ProseMirror td) {
+  position: relative;
+  min-width: calc(var(--space-32) * 3);
+  padding: var(--space-8);
+  border: var(--border-width) solid var(--layout-border-color);
+  vertical-align: top;
+}
+
+.content :global(.ProseMirror th) {
+  background: var(--allgrey-background-color);
+  font-weight: var(--font-weight-bold);
+  text-align: start;
+}
+
+.content :global(.ProseMirror td > *),
+.content :global(.ProseMirror th > *) {
+  margin: 0;
+}
+
+.content :global(.ProseMirror .selectedCell::after) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--primary-selected-color);
+  pointer-events: none;
+}
+
+.content :global(.ProseMirror .column-resize-handle) {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: calc(var(--space-4) * -0.5);
+  width: var(--space-4);
+  background: var(--primary-color);
+  pointer-events: none;
+}
+
+.content :global(.ProseMirror.resize-cursor) {
+  cursor: col-resize;
+}
+
+.tableBar {
+  position: absolute;
+  z-index: var(--atrium-z-raised);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  max-width: 100%;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--layout-border-color);
+  border-radius: var(--border-radius-8);
+  background: var(--primary-background-color);
+  box-shadow: var(--box-shadow-small);
+}
+
+.tableButton,
+.tableButtonDanger {
+  height: var(--space-24);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--border-radius-4);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--font-text3-normal);
+  cursor: pointer;
+}
+
+.tableButtonDanger {
+  color: var(--negative-color);
+}
+
+.tableButton:hover,
+.tableButtonDanger:hover {
+  background: var(--primary-background-hover-color);
 }

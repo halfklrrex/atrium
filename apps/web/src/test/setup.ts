@@ -24,3 +24,8 @@ window.matchMedia ??= ((query: string) => ({
 })) as typeof window.matchMedia;
 
 Element.prototype.scrollIntoView ??= () => {};
+
+// ProseMirror measures text ranges when it scrolls the caret into view; jsdom has no layout.
+const emptyRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;
+Range.prototype.getClientRects ??= emptyRects;
+Range.prototype.getBoundingClientRect ??= () => new DOMRect();
