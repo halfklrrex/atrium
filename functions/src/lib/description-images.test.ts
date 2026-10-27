@@ -1,6 +1,13 @@
+import {
+  descriptionImagesSchema,
+  finalizeDescriptionImageRequestSchema,
+  getDescriptionImageUrlRequestSchema,
+  requestDescriptionImageUploadRequestSchema,
+} from '@atrium/shared';
 import type { Board, DescriptionImage, Item, Workspace, WorkspaceRole } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  descriptionImagePath,
   finalizeDescriptionImageInTransaction,
   getDescriptionImageUrlInTransaction,
   requestDescriptionImageUploadInTransaction,
@@ -301,6 +308,53 @@ describe('getDescriptionImageUrl', () => {
     await expect(
       getDescriptionImageUrlInTransaction(tx, bucket, request, uid),
     ).rejects.toMatchObject({ code: 'not-found' });
+  });
+});
+
+describe('strict ids', () => {
+  const bad = ['../x', 'a/b', '.', '..', '', 'a b'];
+
+  it('rejects traversal ids in the request schemas', () => {
+    for (const id of bad) {
+      expect(
+        requestDescriptionImageUploadRequestSchema.safeParse({ ...upload, boardId: id }).success,
+      ).toBe(false);
+      expect(
+        requestDescriptionImageUploadRequestSchema.safeParse({ ...upload, itemId: id }).success,
+      ).toBe(false);
+      const fin = { boardId: 'b_1', itemId: 'i_1', fileId: 'f', fileName: 'a.png' };
+      expect(finalizeDescriptionImageRequestSchema.safeParse({ ...fin, fileId: id }).success).toBe(
+        false,
+      );
+      expect(
+        getDescriptionImageUrlRequestSchema.safeParse({ boardId: 'b', itemId: 'i', fileId: id })
+          .success,
+      ).toBe(false);
+      expect(descriptionImagesSchema.safeParse({ [id]: image }).success).toBe(false);
+    }
+  });
+
+  it('descriptionImagePath refuses unsafe segments', () => {
+    for (const id of bad) {
+      expect(() => descriptionImagePath(id, 'i', 'f')).toThrow();
+      expect(() => descriptionImagePath('b', id, 'f')).toThrow();
+      expect(() => descriptionImagePath('b', 'i', id)).toThrow();
+    }
+    expect(descriptionImagePath('b_1', 'i-1', 'f9')).toBe('boards/b_1/items/i-1/description/f9');
+  });
+
+  it('finalize with a traversal fileId touches no storage object', async () => {
+    const { tx } = setup();
+    const bucket = new FakeBucket();
+    await expect(
+      finalizeDescriptionImageInTransaction(
+        tx,
+        bucket,
+        { boardId: 'b_1', itemId: 'i_1', fileId: '../../i_2/files/x', fileName: 'a.png' },
+        uid,
+      ),
+    ).rejects.toMatchObject({ code: 'invalid-argument' });
+    expect(bucket.deleted).toEqual([]);
   });
 });
 

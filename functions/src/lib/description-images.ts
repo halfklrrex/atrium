@@ -26,7 +26,13 @@ export interface DescriptionImageTx extends FileStorageTx {
 }
 
 /** The only Storage path a description image may live at. */
+const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+/** The only Storage path a description image may live at; every segment must be a safe id. */
 export function descriptionImagePath(boardId: string, itemId: string, fileId: string): string {
+  for (const segment of [boardId, itemId, fileId]) {
+    if (!SAFE_ID.test(segment)) throw new HttpsError('invalid-argument', 'Invalid image path');
+  }
   return `boards/${boardId}/items/${itemId}/description/${fileId}`;
 }
 
