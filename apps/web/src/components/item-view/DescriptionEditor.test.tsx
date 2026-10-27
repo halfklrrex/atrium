@@ -47,7 +47,9 @@ const typed = (value: string) => {
 
 describe('DescriptionEditor checklist', () => {
   it('renders checked and unchecked task items with data-checked', async () => {
-    const { container } = render(<DescriptionEditor initial={DOC} readOnly onSave={save()} />);
+    const { container } = render(
+      <DescriptionEditor boardId="b1" itemId="i1" initial={DOC} readOnly onSave={save()} />,
+    );
     await waitFor(() => {
       expect(container.querySelectorAll('ul[data-type="taskList"] > li')).toHaveLength(2);
     });
@@ -88,7 +90,15 @@ describe('markdown shortcuts', () => {
 describe('toolbar', () => {
   const hello = doc(text('Hello'));
   const mount = () =>
-    render(<DescriptionEditor initial={hello} readOnly={false} onSave={save()} />);
+    render(
+      <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
+        initial={hello}
+        readOnly={false}
+        onSave={save()}
+      />,
+    );
 
   it('applies each mark to the selection', async () => {
     const user = userEvent.setup();
@@ -180,6 +190,8 @@ describe('toolbar', () => {
     const user = userEvent.setup();
     render(
       <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
         initial={doc({
           type: 'heading',
           attrs: { level: 1 },
@@ -202,7 +214,15 @@ describe('toolbar', () => {
 
 describe('slash menu', () => {
   const open = (query = '') => {
-    render(<DescriptionEditor initial={null} readOnly={false} onSave={save()} />);
+    render(
+      <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
+        initial={null}
+        readOnly={false}
+        onSave={save()}
+      />,
+    );
     const editor = editorOf();
     act(() => {
       editor.commands.focus();
@@ -260,7 +280,15 @@ describe('saving', () => {
   it('keeps the content over the size limit, and saves again once it fits', async () => {
     mocks.showToast.mockClear();
     const onSave = save();
-    render(<DescriptionEditor initial={null} readOnly={false} onSave={onSave} />);
+    render(
+      <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
+        initial={null}
+        readOnly={false}
+        onSave={onSave}
+      />,
+    );
     const editor = editorOf();
     const big = Array.from({ length: 300 }, () => `<p>${'x'.repeat(1000)}</p>`).join('');
     act(() => {
@@ -281,7 +309,15 @@ describe('expand', () => {
   it('moves the same editor into a dialog and back, with the same document', async () => {
     const user = userEvent.setup();
     const onSave = save();
-    render(<DescriptionEditor initial={doc(text('Hello'))} readOnly={false} onSave={onSave} />);
+    render(
+      <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
+        initial={doc(text('Hello'))}
+        readOnly={false}
+        onSave={onSave}
+      />,
+    );
     const editor = editorOf();
     await user.click(screen.getByRole('button', { name: 'Expand' }));
     const dialog = await screen.findByRole('dialog', { name: 'Description' });
@@ -307,6 +343,8 @@ describe('read-only rendering', () => {
     const cell = (type: string, t: string) => ({ type, content: [text(t)] });
     const { container } = render(
       <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
         readOnly
         onSave={save()}
         initial={doc(

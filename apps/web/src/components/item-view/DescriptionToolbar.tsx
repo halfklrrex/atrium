@@ -9,7 +9,9 @@ import {
   Code,
   Divider,
   DropdownChevronDown,
+  Emoji as EmojiIcon,
   Fullscreen,
+  Image as ImageIcon,
   Italic,
   Link as LinkIcon,
   MoreActions,
@@ -20,9 +22,13 @@ import {
   Undo,
 } from '@vibe/icons';
 import classNames from 'classnames';
-import { useState, type MouseEvent } from 'react';
+import { useState, type CSSProperties, type MouseEvent } from 'react';
 import { AnchoredPopup } from '../board-table/AnchoredPopup';
-import { NumberedList, Strikethrough, type EditorIcon } from './editor-icons';
+import { ColorPopup } from './ColorPopup';
+import { ensureFontLoaded } from './editor-fonts';
+import { NumberedList, Strikethrough, TextColorIcon, type EditorIcon } from './editor-icons';
+import { currentColors, marks } from './editor-marks';
+import { FONTS, type ColorKey } from './editor-palette';
 import { parseLinkUrl } from './link-url';
 import styles from './DescriptionEditor.module.css';
 
@@ -54,6 +60,8 @@ function useToolbarState(editor: Editor) {
       numbers: e.isActive('orderedList'),
       tasks: e.isActive('taskList'),
       link: e.isActive('link'),
+      textColor: currentColors(e).text,
+      font: (e.getAttributes('textStyle').fontFamily as string | null | undefined) ?? 'default',
       style: ([1, 2, 3] as const).find((l) => e.isActive('heading', { level: l })) ?? 0,
     }),
   });
@@ -67,10 +75,21 @@ interface ToolButtonProps {
   active?: boolean;
   disabled?: boolean;
   popup?: boolean;
+  /** Marks the button for the editor shell (e.g. to anchor the emoji picker to it). */
+  toolId?: string;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }
 
-function ToolButton({ label, tip, Icon, active, disabled, popup, onClick }: ToolButtonProps) {
+function ToolButton({
+  label,
+  tip,
+  Icon,
+  active,
+  disabled,
+  popup,
+  toolId,
+  onClick,
+}: ToolButtonProps) {
   return (
     <Tooltip content={tip ?? label}>
       <button
@@ -79,6 +98,7 @@ function ToolButton({ label, tip, Icon, active, disabled, popup, onClick }: Tool
         aria-label={label}
         aria-pressed={active}
         aria-haspopup={popup ? 'menu' : undefined}
+        data-tool={toolId}
         disabled={disabled}
         onMouseDown={(event) => event.preventDefault()}
         onClick={onClick}
@@ -165,7 +185,7 @@ function LinkPopup({
   );
 }
 
-type PopupKind = 'style' | 'more' | 'link';
+type PopupKind = 'style' | 'font' | 'color' | 'more' | 'link';
 type OpenPopup = { kind: PopupKind; anchor: HTMLElement } | null;
 
 interface DescriptionToolbarProps {
@@ -173,17 +193,31 @@ interface DescriptionToolbarProps {
   expanded: boolean;
   onToggleExpand: () => void;
   saveHint: string;
+  /** Opens the file picker for an image. */
+  onPickImage: () => void;
+  /** Whether the emoji picker (owned by the editor shell) is open. */
+  emojiOpen: boolean;
+  /** Opens or closes the emoji picker, hanging it from the given button. */
+  onToggleEmoji: (anchor: HTMLElement) => void;
 }
 
-/** monday's toolbar order: history, text style, marks, lists, link, more, then expand and the save hint. */
+/**
+ * The toolbar order: history, text style and font, marks and colour, lists, link, image, emoji,
+ * more, then expand and the save hint.
+ */
 export function DescriptionToolbar({
   editor,
   expanded,
   onToggleExpand,
   saveHint,
+  onPickImage,
+  emojiOpen,
+  onToggleEmoji,
 }: DescriptionToolbarProps) {
   const state = useToolbarState(editor);
   const [popup, setPopup] = useState<OpenPopup>(null);
+  // The last text colour picked, shown as the underline of the colour button.
+  const [lastColor, setLastColor] = useState<ColorKey | null>(null);
   const close = () => setPopup(null);
   const toggle = (kind: PopupKind) => (event: MouseEvent<HTMLElement>) => {
     const anchor = event.currentTarget;
@@ -191,6 +225,11 @@ export function DescriptionToolbar({
   };
   const chain = () => editor.chain().focus();
   const currentStyle = TEXT_STYLES.find((s) => s.level === state.style) ?? TEXT_STYLES[0]!;
+  const currentFont = FONTS.find((f) => f.key === state.font) ?? FONTS[0]!;
+  const underline = state.textColor ?? lastColor;
+  const colorStyle = (
+    underline ? { '--atrium-current-color': `var(--atrium-text-${underline})` } : undefined
+  ) as CSSProperties | undefined;
   // A menu item runs its command, then closes the menu.
   const run = (command: () => void) => () => {
     command();
@@ -228,6 +267,20 @@ export function DescriptionToolbar({
           <DropdownChevronDown aria-hidden />
         </button>
       </Tooltip>
+      <Tooltip content="Font">
+        <button
+          type="button"
+          className={styles.styleButton}
+          aria-label="Font"
+          aria-haspopup="menu"
+          aria-expanded={popup?.kind === 'font'}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={toggle('font')}
+        >
+          <span>{currentFont.label}</span>
+          <DropdownChevronDown aria-hidden />
+        </button>
+      </Tooltip>
       <span className={styles.separator} aria-hidden="true" />
       <ToolButton
         label="Bold"
@@ -257,6 +310,16 @@ export function DescriptionToolbar({
         active={state.strike}
         onClick={() => chain().toggleStrike().run()}
       />
+      <span className={styles.colorButton} style={colorStyle}>
+        <ToolButton
+          label="Text colour and highlight"
+          tip="Text colour and highlight"
+          Icon={TextColorIcon}
+          active={Boolean(state.textColor)}
+          popup
+          onClick={toggle('color')}
+        />
+      </span>
       <span className={styles.separator} aria-hidden="true" />
       <ToolButton
         label="Bulleted list"
@@ -281,6 +344,18 @@ export function DescriptionToolbar({
       />
       <span className={styles.separator} aria-hidden="true" />
       <ToolButton label="Link" Icon={LinkIcon} active={state.link} onClick={toggle('link')} />
+      <ToolButton label="Image" tip="Add an image" Icon={ImageIcon} onClick={onPickImage} />
+      <ToolButton
+        label="Emoji"
+        Icon={EmojiIcon}
+        active={emojiOpen}
+        popup
+        toolId="emoji"
+        onClick={(event) => {
+          close();
+          onToggleEmoji(event.currentTarget);
+        }}
+      />
       <ToolButton label="More" Icon={MoreActions} popup onClick={toggle('more')} />
       <span className={styles.spacer} />
       <span className={styles.saveHint} role="status" aria-live="polite">
@@ -310,6 +385,41 @@ export function DescriptionToolbar({
             ))}
           </Menu>
         </AnchoredPopup>
+      ) : null}
+      {popup?.kind === 'font' ? (
+        <AnchoredPopup anchor={popup.anchor} onClose={close} label="Font">
+          <div className={styles.fontList} role="menu" aria-label="Font">
+            {FONTS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                role="menuitemradio"
+                aria-checked={f.key === currentFont.key}
+                className={classNames(
+                  styles.fontOption,
+                  f.key !== 'default' && `atrium-font-${f.key}`,
+                )}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => ensureFontLoaded(f.key)}
+                onFocus={() => ensureFontLoaded(f.key)}
+                onClick={run(() => marks.setFont(editor, f.key))}
+              >
+                <span className={styles.fontCheck}>
+                  {f.key === currentFont.key ? <Check aria-hidden /> : null}
+                </span>
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </AnchoredPopup>
+      ) : null}
+      {popup?.kind === 'color' ? (
+        <ColorPopup
+          anchor={popup.anchor}
+          editor={editor}
+          onClose={close}
+          onTextColor={setLastColor}
+        />
       ) : null}
       {popup?.kind === 'more' ? (
         <AnchoredPopup anchor={popup.anchor} onClose={close} label="More formatting">

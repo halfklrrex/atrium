@@ -21,3 +21,20 @@ export function Strikethrough() {
     </svg>
   );
 }
+
+/** An "A" with a coloured underline; the underline follows `--atrium-current-color`. */
+export function TextColorIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" aria-hidden="true">
+      <path d="M9.100 2.500h1.800l4.600 11h-1.900l-1.100-2.800H7.500L6.400 13.500H4.500l4.600-11zM10 5.200 8.200 9.600h3.600L10 5.200z" />
+      <rect
+        x="3"
+        y="15.500"
+        width="14"
+        height="2.500"
+        rx="1"
+        style={{ fill: 'var(--atrium-current-color, var(--primary-color))' }}
+      />
+    </svg>
+  );
+}

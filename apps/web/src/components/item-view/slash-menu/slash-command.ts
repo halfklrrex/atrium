@@ -27,7 +27,7 @@ export function createSlashCommand(controller: SlashController) {
             const $from = state.doc.resolve(range.from);
             return !$from.parent.type.spec.code;
           },
-          command: ({ editor, range, props }) => props.run(editor, range),
+          command: ({ editor, range, props }) => props.run(editor, range, controller.ui),
           render: () => {
             const push = (props: {
               editor: Editor;

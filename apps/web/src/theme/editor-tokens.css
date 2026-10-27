@@ -1,0 +1,233 @@
+/*
+ * Description editor tokens (P1 pass 2): text colours, highlights, fonts, images and the emoji
+ * picker. The stored doc holds palette and font KEYS (grey, red, ..., lora, mono); this file maps
+ * each key to a token, so dark mode and later tweaks apply to old content. Text colours keep a
+ * contrast of at least 4.5:1 on --primary-background-color in each theme (editor-tokens.test.ts).
+ * Vibe's palette has no set that is text-safe in every theme, so the values are named here.
+ */
+
+:root {
+  /* ---- Text colours: light ---- */
+  --atrium-text-grey: #676879;
+  --atrium-text-red: #d0314a;
+  --atrium-text-orange: #b84f00;
+  --atrium-text-yellow: #856600;
+  --atrium-text-green: #037f4c;
+  --atrium-text-teal: #0a7a77;
+  --atrium-text-blue: #0b6ad6;
+  --atrium-text-purple: #784bd1;
+  --atrium-text-pink: #d6006c;
+  --atrium-text-brown: #7f5347;
+
+  /* ---- Highlights: the same hues as soft fills; the text keeps its own colour on top ---- */
+  --atrium-highlight-strength: 28%;
+  --atrium-highlight-grey: color-mix(
+    in srgb,
+    var(--atrium-text-grey) var(--atrium-highlight-strength),
+    transparent
+  );
+  --atrium-highlight-red: color-mix(
+    in srgb,
+    var(--atrium-text-red) var(--atrium-highlight-strength),
+    transparent
+  );
+  --atrium-highlight-orange: color-mix(
+    in srgb,
+    var(--atrium-text-orange) var(--atrium-highlight-strength),
+    transparent
+  );
+  --atrium-highlight-yellow: color-mix(in srgb, var(--color-egg_yolk) 55%, transparent);
+  --atrium-highlight-green: color-mix(
+    in srgb,
+    var(--atrium-text-green) var(--atrium-highlight-strength),
+    transparent
+  );
+  --atrium-highlight-teal: color-mix(
+    in srgb,
+    var(--atrium-text-teal) var(--atrium-highlight-strength),
+    transparent
+  );
+  --atrium-highlight-blue: color-mix(
+    in srgb,
+    var(--atrium-text-blue) var(--atrium-highlight-strength),
+    transparent
+  );
+  --atrium-highlight-purple: color-mix(
+    in srgb,
+    var(--atrium-text-purple) var(--atrium-highlight-strength),
+    transparent
+  );
+  --atrium-highlight-pink: color-mix(
+    in srgb,
+    var(--atrium-text-pink) var(--atrium-highlight-strength),
+    transparent
+  );
+  --atrium-highlight-brown: color-mix(
+    in srgb,
+    var(--atrium-text-brown) var(--atrium-highlight-strength),
+    transparent
+  );
+
+  /* ---- Fonts (Google Fonts, loaded on first use; see editor-fonts.ts) ---- */
+  --atrium-font-figtree: var(--font-family);
+  --atrium-font-poppins: Poppins, var(--font-family);
+  --atrium-font-lora: Lora, Georgia, serif;
+  --atrium-font-nunito: Nunito, var(--font-family);
+  --atrium-font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, monospace;
+  --atrium-font-caveat: Caveat, 'Comic Sans MS', cursive;
+
+  /* ---- Swatches and pickers ---- */
+  --atrium-swatch-size: 24px;
+  --atrium-swatch-gap: var(--space-4);
+  --atrium-emoji-columns: 8;
+  --atrium-emoji-size: 32px;
+  --atrium-emoji-glyph: 20px;
+  --atrium-emoji-grid-height: 232px;
+  --atrium-emoji-picker-width: 316px;
+
+  /* ---- Images ---- */
+  --atrium-image-min-width: 25%;
+  --atrium-image-handle-size: 12px;
+  --atrium-image-skeleton-ratio: 16 / 9;
+  --atrium-image-max-height: 640px;
+}
+
+/* Dark and black: lighter hues, so the colours stay readable on the dark surfaces. */
+.dark-app-theme {
+  --atrium-text-grey: #9699a6;
+  --atrium-text-red: #ff8294;
+  --atrium-text-orange: #fdab3d;
+  --atrium-text-yellow: #ffcb00;
+  --atrium-text-green: #00c875;
+  --atrium-text-teal: #4eccc6;
+  --atrium-text-blue: #6fa8fc;
+  --atrium-text-purple: #b890e8;
+  --atrium-text-pink: #ff7bd0;
+  --atrium-text-brown: #cba397;
+  --atrium-highlight-yellow: color-mix(in srgb, var(--color-egg_yolk) 40%, transparent);
+}
+
+.black-app-theme {
+  --atrium-text-grey: #aaaaaa;
+  --atrium-text-red: #ff8294;
+  --atrium-text-orange: #fdab3d;
+  --atrium-text-yellow: #ffcb00;
+  --atrium-text-green: #00c875;
+  --atrium-text-teal: #4eccc6;
+  --atrium-text-blue: #6fa8fc;
+  --atrium-text-purple: #b890e8;
+  --atrium-text-pink: #ff7bd0;
+  --atrium-text-brown: #cba397;
+  --atrium-highlight-yellow: color-mix(in srgb, var(--color-egg_yolk) 40%, transparent);
+}
+
+/* ---- The mark classes the editor renders (data-color / data-highlight / data-font) ---- */
+.atrium-text-grey {
+  color: var(--atrium-text-grey);
+}
+
+.atrium-text-red {
+  color: var(--atrium-text-red);
+}
+
+.atrium-text-orange {
+  color: var(--atrium-text-orange);
+}
+
+.atrium-text-yellow {
+  color: var(--atrium-text-yellow);
+}
+
+.atrium-text-green {
+  color: var(--atrium-text-green);
+}
+
+.atrium-text-teal {
+  color: var(--atrium-text-teal);
+}
+
+.atrium-text-blue {
+  color: var(--atrium-text-blue);
+}
+
+.atrium-text-purple {
+  color: var(--atrium-text-purple);
+}
+
+.atrium-text-pink {
+  color: var(--atrium-text-pink);
+}
+
+.atrium-text-brown {
+  color: var(--atrium-text-brown);
+}
+
+mark[class*='atrium-highlight-'] {
+  padding: 0 var(--space-2);
+  border-radius: var(--border-radius-4);
+  color: inherit;
+}
+
+.atrium-highlight-grey {
+  background: var(--atrium-highlight-grey);
+}
+
+.atrium-highlight-red {
+  background: var(--atrium-highlight-red);
+}
+
+.atrium-highlight-orange {
+  background: var(--atrium-highlight-orange);
+}
+
+.atrium-highlight-yellow {
+  background: var(--atrium-highlight-yellow);
+}
+
+.atrium-highlight-green {
+  background: var(--atrium-highlight-green);
+}
+
+.atrium-highlight-teal {
+  background: var(--atrium-highlight-teal);
+}
+
+.atrium-highlight-blue {
+  background: var(--atrium-highlight-blue);
+}
+
+.atrium-highlight-purple {
+  background: var(--atrium-highlight-purple);
+}
+
+.atrium-highlight-pink {
+  background: var(--atrium-highlight-pink);
+}
+
+.atrium-highlight-brown {
+  background: var(--atrium-highlight-brown);
+}
+
+.atrium-font-figtree {
+  font-family: var(--atrium-font-figtree);
+}
+
+.atrium-font-poppins {
+  font-family: var(--atrium-font-poppins);
+}
+
+.atrium-font-lora {
+  font-family: var(--atrium-font-lora);
+}
+
+.atrium-font-nunito {
+  font-family: var(--atrium-font-nunito);
+}
+
+.atrium-font-mono {
+  font-family: var(--atrium-font-mono);
+}
+
+.atrium-font-caveat {
+  font-family: var(--atrium-font-caveat);
+}

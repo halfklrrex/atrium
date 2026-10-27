@@ -166,6 +166,8 @@ export function ItemView({ board, itemId }: ItemViewProps) {
           <Suspense fallback={<div className={styles.editorFallback} aria-busy="true" />}>
             <DescriptionEditor
               key={item.id}
+              boardId={boardId}
+              itemId={item.id}
               initial={(item.description?.doc as Record<string, unknown> | undefined) ?? null}
               readOnly={!canEdit}
               onSave={saveDescription}
