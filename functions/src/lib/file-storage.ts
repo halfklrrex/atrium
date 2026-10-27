@@ -71,7 +71,8 @@ export interface OrphanSweeperStore {
 
 /**
  * Sweeps orphan storage objects older than cutoffMs (e.g. 1 hour old)
- * that have no corresponding reference in their item's files cell.
+ * that have no corresponding reference in their item: a files cell for `.../files/{id}`, the
+ * `descriptionImages` map for `.../description/{id}`.
  */
 export async function sweepOrphanUploads(
   store: OrphanSweeperStore,
@@ -80,7 +81,7 @@ export async function sweepOrphanUploads(
   const files = await store.listUploadFiles();
   let deleted = 0;
   for (const f of files) {
-    const match = /^boards\/([^/]+)\/items\/([^/]+)\/files\/([^/]+)$/.exec(f.name);
+    const match = /^boards\/([^/]+)\/items\/([^/]+)\/(?:files|description)\/([^/]+)$/.exec(f.name);
     if (!match) continue;
     const [, boardId, itemId] = match;
     const createdMs = new Date(f.timeCreated).getTime();
@@ -118,7 +119,7 @@ function assertStoredPathIsCanonical(file: FileAttachment, expectedPath: string)
  * Validates board edit or view permission for the current user against workspace membership
  * and explicit board access roles. Mirrors firestore.rules boardRole().
  */
-function verifyBoardAccess(
+export function verifyBoardAccess(
   board: Board | null,
   workspace: Workspace | null,
   authUid: string,

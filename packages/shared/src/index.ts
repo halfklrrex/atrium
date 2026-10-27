@@ -10,6 +10,7 @@ export * from './schemas/item';
 export * from './schemas/update';
 export * from './schemas/view';
 export * from './schemas/files-upload';
+export * from './schemas/description-images';
 export * from './schemas/column-actions';
 export * from './schemas/membership';
 export * from './columns';
