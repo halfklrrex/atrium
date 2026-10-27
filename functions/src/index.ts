@@ -22,3 +22,4 @@ export { leaveWorkspace } from './callable/leaveWorkspace';
 export { purgeTrash } from './scheduled/purgeTrash';
 export { purgeOrphanUploads } from './scheduled/purgeOrphanUploads';
 export { onBoardColumnsWritten } from './triggers/onBoardColumnsWritten';
+export { onItemCreated } from './triggers/onItemCreated';

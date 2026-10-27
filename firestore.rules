@@ -89,6 +89,14 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
+    // counters/{counterId}: the account-wide item-number counter (`items`), written only by the
+    // onItemCreated function and the backfill script (Admin SDK). Clients get nothing.
+    // ---------------------------------------------------------------------
+    match /counters/{counterId} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------------------
     // users/{uid}: readable and (partially) writable by self only. Created by the bootstrapUser callable.
     // ---------------------------------------------------------------------
     match /users/{userId} {
@@ -328,6 +336,14 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------------------
+      // boards/{boardId}/counters/{counterId}: per-board item-number counters (`items`), written
+      // only by the onItemCreated function and the backfill script. Clients get nothing.
+      // -------------------------------------------------------------------
+      match /counters/{counterId} {
+        allow read, write: if false;
+      }
+
+      // -------------------------------------------------------------------
       // boards/{boardId}/presence/{presenceUid} - active board viewers
       // -------------------------------------------------------------------
       match /presence/{presenceUid} {
@@ -458,6 +474,10 @@ service cloud.firestore {
             && getAfter(parentPath).data.groupId == d.groupId;
         }
 
+        // `seq` and `boardSeq` (server-assigned item numbers) are in neither field list below, so
+        // `hasOnly` / `changed.hasOnly` already refuse a client that creates, changes or removes them;
+        // only the onItemCreated function (Admin SDK) writes them. validUpdatesCountBump can't touch
+        // them either: it allows `updatesCount` alone.
         function validItemCreate(d) {
           return d.keys().hasOnly(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
                                    'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'description'])
