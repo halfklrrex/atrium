@@ -1,19 +1,19 @@
 import { filterSlashItems, type SlashItem } from './slash-items';
 
-export interface SlashState {
-  items: SlashItem[];
+export interface SuggestState<T> {
+  items: T[];
   /** The element the menu hangs from: the suggestion's decoration at the caret. */
   anchor: HTMLElement | null;
   selected: number;
-  select: (item: SlashItem) => void;
+  select: (item: T) => void;
 }
 
 /**
- * Bridges the TipTap suggestion plugin (plain callbacks) and the React menu: the plugin pushes
- * state in, React subscribes. One controller per editor.
+ * Bridges a TipTap suggestion plugin (plain callbacks) and a React menu: the plugin pushes state
+ * in, React subscribes. One controller per editor and menu.
  */
-export class SlashController {
-  private state: SlashState | null = null;
+export class SuggestController<T> {
+  private state: SuggestState<T> | null = null;
   private listeners = new Set<() => void>();
 
   subscribe = (listener: () => void) => {
@@ -23,9 +23,9 @@ export class SlashController {
     };
   };
 
-  getSnapshot = (): SlashState | null => this.state;
+  getSnapshot = (): SuggestState<T> | null => this.state;
 
-  set(next: Omit<SlashState, 'selected'> & { selected?: number }) {
+  set(next: Omit<SuggestState<T>, 'selected'> & { selected?: number }) {
     const previous = this.state;
     const count = next.items.length;
     const keep = previous && next.selected === undefined ? previous.selected : (next.selected ?? 0);
@@ -58,6 +58,24 @@ export class SlashController {
 
   private emit() {
     this.listeners.forEach((listener) => listener());
+  }
+}
+
+export type SlashState = SuggestState<SlashItem>;
+
+/** What a "/" entry can ask the surrounding editor UI to do (the editor wires these up). */
+export interface SlashUi {
+  openEmojiPicker: () => void;
+  pickImage: () => void;
+}
+
+/** The "/" menu's controller. */
+export class SlashController extends SuggestController<SlashItem> {
+  ui: SlashUi = { openEmojiPicker: () => {}, pickImage: () => {} };
+
+  /** The editor shell says what the Image and Emoji entries do. */
+  setUi(ui: SlashUi) {
+    this.ui = ui;
   }
 }
 

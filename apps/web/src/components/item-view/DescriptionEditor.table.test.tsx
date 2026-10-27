@@ -20,6 +20,8 @@ describe('DescriptionEditor with a table', () => {
     });
     const { container } = render(
       <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
         readOnly={false}
         onSave={vi.fn().mockResolvedValue(undefined)}
         initial={{

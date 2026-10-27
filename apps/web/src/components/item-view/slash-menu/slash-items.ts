@@ -4,6 +4,8 @@ import {
   CheckList,
   Code,
   Divider,
+  Emoji,
+  Image,
   Quote,
   Table,
   Text,
@@ -12,6 +14,7 @@ import {
   TextSmall,
 } from '@vibe/icons';
 import { NumberedList, type EditorIcon } from '../editor-icons';
+import type { SlashUi } from './slash-controller';
 
 interface Range {
   from: number;
@@ -27,7 +30,7 @@ export interface SlashItem {
   keywords: string[];
   Icon: EditorIcon;
   /** Runs with the `/query` range; every item deletes it first. */
-  run: (editor: Editor, range: Range) => void;
+  run: (editor: Editor, range: Range, ui: SlashUi) => void;
 }
 
 const start = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
@@ -120,6 +123,28 @@ export const SLASH_ITEMS: SlashItem[] = [
     keywords: ['grid', 'rows', 'columns'],
     Icon: Table,
     run: (e, r) => start(e, r).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+  },
+  {
+    id: 'image',
+    title: 'Image',
+    hint: 'PNG, JPEG, GIF, WebP',
+    keywords: ['picture', 'photo', 'upload'],
+    Icon: Image,
+    run: (e, r, ui) => {
+      start(e, r).run();
+      ui.pickImage();
+    },
+  },
+  {
+    id: 'emoji',
+    title: 'Emoji',
+    hint: ':smile:',
+    keywords: ['smile', 'face', 'emoticon'],
+    Icon: Emoji,
+    run: (e, r, ui) => {
+      start(e, r).run();
+      ui.openEmojiPicker();
+    },
   },
 ];
 

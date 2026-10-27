@@ -4,17 +4,23 @@ import {
   CHANGE_MEMBER_ROLE_CALLABLE,
   CREATE_INVITE_CALLABLE,
   DECLINE_INVITE_CALLABLE,
+  FINALIZE_DESCRIPTION_IMAGE_CALLABLE,
+  GET_DESCRIPTION_IMAGE_URL_CALLABLE,
   GET_INVITE_STATUS_CALLABLE,
   LEAVE_WORKSPACE_CALLABLE,
   LIST_MY_INVITES_CALLABLE,
   REMOVE_MEMBER_CALLABLE,
+  REQUEST_DESCRIPTION_IMAGE_UPLOAD_CALLABLE,
   REVOKE_INVITE_CALLABLE,
   acceptInviteResultSchema,
   bootstrapUserResultSchema,
   createInviteResultSchema,
+  finalizeDescriptionImageResultSchema,
+  getDescriptionImageUrlResultSchema,
   getInviteStatusResultSchema,
   listMyInvitesResultSchema,
   okResultSchema,
+  requestDescriptionImageUploadResultSchema,
   type AcceptInviteRequest,
   type AcceptInviteResult,
   type BootstrapUserRequest,
@@ -23,6 +29,10 @@ import {
   type CreateInviteRequest,
   type CreateInviteResult,
   type DeclineInviteRequest,
+  type FinalizeDescriptionImageRequest,
+  type FinalizeDescriptionImageResult,
+  type GetDescriptionImageUrlRequest,
+  type GetDescriptionImageUrlResult,
   type GetInviteStatusRequest,
   type GetInviteStatusResult,
   type LeaveWorkspaceRequest,
@@ -30,6 +40,8 @@ import {
   type ListMyInvitesResult,
   type OkResult,
   type RemoveMemberRequest,
+  type RequestDescriptionImageUploadRequest,
+  type RequestDescriptionImageUploadResult,
   type RevokeInviteRequest,
 } from '@atrium/shared';
 import { httpsCallable } from 'firebase/functions';
@@ -86,6 +98,24 @@ export const membershipCalls = {
   ),
   leaveWorkspace: callable<LeaveWorkspaceRequest, OkResult>(LEAVE_WORKSPACE_CALLABLE, (d) =>
     okResultSchema.parse(d),
+  ),
+};
+
+/** Description images (P1 editor pass 2): signed upload and download URLs, all through callables. */
+export const descriptionImageCalls = {
+  requestUpload: callable<
+    RequestDescriptionImageUploadRequest,
+    RequestDescriptionImageUploadResult
+  >(REQUEST_DESCRIPTION_IMAGE_UPLOAD_CALLABLE, (d) =>
+    requestDescriptionImageUploadResultSchema.parse(d),
+  ),
+  finalize: callable<FinalizeDescriptionImageRequest, FinalizeDescriptionImageResult>(
+    FINALIZE_DESCRIPTION_IMAGE_CALLABLE,
+    (d) => finalizeDescriptionImageResultSchema.parse(d),
+  ),
+  getUrl: callable<GetDescriptionImageUrlRequest, GetDescriptionImageUrlResult>(
+    GET_DESCRIPTION_IMAGE_URL_CALLABLE,
+    (d) => getDescriptionImageUrlResultSchema.parse(d),
   ),
 };
 
