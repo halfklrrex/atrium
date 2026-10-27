@@ -123,7 +123,11 @@ parentItemId: string|null                  // non-null ⇒ subitem (uses board.s
 values: { [columnId]: ColumnValue }        // monday-compatible JSON per column type
 state: 'active'|'archived'|'deleted', deletedAt|null
 createdAt, createdBy, updatedAt, updatedBy
+seq?: int                                  // account-wide item number (1, 2, 3, ...; never reused). Server-assigned by onItemCreated; clients can't write it. Drives the Item ID column
+boardSeq?: int                             // per-board creation number (subitems have their own sequence). Server-assigned; drives the Auto number column
 ```
+`seq` and `boardSeq` are absent until the `onItemCreated` function has run (about a second), and the cells stay empty meanwhile. They come from two Functions-only counter documents: `counters/items` (`{ next }`, one for the whole project, so ids stay unique when a board moves between workspaces) and `boards/{boardId}/counters/items` (`{ nextItem, nextSubitem }`). Despite the names each field holds the last number handed out, so an absent counter reads as 0. Firestore rules deny every client read and write of both counters, and refuse `seq` / `boardSeq` on item create and update (they are in neither editable key list). Duplicating items never copies them: the copy is a new document and gets new numbers. Details: `docs/specs/P2-numeric-item-ids.md`.
+
 Loading a board means one listener on `items where state == 'active'`, which is fine to several thousand items. Paging and virtualisation come later.
 
 ### 5.6 Later subcollections (shape reserved, built in later phases)
@@ -183,13 +187,13 @@ Decisions (2026-10-24): derived column types **store no value** (their value is 
 ```ts
 interface ColumnContext {
   boardId: string;
-  item: { id; values; createdAt?; createdBy?; updatedAt?; updatedBy?; groupId? }; // plain data the client already holds
+  item: { id; values; createdAt?; createdBy?; updatedAt?; updatedBy?; groupId?; seq?; boardSeq? }; // plain data the client already holds
   columns: readonly ColumnDef[];  // every column def of the board, for cross-column derivations
 }
 type ValidationResult = { ok: true } | { ok: false; message: string };
 ```
 
-- **`derived: true`** marks a type whose value is computed (formula, mirror, progress, item ID, creation log, last updated). It **requires `compute(ctx, settings)`**, which must be pure and fast. `registry.register` throws otherwise.
+- **`derived: true`** marks a type whose value is computed (formula, mirror, progress, item ID, auto number, creation log, last updated). Item ID and auto number are derived from the server-assigned `item.seq` and `item.boardSeq` (section 5.5): `item_id` computes `String(seq)` (the custom key prefix is applied at display time by `formatItemId`, so sorting stays numeric) and `auto_number` computes `{ auto_number: boardSeq }`; both are `null` until the numbers exist, and any stored `values.<id>` is ignored. It **requires `compute(ctx, settings)`**, which must be pure and fast. `registry.register` throws otherwise.
 - **`validateValue(value, settings, ctx?)`** is optional and pure: rules beyond `valueSchema` that need the settings (for example rating <= limit). It runs only for non-empty values that already passed the schema.
 - **Registry helpers:** `isDerived(type)`, `computeValue(def, ctx)` (null for unknown or non-derived types and for invalid settings), `validateCell(def, value, ctx?)` and `derivedColumnIds(columns)`. `validateCell` is the one gate for writes: it **rejects every value for a derived type, `null` included**, with "This column is calculated automatically"; otherwise it runs `valueSchema` and then `validateValue`. Empty cells are valid. Unknown types are refused with a message instead of throwing.
 - **Client:** `tableActions.setCell` calls `validateCell` first and shows a refusal in an error toast without writing. Derived cells render `computeValue(...)` read-only (no editor, no toggle, Delete does nothing). New items, duplicated items and new boards never carry derived values. A future CSV or paste path must call `validateCell` per cell too.
@@ -199,7 +203,7 @@ type ValidationResult = { ok: true } | { ok: false; message: string };
   - item **create** may not contain any key of `derivedColumnIds` in `values`;
   - item **update** may not add, change or remove any such key (`values.diff(...)`); a stale stored value that is left alone doesn't block other edits;
   - a board without the field (created before FW1) reads as `[]`.
-- **Known limits:** (1) the function lags a column change by a moment, so right after someone adds a derived column a client could still store a value in it; it's never displayed (the computed value is shown) and gets blocked as soon as the function has run. (2) A type becoming derived later (for example converting #13's computed types) doesn't update boards by itself, because the function only reacts to board writes: re-run the backfill. (3) Search, sort and footer summaries read `values.<id>`, so for a derived column they see nothing until they are taught to use `compute`.
+- **Known limits:** (1) the function lags a column change by a moment, so right after someone adds a derived column a client could still store a value in it; it's never displayed (the computed value is shown) and gets blocked as soon as the function has run. (2) A type becoming derived later (for example converting #13's computed types) doesn't update boards by itself, because the function only reacts to board writes: re-run the backfill. (3) ~~Search, sort and footer summaries read `values.<id>`~~ (fixed for every derived type with the numeric item IDs work): search, filter conditions and sort in `packages/shared/src/filters/engine.ts`, the table's search text and the group footer all go through `computeValue` for derived columns. Grouping by a derived column still reads the stored value.
 - **Migration:** `scripts/migrations/2026-10-backfill-derived-column-ids.mjs` sets the field on existing boards. It is idempotent and a dry run unless `--apply` is given: `pnpm exec tsx scripts/migrations/2026-10-backfill-derived-column-ids.mjs --project atrium-board` to preview, then the same with `--apply`. Authenticates with `gcloud auth print-access-token` (run `gcloud auth login` first); without `--project` it targets the emulator.
 - **Deploy:** the first Firestore-triggered function needs Eventarc project setup by the owner before the merge. See `docs/DEPLOY.md`, "Roles to add later".
 
@@ -243,6 +247,8 @@ functions/src/
   http/                API + webhooks (P8+)
   lib/                 admin init, auth helpers
 ```
+P2: `onItemCreated` (`onDocumentCreated` on `boards/{boardId}/items/{itemId}`, `database: FIRESTORE_DATABASE_ID`, `retry: true`) assigns `seq` and `boardSeq` to every new item in one transaction (read the item and both counters, write the item fields and the counters; `allocateItemNumbers` in `functions/src/lib/item-seq.ts`). It is idempotent under retries (it stops when the item is gone or already numbered) and doesn't touch `updatedAt` / `updatedBy`. Known limit: the single global counter document handles roughly one write per second sustained, which is fine at family scale; a bulk create just queues transaction retries. Existing items are numbered once by `scripts/migrations/2026-10-backfill-item-seq.mjs` (dry run by default; counters and items are committed with preconditions, so it can run while the function is live).
+
 P0: `bootstrapUser` (callable, idempotent, transaction). It creates `users/{uid}` from the auth token if missing, plus a personal workspace "<FirstName>'s workspace" with the caller as owner, sets `lastWorkspaceId`, and returns `{ workspaceId }`. The client calls it once after every sign-in.
 
 ## 9. Local development & testing
