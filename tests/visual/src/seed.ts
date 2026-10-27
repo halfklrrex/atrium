@@ -374,6 +374,21 @@ const FULL_VIEW_DESCRIPTION = {
         'Preview deploys',
       ].map((t) => ({ type: 'listItem', content: [para(t)] })),
     },
+    {
+      type: 'taskList',
+      content: [
+        ['Review the workflow file', true],
+        ['Enable branch protection', false],
+        [
+          'Document the release process in the spec, including how a failed deploy is rolled back by hand',
+          false,
+        ],
+      ].map(([t, checked]) => ({
+        type: 'taskItem',
+        attrs: { checked },
+        content: [para(t as string)],
+      })),
+    },
     para('Details live in the spec linked from this item.'),
   ],
 };

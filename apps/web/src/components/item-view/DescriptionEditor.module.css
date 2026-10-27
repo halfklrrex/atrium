@@ -122,14 +122,43 @@
   gap: var(--space-8);
 }
 
+.content :global(.ProseMirror ul[data-type='taskList'] li + li) {
+  margin-top: var(--space-4);
+}
+
+/* The label is one text line tall, so the box centres on the first line however the item wraps. */
 .content :global(.ProseMirror ul[data-type='taskList'] li > label) {
+  display: inline-flex;
   flex: none;
-  padding-top: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  height: var(--atrium-doc-line-height);
+  margin: 0;
+  padding: 0;
+}
+
+.content :global(.ProseMirror ul[data-type='taskList'] li > label input[type='checkbox']) {
+  width: var(--atrium-doc-checkbox-size);
+  height: var(--atrium-doc-checkbox-size);
+  margin: 0;
+  accent-color: var(--primary-color);
+  cursor: pointer;
 }
 
 .content :global(.ProseMirror ul[data-type='taskList'] li > div) {
   flex: 1;
   min-width: 0;
+}
+
+.content :global(.ProseMirror ul[data-type='taskList'] li[data-checked='true'] > div) {
+  color: var(--secondary-text-color);
+  text-decoration: line-through;
+}
+
+/* A nested list indents by one checkbox plus the gap, so its boxes sit under the parent's text. */
+.content :global(.ProseMirror ul[data-type='taskList'] ul[data-type='taskList']) {
+  margin-top: var(--space-4);
+  padding-inline-start: calc(var(--atrium-doc-checkbox-size) + var(--space-8));
 }
 
 .content :global(.ProseMirror code) {
