@@ -141,9 +141,9 @@
   --atrium-item-view-height: min(86vh, 900px);
   --atrium-item-view-fields-width: 38%;
   --atrium-item-view-subitem-cell-width: 140px;
-  --atrium-doc-h1-font: 600 24px / 32px var(--title-font-family);
-  --atrium-doc-h2-font: 600 20px / 28px var(--title-font-family);
-  --atrium-doc-h3-font: 600 16px / 24px var(--title-font-family);
+  --atrium-doc-h1-font: 700 24px / 32px var(--font-family);
+  --atrium-doc-h2-font: 700 20px / 28px var(--font-family);
+  --atrium-doc-h3-font: 700 16px / 24px var(--font-family);
   --atrium-doc-code-font: 400 13px / 20px monospace;
   --atrium-doc-editor-min-height: 120px;
   --atrium-doc-expanded-width: 900px; /* the description editor's expand dialog */
