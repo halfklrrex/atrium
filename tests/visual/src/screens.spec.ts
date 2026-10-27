@@ -168,7 +168,7 @@ for (const theme of ['light', 'dark'] as const) {
       await fullViewReady(page);
       const editor = page.locator('.ProseMirror');
       await editor.getByText('Details live in the spec linked from this item.').click();
-      await page.keyboard.press('End');
+      await page.keyboard.press('Control+End');
       await page.keyboard.press('Enter');
       await page.keyboard.type('/');
       await expect(page.getByRole('listbox', { name: 'Blocks' })).toBeVisible();
@@ -181,7 +181,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     test('board: description expanded', async ({ page }) => {
       await fullViewReady(page);
-      await page.getByRole('button', { name: 'Expand' }).click();
+      await page.getByRole('button', { name: 'Expand', exact: true }).click();
       await expect(page.getByRole('dialog', { name: 'Description' })).toBeVisible();
       await expect(
         page.getByRole('dialog', { name: 'Description' }).locator('table'),
