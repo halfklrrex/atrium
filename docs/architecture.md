@@ -125,8 +125,20 @@ state: 'active'|'archived'|'deleted', deletedAt|null
 createdAt, createdBy, updatedAt, updatedBy
 seq?: int                                  // account-wide item number (1, 2, 3, ...; never reused). Server-assigned by onItemCreated; clients can't write it. Drives the Item ID column
 boardSeq?: int                             // per-board creation number (subitems have their own sequence). Server-assigned; drives the Auto number column
+description?: { doc, text } | null         // rich-text description (ProseMirror JSON plus capped plain text for search)
+descriptionImages?: { [fileId]: { name, size, mimeType, uploadedAt, uploadedBy } }   // images used in the description. Functions-only
 ```
 `seq` and `boardSeq` are absent until the `onItemCreated` function has run (about a second), and the cells stay empty meanwhile. They come from two Functions-only counter documents: `counters/items` (`{ next }`, one for the whole project, so ids stay unique when a board moves between workspaces) and `boards/{boardId}/counters/items` (`{ nextItem, nextSubitem }`). Despite the names each field holds the last number handed out, so an absent counter reads as 0. Firestore rules deny every client read and write of both counters, and refuse `seq` / `boardSeq` on item create and update (they are in neither editable key list). Duplicating items never copies them: the copy is a new document and gets new numbers. Details: `docs/specs/P2-numeric-item-ids.md`.
+
+**Description images (P1 editor pass 2).** The description doc stores an image as `{ type: 'image', attrs: { fileId, alt, width } }`, never a URL. The files column pipeline is column-bound, so images have a parallel, description-scoped path that reuses the `lib/file-storage.ts` helpers (board access check, bucket adapter, signed URLs):
+
+- Storage objects live at `boards/{b}/items/{i}/description/{fileId}` (PNG, JPEG, GIF or WebP, at most 10 MB, at most 50 per item). `storage.rules` still denies every client access, and Storage rules can't read Firestore, so all access goes through three callables with signed URLs.
+- `requestDescriptionImageUpload({ boardId, itemId, fileName, contentType, size })`: board editors only, active item. Returns a signed PUT URL (10 minutes, size capped by the signed `x-goog-content-length-range` header).
+- `finalizeDescriptionImage({ boardId, itemId, fileId, fileName })`: reads the object's real size and type from Storage, deletes it on rejection (after the transaction), and otherwise sets `descriptionImages.<fileId>` with a field path (Admin SDK, in the transaction).
+- `getDescriptionImageUrl({ boardId, itemId, fileId })`: board readers only, and only for a fileId listed in `descriptionImages`. Returns a signed GET URL valid for 1 hour. The web app caches it per fileId until about 5 minutes before expiry and refreshes once on an `<img>` error.
+- `descriptionImages` is in neither editable key list of the item rules, so clients can't create, change or remove it (rules tests in `tests/rules/src/description-images.test.ts`).
+- `purgeOrphanUploads` also sweeps `.../description/{fileId}` objects older than an hour that are not in `descriptionImages` (uploads that were never finalized).
+- **Known limit:** an image deleted from the doc stays in Storage and in `descriptionImages` until a later cleanup pass; nothing removes it yet. The cap of 50 counts those leftovers.
 
 Loading a board means one listener on `items where state == 'active'`, which is fine to several thousand items. Paging and virtualisation come later.
 
@@ -248,6 +260,8 @@ functions/src/
   lib/                 admin init, auth helpers
 ```
 P2: `onItemCreated` (`onDocumentCreated` on `boards/{boardId}/items/{itemId}`, `database: FIRESTORE_DATABASE_ID`, `retry: true`) assigns `seq` and `boardSeq` to every new item in one transaction (read the item and both counters, write the item fields and the counters; `allocateItemNumbers` in `functions/src/lib/item-seq.ts`). It is idempotent under retries (it stops when the item is gone or already numbered) and doesn't touch `updatedAt` / `updatedBy`. Known limit: the single global counter document handles roughly one write per second sustained, which is fine at family scale; a bulk create just queues transaction retries. Existing items are numbered once by `scripts/migrations/2026-10-backfill-item-seq.mjs` (dry run by default; counters and items are committed with preconditions, so it can run while the function is live).
+
+P1 editor pass 2: `requestDescriptionImageUpload`, `finalizeDescriptionImage` and `getDescriptionImageUrl` (callables, logic in `functions/src/lib/description-images.ts`; see section 5.5) serve the description images. Their request and result schemas are in `packages/shared/src/schemas/description-images.ts`.
 
 P0: `bootstrapUser` (callable, idempotent, transaction). It creates `users/{uid}` from the auth token if missing, plus a personal workspace "<FirstName>'s workspace" with the caller as owner, sets `lastWorkspaceId`, and returns `{ workspaceId }`. The client calls it once after every sign-in.
 

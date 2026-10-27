@@ -6,7 +6,7 @@ It builds on pass 1 (`docs/specs/P1-description-editor-pass1.md`, PR #16).
 
 ## Principles
 
-- **The stored doc holds palette and font *keys*, never raw colours or font stacks.**
+- **The stored doc holds palette and font _keys_, never raw colours or font stacks.**
   - Marks render as `data-*` attributes plus CSS classes, mapped to tokens, so dark mode and future palette tweaks apply to old content.
   - No hex values or inline `style` attributes in the doc.
   - On paste, foreign inline colours and fonts are dropped (parse rules accept only our keys).
@@ -30,15 +30,15 @@ It builds on pass 1 (`docs/specs/P1-description-editor-pass1.md`, PR #16).
 
 The fonts, by key:
 
-| Key | Label | Font | Notes |
-|---|---|---|---|
-| `default` | Default | Inherits the body | No mark; this is the absence of a font mark. |
-| `figtree` | Figtree | Figtree | Already loaded. |
-| `poppins` | Poppins | Poppins | Already loaded at 500/600. Add 400/700, lazily. |
-| `lora` | Lora | Lora | Serif. |
-| `nunito` | Nunito | Nunito | Rounded. |
-| `mono` | JetBrains Mono | JetBrains Mono | Monospace. |
-| `caveat` | Caveat | Caveat | Handwriting. |
+| Key       | Label          | Font              | Notes                                           |
+| --------- | -------------- | ----------------- | ----------------------------------------------- |
+| `default` | Default        | Inherits the body | No mark; this is the absence of a font mark.    |
+| `figtree` | Figtree        | Figtree           | Already loaded.                                 |
+| `poppins` | Poppins        | Poppins           | Already loaded at 500/600. Add 400/700, lazily. |
+| `lora`    | Lora           | Lora              | Serif.                                          |
+| `nunito`  | Nunito         | Nunito            | Rounded.                                        |
+| `mono`    | JetBrains Mono | JetBrains Mono    | Monospace.                                      |
+| `caveat`  | Caveat         | Caveat            | Handwriting.                                    |
 
 - Add a custom `fontFamily` attribute on the textStyle mark (the same pattern as colour). It renders `data-font="<key>"` and a class that sets `font-family` from tokens (`--atrium-font-<key>`).
 - **Lazy loading:** `ensureFontLoaded(key)` injects a single Google Fonts `<link>` per family (weights 400 and 700, with italics where available, `display=swap`), only the first time a key is rendered or chosen.
@@ -60,6 +60,7 @@ The fonts, by key:
   - "Recently used" (up to 16, in `localStorage`, wrapped in try/catch).
 
   Build the grid from the extension's emoji data; no second emoji library. Store emoji as Unicode text, not image nodes (`enableEmoticons: false`, no fallback images).
+
 - Add "Emoji" to the "/" menu, opening the picker.
 
 ## 4. Images
@@ -100,6 +101,7 @@ Data and rules:
   - "Image" is added to the "/" menu.
 
   Each one inserts a placeholder node with upload progress, using XHR progress on the signed PUT. On finalize it becomes a real image node; on error the placeholder is removed and the callable's message is shown as a toast.
+
 - **Resize:** drag handles on the selected image set `width` as a percentage (25–100%), and click to select. No captions in this pass.
 - Read-only viewers see images, but no handles or upload controls.
 - `DescriptionEditor` needs `boardId` and `itemId` props; the item view passes them.
