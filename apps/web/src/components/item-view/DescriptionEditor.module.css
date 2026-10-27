@@ -193,6 +193,19 @@
   pointer-events: none;
 }
 
+.content :global(.ProseMirror h1),
+.content :global(.ProseMirror h2),
+.content :global(.ProseMirror h3) {
+  margin: 0;
+}
+
+/* A heading after other content gets a modest gap above; the 8px rhythm below is the default. */
+.content :global(.ProseMirror > * + h1),
+.content :global(.ProseMirror > * + h2),
+.content :global(.ProseMirror > * + h3) {
+  margin-top: var(--space-16);
+}
+
 .content :global(.ProseMirror h1) {
   font: var(--atrium-doc-h1-font);
 }
