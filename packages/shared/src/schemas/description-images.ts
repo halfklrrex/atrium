@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { uidSchema } from './common';
+import { safeIdSchema } from './files-upload';
 
 /**
  * Item description images (P1 description editor, pass 2). The files column is column-bound, so
@@ -26,10 +27,6 @@ export const REQUEST_DESCRIPTION_IMAGE_UPLOAD_CALLABLE = 'requestDescriptionImag
 export const FINALIZE_DESCRIPTION_IMAGE_CALLABLE = 'finalizeDescriptionImage';
 export const GET_DESCRIPTION_IMAGE_URL_CALLABLE = 'getDescriptionImageUrl';
 
-const idSchema = z
-  .string()
-  .regex(/^[A-Za-z0-9_-]{1,128}$/, 'Must be 1-128 alphanumeric, dash or underscore characters');
-
 /** One entry of `items/{i}.descriptionImages`, keyed by fileId. */
 export const descriptionImageSchema = z
   .object({
@@ -42,13 +39,13 @@ export const descriptionImageSchema = z
   .strict();
 export type DescriptionImage = z.infer<typeof descriptionImageSchema>;
 
-export const descriptionImagesSchema = z.record(idSchema, descriptionImageSchema);
+export const descriptionImagesSchema = z.record(safeIdSchema, descriptionImageSchema);
 export type DescriptionImages = z.infer<typeof descriptionImagesSchema>;
 
 export const requestDescriptionImageUploadRequestSchema = z
   .object({
-    boardId: idSchema,
-    itemId: idSchema,
+    boardId: safeIdSchema,
+    itemId: safeIdSchema,
     fileName: z.string().min(1).max(255),
     contentType: z.string().regex(/^[a-zA-Z0-9!#$&^_.+-]+\/[a-zA-Z0-9!#$&^_.+-]+$/),
     size: z.number().int().positive(),
@@ -61,7 +58,7 @@ export type RequestDescriptionImageUploadRequest = z.infer<
 export const requestDescriptionImageUploadResultSchema = z
   .object({
     uploadUrl: z.string().url(),
-    fileId: idSchema,
+    fileId: safeIdSchema,
     expiresAt: z.number().int().positive(),
     headers: z.record(z.string(), z.string()),
   })
@@ -72,21 +69,21 @@ export type RequestDescriptionImageUploadResult = z.infer<
 
 export const finalizeDescriptionImageRequestSchema = z
   .object({
-    boardId: idSchema,
-    itemId: idSchema,
-    fileId: idSchema,
+    boardId: safeIdSchema,
+    itemId: safeIdSchema,
+    fileId: safeIdSchema,
     fileName: z.string().min(1).max(255),
   })
   .strict();
 export type FinalizeDescriptionImageRequest = z.infer<typeof finalizeDescriptionImageRequestSchema>;
 
 export const finalizeDescriptionImageResultSchema = z
-  .object({ fileId: idSchema, image: descriptionImageSchema })
+  .object({ fileId: safeIdSchema, image: descriptionImageSchema })
   .strict();
 export type FinalizeDescriptionImageResult = z.infer<typeof finalizeDescriptionImageResultSchema>;
 
 export const getDescriptionImageUrlRequestSchema = z
-  .object({ boardId: idSchema, itemId: idSchema, fileId: idSchema })
+  .object({ boardId: safeIdSchema, itemId: safeIdSchema, fileId: safeIdSchema })
   .strict();
 export type GetDescriptionImageUrlRequest = z.infer<typeof getDescriptionImageUrlRequestSchema>;
 

@@ -25,7 +25,6 @@ export interface DescriptionImageTx extends FileStorageTx {
   ): void;
 }
 
-/** The only Storage path a description image may live at. */
 const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
 /** The only Storage path a description image may live at; every segment must be a safe id. */
