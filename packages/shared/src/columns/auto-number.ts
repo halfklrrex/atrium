@@ -11,8 +11,9 @@ export const autoNumberSettingsSchema = z
 export type AutoNumberSettings = z.infer<typeof autoNumberSettingsSchema>;
 
 /**
- * monday auto_number column value: `{"auto_number": 1}`.
- * Assigned server-side by Functions.
+ * monday auto_number column value: `{"auto_number": 1}`. Derived: computed from the item's
+ * server-assigned `boardSeq` (per-board creation number, set by the `onItemCreated` Function);
+ * nothing is stored in `values`.
  */
 export const autoNumberValueSchema = z
   .object({
@@ -24,6 +25,7 @@ export type AutoNumberValue = z.infer<typeof autoNumberValueSchema>;
 export const autoNumberColumn = defineColumnType<AutoNumberSettings, AutoNumberValue>({
   type: 'auto_number',
   label: 'Auto Number',
+  derived: true,
   settingsSchema: autoNumberSettingsSchema,
   valueSchema: autoNumberValueSchema,
   summaries: [
@@ -42,4 +44,6 @@ export const autoNumberColumn = defineColumnType<AutoNumberSettings, AutoNumberV
     return settings?.prefix ? `${settings.prefix}${num}` : String(num);
   },
   compare: (a, b) => a.auto_number - b.auto_number,
+  compute: (ctx) =>
+    typeof ctx.item.boardSeq === 'number' ? { auto_number: ctx.item.boardSeq } : null,
 });

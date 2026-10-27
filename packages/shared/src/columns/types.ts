@@ -51,6 +51,10 @@ export interface ColumnContext {
     updatedAt?: unknown;
     updatedBy?: string;
     groupId?: string;
+    /** Account-wide item number, assigned by the `onItemCreated` Function (absent until then). */
+    seq?: number;
+    /** Per-board creation number (own sequence for subitems), assigned by the same Function. */
+    boardSeq?: number;
   };
   /** All column defs of the board (for cross-column derivations like progress/formula). */
   columns: readonly ColumnDef[];

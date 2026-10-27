@@ -72,7 +72,7 @@ describe('derived column framework', () => {
         .filter((t) => t.derived)
         .map((t) => t.type)
         .sort(),
-    ).toEqual(['creation_log', 'item_id', 'last_updated', 'progress']);
+    ).toEqual(['auto_number', 'creation_log', 'item_id', 'last_updated', 'progress']);
     expect(columnRegistry.derivedColumnIds([def('text'), def('status', 'c2')])).toEqual([]);
     expect(
       columnRegistry.derivedColumnIds([def('text'), def('progress', 'c1'), def('item_id', 'c2')]),

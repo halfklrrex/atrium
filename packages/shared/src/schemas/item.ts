@@ -31,6 +31,10 @@ export const itemSchema = z.object({
   deletedAt: timestampSchema.nullable(),
   /** How many updates the item has (the row bubble); client-maintained, absent on older items. */
   updatesCount: z.number().int().min(0).optional(),
+  /** Account-wide item number; server-assigned by `onItemCreated`, never client-written. */
+  seq: z.number().int().min(1).optional(),
+  /** Per-board creation number (subitems have their own sequence); server-assigned. */
+  boardSeq: z.number().int().min(1).optional(),
   /** Rich-text description; absent or `null` when empty. */
   description: itemDescriptionSchema.nullable().optional(),
   createdAt: timestampSchema,
@@ -39,4 +43,5 @@ export const itemSchema = z.object({
   updatedBy: uidSchema,
 });
 export type Item = z.infer<typeof itemSchema>;
-export type ItemWrite = WriteDoc<Item>;
+/** Client item writes never carry the server-assigned numbers (rules refuse them). */
+export type ItemWrite = Omit<WriteDoc<Item>, 'seq' | 'boardSeq'>;
