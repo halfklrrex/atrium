@@ -26,6 +26,13 @@ export function adminOrphanSweeperStore(): OrphanSweeperStore {
         return false;
       }
 
+      // Description images (.../description/{fileId}) are referenced by the item's map.
+      const description = /^boards\/[^/]+\/items\/[^/]+\/description\/([^/]+)$/.exec(storagePath);
+      if (description) {
+        const images = itemSnap.get('descriptionImages') as Record<string, unknown> | undefined;
+        return Boolean(images && Object.prototype.hasOwnProperty.call(images, description[1]!));
+      }
+
       const values = itemSnap.get('values') as Record<string, unknown> | undefined;
       if (!values) return false;
 

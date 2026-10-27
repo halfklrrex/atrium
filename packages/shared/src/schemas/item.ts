@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { entityStateSchema } from '../roles';
 import { idSchema, positionSchema, timestampSchema, uidSchema, type WriteDoc } from './common';
 import { slugIdSchema } from './board';
+import { descriptionImagesSchema } from './description-images';
 
 /**
  * Per-column cell values keyed by column id. Each value uses the monday-compatible JSON shape of its
@@ -37,6 +38,8 @@ export const itemSchema = z.object({
   boardSeq: z.number().int().min(1).optional(),
   /** Rich-text description; absent or `null` when empty. */
   description: itemDescriptionSchema.nullable().optional(),
+  /** Description images by fileId; Functions-only (finalizeDescriptionImage), never client-written. */
+  descriptionImages: descriptionImagesSchema.optional(),
   createdAt: timestampSchema,
   createdBy: uidSchema,
   updatedAt: timestampSchema,
@@ -44,4 +47,4 @@ export const itemSchema = z.object({
 });
 export type Item = z.infer<typeof itemSchema>;
 /** Client item writes never carry the server-assigned numbers (rules refuse them). */
-export type ItemWrite = Omit<WriteDoc<Item>, 'seq' | 'boardSeq'>;
+export type ItemWrite = Omit<WriteDoc<Item>, 'seq' | 'boardSeq' | 'descriptionImages'>;

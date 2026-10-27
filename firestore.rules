@@ -474,6 +474,9 @@ service cloud.firestore {
             && getAfter(parentPath).data.groupId == d.groupId;
         }
 
+        // `descriptionImages` (the map of description images by fileId, written by the
+        // finalizeDescriptionImage Function only) is likewise in neither field list below, so clients
+        // can't create, change or remove it. Storage objects behind it are reached through callables.
         // `seq` and `boardSeq` (server-assigned item numbers) are in neither field list below, so
         // `hasOnly` / `changed.hasOnly` already refuse a client that creates, changes or removes them;
         // only the onItemCreated function (Admin SDK) writes them. validUpdatesCountBump can't touch

@@ -13,6 +13,7 @@ import type { Board, Item, Workspace } from '@atrium/shared';
 import { getStorage } from 'firebase-admin/storage';
 import type { BootstrapTx } from './bootstrap';
 import type { FileStorageBucket, FileStorageTx, StorageFileMetadata } from './file-storage';
+import type { DescriptionImageTx } from './description-images';
 import type { ColumnActionsTx } from './column-actions';
 
 if (getApps().length === 0) initializeApp();
@@ -83,6 +84,17 @@ export function adminFileStorageTx(firestore: Firestore, tx: Transaction): FileS
       for (const [colId, val] of Object.entries(values)) {
         tx.update(itemRef, new FieldPath('values', colId), val);
       }
+    },
+  };
+}
+
+/** The files transaction plus the description-image field-path write. */
+export function adminDescriptionImageTx(firestore: Firestore, tx: Transaction): DescriptionImageTx {
+  return {
+    ...adminFileStorageTx(firestore, tx),
+    setDescriptionImage(boardId, itemId, fileId, image) {
+      const itemRef = firestore.collection('boards').doc(boardId).collection('items').doc(itemId);
+      tx.update(itemRef, new FieldPath('descriptionImages', fileId), image);
     },
   };
 }
