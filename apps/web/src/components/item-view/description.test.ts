@@ -67,3 +67,30 @@ describe('autosave debounce', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('docToText with tables and dividers', () => {
+  const cell = (type: string, t: string) => ({
+    type,
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: t }] }],
+  });
+  it('includes table cell text, one cell per line, and nothing for a divider', () => {
+    const d = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [cell('tableHeader', 'Name'), cell('tableHeader', 'Qty')],
+            },
+            { type: 'tableRow', content: [cell('tableCell', 'Tea'), cell('tableCell', '2')] },
+          ],
+        },
+        { type: 'horizontalRule' },
+        { type: 'paragraph', content: [{ type: 'text', text: 'After' }] },
+      ],
+    };
+    expect(docToText(d)).toBe('Name\nQty\nTea\n2\nAfter');
+  });
+});

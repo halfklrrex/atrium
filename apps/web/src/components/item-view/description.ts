@@ -5,7 +5,16 @@ export interface DescriptionValue {
   text: string;
 }
 
-const BLOCKS = new Set(['paragraph', 'heading', 'listItem', 'taskItem', 'codeBlock', 'blockquote']);
+const BLOCKS = new Set([
+  'paragraph',
+  'heading',
+  'listItem',
+  'taskItem',
+  'codeBlock',
+  'blockquote',
+  'tableCell',
+  'tableHeader',
+]);
 
 /** The plain text of a ProseMirror JSON doc, for search; blocks are separated by a newline. */
 export function docToText(doc: unknown): string {

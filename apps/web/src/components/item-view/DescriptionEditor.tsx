@@ -1,13 +1,6 @@
-import Placeholder from '@tiptap/extension-placeholder';
-import TaskItem from '@tiptap/extension-task-item';
-import TaskList from '@tiptap/extension-task-list';
-import { EditorContent, useEditor, type Editor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import { Button, TextField, Tooltip } from '@vibe/core';
-import { Bold, Bullets, CheckList, Code, Italic, Link as LinkIcon, TextBig } from '@vibe/icons';
-import classNames from 'classnames';
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
-import { AnchoredPopup } from '../board-table/AnchoredPopup';
+import { EditorContent, useEditor } from '@tiptap/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { showToast } from '../toast-store';
 import {
   DESCRIPTION_SAVE_DELAY,
@@ -15,7 +8,11 @@ import {
   createDebouncer,
   type DescriptionValue,
 } from './description';
-import { parseLinkUrl } from './link-url';
+import { DescriptionToolbar } from './DescriptionToolbar';
+import { createEditorExtensions } from './editor-extensions';
+import { SlashController } from './slash-menu/slash-controller';
+import { SlashMenu } from './slash-menu/SlashMenu';
+import { TableControls } from './TableControls';
 import styles from './DescriptionEditor.module.css';
 
 export interface DescriptionEditorProps {
@@ -28,165 +25,29 @@ export interface DescriptionEditorProps {
 
 type SaveState = 'idle' | 'saving' | 'saved';
 
-interface ToolbarButton {
-  label: string;
-  Icon: ComponentType<{ 'aria-hidden'?: boolean }>;
-  isActive: (editor: Editor) => boolean;
-  run: (editor: Editor) => void;
-}
-
-/** Vibe has no numbered-list icon: an inline SVG that follows the text colour. */
-function NumberedList() {
-  return (
-    <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" aria-hidden="true">
-      <path d="M2.2 6V3.3l-.9.5-.3-.6 1.3-.8h.7V6zM1 9.5c0-1 .8-1.4 1.5-1.4.9 0 1.4.5 1.4 1.1 0 .5-.3.8-.9 1.3l-.5.4H4v.7H1v-.6l1.3-1.2c.4-.4.6-.5.6-.7 0-.2-.2-.3-.4-.3-.3 0-.4.2-.4.4zM1 14.800h.7c0 .2.2.4.5.4.3 0 .4-.1.4-.3 0-.2-.2-.3-.5-.3h-.3v-.6h.3c.3 0 .4-.1.4-.3 0-.2-.2-.3-.4-.3-.3 0-.4.2-.4.3H1c0-.5.5-.9 1.200-.9.7 0 1.200.4 1.200.8 0 .3-.2.5-.4.6.3.1.5.4.5.7 0 .6-.5 1-1.300 1-.8 0-1.200-.4-1.200-.9z" />
-      <path d="M7 4h11v1.500H7zM7 9.250h11v1.500H7zM7 14.500h11V16H7z" />
-    </svg>
-  );
-}
-
-const BUTTONS: ToolbarButton[] = [
-  {
-    label: 'Heading',
-    Icon: TextBig,
-    isActive: (e) => e.isActive('heading'),
-    run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(),
-  },
-  {
-    label: 'Bold',
-    Icon: Bold,
-    isActive: (e) => e.isActive('bold'),
-    run: (e) => e.chain().focus().toggleBold().run(),
-  },
-  {
-    label: 'Italic',
-    Icon: Italic,
-    isActive: (e) => e.isActive('italic'),
-    run: (e) => e.chain().focus().toggleItalic().run(),
-  },
-  {
-    label: 'Bulleted list',
-    Icon: Bullets,
-    isActive: (e) => e.isActive('bulletList'),
-    run: (e) => e.chain().focus().toggleBulletList().run(),
-  },
-  {
-    label: 'Numbered list',
-    Icon: NumberedList,
-    isActive: (e) => e.isActive('orderedList'),
-    run: (e) => e.chain().focus().toggleOrderedList().run(),
-  },
-  {
-    label: 'Checklist',
-    Icon: CheckList,
-    isActive: (e) => e.isActive('taskList'),
-    run: (e) => e.chain().focus().toggleTaskList().run(),
-  },
-  {
-    label: 'Code',
-    Icon: Code,
-    isActive: (e) => e.isActive('code') || e.isActive('codeBlock'),
-    run: (e) => e.chain().focus().toggleCode().run(),
-  },
-];
-
-/** The link form: a URL (http or https), Apply and Remove; Enter applies, Escape closes. */
-function LinkPopup({
-  anchor,
-  editor,
-  onClose,
-}: {
-  anchor: HTMLElement | null;
-  editor: Editor;
-  onClose: () => void;
-}) {
-  const current = (editor.getAttributes('link').href as string | undefined) ?? '';
-  const [value, setValue] = useState(current);
-  const [invalid, setInvalid] = useState(false);
-
-  const finish = () => {
-    onClose();
-    editor.commands.focus();
-  };
-  const apply = () => {
-    const url = parseLinkUrl(value);
-    if (!url) {
-      setInvalid(true);
-      return;
-    }
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-    finish();
-  };
-  const remove = () => {
-    editor.chain().focus().extendMarkRange('link').unsetLink().run();
-    finish();
-  };
-
-  return (
-    <AnchoredPopup anchor={anchor} onClose={onClose} label="Link">
-      <div
-        className={styles.linkPopup}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            apply();
-          } else if (event.key === 'Escape') {
-            event.stopPropagation();
-            event.preventDefault();
-            finish();
-          }
-        }}
-      >
-        <TextField
-          title="Link address"
-          placeholder="https://example.com"
-          value={value}
-          autoFocus
-          size="small"
-          onChange={(next: string) => {
-            setValue(next);
-            setInvalid(false);
-          }}
-          validation={
-            invalid ? { status: 'error', text: 'Enter a web address (http or https)' } : undefined
-          }
-        />
-        <div className={styles.linkActions}>
-          {current ? (
-            <Button size="small" kind="tertiary" onClick={remove}>
-              Remove
-            </Button>
-          ) : null}
-          <Button size="small" onClick={apply}>
-            Apply
-          </Button>
-        </div>
-      </div>
-    </AnchoredPopup>
-  );
-}
-
 /**
- * The item's rich-text description (TipTap): headings, bold, italic, lists, checklists, links and
- * code. It autosaves, debounced, and shows a "Saved" hint. Loaded lazily by the item view.
+ * The item's rich-text description (TipTap): headings, bold, italic, underline, strikethrough,
+ * lists, checklists, links, quotes, code, dividers and tables, with markdown shortcuts and a "/"
+ * block menu. It autosaves, debounced, and shows a "Saved" hint. Loaded lazily by the item view.
+ *
+ * Expand moves this same editor into a large dialog (a portal, so there is one editor instance
+ * and one document: edits can never fork).
  */
 export default function DescriptionEditor({ initial, readOnly, onSave }: DescriptionEditorProps) {
   const [saveState, setSaveState] = useState<SaveState>('idle');
-  const [linkAnchor, setLinkAnchor] = useState<HTMLElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [contentHost, setContentHost] = useState<HTMLElement | null>(null);
   const onSaveRef = useRef(onSave);
   useEffect(() => {
     onSaveRef.current = onSave;
   });
   const debouncer = useMemo(() => createDebouncer(DESCRIPTION_SAVE_DELAY), []);
+  const slash = useMemo(() => new SlashController(), []);
+  const extensions = useMemo(() => createEditorExtensions(slash), [slash]);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ link: { openOnClick: false } }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Placeholder.configure({ placeholder: 'Add a description...' }),
-    ],
+    extensions,
     content: initial ?? '',
     editable: !readOnly,
     immediatelyRender: true,
@@ -194,6 +55,8 @@ export default function DescriptionEditor({ initial, readOnly, onSave }: Descrip
       const doc = ed.getJSON() as Record<string, unknown>;
       debouncer.schedule(() => {
         const result = buildDescription(doc);
+        // Over the size limit: tell the user and keep the editor as it is. The next edit
+        // schedules a fresh save, so shortening the text saves again.
         if (!result.ok) {
           showToast(result.message, { type: 'negative' });
           return;
@@ -221,48 +84,80 @@ export default function DescriptionEditor({ initial, readOnly, onSave }: Descrip
     [debouncer],
   );
 
-  return (
-    <div className={styles.root}>
-      {!readOnly && editor ? (
-        <div className={styles.toolbar} role="toolbar" aria-label="Description formatting">
-          {BUTTONS.map((b) => (
-            <Tooltip key={b.label} content={b.label}>
-              <button
-                type="button"
-                className={classNames(styles.toolButton, b.isActive(editor) && styles.toolActive)}
-                aria-label={b.label}
-                aria-pressed={b.isActive(editor)}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => b.run(editor)}
-              >
-                <b.Icon aria-hidden />
-              </button>
-            </Tooltip>
-          ))}
-          <Tooltip content="Link">
-            <button
-              type="button"
-              className={classNames(
-                styles.toolButton,
-                editor.isActive('link') && styles.toolActive,
-              )}
-              aria-label="Link"
-              aria-pressed={editor.isActive('link')}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={(event) => setLinkAnchor(linkAnchor ? null : event.currentTarget)}
-            >
-              <LinkIcon aria-hidden />
-            </button>
-          </Tooltip>
-          <span className={styles.saveHint} role="status" aria-live="polite">
-            {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : ''}
-          </span>
-        </div>
+  const collapse = useCallback(() => {
+    setExpanded(false);
+    debouncer.flush();
+  }, [debouncer]);
+
+  // Escape returns to the inline view, unless a menu or the "/" plugin already handled it.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        event.preventDefault();
+        collapse();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [expanded, collapse]);
+
+  // Expanding or collapsing re-parents the editor element: give it the caret back.
+  const wasExpanded = useRef(false);
+  useEffect(() => {
+    if (editor && !readOnly && wasExpanded.current !== expanded) editor.commands.focus();
+    wasExpanded.current = expanded;
+  }, [editor, expanded, readOnly]);
+
+  if (!editor) return null;
+
+  const saveHint = saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : '';
+
+  const shell = (
+    <div className={expanded ? styles.rootExpanded : styles.root}>
+      {!readOnly ? (
+        <DescriptionToolbar
+          editor={editor}
+          expanded={expanded}
+          onToggleExpand={() => (expanded ? collapse() : setExpanded(true))}
+          saveHint={saveHint}
+        />
       ) : null}
-      {linkAnchor && editor ? (
-        <LinkPopup anchor={linkAnchor} editor={editor} onClose={() => setLinkAnchor(null)} />
-      ) : null}
-      <EditorContent editor={editor} className={styles.content} />
+      <div
+        className={expanded ? styles.contentHostExpanded : styles.contentHost}
+        ref={setContentHost}
+      >
+        <EditorContent editor={editor} className={styles.content} />
+        {!readOnly ? <TableControls editor={editor} host={contentHost} /> : null}
+      </div>
+      {!readOnly ? <SlashMenu controller={slash} editor={editor} /> : null}
     </div>
+  );
+
+  if (!expanded) return shell;
+  return (
+    <>
+      <div className={styles.expandedPlaceholder} />
+      {createPortal(
+        <div className={styles.expandOverlay}>
+          <button
+            type="button"
+            className={styles.expandScrim}
+            aria-label="Close expanded view"
+            tabIndex={-1}
+            onClick={collapse}
+          />
+          <div
+            className={styles.expandWindow}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Description"
+          >
+            {shell}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
