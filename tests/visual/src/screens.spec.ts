@@ -164,6 +164,31 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `item-full-view-${theme}`);
     });
 
+    test('board: description slash menu open', async ({ page }) => {
+      await fullViewReady(page);
+      const editor = page.locator('.ProseMirror');
+      await editor.getByText('Details live in the spec linked from this item.').click();
+      await page.keyboard.press('End');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type('/');
+      await expect(page.getByRole('listbox', { name: 'Blocks' })).toBeVisible();
+      await shoot(page, `item-slash-menu-${theme}`);
+      // Leave the shared description as it was found.
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.press('Backspace');
+    });
+
+    test('board: description expanded', async ({ page }) => {
+      await fullViewReady(page);
+      await page.getByRole('button', { name: 'Expand' }).click();
+      await expect(page.getByRole('dialog', { name: 'Description' })).toBeVisible();
+      await expect(
+        page.getByRole('dialog', { name: 'Description' }).locator('table'),
+      ).toBeVisible();
+      await shoot(page, `item-description-expanded-${theme}`);
+    });
+
     test('board: status picker open', async ({ page }) => {
       await page.goto(`/boards/${IDS.roadmap}`);
       await boardReady(page);
