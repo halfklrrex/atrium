@@ -105,8 +105,9 @@ export function createFirestoreRest({
         continue;
       }
       const text = await response.text();
-      throw new Error(
-        `Firestore ${method} ${url.replace(origin, '')} -> ${response.status}: ${text}`,
+      throw Object.assign(
+        new Error(`Firestore ${method} ${url.replace(origin, '')} -> ${response.status}: ${text}`),
+        { status: response.status },
       );
     }
   }
@@ -122,6 +123,15 @@ export function createFirestoreRest({
     async getDoc(path) {
       const doc = await request('GET', `${base}/${encodePath(path)}`);
       return doc ? decodeFields(doc.fields ?? {}) : null;
+    },
+
+    /**
+     * A document with its `updateTime` (for a precondition on a later commit), or `null` when it
+     * does not exist.
+     */
+    async getDocMeta(path) {
+      const doc = await request('GET', `${base}/${encodePath(path)}`);
+      return doc ? { data: decodeFields(doc.fields ?? {}), updateTime: doc.updateTime } : null;
     },
 
     /** Ids of the documents in a collection, including "missing" ones that only have sub-documents. */
@@ -167,7 +177,11 @@ export function createFirestoreRest({
         if (pageToken) query.set('pageToken', pageToken);
         const page = await request('GET', `${base}/${encodePath(collectionPath)}?${query}`);
         for (const doc of page?.documents ?? []) {
-          docs.push({ id: doc.name.split('/').at(-1), data: decodeFields(doc.fields ?? {}) });
+          docs.push({
+            id: doc.name.split('/').at(-1),
+            data: decodeFields(doc.fields ?? {}),
+            updateTime: doc.updateTime,
+          });
         }
         pageToken = page?.nextPageToken ?? '';
       } while (pageToken);
@@ -192,6 +206,9 @@ export function createFirestoreRest({
      * Apply writes in one atomic commit: `{op: 'set', path, data}` replaces the whole document,
      * `{op: 'delete', path}` removes it, and `{op: 'patch', path, data}` changes only the top-level
      * fields in `data` of a document that must already exist (nothing else is touched or created).
+     * Any write may carry `precondition` (`{ exists: boolean }` or `{ updateTime }`, from
+     * `getDocMeta` / `listAllDocs`): the whole commit then fails with an error whose `status` is
+     * 409 (or 400) when it no longer holds. Without one, `patch` requires the document to exist.
      * Callers keep each commit under 500 writes.
      */
     async commit(writes) {
@@ -203,10 +220,13 @@ export function createFirestoreRest({
             return {
               update: { name: `${root}/${w.path}`, fields: encodeFields(w.data) },
               updateMask: { fieldPaths: Object.keys(w.data) },
-              currentDocument: { exists: true },
+              currentDocument: w.precondition ?? { exists: true },
             };
           }
-          return { update: { name: `${root}/${w.path}`, fields: encodeFields(w.data) } };
+          return {
+            update: { name: `${root}/${w.path}`, fields: encodeFields(w.data) },
+            ...(w.precondition ? { currentDocument: w.precondition } : {}),
+          };
         }),
       };
       const result = await request('POST', `${origin}/v1/${root}:commit`, body);

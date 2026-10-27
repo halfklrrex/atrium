@@ -225,6 +225,8 @@ async function collectContent(client, boardId) {
   return paths;
 }
 
+const ITEM_PATH = /^boards\/[^/]+\/items\/[^/]+$/;
+
 const chunk = (list, size) =>
   Array.from({ length: Math.ceil(list.length / size) }, (_, i) =>
     list.slice(i * size, (i + 1) * size),
@@ -275,6 +277,20 @@ export async function runSeed({
     anchor,
   });
   const desired = new Set(docs.map((d) => d.path));
+
+  // Item numbers (`seq`, `boardSeq`) are assigned by the onItemCreated function and are never
+  // seeded. An upsert replaces whole documents, so carry the numbers of items that already exist
+  // over, or a re-run would wipe them (the function only numbers newly created items). After a
+  // reset the items are created afresh and get new numbers.
+  if (!reset) {
+    for (const doc of docs) {
+      if (!ITEM_PATH.test(doc.path)) continue;
+      const existing = await client.getDoc(doc.path);
+      for (const field of ['seq', 'boardSeq']) {
+        if (Number.isInteger(existing?.[field])) doc.data[field] = existing[field];
+      }
+    }
+  }
 
   // ---- 3. Plan the deletions ----
   const deletes = new Set();

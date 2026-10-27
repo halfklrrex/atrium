@@ -173,6 +173,8 @@ const COLUMNS = [
     title: 'Progress',
     settings: { related_columns: { isNormalized: true, columns: {} } },
   },
+  // Number and Item ID are derived from `boardSeq` / `seq`, which the onItemCreated function assigns
+  // to every new item: the seed never writes those fields or any value for these two columns.
   {
     id: 'auto_number',
     type: 'auto_number',

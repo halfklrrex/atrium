@@ -393,26 +393,41 @@ const FULL_VIEW_DESCRIPTION = {
   ],
 };
 
+/**
+ * The visual run has no Functions emulator, so the item numbers the onItemCreated function would
+ * assign (`seq`, `boardSeq`) are written here, deterministically: items 1..N in creation order,
+ * subitems after them with their own per-board sequence. The counters are written too, so a
+ * trigger that did run would carry on after the last number.
+ */
 async function seedRoadmapItems(firestore: Firestore): Promise<void> {
   const batch = firestore.batch();
   const items = firestore.collection('boards').doc(IDS.roadmap).collection('items');
-  for (const { id, item } of roadmapItems()) {
+  let seq = 0;
+  let subitems = 0;
+  const all = roadmapItems();
+  for (const [index, { id, item }] of all.entries()) {
+    seq += 1;
+    const numbered = { ...item, seq, boardSeq: index + 1 };
     if (id !== FULL_VIEW_ITEM) {
-      batch.set(items.doc(id), item);
+      batch.set(items.doc(id), numbered);
       continue;
     }
     batch.set(items.doc(id), {
-      ...item,
+      ...numbered,
       description: { doc: FULL_VIEW_DESCRIPTION, text: 'Goal Ship the pipeline' },
       updatesCount: 1,
     });
     ['Write the workflow', 'Cache dependencies', 'Add the deploy job'].forEach((name, i) => {
+      seq += 1;
+      subitems += 1;
       batch.set(items.doc(`${id}-sub-${i + 1}`), {
         ...item,
         name,
         position: `a${i}`,
         parentItemId: id,
         values: { sub_status: { index: i } },
+        seq,
+        boardSeq: subitems,
       });
     });
     batch.set(items.doc(id).collection('updates').doc('full-view-update'), {
@@ -427,6 +442,11 @@ async function seedRoadmapItems(firestore: Firestore): Promise<void> {
       updatedAt: ago(2 * HOUR),
     });
   }
+  batch.set(firestore.collection('counters').doc('items'), { next: seq });
+  batch.set(firestore.collection('boards').doc(IDS.roadmap).collection('counters').doc('items'), {
+    nextItem: all.length,
+    nextSubitem: subitems,
+  });
   await batch.commit();
 }
 
