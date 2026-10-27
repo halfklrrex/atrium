@@ -406,6 +406,21 @@ const FULL_VIEW_DESCRIPTION = {
   ],
 };
 
+const fullViewItemRef = () =>
+  adminDb().collection('boards').doc(IDS.roadmap).collection('items').doc(FULL_VIEW_ITEM);
+
+/** The stored description of the full-view item, as the editor last saved it. */
+export async function readFullViewDescription(): Promise<{ doc: unknown } | undefined> {
+  return (await fullViewItemRef().get()).data()?.description;
+}
+
+/** Puts the seeded description back, so a screen that edits it leaves the shared world as found. */
+export async function resetFullViewDescription(): Promise<void> {
+  await fullViewItemRef().update({
+    description: { doc: FULL_VIEW_DESCRIPTION, text: 'Goal Ship the pipeline' },
+  });
+}
+
 /**
  * The visual run has no Functions emulator, so the item numbers the onItemCreated function would
  * assign (`seq`, `boardSeq`) are written here, deterministically: items 1..N in creation order,
