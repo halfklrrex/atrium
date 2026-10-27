@@ -368,6 +368,35 @@ const FULL_VIEW_DESCRIPTION = {
     { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Goal' }] },
     para('Ship the pipeline so every merge to main is built, tested and deployed automatically.'),
     {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Status: ' },
+        {
+          type: 'text',
+          text: 'blocked',
+          marks: [{ type: 'textStyle', attrs: { color: 'red' } }],
+        },
+        { type: 'text', text: ' on review, with ' },
+        {
+          type: 'text',
+          text: 'one decision',
+          marks: [{ type: 'highlight', attrs: { color: 'yellow' } }],
+        },
+        { type: 'text', text: ' pending ' },
+        { type: 'emoji', attrs: { name: 'rocket' } },
+      ],
+    },
+    {
+      type: 'paragraph',
+      content: [
+        {
+          type: 'text',
+          text: 'Written in Lora for a calmer read.',
+          marks: [{ type: 'textStyle', attrs: { fontFamily: 'lora' } }],
+        },
+      ],
+    },
+    {
       type: 'bulletList',
       content: [
         'Lint, typecheck and unit tests',
