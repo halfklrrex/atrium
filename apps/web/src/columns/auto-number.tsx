@@ -13,7 +13,7 @@ function AutoNumberCell({ value, settings, ctx }: CellProps<AutoNumberValue, Aut
 
   return (
     <div className={styles.root}>
-      <span className={styles.idBadge}>
+      <span className={styles.text}>
         <Highlight text={formatted} term={ctx.highlight} />
       </span>
     </div>

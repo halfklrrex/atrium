@@ -28,6 +28,8 @@ export function columnContextFor(
       updatedAt: item.updatedAt,
       updatedBy: item.updatedBy,
       groupId: item.groupId,
+      seq: item.seq,
+      boardSeq: item.boardSeq,
     },
     columns,
   };

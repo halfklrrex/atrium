@@ -420,19 +420,6 @@
   pointer-events: none;
 }
 
-/* ---- Auto Number & Item ID ---- */
-
-.idBadge {
-  display: inline-flex;
-  align-items: center;
-  height: var(--atrium-table-pill-height);
-  padding: 0 var(--space-8);
-  border-radius: var(--atrium-table-radius);
-  background: var(--label-background-color);
-  color: var(--secondary-text-color);
-  font: var(--atrium-table-pill-font);
-}
-
 /* ---- Creation Log & Last Updated ---- */
 
 .logCell {

@@ -9,6 +9,7 @@ import { BatteryBar } from '../battery/BatteryBar';
 import { formatNumber, formatRange } from '../../columns/format';
 import type { ItemDoc } from '../../data';
 import { useTableEnv } from './table-env';
+import { derivedCellValue } from './derived';
 import type { ColumnView } from './table-model';
 import styles from './table.module.css';
 
@@ -20,14 +21,19 @@ export const SummaryCell = memo(function SummaryCell({
   column: ColumnView;
   items: readonly ItemDoc[];
 }) {
+  const { ctx } = useTableEnv();
   const result = useMemo(
     () =>
       columnRegistry.aggregate(
         column.def.type,
-        items.map((item) => item.values[column.def.id]),
+        items.map((item) =>
+          columnRegistry.isDerived(column.def.type)
+            ? derivedCellValue(ctx.boardId, ctx.columns, column.def, item)
+            : item.values[column.def.id],
+        ),
         column.settings,
       ),
-    [column, items],
+    [column, items, ctx.boardId, ctx.columns],
   );
   return (
     <div className={styles.summaryCell} role="gridcell">

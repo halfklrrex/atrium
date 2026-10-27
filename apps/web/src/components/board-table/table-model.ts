@@ -138,11 +138,22 @@ export interface MovePatch {
 export function itemSearchText(item: ItemDoc, columns: readonly ColumnView[]): string {
   const parts = [item.name];
   for (const column of columns) {
-    const text = columnRegistry.toText(
-      column.def.type,
-      item.values[column.def.id],
-      column.settings,
-    );
+    // Derived columns store nothing: search what the cell shows (computed value).
+    const value = columnRegistry.isDerived(column.def.type)
+      ? columnRegistry.computeValue(
+          {
+            ...column.def,
+            settings: (column.settings as Record<string, unknown>) ?? column.def.settings,
+          },
+          {
+            boardId: '',
+            item,
+            columns: columns.map((c) => c.def),
+          },
+        )
+      : item.values[column.def.id];
+    if (value === null || value === undefined) continue;
+    const text = columnRegistry.toText(column.def.type, value, column.settings);
     if (text) parts.push(text);
   }
   return parts.join('\n');

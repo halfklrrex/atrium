@@ -143,6 +143,25 @@ describe('search matching', () => {
     expect(itemMatchesSearch(row, columns, 'nothing like this')).toBe(false);
   });
 
+  it('searches and sorts the computed Item ID and Auto number of a row', () => {
+    const cols = buildColumnViews([
+      column('num', 'item_id', 'a0'),
+      column('auto', 'auto_number', 'a1'),
+    ]);
+    const one = { ...item('i1', 'g1', 'a0', 'One'), seq: 12, boardSeq: 3 };
+    const two = { ...item('i2', 'g1', 'a1', 'Two'), seq: 4, boardSeq: 9 };
+    expect(itemMatchesSearch(one, cols, '12')).toBe(true);
+    expect(itemMatchesSearch(two, cols, '12')).toBe(false);
+    const [model] = buildGroupModels({
+      groups: [group('g1', 'a0')],
+      items: [one, two],
+      columns: cols,
+      search: '',
+      filterState: sortBy('num', 'asc'),
+    });
+    expect(model!.items.map((i) => i.id)).toEqual(['i2', 'i1']);
+  });
+
   it('matches everything for an empty term', () => {
     expect(itemMatchesSearch(row, columns, '  ')).toBe(true);
   });
