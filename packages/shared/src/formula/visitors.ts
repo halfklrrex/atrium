@@ -761,7 +761,7 @@ export function validateFormulaSettings(
  */
 export function evaluateRow(
   columns: ColumnDef[],
-  item: { id?: string; values?: Record<string, unknown> },
+  item: { id?: string; values?: Record<string, unknown>; seq?: number; boardSeq?: number },
 ): Record<string, unknown> {
   const formulaCols = columns.filter((c) => c.type === 'formula');
   const results: Record<string, unknown> = {};
@@ -848,6 +848,14 @@ export function evaluateRow(
 
   // Memoized values for row evaluation
   const memoizedValues: Record<string, unknown> = { ...(item.values ?? {}) };
+  // Item ID and Auto number are derived from the server-assigned numbers, not stored in `values`.
+  for (const col of columns) {
+    if (col.type === 'item_id' && typeof item.seq === 'number') {
+      memoizedValues[col.id] = String(item.seq);
+    } else if (col.type === 'auto_number' && typeof item.boardSeq === 'number') {
+      memoizedValues[col.id] = { auto_number: item.boardSeq };
+    }
+  }
 
   for (const fColId of evalOrder) {
     const expr = formulaExpressions.get(fColId) ?? '';

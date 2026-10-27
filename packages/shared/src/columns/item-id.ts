@@ -25,8 +25,10 @@ export const itemIdSettingsSchema = z
 export type ItemIdSettings = z.infer<typeof itemIdSettingsSchema>;
 
 /**
- * Item ID is derived purely from item.id (no user-writable stored value).
- * // TODO(derived): purely derived from item.id.
+ * Item ID is derived from the server-assigned `seq` of the item (account-wide number, handed out by
+ * the `onItemCreated` Function): nothing is stored in `values`. The computed value is the bare
+ * number as a string; the custom key prefix is applied at display time by `formatItemId` (`toText`
+ * and the cell), so sorting stays numeric.
  */
 export const itemIdValueSchema = z.string();
 export type ItemIdValue = string;
@@ -43,10 +45,11 @@ export function formatItemId(id: string, settings?: ItemIdSettings): string {
 }
 
 /**
- * Compute formatted item ID from item and column settings.
+ * Compute the item ID value of an item: its `seq` as a string, or `null` until the server has
+ * assigned one. The settings are unused here (the prefix is a display concern); kept for symmetry.
  */
-export function computeItemId(item: { id: string }, settings?: ItemIdSettings): string {
-  return formatItemId(item.id, settings);
+export function computeItemId(item: { seq?: number }, _settings?: ItemIdSettings): string | null {
+  return typeof item.seq === 'number' ? String(item.seq) : null;
 }
 
 export const itemIdColumn = defineColumnType<ItemIdSettings, ItemIdValue>({

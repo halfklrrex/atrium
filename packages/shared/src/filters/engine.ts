@@ -23,6 +23,35 @@ import type {
   SortCondition,
 } from './types';
 
+/**
+ * The value a cell shows for filtering, search and sort: the computed value for derived columns
+ * (nothing is stored for them), the stored `values.<id>` otherwise.
+ */
+function cellValue(
+  item: Item,
+  col: ColumnDef,
+  columns: readonly ColumnDef[],
+  registry: ColumnTypeRegistry,
+): unknown {
+  if (!registry.isDerived(col.type)) return item.values?.[col.id];
+  const withId = item as Item & { id?: string; seq?: number; boardSeq?: number };
+  return registry.computeValue(col, {
+    boardId: '',
+    item: {
+      id: withId.id ?? '',
+      values: item.values ?? {},
+      createdAt: item.createdAt,
+      createdBy: item.createdBy,
+      updatedAt: item.updatedAt,
+      updatedBy: item.updatedBy,
+      groupId: item.groupId,
+      seq: withId.seq,
+      boardSeq: withId.boardSeq,
+    },
+    columns,
+  });
+}
+
 const DEFAULT_GROUP_COLORS = [
   '#00c875',
   '#fdab3d',
@@ -107,7 +136,7 @@ export function evaluateCondition(
   const col = columns.find((c) => c.id === columnId);
   if (!col) return true;
 
-  const rawVal = item.values?.[col.id];
+  const rawVal = cellValue(item, col, columns, registry);
 
   // Checkbox column handles boolean states directly (unchecked is a valid false state, not merely empty)
   if (col.type === 'checkbox') {
@@ -318,7 +347,7 @@ export function matchesFilter(
     const q = searchQuery.trim().toLowerCase();
     const nameMatch = (item.name ?? '').toLowerCase().includes(q);
     const colMatch = columns.some((col) => {
-      const val = item.values?.[col.id];
+      const val = cellValue(item, col, columns, registry);
       if (val === null || val === undefined) return false;
       const text = registry.toText(col.type, val, col.settings);
       return text.toLowerCase().includes(q);
@@ -386,8 +415,8 @@ export function sortItems<T extends Item>(
       } else {
         const col = columns.find((c) => c.id === condition.columnId);
         if (col) {
-          const aVal = a.values?.[col.id];
-          const bVal = b.values?.[col.id];
+          const aVal = cellValue(a, col, columns, registry);
+          const bVal = cellValue(b, col, columns, registry);
           const aEmpty = aVal === null || aVal === undefined || aVal === '';
           const bEmpty = bVal === null || bVal === undefined || bVal === '';
           if (aEmpty !== bEmpty) {

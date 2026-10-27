@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ColumnDef } from '../schemas/board';
 import {
   autoNumberColumn,
   columnRegistry,
@@ -12,7 +13,16 @@ import {
   lastUpdatedColumn,
   progressColumn,
   timestampToIso,
+  type ColumnContext,
 } from './index';
+
+const autoDef: ColumnDef = {
+  id: 'c_auto',
+  type: 'auto_number',
+  title: 'Auto',
+  position: 'a0',
+  settings: {},
+};
 
 describe('progress column', () => {
   const settings = {
@@ -211,6 +221,18 @@ describe('auto_number column', () => {
     expect(autoNumberColumn.compare(val1, val2, settings)).toBeLessThan(0);
   });
 
+  it('is derived: computes from boardSeq and is empty while the server has not assigned it', () => {
+    expect(autoNumberColumn.derived).toBe(true);
+    const ctx = (boardSeq?: number): ColumnContext => ({
+      boardId: 'b1',
+      item: { id: 'i1', values: { stale: { auto_number: 99 } }, boardSeq },
+      columns: [],
+    });
+    expect(autoNumberColumn.compute?.(ctx(7), settings)).toEqual({ auto_number: 7 });
+    expect(autoNumberColumn.compute?.(ctx(), settings)).toBeNull();
+    expect(columnRegistry.validateCell(autoDef, { auto_number: 3 }).ok).toBe(false);
+  });
+
   it('round-trips through registry parseValue and toText', () => {
     const parsed = columnRegistry.parseValue('auto_number', { auto_number: 100 });
     expect(parsed).toEqual({ success: true, data: { auto_number: 100 } });
@@ -241,11 +263,22 @@ describe('item_id column', () => {
       displayType: 'customKey' as const,
       customKeySettings: { prefix: 'ATRIUM-' },
     };
-    expect(formatItemId('doc_xyz', customSettings)).toBe('ATRIUM-doc_xyz');
-    expect(computeItemId({ id: 'doc_xyz' }, customSettings)).toBe('ATRIUM-doc_xyz');
+    expect(formatItemId('42', customSettings)).toBe('ATRIUM-42');
+    expect(formatItemId('42', { displayType: 'id' })).toBe('42');
+    // The computed value is the bare number; the prefix is applied when displayed.
+    expect(computeItemId({ seq: 42 }, customSettings)).toBe('42');
+    expect(computeItemId({ seq: 42 })).toBe('42');
+  });
 
-    expect(formatItemId('doc_xyz', { displayType: 'id' })).toBe('doc_xyz');
-    expect(computeItemId({ id: 'doc_xyz' })).toBe('doc_xyz');
+  it('computes from seq and is empty while the server has not assigned it', () => {
+    expect(itemIdColumn.derived).toBe(true);
+    const ctx = (seq?: number): ColumnContext => ({
+      boardId: 'b1',
+      item: { id: 'randomFirestoreId', values: {}, seq },
+      columns: [],
+    });
+    expect(itemIdColumn.compute?.(ctx(12), { displayType: 'id' })).toBe('12');
+    expect(itemIdColumn.compute?.(ctx(), { displayType: 'id' })).toBeNull();
   });
 
   it('compares numerically when /^\\d+$/ matches and compares non-digits as strings', () => {
@@ -261,15 +294,15 @@ describe('item_id column', () => {
   });
 
   it('round-trips through registry parseValue and toText', () => {
-    const parsed = columnRegistry.parseValue('item_id', 'item_123');
-    expect(parsed).toEqual({ success: true, data: 'item_123' });
+    const parsed = columnRegistry.parseValue('item_id', '123');
+    expect(parsed).toEqual({ success: true, data: '123' });
     if (parsed.success) {
       expect(
         columnRegistry.toText('item_id', parsed.data, {
           displayType: 'customKey',
           customKeySettings: { prefix: '#' },
         }),
-      ).toBe('#item_123');
+      ).toBe('#123');
     }
   });
 });

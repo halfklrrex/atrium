@@ -613,6 +613,36 @@ describe('Filter & Sort Engine', () => {
       expect(desc.map((i) => i.name)).toEqual(['Gamma', 'Alpha', 'Beta', 'Empty']);
     });
 
+    it('sorts and searches derived Item ID and Auto number columns by their computed value', () => {
+      const idCol: ColumnDef = {
+        id: 'id_1',
+        type: 'item_id',
+        title: 'ID',
+        position: 'a8',
+        settings: { displayType: 'id' },
+      };
+      const autoCol: ColumnDef = {
+        id: 'auto_1',
+        type: 'auto_number',
+        title: 'No.',
+        position: 'a9',
+        settings: { scope: 'board', order: 'ascending' },
+      };
+      const cols = [idCol, autoCol];
+      const n2 = createTestItem({ name: 'Two', seq: 2, boardSeq: 20 });
+      const n10 = createTestItem({ name: 'Ten', seq: 10, boardSeq: 3 });
+      const pending = createTestItem({ name: 'Pending' });
+      const items = [pending, n10, n2];
+      expect(
+        sortItems(items, [{ columnId: idCol.id, direction: 'asc' }], cols).map((i) => i.name),
+      ).toEqual(['Two', 'Ten', 'Pending']);
+      expect(
+        sortItems(items, [{ columnId: autoCol.id, direction: 'asc' }], cols).map((i) => i.name),
+      ).toEqual(['Ten', 'Two', 'Pending']);
+      expect(matchesFilter(n10, null, '10', null, cols)).toBe(true);
+      expect(matchesFilter(n2, null, '10', null, cols)).toBe(false);
+    });
+
     it('supports multi-level sorting', () => {
       const items = [itemA, itemC, itemB];
       // Primary: Status asc (Working on it index 0 first, then Done index 1)
