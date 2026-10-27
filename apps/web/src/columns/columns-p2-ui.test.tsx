@@ -453,17 +453,17 @@ describe('P2 Column UIs', () => {
   });
 
   describe('item_id column', () => {
-    it('renders formatted item ID badge', () => {
+    it('renders the item number as plain text with the custom key prefix', () => {
       render(
         <itemIdUi.Cell
-          value="item-999"
+          value="999"
           settings={{ displayType: 'customKey', customKeySettings: { prefix: 'PULSE-' } }}
           column={dummyColumn}
           ctx={dummyContext}
           onChange={vi.fn()}
         />,
       );
-      expect(screen.getByText('PULSE-item-999')).toBeInTheDocument();
+      expect(screen.getByText('PULSE-999')).toBeInTheDocument();
     });
 
     it('has editor: "none"', () => {
