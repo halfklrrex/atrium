@@ -20,7 +20,7 @@
   --atrium-text-brown: #7f5347;
 
   /* ---- Highlights: the same hues as soft fills; the text keeps its own colour on top ---- */
-  --atrium-highlight-strength: 28%;
+  --atrium-highlight-strength: 40%;
   --atrium-highlight-grey: color-mix(
     in srgb,
     var(--atrium-text-grey) var(--atrium-highlight-strength),

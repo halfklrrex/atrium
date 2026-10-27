@@ -99,9 +99,10 @@ export function ColorPopup({
                 key={key}
                 label={COLOR_LABELS[key]}
                 pressed={current.highlight === key}
-                className={`atrium-highlight-${key}`}
                 onPick={done(() => marks.setHighlightColor(editor, key))}
-              />
+              >
+                <span className={classNames(styles.swatchFill, `atrium-highlight-${key}`)} />
+              </Swatch>
             ))}
           </div>
         </div>

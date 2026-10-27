@@ -551,6 +551,13 @@
   outline-offset: calc(var(--border-width) * -1);
 }
 
+.swatchFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
 .swatchText {
   font: var(--atrium-update-body-font);
   font-weight: var(--font-weight-bold);
