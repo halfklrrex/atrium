@@ -9,6 +9,8 @@ interface Fixtures {
   theme: Theme;
   /** Puts favourites, recents and the remembered workspace back to the seeded state. */
   seededState: void;
+  /** Fails the test when the page threw an uncaught error (a crash jsdom would not show). */
+  pageErrors: void;
 }
 
 export const test = base.extend<Fixtures>({
@@ -20,6 +22,18 @@ export const test = base.extend<Fixtures>({
     async ({}, use) => {
       await resetUserState();
       await use();
+    },
+    { auto: true },
+  ],
+
+  pageErrors: [
+    async ({ context }, use) => {
+      const errors: string[] = [];
+      const watch = (page: Page) => page.on('pageerror', (error) => errors.push(String(error)));
+      context.pages().forEach(watch);
+      context.on('page', watch);
+      await use();
+      expect(errors, 'uncaught page errors').toEqual([]);
     },
     { auto: true },
   ],

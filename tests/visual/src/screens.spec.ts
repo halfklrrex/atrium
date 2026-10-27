@@ -187,6 +187,22 @@ for (const theme of ['light', 'dark'] as const) {
       await resetFullViewDescription();
     });
 
+    test('board: description colour popover open', async ({ page }) => {
+      await fullViewReady(page);
+      await page.locator('.ProseMirror').getByText('blocked').dblclick();
+      await page.getByRole('button', { name: 'Text colour and highlight' }).click();
+      await expect(page.getByRole('dialog', { name: 'Colours' })).toBeVisible();
+      await shoot(page, `item-colour-popover-${theme}`);
+    });
+
+    test('board: description emoji picker open', async ({ page }) => {
+      await fullViewReady(page);
+      await page.getByRole('button', { name: 'Emoji', exact: true }).click();
+      const picker = page.getByRole('dialog', { name: 'Emoji' });
+      await expect(picker.getByRole('button', { name: 'grinning' })).toBeVisible();
+      await shoot(page, `item-emoji-picker-${theme}`);
+    });
+
     test('board: description expanded', async ({ page }) => {
       await fullViewReady(page);
       await page.getByRole('button', { name: 'Expand', exact: true }).click();
