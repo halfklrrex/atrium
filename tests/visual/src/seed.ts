@@ -364,6 +364,7 @@ const para = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', t
 const FULL_VIEW_DESCRIPTION = {
   type: 'doc',
   content: [
+    { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Release pipeline' }] },
     { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Goal' }] },
     para('Ship the pipeline so every merge to main is built, tested and deployed automatically.'),
     {
@@ -389,6 +390,18 @@ const FULL_VIEW_DESCRIPTION = {
         content: [para(t as string)],
       })),
     },
+    {
+      type: 'table',
+      content: [
+        ['tableHeader', 'Stage', 'Owner', 'Status'],
+        ['tableCell', 'Build', 'Avery', 'Done'],
+        ['tableCell', 'Deploy', 'Sam', 'Next'],
+      ].map(([type, ...cells]) => ({
+        type: 'tableRow',
+        content: cells.map((t) => ({ type, content: [para(t as string)] })),
+      })),
+    },
+    { type: 'horizontalRule' },
     para('Details live in the spec linked from this item.'),
   ],
 };
