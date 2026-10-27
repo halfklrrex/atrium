@@ -92,6 +92,20 @@ test('every cell value validates against the column registry', () => {
   }
 });
 
+test('the seed never writes item numbers or values for the derived Item ID and Number columns', () => {
+  const { docs } = build();
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const derivedIds = board.columns
+    .filter((c) => c.type === 'auto_number' || c.type === 'item_id')
+    .map((c) => c.id);
+  assert.equal(derivedIds.length, 2);
+  for (const { path, data } of docs.filter((d) => /\/items\/[^/]+$/.test(d.path))) {
+    assert.equal(data.seq, undefined, `${path} has seq`);
+    assert.equal(data.boardSeq, undefined, `${path} has boardSeq`);
+    for (const id of derivedIds) assert.equal(data.values[id], undefined, `${path}.${id}`);
+  }
+});
+
 test('the main board has 4 coloured groups, 26 active items, and the required columns', () => {
   const { docs } = build();
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
@@ -590,6 +604,19 @@ test('re-running converges to the same state and prunes showcase docs that are n
   const again = await seed(client);
   assert.equal(again.deleteCount, 0);
   assert.equal(snapshot(client), first);
+});
+
+test('re-running keeps the item numbers the function assigned', async () => {
+  const client = fakeFirestore(baseWorld());
+  await seed(client);
+  const path = 'boards/showcase-main/items/showcase-hero-copy';
+  Object.assign(client.store.get(path), { seq: 17, boardSeq: 4 });
+  await seed(client);
+  assert.equal(client.store.get(path).seq, 17);
+  assert.equal(client.store.get(path).boardSeq, 4);
+  // A reset recreates the items, so the function numbers them afresh.
+  await seed(client, { reset: true });
+  assert.equal(client.store.get(path).seq, undefined);
 });
 
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
