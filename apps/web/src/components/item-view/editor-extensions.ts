@@ -12,7 +12,12 @@ import type { SlashController } from './slash-menu/slash-controller';
 class ScrollingTableView extends TableView {
   constructor(node: ProseMirrorNode, cellMinWidth: number) {
     super(node, cellMinWidth);
-    this.dom.classList.add(styles.tableScroll as string);
+    // `composes` makes the module class a space-separated list, which classList.add rejects.
+    this.dom.classList.add(
+      ...String(styles.tableScroll ?? '')
+        .split(/\s+/)
+        .filter(Boolean),
+    );
   }
 }
 
