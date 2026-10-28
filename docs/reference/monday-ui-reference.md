@@ -135,6 +135,23 @@ Measured on an item with 4 updates and replies, at a 1920px-wide viewport. Posit
   - At the bottom, a reply composer: a 32px avatar plus a field with a 1px `#C3C6D4` border, 8px radius, 16px padding and 40px left margin, and the placeholder "Write a reply and mention others with @".
 - **Overall feel:** flat cards with no shadows, a single grey only for reply bubbles, and one font (Figtree) everywhere except the Poppins title.
 
+## Rich-text editor (update composer, `13`, `14`), measured 2026-10-28
+
+Measured on the focused update composer at a 1718px-wide viewport, light theme only. monday's free plan has no separate item description field. The composer uses the same editor, so this is the reference for Atrium's description editor. No dark capture, because switching monday's theme is an account setting.
+
+- **Box:** white, 8px radius, the 1px blue focus border from `06`, no shadow.
+- **Toolbar:** one row, **39px tall**, white, no padding and **no divider** under it. It never wraps at the panel width.
+  - **Buttons:** 15 icon-only buttons, each **30×31** (`8px` padding around a **14px** icon), 4px radius, about **2px apart** (`margin 4px 1px`).
+  - **Icon colour:** primary text (`#323338`), not secondary. **Hover:** `#DCDFEC` background (Vibe `--primary-background-hover-color`).
+  - **Order:** Format (¶), Bold, Italic, Underline, Strikethrough, Text colour, Size, Numbered list, Bulleted list, Table, Link, Align, Line (divider), Change direction, Checklist.
+- **Format menu:** a 264px-wide dropdown under the ¶ button, white, 2px radius, shadow `0 4px 14px rgba(0,0,0,.2)`, no padding. Rows are **40px** tall with **8px** padding, and each row previews its own style:
+  - "Normal text": 15px/22.5px Figtree;
+  - "Quote": 15px italic;
+  - "Code": 15px monospace;
+  - "Header": **700 21px/24px**.
+- **Body text:** **Figtree 16px/24px**, primary text, padding **16px 18px**. Placeholder in secondary text (`#676879`).
+- **Bottom row** (composer only): @, attach, emoji and AI icons, with a blue "Update" split button on the right.
+
 ## Home (`04`)
 
 - **Header strip:** white, holding the greeting "Good night, <name>!" (14px) above "Quickly access your recent boards, Inbox and workspaces" (larger, about 18px weight 500). Right side: "Give feedback" (ghost) and "Quick Search" (primary).
