@@ -690,10 +690,7 @@ export const tableActions = {
             ctx,
             columnsOf(ctx, state).filter((c) => c.id !== column.id),
           );
-          if (
-            (ctx.boardRole === undefined || ctx.boardRole === 'owner') &&
-            state.columnLocks?.includes(column.id)
-          ) {
+          if (ctx.boardRole === 'owner' && state.columnLocks?.includes(column.id)) {
             patch.columnLocks = state.columnLocks.filter((id) => id !== column.id);
           }
           return patch;
@@ -706,7 +703,7 @@ export const tableActions = {
     // values are harmless and invisible without the column).
     if (
       !isClientReadOnlyType(column.type) &&
-      !(ctx.boardRole && ctx.boardRole !== 'owner' && ctx.board?.columnLocks?.includes(column.id))
+      !(ctx.boardRole !== 'owner' && ctx.board?.columnLocks?.includes(column.id))
     )
       await attempt(
         () => itemWrites.clearColumn(ctx.uid, ctx.boardId, itemIds, column.id),

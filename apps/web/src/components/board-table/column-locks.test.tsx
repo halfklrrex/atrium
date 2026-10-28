@@ -264,4 +264,28 @@ describe('Column locks UI & actions', () => {
       columnLocks: ['status'],
     });
   });
+
+  it('leaves columnLocks untouched and skips item value clear when an editor deletes a locked column', async () => {
+    const editorCtx: TableCtx = {
+      boardId: 'b1',
+      uid: 'u1',
+      columns,
+      board: { columnLocks: ['budget'] },
+      boardRole: 'editor',
+    };
+    const ok = await tableActions.deleteColumn(editorCtx, columns[1]!, ['i1']);
+    expect(ok).toBe(true);
+    await waitFor(() => expect(mocks.updateBoardStructure).toHaveBeenCalledTimes(1));
+    const updater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => unknown;
+    const patch = updater({
+      columns,
+      subitemColumns: [],
+      groups: [],
+      columnLocks: ['budget'],
+    });
+    expect(patch).toEqual({
+      columns: [columns[0], columns[2]],
+    });
+    expect(mocks.clearColumn).not.toHaveBeenCalled();
+  });
 });
