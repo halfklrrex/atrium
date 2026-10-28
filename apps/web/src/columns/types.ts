@@ -9,6 +9,12 @@ export interface CellContext {
   /** True when the row's first status column holds a "done" label (dates then never turn red). */
   rowDone: boolean;
   canEdit: boolean;
+  /** Board ID for server-managed callable actions (files, button, time tracking). */
+  boardId?: string;
+  /** Item ID for server-managed callable actions (files, button, time tracking). */
+  itemId?: string;
+  /** True when the user can edit the board (used by server-managed cells whose client `canEdit` is false). */
+  canAct?: boolean;
 }
 
 export interface CellProps<Value, Settings> {

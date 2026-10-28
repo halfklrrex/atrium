@@ -79,7 +79,14 @@ export const TableCell = memo(function TableCell({
     );
   }
 
-  const cellContext: CellContext = { highlight, rowDone, canEdit };
+  const cellContext: CellContext = {
+    highlight,
+    rowDone,
+    canEdit,
+    boardId: ctx.boardId,
+    itemId,
+    canAct: env.canEdit,
+  };
 
   const onClick = (event: MouseEvent<HTMLDivElement>) => {
     // Clicks inside a popover editor reach us through the React tree, not through the cell itself.

@@ -60,7 +60,14 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
 
   if (!ui) return <div className={classNames(styles.cell, className)} />;
 
-  const cellContext: CellContext = { highlight: '', rowDone: false, canEdit };
+  const cellContext: CellContext = {
+    highlight: '',
+    rowDone: false,
+    canEdit,
+    boardId: ctx.boardId,
+    itemId,
+    canAct: canEditBoard,
+  };
   const Cell = ui.Cell;
   const Editor = ui.Editor;
 
