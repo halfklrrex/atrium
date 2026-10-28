@@ -59,14 +59,19 @@ The agents can't message each other. **Pull-request comments are the channel**: 
    Split the bugs sensibly between the agents: take ones in your own area, and leave a note if the other agent owns that code. Bug fixes follow the normal PR flow. Reply on the owner's update when the fix is live. If you can't access monday, ask the owner to paste the new bug-inbox updates for you.
 
 6. **Check Actionable = Agents.** On the Roadmap, find the items whose Actionable is **Agents**: the owner has answered or acted on them. Read the newest updates on each item in your area and act on them: sign the item off, fix what they found, or reply. Then set Actionable to No (handled) or Yes (you need something more from them).
-7. **Only then start new work**, within the 2-open-PR limit, after checking what's in flight. Open bugs rank above new features unless the owner says otherwise.
+7. **Only then start new work**, within your open-PR limit, after checking what's in flight. Open bugs rank above new features unless the owner says otherwise.
 
 **Ophelia (Claude Opus, as lead):** at the start of each session, she also checks every open PR from either agent for new commits or replies, re-reviews what changed, and merges what's ready.
 
 ## Multi-agent workflow (mandatory)
 
 1. **Claim before you start.** On the Roadmap item, set **Agent** (Claude / Ophelia or Antigravity / Ava), **Branch**, and Status = Planning or Building. Never start an item another agent has claimed. Don't take two items that change the same screen at once.
-   - **Work-in-progress limit:** each agent has at most **2 open PRs** at a time. A PR with requested changes still counts until it's fixed and merged. Finish and fix before starting anything new, because reviews are the bottleneck and parallel PRs on overlapping code create conflicts.
+   - **Work-in-progress limit** (owner decision, 2026-10-28). The limit is on open PRs, not on how much you build, because reviews are the bottleneck and parallel PRs on overlapping code create conflicts.
+     - **Ophelia:** at most **2 open PRs** at a time.
+     - **Ava:** at most **4 open PRs** at a time, and **only one open PR per overlapping area**: PRs that touch the same files or screen open one after another, the next after the previous one merges.
+     - **Hot-spot files** (rule 6) still have only one open PR touching them at a time, across both agents.
+     - **Branch work has no limit.** Keep building ahead on pushed branches, and open each PR when the rules above allow it.
+     - A PR with requested changes still counts until it's fixed and merged, and fixing requested changes comes before opening anything new.
    - **Check what's in flight first.** Before starting, look at the Roadmap's Building and Pending Merge items and the open PRs. If your work would touch the same screen, data layer or hot-spot files as something in flight, pick a different item or wait. When in doubt, ask the owner.
 2. **One branch per task, in your own working copy.**
    - Both copies live under the parent folder `D:\DevProjects\Atrium\`.
