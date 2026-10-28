@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://atrium-workboards.web.app", "https://atrium-board.web.app"],
+    "method": ["GET", "PUT"],
+    "responseHeader": ["Content-Type", "x-goog-content-length-range"],
+    "maxAgeSeconds": 3600
+  }
+]
