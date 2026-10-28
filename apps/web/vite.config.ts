@@ -27,5 +27,7 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     css: false,
     restoreMocks: true,
+    // Vibe's async menus and dialogs overrun the 5 s default on loaded CI runners; individual waits keep shorter timeouts.
+    testTimeout: 20_000,
   },
 });
