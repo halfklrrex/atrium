@@ -153,19 +153,20 @@ describe('toolbar', () => {
   it('sets Heading 1-3 and Normal text from the text-style dropdown', async () => {
     const user = userEvent.setup();
     mount();
-    const trigger = screen.getByRole('button', { name: 'Text style' });
-    expect(trigger).toHaveTextContent('Normal text');
+    const trigger = screen.getByRole('button', { name: /^Text style/ });
+    expect(trigger).toHaveAccessibleName('Text style: Normal text');
+    expect(trigger).toHaveTextContent('');
     for (const level of [1, 2, 3]) {
       await user.click(trigger);
       await user.click(await screen.findByRole('menuitem', { name: `Heading ${level}` }));
       // Vibe runs a menu item's click two animation frames later.
       await waitFor(() => expect(pm().querySelector(`h${level}`)).not.toBeNull());
-      expect(trigger).toHaveTextContent(`Heading ${level}`);
+      expect(trigger).toHaveAccessibleName(`Text style: Heading ${level}`);
     }
     await user.click(trigger);
     await user.click(await screen.findByRole('menuitem', { name: 'Normal text' }));
     await waitFor(() => expect(pm().querySelector('h3')).toBeNull());
-    expect(trigger).toHaveTextContent('Normal text');
+    expect(trigger).toHaveAccessibleName('Text style: Normal text');
   });
 
   it('offers quote, divider and table in the More menu', async () => {
