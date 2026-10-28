@@ -48,3 +48,12 @@ export function FontIcon() {
     </svg>
   );
 }
+
+/** The Text style button: a pilcrow (paragraph mark), like monday's Format button. */
+export function ParagraphIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" aria-hidden="true">
+      <path d="M8.500 3H16v1.500h-1.500V17H13V4.500h-2.500V17H9v-5.500H8.500a4 4 0 0 1 0-8.500z" />
+    </svg>
+  );
+}
