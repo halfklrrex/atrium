@@ -14,25 +14,47 @@ import {
   REVOKE_INVITE_CALLABLE,
   acceptInviteResultSchema,
   bootstrapUserResultSchema,
+  clickButtonRequestSchema,
+  clickButtonResultSchema,
   createInviteResultSchema,
+  deleteFileAttachmentRequestSchema,
+  deleteFileAttachmentResultSchema,
   finalizeDescriptionImageResultSchema,
+  finalizeFileUploadRequestSchema,
+  finalizeFileUploadResultSchema,
   getDescriptionImageUrlResultSchema,
+  getFileDownloadUrlRequestSchema,
+  getFileDownloadUrlResultSchema,
   getInviteStatusResultSchema,
   listMyInvitesResultSchema,
   okResultSchema,
   requestDescriptionImageUploadResultSchema,
+  requestFileUploadRequestSchema,
+  requestFileUploadResultSchema,
+  startTimeTrackingRequestSchema,
+  startTimeTrackingResultSchema,
+  stopTimeTrackingRequestSchema,
+  stopTimeTrackingResultSchema,
   type AcceptInviteRequest,
   type AcceptInviteResult,
   type BootstrapUserRequest,
   type BootstrapUserResult,
   type ChangeMemberRoleRequest,
+  type ClickButtonRequest,
+  type ClickButtonResult,
   type CreateInviteRequest,
   type CreateInviteResult,
   type DeclineInviteRequest,
+  type DeleteFileAttachmentRequest,
+  type DeleteFileAttachmentResult,
   type FinalizeDescriptionImageRequest,
   type FinalizeDescriptionImageResult,
+  type FinalizeFileUploadRequest,
+  type FinalizeFileUploadResult,
   type GetDescriptionImageUrlRequest,
   type GetDescriptionImageUrlResult,
+  type GetFileDownloadUrlRequest,
+  type GetFileDownloadUrlResult,
   type GetInviteStatusRequest,
   type GetInviteStatusResult,
   type LeaveWorkspaceRequest,
@@ -42,7 +64,13 @@ import {
   type RemoveMemberRequest,
   type RequestDescriptionImageUploadRequest,
   type RequestDescriptionImageUploadResult,
+  type RequestFileUploadRequest,
+  type RequestFileUploadResult,
   type RevokeInviteRequest,
+  type StartTimeTrackingRequest,
+  type StartTimeTrackingResult,
+  type StopTimeTrackingRequest,
+  type StopTimeTrackingResult,
 } from '@atrium/shared';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase';
@@ -119,19 +147,127 @@ export const descriptionImageCalls = {
   ),
 };
 
+// ---------------------------------------------------------------------------------------------
+// Server-managed column callables (P2: button, time tracking, files)
+// ---------------------------------------------------------------------------------------------
+
+function validatedCallable<Req, Res>(
+  name: string,
+  parseReq: (req: Req) => Req,
+  parseRes: (data: unknown) => Res,
+) {
+  return async (request: Req): Promise<Res> => {
+    const validReq = parseReq(request);
+    const { data } = await httpsCallable<Req, unknown>(functions, name)(validReq);
+    return parseRes(data);
+  };
+}
+
+export const callClickButton = validatedCallable<ClickButtonRequest, ClickButtonResult>(
+  'clickButton',
+  (r) => clickButtonRequestSchema.parse(r),
+  (d) => clickButtonResultSchema.parse(d),
+);
+
+export const callStartTimeTracking = validatedCallable<
+  StartTimeTrackingRequest,
+  StartTimeTrackingResult
+>(
+  'startTimeTracking',
+  (r) => startTimeTrackingRequestSchema.parse(r),
+  (d) => startTimeTrackingResultSchema.parse(d),
+);
+
+export const callStopTimeTracking = validatedCallable<
+  StopTimeTrackingRequest,
+  StopTimeTrackingResult
+>(
+  'stopTimeTracking',
+  (r) => stopTimeTrackingRequestSchema.parse(r),
+  (d) => stopTimeTrackingResultSchema.parse(d),
+);
+
+export const callRequestFileUpload = validatedCallable<
+  RequestFileUploadRequest,
+  RequestFileUploadResult
+>(
+  'requestFileUpload',
+  (r) => requestFileUploadRequestSchema.parse(r),
+  (d) => requestFileUploadResultSchema.parse(d),
+);
+
+export const callFinalizeFileUpload = validatedCallable<
+  FinalizeFileUploadRequest,
+  FinalizeFileUploadResult
+>(
+  'finalizeFileUpload',
+  (r) => finalizeFileUploadRequestSchema.parse(r),
+  (d) => finalizeFileUploadResultSchema.parse(d),
+);
+
+export const callGetFileDownloadUrl = validatedCallable<
+  GetFileDownloadUrlRequest,
+  GetFileDownloadUrlResult
+>(
+  'getFileDownloadUrl',
+  (r) => getFileDownloadUrlRequestSchema.parse(r),
+  (d) => getFileDownloadUrlResultSchema.parse(d),
+);
+
+export const callDeleteFileAttachment = validatedCallable<
+  DeleteFileAttachmentRequest,
+  DeleteFileAttachmentResult
+>(
+  'deleteFileAttachment',
+  (r) => deleteFileAttachmentRequestSchema.parse(r),
+  (d) => deleteFileAttachmentResultSchema.parse(d),
+);
+
+export const columnActionCalls = {
+  clickButton: callClickButton,
+  startTimeTracking: callStartTimeTracking,
+  stopTimeTracking: callStopTimeTracking,
+};
+
+export const fileCalls = {
+  requestUpload: callRequestFileUpload,
+  finalizeUpload: callFinalizeFileUpload,
+  getDownloadUrl: callGetFileDownloadUrl,
+  deleteAttachment: callDeleteFileAttachment,
+};
+
+const FRIENDLY_CALLABLE_CODE_MESSAGES: Record<string, string> = {
+  'functions/permission-denied': 'You do not have permission to perform this action.',
+  'permission-denied': 'You do not have permission to perform this action.',
+  'functions/failed-precondition': 'This action cannot be completed in the current state.',
+  'failed-precondition': 'This action cannot be completed in the current state.',
+  'functions/resource-exhausted':
+    'Rate limit or quota reached. Please wait a moment and try again.',
+  'resource-exhausted': 'Rate limit or quota reached. Please wait a moment and try again.',
+};
+
 /** Message for a failed callable: the server explains refusals, anything else gets the fallback. */
 export function describeCallableError(error: unknown, fallback: string): string {
   const code = (error as { code?: string } | null)?.code ?? '';
   const message = (error as { message?: string } | null)?.message;
   const explained = [
     'functions/permission-denied',
+    'permission-denied',
     'functions/failed-precondition',
+    'failed-precondition',
     'functions/already-exists',
+    'already-exists',
     'functions/resource-exhausted',
+    'resource-exhausted',
     'functions/invalid-argument',
+    'invalid-argument',
     'functions/not-found',
+    'not-found',
   ];
-  if (explained.includes(code) && message) return message;
+  if (explained.includes(code)) {
+    if (message && message !== code && message !== 'INTERNAL') return message;
+    if (FRIENDLY_CALLABLE_CODE_MESSAGES[code]) return FRIENDLY_CALLABLE_CODE_MESSAGES[code]!;
+  }
   if (code === 'functions/unavailable' || code === 'functions/deadline-exceeded') {
     return 'You appear to be offline. Try again in a moment.';
   }

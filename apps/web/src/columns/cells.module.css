@@ -533,3 +533,110 @@
   width: var(--atrium-table-icon);
   height: var(--atrium-table-icon);
 }
+
+/* ---- Files ---- */
+
+.filesCell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-table-cell-font);
+  cursor: pointer;
+}
+
+.fileBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+  height: var(--atrium-table-pill-height);
+  padding: 0 var(--space-8);
+  overflow: hidden;
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-pill-bg);
+  color: var(--atrium-table-pill-text);
+  font: var(--atrium-table-pill-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileBadge svg {
+  flex: none;
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+}
+
+/* ---- Button ---- */
+
+.customButton {
+  --atrium-btn-bg: var(--primary-color);
+  --atrium-btn-fg: var(--atrium-table-on-fill);
+
+  background-color: var(--atrium-btn-bg);
+  color: var(--atrium-btn-fg);
+}
+
+.customButton:hover:not(:disabled) {
+  background-color: var(--atrium-btn-bg);
+  color: var(--atrium-btn-fg);
+  opacity: 0.9;
+}
+
+/* ---- Time Tracking ---- */
+
+.timeTrackingCell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.timerToggleBtn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--atrium-table-swatch);
+  height: var(--atrium-table-swatch);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: var(--atrium-table-on-fill);
+  cursor: pointer;
+}
+
+.timerToggleBtnRunning {
+  background: var(--negative-color);
+}
+
+.timerToggleBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.timerToggleBtn svg {
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+}
+
+.timerDurationBtn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-table-cell-font);
+  cursor: pointer;
+}
+
+.timerDurationBtn:hover {
+  text-decoration: underline;
+}
