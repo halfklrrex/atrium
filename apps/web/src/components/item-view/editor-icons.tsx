@@ -38,3 +38,13 @@ export function TextColorIcon() {
     </svg>
   );
 }
+
+/** The Font button: an "Aa" pair. Vibe has no font icon that reads as one. */
+export function FontIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" aria-hidden="true">
+      <path d="M6.600 4h1.800l4.100 11h-1.800l-.9-2.600H5.200L4.300 15H2.500L6.600 4zm-.9 7h3.500L7.500 6.300 5.700 11z" />
+      <path d="M14.200 8.200c1.700 0 2.800.9 2.800 2.600V15h-1.500l-.2-.9c-.4.600-1.100 1.100-2.100 1.100-1.200 0-2-.7-2-1.800 0-1.200.9-1.900 2.500-1.900h1.500v-.2c0-.7-.5-1.100-1.300-1.100-.7 0-1.200.3-1.500.8l-1.100-.8c.5-.8 1.400-1.200 2.900-1.200zm1.300 4.300h-1.200c-.8 0-1.100.3-1.100.7 0 .4.300.6.800.6.900 0 1.500-.5 1.500-1.300z" />
+    </svg>
+  );
+}

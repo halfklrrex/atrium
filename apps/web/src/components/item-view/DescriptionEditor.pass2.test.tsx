@@ -199,14 +199,14 @@ describe('font picker', () => {
     act(() => {
       editorOf().commands.selectAll();
     });
-    const trigger = screen.getByRole('button', { name: 'Font' });
-    expect(trigger).toHaveTextContent('Default');
+    const trigger = screen.getByRole('button', { name: /^Font/ });
+    expect(trigger).toHaveAccessibleName('Font: Default');
     await user.click(trigger);
     await user.click(await screen.findByRole('menuitemradio', { name: 'Lora' }));
     const span = pm().querySelector('span[data-font]');
     expect(span).toHaveAttribute('data-font', 'lora');
     expect(span).toHaveClass('atrium-font-lora');
-    expect(trigger).toHaveTextContent('Lora');
+    expect(trigger).toHaveAccessibleName('Font: Lora');
     expect(document.head.querySelectorAll('link[data-atrium-font="lora"]')).toHaveLength(1);
 
     act(() => {
@@ -437,7 +437,7 @@ describe('description images', () => {
     expect(at('Link')).toBeLessThan(at('Image'));
     expect(at('Image')).toBeLessThan(at('Emoji'));
     expect(at('Emoji')).toBeLessThan(at('More'));
-    expect(at('Text style')).toBeLessThan(at('Font'));
+    expect(at('Text style: Normal text')).toBeLessThan(at('Font: Default'));
     expect(at('Strikethrough')).toBeLessThan(at('Text colour and highlight'));
     expect(at('Text colour and highlight')).toBeLessThan(at('Bulleted list'));
   });

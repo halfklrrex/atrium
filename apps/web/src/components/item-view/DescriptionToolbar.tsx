@@ -1,4 +1,4 @@
-import { useEditorState, type Editor } from '@tiptap/react';
+import { useEditorState, type ChainedCommands, type Editor } from '@tiptap/react';
 import { Button, Menu, MenuDivider, MenuItem, TextField, Tooltip } from '@vibe/core';
 import {
   Bold,
@@ -8,7 +8,6 @@ import {
   Close,
   Code,
   Divider,
-  DropdownChevronDown,
   Emoji as EmojiIcon,
   Fullscreen,
   Image as ImageIcon,
@@ -18,18 +17,34 @@ import {
   Quote,
   Redo,
   Table,
+  TextFormatting,
   Underline,
   Undo,
 } from '@vibe/icons';
 import classNames from 'classnames';
-import { useState, type CSSProperties, type MouseEvent } from 'react';
+import {
+  Fragment,
+  type ComponentProps,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+} from 'react';
 import { AnchoredPopup } from '../board-table/AnchoredPopup';
 import { ColorPopup } from './ColorPopup';
 import { ensureFontLoaded } from './editor-fonts';
-import { NumberedList, Strikethrough, TextColorIcon, type EditorIcon } from './editor-icons';
+import {
+  FontIcon,
+  NumberedList,
+  Strikethrough,
+  TextColorIcon,
+  type EditorIcon,
+} from './editor-icons';
 import { currentColors, marks } from './editor-marks';
 import { FONTS, type ColorKey } from './editor-palette';
 import { parseLinkUrl } from './link-url';
+import { toolsThatFit } from './toolbar-fit';
 import styles from './DescriptionEditor.module.css';
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -39,12 +54,53 @@ const SHIFT = IS_MAC ? '⇧' : 'Shift+';
 const mod = (key: string) => `${MOD}${key}`;
 const modShift = (key: string) => `${MOD}${SHIFT}${key}`;
 
-const TEXT_STYLES: { name: string; level: 0 | 1 | 2 | 3 }[] = [
-  { name: 'Normal text', level: 0 },
-  { name: 'Heading 1', level: 1 },
-  { name: 'Heading 2', level: 2 },
-  { name: 'Heading 3', level: 3 },
+type StyleKey = 'normal' | 'h1' | 'h2' | 'h3' | 'quote' | 'code';
+
+/** The text-style menu: each row previews its own style (`preview` names a class). */
+const TEXT_STYLES: {
+  key: StyleKey;
+  name: string;
+  preview: 'styleNormal' | 'styleH1' | 'styleH2' | 'styleH3' | 'styleQuote' | 'styleCode';
+  apply: (chain: ChainedCommands) => void;
+}[] = [
+  {
+    key: 'normal',
+    name: 'Normal text',
+    preview: 'styleNormal',
+    apply: (c) => c.setParagraph().run(),
+  },
+  {
+    key: 'h1',
+    name: 'Heading 1',
+    preview: 'styleH1',
+    apply: (c) => c.setNode('heading', { level: 1 }).run(),
+  },
+  {
+    key: 'h2',
+    name: 'Heading 2',
+    preview: 'styleH2',
+    apply: (c) => c.setNode('heading', { level: 2 }).run(),
+  },
+  {
+    key: 'h3',
+    name: 'Heading 3',
+    preview: 'styleH3',
+    apply: (c) => c.setNode('heading', { level: 3 }).run(),
+  },
+  { key: 'quote', name: 'Quote', preview: 'styleQuote', apply: (c) => c.toggleBlockquote().run() },
+  {
+    key: 'code',
+    name: 'Code block',
+    preview: 'styleCode',
+    apply: (c) => c.toggleCodeBlock().run(),
+  },
 ];
+
+/** Titles in the More menu where the button's label carries a value ("Font: Default"). */
+const MORE_TITLES: Record<string, string> = {
+  style: 'Text style',
+  font: 'Font',
+};
 
 function useToolbarState(editor: Editor) {
   return useEditorState({
@@ -62,12 +118,18 @@ function useToolbarState(editor: Editor) {
       link: e.isActive('link'),
       textColor: currentColors(e).text,
       font: (e.getAttributes('textStyle').fontFamily as string | null | undefined) ?? 'default',
-      style: ([1, 2, 3] as const).find((l) => e.isActive('heading', { level: l })) ?? 0,
+      style: ((): StyleKey => {
+        const level = ([1, 2, 3] as const).find((l) => e.isActive('heading', { level: l }));
+        if (level) return `h${level}`;
+        if (e.isActive('codeBlock')) return 'code';
+        if (e.isActive('blockquote')) return 'quote';
+        return 'normal';
+      })(),
     }),
   });
 }
 
-interface ToolButtonProps {
+export interface ToolButtonProps {
   label: string;
   /** Tooltip text; defaults to the label. */
   tip?: string;
@@ -75,6 +137,10 @@ interface ToolButtonProps {
   active?: boolean;
   disabled?: boolean;
   popup?: boolean;
+  /** For a button that opens a menu: whether it is open. */
+  expanded?: boolean;
+  /** Marks the button for the toolbar's overflow measuring. */
+  fitId?: string;
   /** Marks the button for the editor shell (e.g. to anchor the emoji picker to it). */
   toolId?: string;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
@@ -87,6 +153,8 @@ function ToolButton({
   active,
   disabled,
   popup,
+  expanded,
+  fitId,
   toolId,
   onClick,
 }: ToolButtonProps) {
@@ -98,6 +166,8 @@ function ToolButton({
         aria-label={label}
         aria-pressed={active}
         aria-haspopup={popup ? 'menu' : undefined}
+        aria-expanded={popup ? expanded : undefined}
+        data-fit={fitId}
         data-tool={toolId}
         disabled={disabled}
         onMouseDown={(event) => event.preventDefault()}
@@ -201,9 +271,28 @@ interface DescriptionToolbarProps {
   onToggleEmoji: (anchor: HTMLElement) => void;
 }
 
+/** One hideable tool: its button, and what the More menu does when it has moved in there. */
+interface ToolDef {
+  id: string;
+  /** Tools in the same group sit together; a separator goes between groups. */
+  group: number;
+  button: ToolButtonProps;
+  /** The same action, started from the More menu (`anchor` is the More button). */
+  fromMore: (anchor: HTMLElement) => void;
+  /** Wraps the button (the colour tool sets the underline colour on it). */
+  wrapperStyle?: CSSProperties;
+  wrapperClass?: string;
+}
+
+/** The outer width of an element in px: its box plus its horizontal margins. */
+function outerWidth(el: HTMLElement): number {
+  const css = getComputedStyle(el);
+  return el.offsetWidth + (parseFloat(css.marginLeft) || 0) + (parseFloat(css.marginRight) || 0);
+}
+
 /**
  * The toolbar order: history, text style and font, marks and colour, lists, link, image, emoji,
- * more, then expand and the save hint.
+ * more, then expand and the save hint. The row never wraps: tools that don't fit move into More.
  */
 export function DescriptionToolbar({
   editor,
@@ -218,13 +307,19 @@ export function DescriptionToolbar({
   const [popup, setPopup] = useState<OpenPopup>(null);
   // The last text colour picked, shown as the underline of the colour button.
   const [lastColor, setLastColor] = useState<ColorKey | null>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  // Measured widths (tool id -> outer width) and the room the row has; 0 means "not measured".
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  const [room, setRoom] = useState(0);
+  const [gap, setGap] = useState(0);
   const close = () => setPopup(null);
   const toggle = (kind: PopupKind) => (event: MouseEvent<HTMLElement>) => {
     const anchor = event.currentTarget;
     setPopup((open) => (open?.kind === kind ? null : { kind, anchor }));
   };
+  const open = (kind: PopupKind) => (anchor: HTMLElement) => setPopup({ kind, anchor });
   const chain = () => editor.chain().focus();
-  const currentStyle = TEXT_STYLES.find((s) => s.level === state.style) ?? TEXT_STYLES[0]!;
+  const currentStyle = TEXT_STYLES.find((s) => s.key === state.style) ?? TEXT_STYLES[0]!;
   const currentFont = FONTS.find((f) => f.key === state.font) ?? FONTS[0]!;
   const underline = state.textColor ?? lastColor;
   const colorStyle = (
@@ -236,127 +331,271 @@ export function DescriptionToolbar({
     close();
   };
 
-  return (
-    <div className={styles.toolbar} role="toolbar" aria-label="Description formatting">
-      <ToolButton
-        label="Undo"
-        tip={`Undo (${mod('Z')})`}
-        Icon={Undo}
-        disabled={!state.canUndo}
-        onClick={() => chain().undo().run()}
-      />
-      <ToolButton
-        label="Redo"
-        tip={`Redo (${modShift('Z')})`}
-        Icon={Redo}
-        disabled={!state.canRedo}
-        onClick={() => chain().redo().run()}
-      />
-      <span className={styles.separator} aria-hidden="true" />
-      <Tooltip content="Text style">
-        <button
-          type="button"
-          className={styles.styleButton}
-          aria-label="Text style"
-          aria-haspopup="menu"
-          aria-expanded={popup?.kind === 'style'}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={toggle('style')}
-        >
-          <span>{currentStyle.name}</span>
-          <DropdownChevronDown aria-hidden />
-        </button>
-      </Tooltip>
-      <Tooltip content="Font">
-        <button
-          type="button"
-          className={styles.styleButton}
-          aria-label="Font"
-          aria-haspopup="menu"
-          aria-expanded={popup?.kind === 'font'}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={toggle('font')}
-        >
-          <span>{currentFont.label}</span>
-          <DropdownChevronDown aria-hidden />
-        </button>
-      </Tooltip>
-      <span className={styles.separator} aria-hidden="true" />
-      <ToolButton
-        label="Bold"
-        tip={`Bold (${mod('B')})`}
-        Icon={Bold}
-        active={state.bold}
-        onClick={() => chain().toggleBold().run()}
-      />
-      <ToolButton
-        label="Italic"
-        tip={`Italic (${mod('I')})`}
-        Icon={Italic}
-        active={state.italic}
-        onClick={() => chain().toggleItalic().run()}
-      />
-      <ToolButton
-        label="Underline"
-        tip={`Underline (${mod('U')})`}
-        Icon={Underline}
-        active={state.underline}
-        onClick={() => chain().toggleUnderline().run()}
-      />
-      <ToolButton
-        label="Strikethrough"
-        tip={`Strikethrough (${modShift('S')})`}
-        Icon={Strikethrough}
-        active={state.strike}
-        onClick={() => chain().toggleStrike().run()}
-      />
-      <span className={styles.colorButton} style={colorStyle}>
-        <ToolButton
-          label="Text colour and highlight"
-          tip="Text colour and highlight"
-          Icon={TextColorIcon}
-          active={Boolean(state.textColor)}
-          popup
-          onClick={toggle('color')}
-        />
-      </span>
-      <span className={styles.separator} aria-hidden="true" />
-      <ToolButton
-        label="Bulleted list"
-        tip={`Bulleted list (${modShift('8')})`}
-        Icon={Bullets}
-        active={state.bullets}
-        onClick={() => chain().toggleBulletList().run()}
-      />
-      <ToolButton
-        label="Numbered list"
-        tip={`Numbered list (${modShift('7')})`}
-        Icon={NumberedList}
-        active={state.numbers}
-        onClick={() => chain().toggleOrderedList().run()}
-      />
-      <ToolButton
-        label="Checklist"
-        tip={`Checklist (${modShift('9')})`}
-        Icon={CheckList}
-        active={state.tasks}
-        onClick={() => chain().toggleTaskList().run()}
-      />
-      <span className={styles.separator} aria-hidden="true" />
-      <ToolButton label="Link" Icon={LinkIcon} active={state.link} onClick={toggle('link')} />
-      <ToolButton label="Image" tip="Add an image" Icon={ImageIcon} onClick={onPickImage} />
-      <ToolButton
-        label="Emoji"
-        Icon={EmojiIcon}
-        active={emojiOpen}
-        popup
-        toolId="emoji"
-        onClick={(event) => {
+  const tools: ToolDef[] = [
+    {
+      id: 'undo',
+      group: 0,
+      button: {
+        label: 'Undo',
+        tip: `Undo (${mod('Z')})`,
+        Icon: Undo,
+        disabled: !state.canUndo,
+        onClick: () => chain().undo().run(),
+      },
+      fromMore: () => chain().undo().run(),
+    },
+    {
+      id: 'redo',
+      group: 0,
+      button: {
+        label: 'Redo',
+        tip: `Redo (${modShift('Z')})`,
+        Icon: Redo,
+        disabled: !state.canRedo,
+        onClick: () => chain().redo().run(),
+      },
+      fromMore: () => chain().redo().run(),
+    },
+    {
+      id: 'style',
+      group: 1,
+      button: {
+        label: `Text style: ${currentStyle.name}`,
+        Icon: TextFormatting,
+        popup: true,
+        expanded: popup?.kind === 'style',
+        onClick: toggle('style'),
+      },
+      fromMore: open('style'),
+    },
+    {
+      id: 'font',
+      group: 1,
+      button: {
+        label: `Font: ${currentFont.label}`,
+        Icon: FontIcon,
+        popup: true,
+        expanded: popup?.kind === 'font',
+        onClick: toggle('font'),
+      },
+      fromMore: open('font'),
+    },
+    {
+      id: 'bold',
+      group: 2,
+      button: {
+        label: 'Bold',
+        tip: `Bold (${mod('B')})`,
+        Icon: Bold,
+        active: state.bold,
+        onClick: () => chain().toggleBold().run(),
+      },
+      fromMore: () => chain().toggleBold().run(),
+    },
+    {
+      id: 'italic',
+      group: 2,
+      button: {
+        label: 'Italic',
+        tip: `Italic (${mod('I')})`,
+        Icon: Italic,
+        active: state.italic,
+        onClick: () => chain().toggleItalic().run(),
+      },
+      fromMore: () => chain().toggleItalic().run(),
+    },
+    {
+      id: 'underline',
+      group: 2,
+      button: {
+        label: 'Underline',
+        tip: `Underline (${mod('U')})`,
+        Icon: Underline,
+        active: state.underline,
+        onClick: () => chain().toggleUnderline().run(),
+      },
+      fromMore: () => chain().toggleUnderline().run(),
+    },
+    {
+      id: 'strike',
+      group: 2,
+      button: {
+        label: 'Strikethrough',
+        tip: `Strikethrough (${modShift('S')})`,
+        Icon: Strikethrough,
+        active: state.strike,
+        onClick: () => chain().toggleStrike().run(),
+      },
+      fromMore: () => chain().toggleStrike().run(),
+    },
+    {
+      id: 'color',
+      group: 2,
+      button: {
+        label: 'Text colour and highlight',
+        Icon: TextColorIcon,
+        active: Boolean(state.textColor),
+        popup: true,
+        onClick: toggle('color'),
+      },
+      fromMore: open('color'),
+      wrapperStyle: colorStyle,
+      wrapperClass: styles.colorButton,
+    },
+    {
+      id: 'bullets',
+      group: 3,
+      button: {
+        label: 'Bulleted list',
+        tip: `Bulleted list (${modShift('8')})`,
+        Icon: Bullets,
+        active: state.bullets,
+        onClick: () => chain().toggleBulletList().run(),
+      },
+      fromMore: () => chain().toggleBulletList().run(),
+    },
+    {
+      id: 'numbers',
+      group: 3,
+      button: {
+        label: 'Numbered list',
+        tip: `Numbered list (${modShift('7')})`,
+        Icon: NumberedList,
+        active: state.numbers,
+        onClick: () => chain().toggleOrderedList().run(),
+      },
+      fromMore: () => chain().toggleOrderedList().run(),
+    },
+    {
+      id: 'tasks',
+      group: 3,
+      button: {
+        label: 'Checklist',
+        tip: `Checklist (${modShift('9')})`,
+        Icon: CheckList,
+        active: state.tasks,
+        onClick: () => chain().toggleTaskList().run(),
+      },
+      fromMore: () => chain().toggleTaskList().run(),
+    },
+    {
+      id: 'link',
+      group: 4,
+      button: { label: 'Link', Icon: LinkIcon, active: state.link, onClick: toggle('link') },
+      fromMore: open('link'),
+    },
+    {
+      id: 'image',
+      group: 4,
+      button: { label: 'Image', tip: 'Add an image', Icon: ImageIcon, onClick: onPickImage },
+      fromMore: () => onPickImage(),
+    },
+    {
+      id: 'emoji',
+      group: 4,
+      button: {
+        label: 'Emoji',
+        Icon: EmojiIcon,
+        active: emojiOpen,
+        popup: true,
+        toolId: 'emoji',
+        onClick: (event) => {
           close();
           onToggleEmoji(event.currentTarget);
-        }}
-      />
-      <ToolButton label="More" Icon={MoreActions} popup onClick={toggle('more')} />
+        },
+      },
+      fromMore: onToggleEmoji,
+    },
+  ];
+
+  // Measure each rendered tool (and the fixed parts) after every render; a tool that has moved
+  // into More keeps the width it last had.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs after every render on purpose; it only sets state when a width changed, so it settles after one pass.
+  useLayoutEffect(() => {
+    const bar = toolbarRef.current;
+    if (!bar) return;
+    const next = { ...widths };
+    let changed = false;
+    for (const el of bar.querySelectorAll<HTMLElement>('[data-fit]')) {
+      const w = outerWidth(el);
+      const id = el.dataset.fit!;
+      if (next[id] !== w) {
+        next[id] = w;
+        changed = true;
+      }
+    }
+    if (changed) setWidths(next);
+  });
+
+  // The row's inner width, kept up to date while the panel is resized.
+  useLayoutEffect(() => {
+    const bar = toolbarRef.current;
+    if (!bar) return;
+    const measure = () => {
+      const css = getComputedStyle(bar);
+      const padding = (parseFloat(css.paddingLeft) || 0) + (parseFloat(css.paddingRight) || 0);
+      setRoom(Math.max(0, bar.clientWidth - padding));
+      setGap(parseFloat(css.columnGap) || 0);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+
+  const visible: Set<string> =
+    room > 0
+      ? toolsThatFit(
+          tools.map((t) => ({ id: t.id, width: (widths[t.id] ?? 0) + gap })),
+          // Fixed: More, Expand, a worst case of four separators, and the gaps around them.
+          room -
+            ((widths.more ?? 0) + gap) -
+            ((widths.expand ?? 0) + gap) -
+            4 * ((widths.separator ?? 0) + gap),
+        )
+      : new Set(tools.map((t) => t.id));
+  const hidden = tools.filter((t) => !visible.has(t.id));
+  const groups = [...new Set(tools.map((t) => t.group))];
+  const moreAnchor = popup?.kind === 'more' ? popup.anchor : null;
+  const fromMore = (tool: ToolDef) => () => {
+    close();
+    if (moreAnchor) tool.fromMore(moreAnchor);
+  };
+
+  return (
+    <div
+      className={styles.toolbar}
+      role="toolbar"
+      aria-label="Description formatting"
+      ref={toolbarRef}
+    >
+      {groups.map((group) => {
+        const shown = tools.filter((t) => t.group === group && visible.has(t.id));
+        if (shown.length === 0) return null;
+        const earlier = tools.some((t) => t.group < group && visible.has(t.id));
+        return (
+          <Fragment key={group}>
+            {earlier ? (
+              <span className={styles.separator} data-fit="separator" aria-hidden="true" />
+            ) : null}
+            {shown.map((tool) =>
+              tool.wrapperClass ? (
+                <span
+                  key={tool.id}
+                  className={tool.wrapperClass}
+                  style={tool.wrapperStyle}
+                  data-fit={tool.id}
+                >
+                  <ToolButton {...tool.button} />
+                </span>
+              ) : (
+                <ToolButton key={tool.id} {...tool.button} fitId={tool.id} />
+              ),
+            )}
+          </Fragment>
+        );
+      })}
+      <ToolButton label="More" Icon={MoreActions} popup fitId="more" onClick={toggle('more')} />
       <span className={styles.spacer} />
       <span className={styles.saveHint} role="status" aria-live="polite">
         {saveHint}
@@ -365,25 +604,29 @@ export function DescriptionToolbar({
         label={expanded ? 'Close expanded view' : 'Expand'}
         tip={expanded ? 'Close expanded view (Esc)' : 'Expand'}
         Icon={expanded ? Close : Fullscreen}
+        fitId="expand"
         onClick={onToggleExpand}
       />
 
       {popup?.kind === 'style' ? (
         <AnchoredPopup anchor={popup.anchor} onClose={close} label="Text style">
-          <Menu id="description-text-style" size="medium">
+          <div className={styles.styleList} role="menu" aria-label="Text style">
             {TEXT_STYLES.map((s) => (
-              <MenuItem
-                key={s.name}
-                title={s.name}
-                icon={s.level === state.style ? Check : undefined}
-                onClick={run(() =>
-                  s.level === 0
-                    ? chain().setParagraph().run()
-                    : chain().setNode('heading', { level: s.level }).run(),
-                )}
-              />
+              <button
+                key={s.key}
+                type="button"
+                role="menuitem"
+                className={classNames(styles.styleOption, styles[s.preview])}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={run(() => s.apply(chain()))}
+              >
+                <span className={styles.fontCheck}>
+                  {s.key === currentStyle.key ? <Check aria-hidden /> : null}
+                </span>
+                {s.name}
+              </button>
             ))}
-          </Menu>
+          </div>
         </AnchoredPopup>
       ) : null}
       {popup?.kind === 'font' ? (
@@ -424,6 +667,16 @@ export function DescriptionToolbar({
       {popup?.kind === 'more' ? (
         <AnchoredPopup anchor={popup.anchor} onClose={close} label="More formatting">
           <Menu id="description-more" size="medium">
+            {hidden.map((tool) => (
+              <MenuItem
+                key={tool.id}
+                title={MORE_TITLES[tool.id] ?? tool.button.label}
+                icon={tool.button.Icon as ComponentProps<typeof MenuItem>['icon']}
+                disabled={tool.button.disabled}
+                onClick={fromMore(tool)}
+              />
+            ))}
+            {hidden.length > 0 ? <MenuDivider /> : null}
             <MenuItem
               title="Quote"
               icon={Quote}

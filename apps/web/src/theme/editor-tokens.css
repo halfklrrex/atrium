@@ -85,6 +85,15 @@
   --atrium-emoji-grid-height: 232px;
   --atrium-emoji-picker-width: 316px;
 
+  /* ---- Toolbar and body text (VF8, measured from monday's rich-text editor) ---- */
+  --atrium-editor-tool-size: 30px;
+  --atrium-editor-tool-icon: 14px;
+  --atrium-editor-tool-gap: 2px;
+  --atrium-editor-menu-row-height: 40px;
+  --atrium-editor-line-height: 24px; /* the checklist boxes centre on it */
+  --atrium-editor-body-font: 400 16px / var(--atrium-editor-line-height) var(--font-family);
+  --atrium-editor-body-padding: 16px 18px;
+
   /* ---- Images ---- */
   --atrium-image-min-width: 25%;
   --atrium-image-handle-size: 12px;

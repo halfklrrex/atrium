@@ -12,11 +12,17 @@
 
 .toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--atrium-editor-tool-gap);
+  min-width: 0;
   padding: var(--space-4) var(--space-8);
-  border-bottom: var(--border-width) solid var(--layout-border-color);
+  overflow: hidden;
+}
+
+/* A tool and the box that measures it; the toolbar adds the gap itself. */
+.toolbar > * {
+  flex: none;
 }
 
 .linkPopup {
@@ -37,20 +43,28 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-32);
-  height: var(--space-32);
+  width: var(--atrium-editor-tool-size);
+  height: var(--atrium-editor-tool-size);
   padding: 0;
   border: 0;
   border-radius: var(--border-radius-4);
   background: transparent;
-  color: var(--secondary-text-color);
+  color: var(--primary-text-color);
   font: var(--atrium-meta-font);
   cursor: pointer;
 }
 
+.toolButton svg {
+  width: var(--atrium-editor-tool-icon);
+  height: var(--atrium-editor-tool-icon);
+}
+
 .toolButton:hover {
   background: var(--primary-background-hover-color);
-  color: var(--primary-text-color);
+}
+
+.toolButton[aria-expanded='true'] {
+  background: var(--primary-background-hover-color);
 }
 
 .toolActive {
@@ -58,8 +72,9 @@
   color: var(--primary-color);
 }
 
-.spacer {
-  flex: 1;
+.toolbar > .spacer {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .separator {
@@ -75,28 +90,12 @@
   pointer-events: none;
 }
 
-.styleButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  min-width: calc(var(--space-32) * 3);
-  height: var(--space-32);
-  padding: 0 var(--space-8);
-  border: 0;
-  border-radius: var(--border-radius-4);
-  background: transparent;
-  color: var(--primary-text-color);
-  font: var(--font-text2-normal);
-  cursor: pointer;
-}
-
-.styleButton:hover,
-.styleButton[aria-expanded='true'] {
-  background: var(--primary-background-hover-color);
-}
-
-.saveHint {
+.toolbar > .saveHint {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-inline-end: var(--space-4);
   font: var(--atrium-meta-font);
   color: var(--secondary-text-color);
@@ -171,9 +170,12 @@
 }
 
 .content {
-  padding: var(--space-12) var(--space-16);
+  /* The checklist boxes centre on --atrium-doc-line-height, so it follows the editor's line. */
+  --atrium-doc-line-height: var(--atrium-editor-line-height);
+
+  padding: var(--atrium-editor-body-padding);
   color: var(--primary-text-color);
-  font: var(--atrium-update-body-font);
+  font: var(--atrium-editor-body-font);
 }
 
 .content :global(.ProseMirror) {
@@ -569,6 +571,55 @@
 
 .colorButton {
   display: inline-flex;
+}
+
+.styleList {
+  display: flex;
+  flex-direction: column;
+  min-width: calc(var(--space-32) * 6);
+}
+
+.styleOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: var(--atrium-editor-menu-row-height);
+  padding: var(--space-8);
+  border: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  text-align: start;
+  cursor: pointer;
+}
+
+.styleOption:hover,
+.styleOption:focus-visible {
+  background: var(--primary-background-hover-color);
+}
+
+.styleNormal {
+  font: var(--atrium-editor-body-font);
+}
+
+.styleH1 {
+  font: var(--atrium-doc-h1-font);
+}
+
+.styleH2 {
+  font: var(--atrium-doc-h2-font);
+}
+
+.styleH3 {
+  font: var(--atrium-doc-h3-font);
+}
+
+.styleQuote {
+  font: var(--atrium-editor-body-font);
+  font-style: italic;
+}
+
+.styleCode {
+  font: var(--atrium-doc-code-font);
 }
 
 .fontList {
