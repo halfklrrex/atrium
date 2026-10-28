@@ -121,7 +121,7 @@ describe('location column UI', () => {
       expect(onClose).toHaveBeenCalled();
     });
 
-    it('defaults lat and lng to 0 when saving address alone', async () => {
+    it('shows error and does not call onChange when saving address with blank coordinates', async () => {
       const onChange = vi.fn();
       const onClose = vi.fn();
 
@@ -139,12 +139,63 @@ describe('location column UI', () => {
       );
 
       const addressInput = screen.getByLabelText('Address');
-      await userEvent.type(addressInput, '221B Baker Street{Enter}');
+      await userEvent.type(addressInput, 'Lisbon{Enter}');
+
+      expect(screen.getByText('Enter both latitude and longitude')).toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('shows error and does not call onChange when saving with only one coordinate', async () => {
+      const onChange = vi.fn();
+      const onClose = vi.fn();
+
+      render(
+        <Editor
+          value={null}
+          settings={{}}
+          column={dummyColumn}
+          ctx={dummyContext}
+          onChange={onChange}
+          onClose={onClose}
+          anchor={document.body}
+          saveSettings={vi.fn()}
+        />,
+      );
+
+      await userEvent.type(screen.getByLabelText('Address'), 'Porto');
+      await userEvent.type(screen.getByLabelText('Latitude'), '41.1579');
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(screen.getByText('Enter both latitude and longitude')).toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('saves latitude and longitude without address when address is omitted', async () => {
+      const onChange = vi.fn();
+      const onClose = vi.fn();
+
+      render(
+        <Editor
+          value={null}
+          settings={{}}
+          column={dummyColumn}
+          ctx={dummyContext}
+          onChange={onChange}
+          onClose={onClose}
+          anchor={document.body}
+          saveSettings={vi.fn()}
+        />,
+      );
+
+      await userEvent.type(screen.getByLabelText('Latitude'), '38.7223');
+      await userEvent.type(screen.getByLabelText('Longitude'), '-9.1393');
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       expect(onChange).toHaveBeenCalledWith({
-        lat: 0,
-        lng: 0,
-        address: '221B Baker Street',
+        lat: 38.7223,
+        lng: -9.1393,
       });
       expect(onClose).toHaveBeenCalled();
     });
@@ -167,7 +218,9 @@ describe('location column UI', () => {
       );
 
       const latInput = screen.getByLabelText('Latitude');
+      const lngInput = screen.getByLabelText('Longitude');
       await userEvent.type(latInput, '95');
+      await userEvent.type(lngInput, '0');
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       expect(screen.getByText(/Latitude must be between -90 and 90/i)).toBeInTheDocument();
