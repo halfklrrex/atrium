@@ -12,7 +12,12 @@ import {
 } from 'react';
 import { getColumnUi, type CellContext } from '../../columns/registry';
 import type { ItemDoc } from '../../data';
-import { SERVER_MANAGED_TOOLTIP, derivedCellValue } from './derived';
+import {
+  COLUMN_LOCKED_TOOLTIP,
+  SERVER_MANAGED_TOOLTIP,
+  canEditColumn,
+  derivedCellValue,
+} from './derived';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import type { ColumnView } from './table-model';
@@ -50,9 +55,18 @@ export const TableCell = memo(function TableCell({
   // Derived cells show a computed value and are read-only: no editor, and nothing is ever written.
   // Server-managed cells (time tracking, files, buttons) show their stored value and are read-only
   // too: only Atrium's Cloud Functions write them.
+  // Locked columns are read-only for non-owners (`!canEditColumn`), showing a tooltip on hover.
   const derived = columnRegistry.isDerived(column.def.type);
   const serverManaged = columnRegistry.isServerManaged(column.def.type);
-  const canEdit = env.canEdit && !derived && !serverManaged;
+  const effectiveRole =
+    ctx.boardRole ?? (env.canManage !== undefined ? (env.canManage ? 'owner' : 'editor') : 'owner');
+  const lockedForUser = !canEditColumn(effectiveRole, ctx.board, columnId);
+  const canEdit = env.canEdit && !derived && !serverManaged && !lockedForUser;
+  const readOnlyTooltip = serverManaged
+    ? SERVER_MANAGED_TOOLTIP
+    : lockedForUser
+      ? COLUMN_LOCKED_TOOLTIP
+      : undefined;
 
   const value = useMemo(() => {
     if (derived) return derivedCellValue(ctx.boardId, ctx.columns, column.def, item);
@@ -70,13 +84,7 @@ export const TableCell = memo(function TableCell({
   );
 
   if (!ui) {
-    return (
-      <div
-        role="gridcell"
-        className={styles.cell}
-        title={serverManaged ? SERVER_MANAGED_TOOLTIP : undefined}
-      />
-    );
+    return <div role="gridcell" className={styles.cell} title={readOnlyTooltip} />;
   }
 
   const cellContext: CellContext = { highlight, rowDone, canEdit };
@@ -107,7 +115,7 @@ export const TableCell = memo(function TableCell({
       className={classNames(styles.cell, (active || editing) && styles.cellActive)}
       data-cell={`${itemId}:${columnId}`}
       aria-selected={active || editing}
-      title={serverManaged ? SERVER_MANAGED_TOOLTIP : undefined}
+      title={readOnlyTooltip}
       onClick={onClick}
     >
       {showEditor && ui.editor === 'inline' && ui.Editor ? (

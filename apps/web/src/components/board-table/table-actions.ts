@@ -8,6 +8,8 @@ import {
   columnRegistry,
   defaultSubitemColumns,
   isSubitem,
+  type BoardRole,
+  type BoardWithColumnLocks,
   type ColumnDef,
   type EntityState,
   type GroupDef,
@@ -15,6 +17,7 @@ import {
 import {
   itemWrites,
   updateBoardStructure,
+  writes,
   type BoardStructureState,
   type ItemDoc,
   type ItemMove,
@@ -31,7 +34,12 @@ import {
 import { nextGroupColor } from '../../theme/palette';
 import { describeError } from '../boards/board-actions';
 import { showToast } from '../toast-store';
-import { isClientReadOnlyType, validateCellWrite, withoutUnwritableValues } from './derived';
+import {
+  isClientReadOnlyType,
+  validateCellWrite,
+  withoutUnwritableValues,
+  type ColumnLockContext,
+} from './derived';
 import { defaultColumnTitle, duplicateColumnTitle } from './column-naming';
 import { appendPositions, dropPosition, positionsAfter } from './move-math';
 import { clampWidth, withSubitemIds, type ColumnView } from './table-model';
@@ -52,11 +60,20 @@ export interface TableCtx {
   scope?: 'columns' | 'subitems';
   /** The board's subitem column defs, to validate and copy subitem values (cascades). */
   subitemColumns?: readonly ColumnDef[];
+  /** The board (for `columnLocks` checks). */
+  board?: BoardWithColumnLocks | null;
+  /** The caller's effective board role (`'owner'` can edit locked columns and manage locks). */
+  boardRole?: BoardRole | null;
   /** Live read of the board's active items (parents and subitems), so cascades find subitems. */
   getItems?: () => readonly ItemDoc[];
   /** Live read of the board's groups, so a new group can be shown before its write returns. */
   getGroups?: () => readonly GroupDef[];
 }
+
+const lockCtxOf = (ctx: TableCtx): ColumnLockContext | undefined =>
+  ctx.board !== undefined || ctx.boardRole !== undefined
+    ? { board: ctx.board, boardRole: ctx.boardRole }
+    : undefined;
 
 /**
  * A new column id that no column uses in EITHER list: `derivedColumnIds`, `serverManagedColumnIds`
@@ -126,7 +143,7 @@ function subitemCopy(
     groupId,
     position,
     parentItemId: parentId,
-    values: clean(withoutUnwritableValues(sub.values, ctx.subitemColumns ?? [])),
+    values: clean(withoutUnwritableValues(sub.values, ctx.subitemColumns ?? [], lockCtxOf(ctx))),
   };
 }
 
@@ -197,7 +214,7 @@ export const tableActions = {
   },
 
   /**
-   * Validate, then write one cell. A refused value (derived or server-managed column, wrong shape, settings rule) is
+   * Validate, then write one cell. A refused value (derived, server-managed or locked column, wrong shape, settings rule) is
    * never sent: its message goes to an error toast instead. Resolves to whether the cell was written.
    */
   async setCell(
@@ -207,7 +224,14 @@ export const tableActions = {
     value: unknown,
     item?: ItemDoc,
   ): Promise<boolean> {
-    const check = validateCellWrite(ctx.boardId, ctx.columns, columnId, value, item);
+    const check = validateCellWrite(
+      ctx.boardId,
+      ctx.columns,
+      columnId,
+      value,
+      item,
+      lockCtxOf(ctx),
+    );
     if (!check.ok) {
       showToast(check.message, { type: 'negative' });
       return false;
@@ -245,7 +269,14 @@ export const tableActions = {
     position: string,
     item?: ItemDoc,
   ): Promise<boolean> {
-    const check = validateCellWrite(ctx.boardId, ctx.columns, columnId, value, item);
+    const check = validateCellWrite(
+      ctx.boardId,
+      ctx.columns,
+      columnId,
+      value,
+      item,
+      lockCtxOf(ctx),
+    );
     if (!check.ok) {
       showToast(check.message, { type: 'negative' });
       return false;
@@ -311,7 +342,7 @@ export const tableActions = {
           name: `${item.name} (copy)`.slice(0, 500),
           groupId,
           position: keys[i]!,
-          values: clean(withoutUnwritableValues(item.values, ctx.columns)),
+          values: clean(withoutUnwritableValues(item.values, ctx.columns, lockCtxOf(ctx))),
         });
         for (const sub of subitemsOf(ctx, item.id).sort(comparePositions)) {
           inputs.push(subitemCopy(ctx, sub, id, groupId, sub.position, sub.name));
@@ -517,7 +548,7 @@ export const tableActions = {
             name: item.name,
             groupId: id,
             position: item.position,
-            values: clean(withoutUnwritableValues(item.values, ctx.columns)),
+            values: clean(withoutUnwritableValues(item.values, ctx.columns, lockCtxOf(ctx))),
           },
           ...subitemsOf(ctx, item.id).map((sub) =>
             subitemCopy(ctx, sub, newId, id, sub.position, sub.name),
@@ -638,6 +669,14 @@ export const tableActions = {
     );
   },
 
+  /** Lock or unlock a column on the board. Only board owners may do this (rules). */
+  async toggleColumnLock(boardId: string, columnId: string, locked: boolean): Promise<boolean> {
+    return attempt(
+      () => writes.toggleColumnLock(boardId, columnId, locked),
+      'Could not update column lock.',
+    );
+  },
+
   /** Remove a column and its values from every item (values in chunks). */
   async deleteColumn(
     ctx: TableCtx,
@@ -646,18 +685,29 @@ export const tableActions = {
   ): Promise<boolean> {
     const removed = await attempt(
       () =>
-        updateBoardStructure(ctx.boardId, (state) =>
-          columnsPatch(
+        updateBoardStructure(ctx.boardId, (state) => {
+          const patch = columnsPatch(
             ctx,
             columnsOf(ctx, state).filter((c) => c.id !== column.id),
-          ),
-        ),
+          );
+          if (
+            (ctx.boardRole === undefined || ctx.boardRole === 'owner') &&
+            state.columnLocks?.includes(column.id)
+          ) {
+            patch.columnLocks = state.columnLocks.filter((id) => id !== column.id);
+          }
+          return patch;
+        }),
       'Could not delete the column.',
     );
     if (!removed) return false;
     // A derived column has no stored values to clean up, and the rules refuse client writes to
-    // server-managed ones (their leftover values are harmless and invisible without the column).
-    if (!isClientReadOnlyType(column.type))
+    // server-managed ones or to locked columns when the caller is not a board owner (their leftover
+    // values are harmless and invisible without the column).
+    if (
+      !isClientReadOnlyType(column.type) &&
+      !(ctx.boardRole && ctx.boardRole !== 'owner' && ctx.board?.columnLocks?.includes(column.id))
+    )
       await attempt(
         () => itemWrites.clearColumn(ctx.uid, ctx.boardId, itemIds, column.id),
         'The column was deleted, but some values could not be cleaned up.',

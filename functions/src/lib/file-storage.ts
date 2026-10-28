@@ -11,7 +11,9 @@ import {
   type RequestFileUploadRequest,
   type RequestFileUploadResult,
   type Workspace,
+  COLUMN_LOCKED_MESSAGE,
   canEditBoard,
+  canEditColumn,
   filesSettingsSchema,
   filesValueSchema,
   isFileAllowed,
@@ -124,6 +126,7 @@ export function verifyBoardAccess(
   workspace: Workspace | null,
   authUid: string,
   requireEdit: boolean,
+  columnId?: string,
 ): void {
   if (!board) {
     throw new HttpsError('not-found', 'Board not found');
@@ -140,6 +143,10 @@ export function verifyBoardAccess(
   if (requireEdit && !canEditBoard(role)) {
     throw new HttpsError('permission-denied', 'You do not have permission to edit this board');
   }
+
+  if (requireEdit && columnId && !canEditColumn(role, board, columnId)) {
+    throw new HttpsError('permission-denied', COLUMN_LOCKED_MESSAGE);
+  }
 }
 
 /**
@@ -153,7 +160,7 @@ export async function requestFileUploadInTransaction(
 ): Promise<RequestFileUploadResult> {
   const board = await tx.getBoard(request.boardId);
   const workspace = board ? await tx.getWorkspace(board.workspaceId) : null;
-  verifyBoardAccess(board, workspace, authUid, true);
+  verifyBoardAccess(board, workspace, authUid, true, request.columnId);
 
   const colDef = board!.columns.find((c) => c.id === request.columnId);
   if (!colDef) {
@@ -257,7 +264,7 @@ export async function finalizeFileUploadInTransaction(
 ): Promise<FinalizeOutcome> {
   const board = await tx.getBoard(request.boardId);
   const workspace = board ? await tx.getWorkspace(board.workspaceId) : null;
-  verifyBoardAccess(board, workspace, authUid, true);
+  verifyBoardAccess(board, workspace, authUid, true, request.columnId);
 
   const colDef = board!.columns.find((c) => c.id === request.columnId);
   if (!colDef) {
@@ -411,7 +418,7 @@ export async function deleteFileAttachmentInTransaction(
 ): Promise<DeleteAttachmentOutcome> {
   const board = await tx.getBoard(request.boardId);
   const workspace = board ? await tx.getWorkspace(board.workspaceId) : null;
-  verifyBoardAccess(board, workspace, authUid, true);
+  verifyBoardAccess(board, workspace, authUid, true, request.columnId);
 
   const colDef = board!.columns.find((c) => c.id === request.columnId);
   if (!colDef) {

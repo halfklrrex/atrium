@@ -3,7 +3,12 @@ import classNames from 'classnames';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { getColumnUi, type CellContext } from '../../columns/registry';
 import type { ItemDoc } from '../../data';
-import { SERVER_MANAGED_TOOLTIP, derivedCellValue } from '../board-table/derived';
+import {
+  COLUMN_LOCKED_TOOLTIP,
+  SERVER_MANAGED_TOOLTIP,
+  canEditColumn,
+  derivedCellValue,
+} from '../board-table/derived';
 import { tableActions, type TableCtx } from '../board-table/table-actions';
 import type { ColumnView } from '../board-table/table-model';
 import styles from './ItemView.module.css';
@@ -33,7 +38,14 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
   const raw = item.values[columnId];
   const derived = columnRegistry.isDerived(column.def.type);
   const serverManaged = columnRegistry.isServerManaged(column.def.type);
-  const canEdit = canEditBoard && !derived && !serverManaged;
+  const effectiveRole = ctx.boardRole ?? 'owner';
+  const lockedForUser = !canEditColumn(effectiveRole, ctx.board, columnId);
+  const canEdit = canEditBoard && !derived && !serverManaged && !lockedForUser;
+  const readOnlyTooltip = serverManaged
+    ? SERVER_MANAGED_TOOLTIP
+    : lockedForUser
+      ? COLUMN_LOCKED_TOOLTIP
+      : undefined;
 
   const value = useMemo(() => {
     if (derived) return derivedCellValue(ctx.boardId, ctx.columns, column.def, item);
@@ -58,7 +70,7 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
     [ctx, columnId],
   );
 
-  if (!ui) return <div className={classNames(styles.cell, className)} />;
+  if (!ui) return <div className={classNames(styles.cell, className)} title={readOnlyTooltip} />;
 
   const cellContext: CellContext = { highlight: '', rowDone: false, canEdit };
   const Cell = ui.Cell;
@@ -93,7 +105,7 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
       ref={ref}
       className={classNames(styles.cell, editing && styles.cellEditing, className)}
       data-cell={`${itemId}:${columnId}`}
-      title={serverManaged ? SERVER_MANAGED_TOOLTIP : undefined}
+      title={readOnlyTooltip}
       onClick={onClick}
     >
       {showEditor && ui.editor === 'inline' ? (
