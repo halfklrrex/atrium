@@ -17,8 +17,19 @@ import { comparePositions } from '../../lib/positions';
 /** Column ids used for the fixed "Item" column in sort state and keyboard navigation. */
 export const NAME_COLUMN = 'name';
 
-/** Column types that have a settings panel in the column menu (labels, unit and decimals). */
-export const SETTINGS_TYPES: ReadonlySet<string> = new Set(['status', 'dropdown', 'numbers']);
+/** Column types that have a settings panel in the column menu. */
+export const SETTINGS_TYPES: ReadonlySet<string> = new Set([
+  'status',
+  'dropdown',
+  'numbers',
+  'timeline',
+  'week',
+  'hour',
+  'world_clock',
+  'files',
+  'button',
+  'time_tracking',
+]);
 
 /** Groups with more rows than this render only the rows near the viewport. */
 export const VIRTUALIZE_AFTER = 50;
