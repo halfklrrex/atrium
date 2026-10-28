@@ -26,6 +26,9 @@ export const SETTINGS_TYPES: ReadonlySet<string> = new Set([
   'week',
   'hour',
   'world_clock',
+  'files',
+  'button',
+  'time_tracking',
 ]);
 
 /** Groups with more rows than this render only the rows near the viewport. */
