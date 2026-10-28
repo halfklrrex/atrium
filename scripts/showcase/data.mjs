@@ -31,7 +31,7 @@ import {
  * UI lands. When one does, move it into `COLUMNS` below and remove it from this list; the drift test
  * in `showcase.test.mjs` fails until you do.
  */
-export const PENDING_TYPES = ['dependency', 'board_relation', 'mirror', 'formula'];
+export const PENDING_TYPES = ['mirror'];
 
 /** Board ids the seed script owns. Anything else is off limits (see `isOwnedPath`). */
 export const SHOWCASE_MAIN_ID = 'showcase-main';
@@ -219,6 +219,24 @@ const COLUMNS = [
     title: 'Time tracked',
     settings: { trackHistory: true, requireNote: false },
   },
+  {
+    id: 'formula',
+    type: 'formula',
+    title: 'Budget with VAT',
+    settings: {
+      expression: '{Budget} * 1.2',
+      outputType: 'number',
+      decimalPlaces: 2,
+      currencySymbol: '$',
+    },
+  },
+  { id: 'dependency', type: 'dependency', title: 'Depends on', settings: { strict: false } },
+  {
+    id: 'related',
+    type: 'board_relation',
+    title: 'Related items',
+    settings: { boardIds: [SHOWCASE_MAIN_ID], allowMultipleItems: true, twoWay: false },
+  },
 ];
 
 /** Column types the main showcase board uses (checked against the web registry by a test). */
@@ -396,6 +414,7 @@ const ITEMS = [
   },
   {
     key: 'pricing-page',
+    dependsOn: ['hero-copy'],
     description: [
       { h: 'Context' },
       {
@@ -488,6 +507,8 @@ const ITEMS = [
     worldClock: 'Europe/London',
     location: { lat: 51.5074, lng: -0.1278, address: 'London, UK' },
     timeTracking: [[5400, 3, 'Configure DNS and staging deploy pipeline', 'jordan']],
+    dependsOn: ['pricing-page'],
+    relatesTo: ['hero-copy', 'pricing-page'],
     created: 15,
   },
   {
@@ -1149,6 +1170,17 @@ function rawValues(spec, ownerUid, anchor) {
         mimeType,
         uploadedAt: new Date(anchor - Math.max(1, spec.created - idx) * DAY).toISOString(),
         uploadedBy: ownerUid,
+      })),
+    };
+  }
+  if (spec.dependsOn) {
+    values.dependency = { item_ids: spec.dependsOn.map((key) => `showcase-${key}`) };
+  }
+  if (spec.relatesTo) {
+    values.related = {
+      linkedItems: spec.relatesTo.map((key) => ({
+        boardId: SHOWCASE_MAIN_ID,
+        itemId: `showcase-${key}`,
       })),
     };
   }

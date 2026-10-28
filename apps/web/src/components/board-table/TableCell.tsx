@@ -94,6 +94,7 @@ export const TableCell = memo(function TableCell({
     boardId: ctx.boardId,
     itemId,
     canAct: env.canEdit,
+    getItems: env.getItems,
   };
 
   const onClick = (event: MouseEvent<HTMLDivElement>) => {

@@ -1,19 +1,24 @@
-import type {
-  ButtonSettings,
-  DropdownSettings,
-  FilesSettings,
-  HourSettings,
-  NumbersSettings,
-  StatusSettings,
-  TimeTrackingSettings,
-  TimelineSettings,
-  WeekSettings,
-  WorldClockSettings,
+import {
+  validateFormulaSettings,
+  type BoardRelationSettings,
+  type ButtonSettings,
+  type DependencySettings,
+  type DropdownSettings,
+  type FilesSettings,
+  type FormulaSettings,
+  type HourSettings,
+  type NumbersSettings,
+  type StatusSettings,
+  type TimeTrackingSettings,
+  type TimelineSettings,
+  type WeekSettings,
+  type WorldClockSettings,
 } from '@atrium/shared';
 import classNames from 'classnames';
 import { useState } from 'react';
 import { DropdownLabelEditor, StatusLabelEditor } from '../../columns/LabelEditors';
 import popups from '../../columns/popups.module.css';
+import { useBoards } from '../../data';
 import { GROUP_COLORS } from '../../theme/palette';
 import { AnchoredPopup } from './AnchoredPopup';
 import { tableActions } from './table-actions';
@@ -431,6 +436,278 @@ function TimeTrackingSettingsEditor({
   );
 }
 
+/** Expression editor, column chips, live validation, output type and formatting for a formula column. */
+function FormulaSettingsEditor({
+  column,
+  settings,
+  onSave,
+  onCancel,
+}: {
+  column: ColumnView;
+  settings: FormulaSettings;
+  onSave: (settings: FormulaSettings) => void;
+  onCancel: () => void;
+}) {
+  const env = useTableEnv();
+  const [expression, setExpression] = useState(settings.expression ?? '');
+  const [outputType, setOutputType] = useState<FormulaSettings['outputType']>(
+    settings.outputType ?? 'text',
+  );
+  const [decimalPlaces, setDecimalPlaces] = useState(
+    settings.decimalPlaces === undefined ? '' : String(settings.decimalPlaces),
+  );
+  const [currencySymbol, setCurrencySymbol] = useState(settings.currencySymbol ?? '');
+
+  const allColumns = env.allColumns ?? env.columns;
+  const otherColumns = allColumns.filter((c) => c.def.id !== column.def.id);
+  const validation = validateFormulaSettings(
+    expression,
+    allColumns.map((c) => c.def),
+    column.def.id,
+  );
+
+  const save = () => {
+    if (!validation.valid) return;
+    const next: FormulaSettings = {
+      expression,
+      outputType,
+    };
+    if (outputType === 'number') {
+      const trimmedDecimals = decimalPlaces.trim();
+      if (trimmedDecimals !== '') {
+        const parsed = Number(trimmedDecimals);
+        if (Number.isFinite(parsed)) {
+          next.decimalPlaces = Math.max(0, Math.min(10, Math.round(parsed)));
+        }
+      }
+      const trimmedSymbol = currencySymbol.trim();
+      if (trimmedSymbol !== '') {
+        next.currencySymbol = trimmedSymbol;
+      }
+    }
+    onSave(next);
+  };
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Formula expression</span>
+        <textarea
+          className={popups.textarea}
+          aria-label="Formula expression"
+          value={expression}
+          placeholder="e.g. {Budget} * 1.2"
+          onChange={(event) => setExpression(event.target.value)}
+        />
+      </label>
+      {!validation.valid && (
+        <p className={popups.error} role="alert">
+          {validation.error}
+        </p>
+      )}
+      {otherColumns.length > 0 && (
+        <div className={popups.field}>
+          <span className={popups.fieldLabel}>Insert column</span>
+          <div className={popups.selectedPills}>
+            {otherColumns.map((col) => (
+              <button
+                key={col.def.id}
+                type="button"
+                className={popups.selectedPill}
+                onClick={() => setExpression((prev) => `${prev}{${col.def.title}}`)}
+              >
+                {`{${col.def.title}}`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Output type</span>
+        <select
+          className={popups.input}
+          aria-label="Output type"
+          value={outputType}
+          onChange={(event) => setOutputType(event.target.value as FormulaSettings['outputType'])}
+        >
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="date">Date</option>
+          <option value="boolean">Boolean</option>
+        </select>
+      </label>
+      {outputType === 'number' && (
+        <>
+          <label className={popups.field}>
+            <span className={popups.fieldLabel}>Decimal places</span>
+            <input
+              className={popups.input}
+              type="number"
+              min={0}
+              max={10}
+              value={decimalPlaces}
+              placeholder="Auto"
+              onChange={(event) => setDecimalPlaces(event.target.value)}
+            />
+          </label>
+          <label className={popups.field}>
+            <span className={popups.fieldLabel}>Currency symbol</span>
+            <input
+              className={popups.input}
+              value={currencySymbol}
+              maxLength={8}
+              placeholder="$, €"
+              onChange={(event) => setCurrencySymbol(event.target.value)}
+            />
+          </label>
+        </>
+      )}
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={popups.linkButton}
+          disabled={!validation.valid}
+          onClick={save}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Strict mode toggle and date/timeline column picker for a dependency column. */
+function DependencySettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: DependencySettings;
+  onSave: (settings: DependencySettings) => void;
+  onCancel: () => void;
+}) {
+  const env = useTableEnv();
+  const [strict, setStrict] = useState(settings.strict ?? false);
+  const [timeColumnId, setTimeColumnId] = useState(settings.timeColumnId ?? '');
+  const timeColumns = (env.allColumns ?? env.columns).filter(
+    (c) => c.def.type === 'date' || c.def.type === 'timeline',
+  );
+
+  const save = () => {
+    onSave({
+      strict,
+      ...(timeColumnId ? { timeColumnId } : {}),
+    });
+  };
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={strict}
+          onChange={(event) => setStrict(event.target.checked)}
+        />
+        <span>Strict mode</span>
+      </label>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Time column</span>
+        <select
+          className={popups.input}
+          aria-label="Time column"
+          value={timeColumnId}
+          onChange={(event) => setTimeColumnId(event.target.value)}
+        >
+          <option value="">None</option>
+          {timeColumns.map((col) => (
+            <option key={col.def.id} value={col.def.id}>
+              {col.def.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className={popups.linkButton} onClick={save}>
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Workspace readable boards picker and multi-item toggle for a connect boards column. */
+function BoardRelationSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: BoardRelationSettings;
+  onSave: (settings: BoardRelationSettings) => void;
+  onCancel: () => void;
+}) {
+  const env = useTableEnv();
+  const liveBoards = useBoards(env.workspaceBoards ? undefined : env.workspaceId, env.uid || null);
+  const boards = env.workspaceBoards ?? liveBoards.data;
+  const [boardIds, setBoardIds] = useState<string[]>(settings.boardIds ?? []);
+  const [allowMultipleItems, setAllowMultipleItems] = useState(settings.allowMultipleItems ?? true);
+
+  const toggleBoard = (boardId: string) => {
+    setBoardIds((prev) =>
+      prev.includes(boardId) ? prev.filter((id) => id !== boardId) : [...prev, boardId],
+    );
+  };
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <div className={popups.field}>
+        <span className={popups.fieldLabel}>Connected boards</span>
+        {boards.length === 0 ? (
+          <p className={popups.muted}>No boards available</p>
+        ) : (
+          <div className={popups.list}>
+            {boards.map((board) => (
+              <label key={board.id} className={popups.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={boardIds.includes(board.id)}
+                  onChange={() => toggleBoard(board.id)}
+                />
+                <span>{board.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      <label className={popups.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={allowMultipleItems}
+          onChange={(event) => setAllowMultipleItems(event.target.checked)}
+        />
+        <span>Allow linking multiple items</span>
+      </label>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={popups.linkButton}
+          onClick={() => onSave({ boardIds, allowMultipleItems, twoWay: false })}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The settings popover of one column, opened from its header menu. */
 export function ColumnSettingsPopup({
   column,
@@ -507,6 +784,25 @@ export function ColumnSettingsPopup({
       ) : column.def.type === 'time_tracking' ? (
         <TimeTrackingSettingsEditor
           settings={column.settings as TimeTrackingSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'formula' ? (
+        <FormulaSettingsEditor
+          column={column}
+          settings={column.settings as FormulaSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'dependency' ? (
+        <DependencySettingsEditor
+          settings={column.settings as DependencySettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'board_relation' ? (
+        <BoardRelationSettingsEditor
+          settings={column.settings as BoardRelationSettings}
           onSave={save}
           onCancel={close}
         />

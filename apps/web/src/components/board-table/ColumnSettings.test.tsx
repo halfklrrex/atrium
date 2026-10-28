@@ -43,9 +43,9 @@ function makeColumnView(type: string, settings: Record<string, unknown> = {}): C
   };
 }
 
-function renderSettings(column: ColumnView) {
+function renderSettings(column: ColumnView, envOverrides: Partial<TableEnv> = {}) {
   return render(
-    <TableEnvContext.Provider value={mockEnv}>
+    <TableEnvContext.Provider value={{ ...mockEnv, ...envOverrides }}>
       <ColumnSettingsPopup column={column} anchor={document.body} />
     </TableEnvContext.Provider>,
   );
@@ -195,6 +195,129 @@ describe('ColumnSettingsPopup', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(tableActions.updateColumn).toHaveBeenCalledWith(mockCtx, 'col-time_tracking', {
       settings: { trackHistory: false, requireNote: true },
+    });
+  });
+
+  it('edits formula expression, inserts column chips, validates live and saves settings', () => {
+    const budgetCol: ColumnView = {
+      def: { id: 'col-budget', type: 'numbers', title: 'Budget', position: 'a0', settings: {} },
+      settings: {},
+      width: 140,
+    };
+    const formulaCol = makeColumnView('formula', { expression: '', outputType: 'text' });
+
+    renderSettings(formulaCol, { columns: [budgetCol, formulaCol] });
+
+    const textarea = screen.getByLabelText('Formula expression');
+    const applyBtn = screen.getByRole('button', { name: 'Apply' });
+
+    // Clicking a column chip inserts `{Budget}`
+    fireEvent.click(screen.getByRole('button', { name: '{Budget}' }));
+    expect(textarea).toHaveValue('{Budget}');
+
+    // Typing an invalid expression shows an alert and disables Apply
+    fireEvent.change(textarea, { target: { value: '{UnknownCol} * 2' } });
+    expect(screen.getByRole('alert')).toHaveTextContent(/Unknown column reference/i);
+    expect(applyBtn).toBeDisabled();
+
+    // Fixing the expression clears the alert and enables Apply
+    fireEvent.change(textarea, { target: { value: '{Budget} * 1.2' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(applyBtn).not.toBeDisabled();
+
+    // Selecting outputType = 'number' shows Decimal places and Currency symbol
+    const outputTypeSelect = screen.getByLabelText('Output type');
+    fireEvent.change(outputTypeSelect, { target: { value: 'number' } });
+    fireEvent.change(screen.getByLabelText('Decimal places'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Currency symbol'), { target: { value: '$' } });
+
+    fireEvent.click(applyBtn);
+    expect(tableActions.updateColumn).toHaveBeenCalledWith(mockCtx, 'col-formula', {
+      settings: {
+        expression: '{Budget} * 1.2',
+        outputType: 'number',
+        decimalPlaces: 2,
+        currencySymbol: '$',
+      },
+    });
+  });
+
+  it('toggles strict mode and picks a date/timeline column for dependency settings', () => {
+    const dateCol: ColumnView = {
+      def: { id: 'col-due', type: 'date', title: 'Due date', position: 'a0', settings: {} },
+      settings: {},
+      width: 140,
+    };
+    const timelineCol: ColumnView = {
+      def: {
+        id: 'col-timeline',
+        type: 'timeline',
+        title: 'Timeline',
+        position: 'a1',
+        settings: {},
+      },
+      settings: {},
+      width: 160,
+    };
+    const textCol: ColumnView = {
+      def: { id: 'col-text', type: 'text', title: 'Notes', position: 'a2', settings: {} },
+      settings: {},
+      width: 140,
+    };
+    const depCol = makeColumnView('dependency', { strict: false });
+
+    renderSettings(depCol, { columns: [dateCol, timelineCol, textCol, depCol] });
+
+    const strictCheckbox = screen.getByRole('checkbox', { name: 'Strict mode' });
+    const timeSelect = screen.getByLabelText('Time column');
+    expect(strictCheckbox).not.toBeChecked();
+    expect(timeSelect).toHaveValue('');
+    expect(screen.queryByRole('option', { name: 'Notes' })).toBeNull();
+    expect(screen.getByRole('option', { name: 'Due date' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Timeline' })).toBeInTheDocument();
+
+    fireEvent.click(strictCheckbox);
+    fireEvent.change(timeSelect, { target: { value: 'col-timeline' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(tableActions.updateColumn).toHaveBeenCalledWith(mockCtx, 'col-dependency', {
+      settings: { strict: true, timeColumnId: 'col-timeline' },
+    });
+  });
+
+  it('picks readable workspace boards, toggles allowMultipleItems, hides twoWay and saves board_relation settings', () => {
+    const relCol = makeColumnView('board_relation', {
+      boardIds: ['board-a'],
+      allowMultipleItems: true,
+      twoWay: false,
+    });
+
+    renderSettings(relCol, {
+      workspaceBoards: [
+        { id: 'board-a', name: 'Product Roadmap' },
+        { id: 'board-b', name: 'Sprint Backlog' },
+      ],
+    });
+
+    const boardACheckbox = screen.getByRole('checkbox', { name: 'Product Roadmap' });
+    const boardBCheckbox = screen.getByRole('checkbox', { name: 'Sprint Backlog' });
+    const multiCheckbox = screen.getByRole('checkbox', { name: 'Allow linking multiple items' });
+
+    expect(boardACheckbox).toBeChecked();
+    expect(boardBCheckbox).not.toBeChecked();
+    expect(multiCheckbox).toBeChecked();
+    expect(screen.queryByText(/two-way|two way/i)).toBeNull();
+
+    fireEvent.click(boardBCheckbox);
+    fireEvent.click(multiCheckbox);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(tableActions.updateColumn).toHaveBeenCalledWith(mockCtx, 'col-board_relation', {
+      settings: {
+        boardIds: ['board-a', 'board-b'],
+        allowMultipleItems: false,
+        twoWay: false,
+      },
     });
   });
 
