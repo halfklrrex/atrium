@@ -23,6 +23,7 @@ export function makeBoard(overrides: Partial<BoardDoc> & { id: string }): BoardD
     subitemColumns: [],
     derivedColumnIds: [],
     serverManagedColumnIds: [],
+    columnLocks: [],
     groups: [],
     itemTerminology: 'item',
     state: 'active',

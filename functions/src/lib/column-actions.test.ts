@@ -640,4 +640,94 @@ describe('column-actions', () => {
       ).rejects.toThrow(HttpsError);
     });
   });
+
+  describe('column locks enforcement', () => {
+    const lockedBoard: BoardData = {
+      ...baseBoard,
+      columnLocks: ['col_time', 'col_btn'],
+    };
+
+    it('refuses startTimeTracking, stopTimeTracking, and clickButton for an editor on a locked column and allows a board owner', async () => {
+      const store: TestStore = {
+        board: lockedBoard,
+        workspaceRoles: { u_member: 'member', u_owner: 'owner' },
+        item: { ...baseItem },
+        appendedActivities: [],
+        currentTimeMs: 1700000000000,
+        generatedSessionId: 'sess_lock',
+      };
+      const tx = createFakeTx(store);
+
+      // Editor is refused on startTimeTracking
+      await expect(
+        startTimeTrackingInTransaction(
+          tx,
+          'u_member',
+          { boardId: 'b_1', itemId: 'item_1', columnId: 'col_time' },
+          'SERVER_TIMESTAMP',
+        ),
+      ).rejects.toMatchObject({
+        code: 'permission-denied',
+        message: 'This column is locked. Only board owners can edit it.',
+      });
+
+      // Owner can start timer on locked column
+      const startRes = await startTimeTrackingInTransaction(
+        tx,
+        'u_owner',
+        { boardId: 'b_1', itemId: 'item_1', columnId: 'col_time' },
+        'SERVER_TIMESTAMP',
+      );
+      expect(startRes.success).toBe(true);
+      store.item = {
+        ...baseItem,
+        values: { col_time: store.updatedValues?.value },
+      };
+
+      // Editor is refused on stopTimeTracking
+      store.currentTimeMs = 1700000060000;
+      await expect(
+        stopTimeTrackingInTransaction(
+          tx,
+          'u_member',
+          { boardId: 'b_1', itemId: 'item_1', columnId: 'col_time' },
+          'SERVER_TIMESTAMP',
+        ),
+      ).rejects.toMatchObject({
+        code: 'permission-denied',
+        message: 'This column is locked. Only board owners can edit it.',
+      });
+
+      // Owner can stop timer on locked column
+      const stopRes = await stopTimeTrackingInTransaction(
+        tx,
+        'u_owner',
+        { boardId: 'b_1', itemId: 'item_1', columnId: 'col_time' },
+        'SERVER_TIMESTAMP',
+      );
+      expect(stopRes.success).toBe(true);
+
+      // Editor is refused on clickButton
+      await expect(
+        clickButtonInTransaction(
+          tx,
+          'u_member',
+          { boardId: 'b_1', itemId: 'item_1', columnId: 'col_btn' },
+          'SERVER_TIMESTAMP',
+        ),
+      ).rejects.toMatchObject({
+        code: 'permission-denied',
+        message: 'This column is locked. Only board owners can edit it.',
+      });
+
+      // Owner can click locked button column
+      const clickRes = await clickButtonInTransaction(
+        tx,
+        'u_owner',
+        { boardId: 'b_1', itemId: 'item_1', columnId: 'col_btn' },
+        'SERVER_TIMESTAMP',
+      );
+      expect(clickRes.success).toBe(true);
+    });
+  });
 });

@@ -1,4 +1,10 @@
-import { canEditBoard, columnRegistry, resolveBoardRole, type GroupDef } from '@atrium/shared';
+import {
+  canEditBoard,
+  canManageBoard,
+  columnRegistry,
+  resolveBoardRole,
+  type GroupDef,
+} from '@atrium/shared';
 import {
   DndContext,
   DragOverlay,
@@ -35,7 +41,7 @@ import { GroupBlock } from './GroupBlock';
 import { ItemRowBody } from './ItemRow';
 import { SubitemScope } from './SubitemBlock';
 import { useItemViewStore } from '../item-view/item-view-store';
-import { isClientReadOnlyType } from './derived';
+import { isColumnReadOnlyForUser } from './derived';
 import { dropPosition } from './move-math';
 import { tableActions, type TableCtx } from './table-actions';
 import { TableEnvContext, type TableEnv } from './table-env';
@@ -94,7 +100,9 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const { data: workspace } = useWorkspace(board.workspaceId);
-  const canEdit = canEditBoard(resolveBoardRole(board, uid, workspace?.roles[uid]));
+  const boardRole = resolveBoardRole(board, uid, workspace?.roles[uid]);
+  const canEdit = canEditBoard(boardRole);
+  const canManage = canManageBoard(boardRole);
   const { data: items, loading, error } = useItems(board.id);
   const memberLookup = useUserLookup(board.workspaceId);
 
@@ -118,6 +126,8 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
   const columnDefs = useDeepStable(board.columns);
   const subitemDefs = useDeepStable(board.subitemColumns ?? []);
   const groupDefs = useDeepStable(board.groups);
+  const columnLocks = useDeepStable(board.columnLocks ?? []);
+  const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
   const allColumns = useMemo(() => buildColumnViews(columnDefs), [columnDefs]);
   // Hide: the columns this view does not show still filter, sort and group.
   const hiddenIds = useHiddenColumnIds(board.id);
@@ -210,10 +220,12 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       uid,
       columns: columnDefs,
       subitemColumns: subitemDefs,
+      board: boardLocks,
+      boardRole,
       getItems,
       getGroups,
     }),
-    [boardId, uid, columnDefs, subitemDefs, getItems, getGroups],
+    [boardId, uid, columnDefs, subitemDefs, boardLocks, boardRole, getItems, getGroups],
   );
   // The same context for the cells of a subitem (what the keyboard writes to).
   const subitemCtx = useMemo<TableCtx>(
@@ -246,6 +258,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       boardId,
       uid,
       canEdit,
+      canManage,
       columns,
       allColumns,
       subitemColumns,
@@ -261,6 +274,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       boardId,
       uid,
       canEdit,
+      canManage,
       columns,
       allColumns,
       subitemColumns,
@@ -498,8 +512,13 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       }
       const column = scopeColumns.find((c) => c.def.id === active.columnId);
       const ui = column ? getColumnUi(column.def.type) : undefined;
-      // Derived and server-managed cells are read-only: no editor opens and nothing is written.
-      if (!column || !ui || isClientReadOnlyType(column.def.type)) return;
+      // Derived, server-managed and locked (for non-owners) cells are read-only: no editor opens and nothing is written.
+      if (
+        !column ||
+        !ui ||
+        isColumnReadOnlyForUser(column.def.type, boardLocks, column.def.id, boardRole)
+      )
+        return;
       if (ui.editor === 'toggle') {
         const item = itemsRef.current.find((i) => i.id === active.itemId);
         const parsed = columnRegistry.parseValue(column.def.type, item?.values[column.def.id]);
@@ -519,7 +538,11 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
     if ((event.key === 'Delete' || event.key === 'Backspace') && active.columnId !== NAME_COLUMN) {
       event.preventDefault();
       const clearing = scopeColumns.find((c) => c.def.id === active.columnId);
-      if (clearing && isClientReadOnlyType(clearing.def.type)) return;
+      if (
+        clearing &&
+        isColumnReadOnlyForUser(clearing.def.type, boardLocks, clearing.def.id, boardRole)
+      )
+        return;
       void tableActions.setCell(
         scopeCtx,
         active.itemId,

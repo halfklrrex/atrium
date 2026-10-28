@@ -1167,6 +1167,7 @@ export function buildShowcase({
       position: 'Zz',
       columns,
       subitemColumns,
+      columnLocks: ['budget'],
       groups,
       createdAt: ago(30 * DAY),
       updatedAt: ago(2 * HOUR),

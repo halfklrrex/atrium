@@ -141,6 +141,7 @@ function makeBoard(uid: string, kind: 'main' | 'private' = 'main'): Board {
     subitemColumns: [],
     derivedColumnIds: [],
     serverManagedColumnIds: ['c_files'],
+    columnLocks: [],
     groups: [],
     itemTerminology: 'item',
     state: 'active',
@@ -691,5 +692,164 @@ describe('file-storage sweepOrphanUploads', () => {
     expect(res.scanned).toBe(4);
     expect(res.deleted).toBe(1);
     expect(deletedFiles).toEqual(['boards/b_1/items/i_1/files/orphan_old']);
+  });
+});
+
+describe('file-storage column locks enforcement', () => {
+  it('refuses requestFileUpload, finalizeFileUpload, and deleteFileAttachment for an editor on a locked column and allows a board owner, while keeping getFileDownloadUrl allowed', async () => {
+    const tx = new MockFileStorageTx();
+    const bucket = new MockStorageBucket();
+    const ownerUid = 'usr_owner';
+    const editorUid = 'usr_editor';
+    const viewerUid = 'usr_viewer';
+
+    const ws = makeWorkspace(ownerUid, 'owner');
+    ws.memberIds.push(editorUid, viewerUid);
+    ws.roles[editorUid] = 'member';
+    ws.roles[viewerUid] = 'viewer';
+    tx.workspaces.set('ws_1', ws);
+
+    const board = makeBoard(ownerUid);
+    board.columnLocks = ['c_files'];
+    tx.boards.set('b_1', board);
+
+    const item = makeItem('b_1', 'i_1');
+    const existingPath = 'boards/b_1/items/i_1/files/file_existing';
+    item.values = {
+      c_files: {
+        files: [
+          {
+            id: 'file_existing',
+            name: 'existing.pdf',
+            storagePath: existingPath,
+            size: 1024,
+            mimeType: 'application/pdf',
+            uploadedAt: '2026-10-25T00:00:00.000Z',
+            uploadedBy: ownerUid,
+          },
+        ],
+      },
+    };
+    tx.items.set('b_1:i_1', item);
+
+    const newPath = 'boards/b_1/items/i_1/files/file_new';
+    bucket.files.set(newPath, {
+      size: 1024,
+      contentType: 'application/pdf',
+      timeCreated: '2026-10-25T00:00:00.000Z',
+    });
+
+    // 1. requestFileUpload: editor refused, owner allowed
+    await expect(
+      requestFileUploadInTransaction(
+        tx,
+        bucket,
+        {
+          boardId: 'b_1',
+          itemId: 'i_1',
+          columnId: 'c_files',
+          fileName: 'doc.pdf',
+          contentType: 'application/pdf',
+          size: 1024,
+        },
+        editorUid,
+      ),
+    ).rejects.toMatchObject({
+      code: 'permission-denied',
+      message: 'This column is locked. Only board owners can edit it.',
+    });
+
+    const uploadReqRes = await requestFileUploadInTransaction(
+      tx,
+      bucket,
+      {
+        boardId: 'b_1',
+        itemId: 'i_1',
+        columnId: 'c_files',
+        fileName: 'doc.pdf',
+        contentType: 'application/pdf',
+        size: 1024,
+      },
+      ownerUid,
+    );
+    expect(uploadReqRes.fileId).toBe('file_mock_123');
+
+    // 2. finalizeFileUpload: editor refused, owner allowed
+    await expect(
+      finalizeFileUploadInTransaction(
+        tx,
+        bucket,
+        {
+          boardId: 'b_1',
+          itemId: 'i_1',
+          columnId: 'c_files',
+          fileId: 'file_new',
+          fileName: 'new.pdf',
+        },
+        editorUid,
+      ),
+    ).rejects.toMatchObject({
+      code: 'permission-denied',
+      message: 'This column is locked. Only board owners can edit it.',
+    });
+
+    const finalizeRes = await finalizeFileUploadInTransaction(
+      tx,
+      bucket,
+      {
+        boardId: 'b_1',
+        itemId: 'i_1',
+        columnId: 'c_files',
+        fileId: 'file_new',
+        fileName: 'new.pdf',
+      },
+      ownerUid,
+    );
+    expect(finalizeRes.kind).toBe('success');
+
+    // 3. getFileDownloadUrl: both editor and viewer are allowed on a locked column
+    for (const uid of [editorUid, viewerUid]) {
+      const dlRes = await getFileDownloadUrlInTransaction(
+        tx,
+        bucket,
+        {
+          boardId: 'b_1',
+          itemId: 'i_1',
+          columnId: 'c_files',
+          fileId: 'file_existing',
+        },
+        uid,
+      );
+      expect(dlRes.downloadUrl).toContain(existingPath);
+    }
+
+    // 4. deleteFileAttachment: editor refused, owner allowed
+    await expect(
+      deleteFileAttachmentInTransaction(
+        tx,
+        {
+          boardId: 'b_1',
+          itemId: 'i_1',
+          columnId: 'c_files',
+          fileId: 'file_existing',
+        },
+        editorUid,
+      ),
+    ).rejects.toMatchObject({
+      code: 'permission-denied',
+      message: 'This column is locked. Only board owners can edit it.',
+    });
+
+    const delRes = await deleteFileAttachmentInTransaction(
+      tx,
+      {
+        boardId: 'b_1',
+        itemId: 'i_1',
+        columnId: 'c_files',
+        fileId: 'file_existing',
+      },
+      ownerUid,
+    );
+    expect(delRes.result.success).toBe(true);
   });
 });
