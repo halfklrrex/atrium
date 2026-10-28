@@ -8,15 +8,15 @@ Make the item description editor's toolbar and text match monday's rich-text edi
 
 ## Gaps (Atrium at `3953ddf` vs monday)
 
-| | monday | Atrium today (`DescriptionEditor.module.css`, `DescriptionToolbar.tsx`) |
-|---|---|---|
-| Rows | one row, never wraps | `flex-wrap: wrap`, two rows at the panel width |
-| Button | 30×31, 14px icon, ~2px apart | 32×32, `gap: var(--space-4)` |
-| Text style / Font | icon-only ¶ button | text buttons, at least 96px each, with the current name and a chevron |
-| Icon colour | primary text | `--secondary-text-color` |
-| Under toolbar | no divider | `border-bottom` |
-| Body text | 16px/24px, padding 16px 18px | `--atrium-update-body-font` (15px), padding 12px 16px |
-| Style menu | 40px rows, each previewing its style | check, and match |
+|                   | monday                               | Atrium today (`DescriptionEditor.module.css`, `DescriptionToolbar.tsx`) |
+| ----------------- | ------------------------------------ | ----------------------------------------------------------------------- |
+| Rows              | one row, never wraps                 | `flex-wrap: wrap`, two rows at the panel width                          |
+| Button            | 30×31, 14px icon, ~2px apart         | 32×32, `gap: var(--space-4)`                                            |
+| Text style / Font | icon-only ¶ button                   | text buttons, at least 96px each, with the current name and a chevron   |
+| Icon colour       | primary text                         | `--secondary-text-color`                                                |
+| Under toolbar     | no divider                           | `border-bottom`                                                         |
+| Body text         | 16px/24px, padding 16px 18px         | `--atrium-update-body-font` (15px), padding 12px 16px                   |
+| Style menu        | 40px rows, each previewing its style | check, and match                                                        |
 
 ## Changes
 
@@ -25,6 +25,7 @@ Make the item description editor's toolbar and text match monday's rich-text edi
    - a doc body font of `400 16px / 24px var(--font-family)` and the body padding `16px 18px`.
 
    Use those tokens in the CSS module. No raw px in the module (lint enforces this).
+
 2. **Toolbar row:**
    - `flex-wrap: nowrap`, no bottom border, buttons at the new size and gap;
    - icon colour `--primary-text-color`; hover stays `--primary-background-hover-color`; the active state stays as it is.
