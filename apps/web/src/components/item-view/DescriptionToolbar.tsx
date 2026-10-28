@@ -17,7 +17,6 @@ import {
   Quote,
   Redo,
   Table,
-  TextFormatting,
   Underline,
   Undo,
 } from '@vibe/icons';
@@ -37,6 +36,7 @@ import { ensureFontLoaded } from './editor-fonts';
 import {
   FontIcon,
   NumberedList,
+  ParagraphIcon,
   Strikethrough,
   TextColorIcon,
   type EditorIcon,
@@ -361,7 +361,7 @@ export function DescriptionToolbar({
       group: 1,
       button: {
         label: `Text style: ${currentStyle.name}`,
-        Icon: TextFormatting,
+        Icon: ParagraphIcon,
         popup: true,
         expanded: popup?.kind === 'style',
         onClick: toggle('style'),
