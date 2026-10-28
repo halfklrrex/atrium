@@ -97,6 +97,7 @@
   --atrium-table-batch-count-bg: var(--primary-color);
   --atrium-table-drag-ghost: var(--primary-selected-color);
   --atrium-table-chip-ring: var(--primary-color);
+  --atrium-timeline-track: #333333; /* unfilled part of a progress timeline; the white label sits on it */
 
   /* ---- Elevation ---- */
   --atrium-table-popup-shadow: var(--box-shadow-medium);
@@ -124,4 +125,9 @@
   --atrium-table-batch-bg: var(--secondary-background-color);
   --atrium-table-popup-bg: var(--secondary-background-color);
   --atrium-table-batch-shadow: var(--box-shadow-medium);
+  --atrium-timeline-track: #4b506e;
+}
+
+.black-app-theme {
+  --atrium-timeline-track: #404040;
 }
