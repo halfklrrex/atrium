@@ -457,7 +457,7 @@
 }
 
 .timelinePillProgress {
-  background: var(--dark-background-color);
+  background: var(--atrium-timeline-track);
 }
 
 .timelineFill {
