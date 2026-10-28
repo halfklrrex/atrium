@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { FORMULA_ERRORS } from '../formula';
 import type { ColumnDef } from '../schemas/board';
 import {
+  DERIVED_WRITE_MESSAGE,
   autoNumberColumn,
   columnRegistry,
   computeCreationLog,
@@ -9,6 +11,7 @@ import {
   computeProgress,
   creationLogColumn,
   formatItemId,
+  formulaColumn,
   itemIdColumn,
   lastUpdatedColumn,
   progressColumn,
@@ -480,5 +483,143 @@ describe('last_updated column', () => {
         '2026-10-24T12:00:00.000Z',
       );
     }
+  });
+});
+
+describe('formula column (derived)', () => {
+  const formulaDef: ColumnDef = {
+    id: 'c_formula',
+    type: 'formula',
+    title: 'Total',
+    position: 'a1',
+    settings: { expression: '{Price} * {Qty}', outputType: 'number' },
+  };
+  const priceDef: ColumnDef = {
+    id: 'c_price',
+    type: 'numbers',
+    title: 'Price',
+    position: 'a0',
+    settings: {},
+  };
+  const qtyDef: ColumnDef = {
+    id: 'c_qty',
+    type: 'numbers',
+    title: 'Qty',
+    position: 'a05',
+    settings: {},
+  };
+
+  it('is marked derived and rejects client writes via validateCell', () => {
+    expect(formulaColumn.derived).toBe(true);
+    expect(columnRegistry.isDerived('formula')).toBe(true);
+    for (const val of [42, 'hello', true, null, undefined]) {
+      expect(columnRegistry.validateCell(formulaDef, val)).toEqual({
+        ok: false,
+        message: DERIVED_WRITE_MESSAGE,
+      });
+    }
+  });
+
+  it('computes arithmetic, string, and column-reference formulas', () => {
+    const columns = [priceDef, qtyDef, formulaDef];
+    const ctx: ColumnContext = {
+      boardId: 'b1',
+      item: {
+        id: 'i1',
+        values: {
+          c_price: 15,
+          c_qty: 3,
+        },
+      },
+      columns,
+    };
+
+    expect(
+      formulaColumn.compute?.(ctx, { expression: '{Price} * {Qty}', outputType: 'number' }),
+    ).toBe(45);
+    expect(
+      formulaColumn.compute?.(ctx, {
+        expression: 'CONCATENATE("Total: ", {Price} * {Qty})',
+        outputType: 'text',
+      }),
+    ).toBe('Total: 45');
+    expect(formulaColumn.compute?.(ctx, { expression: '   ', outputType: 'text' })).toBeNull();
+  });
+
+  it('references item_id, auto_number, and chained formula columns, and detects circular references', () => {
+    const itemIdDef: ColumnDef = {
+      id: 'c_item_id',
+      type: 'item_id',
+      title: 'Item ID',
+      position: 'a0',
+      settings: { displayType: 'id' },
+    };
+    const f1Def: ColumnDef = {
+      id: 'c_f1',
+      type: 'formula',
+      title: 'Base',
+      position: 'a1',
+      settings: { expression: '{Auto} + 10', outputType: 'number' },
+    };
+    const f2Def: ColumnDef = {
+      id: 'c_f2',
+      type: 'formula',
+      title: 'Doubled',
+      position: 'a2',
+      settings: { expression: '{Base} * 2', outputType: 'number' },
+    };
+    const ctx: ColumnContext = {
+      boardId: 'b1',
+      item: { id: 'i1', values: {}, seq: 100, boardSeq: 5 },
+      columns: [autoDef, itemIdDef, f1Def, f2Def],
+    };
+
+    expect(formulaColumn.compute?.(ctx, { expression: '{Base} * 2', outputType: 'number' })).toBe(
+      30,
+    );
+    expect(
+      formulaColumn.compute?.(ctx, {
+        expression: 'CONCATENATE("#", {Item ID})',
+        outputType: 'text',
+      }),
+    ).toBe('#100');
+
+    // Circular reference between two formula columns
+    const cyc1: ColumnDef = {
+      id: 'c_cyc1',
+      type: 'formula',
+      title: 'Cyc1',
+      position: 'a3',
+      settings: { expression: '{Cyc2} + 1', outputType: 'number' },
+    };
+    const cyc2: ColumnDef = {
+      id: 'c_cyc2',
+      type: 'formula',
+      title: 'Cyc2',
+      position: 'a4',
+      settings: { expression: '{Cyc1} + 1', outputType: 'number' },
+    };
+    const cycCtx: ColumnContext = {
+      boardId: 'b1',
+      item: { id: 'i1', values: {} },
+      columns: [cyc1, cyc2],
+    };
+    expect(
+      formulaColumn.compute?.(cycCtx, { expression: '{Cyc2} + 1', outputType: 'number' }),
+    ).toBe(FORMULA_ERRORS.CIRCULAR);
+  });
+
+  it('returns FORMULA_ERRORS on evaluation errors such as division by zero', () => {
+    const ctx: ColumnContext = {
+      boardId: 'b1',
+      item: { id: 'i1', values: { c_price: 10, c_qty: 0 } },
+      columns: [priceDef, qtyDef, formulaDef],
+    };
+    expect(
+      formulaColumn.compute?.(ctx, { expression: '{Price} / {Qty}', outputType: 'number' }),
+    ).toBe(FORMULA_ERRORS.DIV_ZERO);
+    expect(formulaColumn.compute?.(ctx, { expression: '1 + * 2', outputType: 'number' })).toBe(
+      FORMULA_ERRORS.ERROR,
+    );
   });
 });

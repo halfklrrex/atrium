@@ -640,3 +640,18 @@
 .timerDurationBtn:hover {
   text-decoration: underline;
 }
+
+/* ---- Formula ---- */
+
+.formulaError {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--atrium-table-swatch);
+  height: var(--atrium-table-swatch);
+  border-radius: 50%;
+  background: var(--negative-color);
+  color: var(--atrium-table-on-fill);
+  font: var(--atrium-table-pill-font);
+  cursor: help;
+}

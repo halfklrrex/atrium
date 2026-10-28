@@ -79,6 +79,7 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
     boardId: ctx.boardId,
     itemId,
     canAct: canEditBoard,
+    getItems: ctx.getItems,
   };
   const Cell = ui.Cell;
   const Editor = ui.Editor;
