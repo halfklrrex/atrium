@@ -149,7 +149,8 @@ export function useBoardPresence(
       );
 
       return () => unsubscribe();
-    } catch {
+    } catch (error) {
+      console.warn('Error subscribing to board presence', error);
       return undefined;
     }
   }, [boardId]);

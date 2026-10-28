@@ -31,7 +31,6 @@ import {
  * in `showcase.test.mjs` fails until you do.
  */
 export const PENDING_TYPES = [
-  'location',
   'dependency',
   'board_relation',
   'mirror',
@@ -208,6 +207,7 @@ const COLUMNS = [
     title: 'World clock',
     settings: { format24Hour: true, showCity: true },
   },
+  { id: 'location', type: 'location', title: 'Location', settings: {} },
 ];
 
 /** Column types the main showcase board uses (checked against the web registry by a test). */
@@ -331,6 +331,7 @@ const ITEMS = [
     week: [-5, 1],
     hour: { hour: 10, minute: 0 },
     worldClock: 'America/New_York',
+    location: { lat: 40.7128, lng: -74.006, address: 'New York, NY' },
     created: 12,
     updates: [
       {
@@ -387,6 +388,7 @@ const ITEMS = [
     week: [-5, 1],
     hour: { hour: 14, minute: 30 },
     worldClock: 'Europe/Berlin',
+    location: { lat: 52.52, lng: 13.405, address: 'Berlin, Germany' },
     created: 20,
     updates: [
       {
@@ -439,6 +441,7 @@ const ITEMS = [
     week: [-12, -6],
     hour: { hour: 9, minute: 15 },
     worldClock: 'Europe/London',
+    location: { lat: 51.5074, lng: -0.1278, address: 'London, UK' },
     created: 15,
   },
   {
@@ -462,6 +465,7 @@ const ITEMS = [
     week: [-5, 1],
     hour: { hour: 16, minute: 0 },
     worldClock: 'Europe/Paris',
+    location: { lat: 48.8566, lng: 2.3522, address: 'Paris, France' },
     created: 9,
   },
   {
@@ -541,6 +545,7 @@ const ITEMS = [
     week: [-5, 1],
     hour: { hour: 15, minute: 45 },
     worldClock: 'America/Los_Angeles',
+    location: { lat: 37.7749, lng: -122.4194, address: 'San Francisco, CA' },
     created: 11,
     updates: [
       {
@@ -632,6 +637,7 @@ const ITEMS = [
     week: [2, 8],
     hour: { hour: 17, minute: 0 },
     worldClock: 'America/Chicago',
+    location: { lat: 41.8781, lng: -87.6298, address: 'Chicago, IL' },
     created: 10,
   },
   {
@@ -920,6 +926,7 @@ const ITEMS = [
     week: [-19, -13],
     hour: { hour: 8, minute: 0 },
     worldClock: 'Asia/Tokyo',
+    location: { lat: 35.6762, lng: 139.6503, address: 'Tokyo, Japan' },
     created: 20,
   },
   {
@@ -1084,6 +1091,7 @@ function rawValues(spec, ownerUid, anchor) {
     };
   if (spec.hour) values.hour = spec.hour;
   if (spec.worldClock) values.world_clock = { timezone: spec.worldClock };
+  if (spec.location) values.location = spec.location;
   return values;
 }
 

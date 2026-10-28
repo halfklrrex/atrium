@@ -272,29 +272,36 @@ describe('vote column in the board table', () => {
   };
   const voteCtx = { boardId: 'b1', uid: 'u1', columns: [...columns, voteCol] };
 
-  it('delegates to toggleVote when toggling a vote', async () => {
-    const itemWithoutVote = makeItem({
+  it('validates vote writes via validateCellWrite and rejects invalid payloads with a toast', async () => {
+    expect(await tableActions.setCell(voteCtx, 'i1', 'vote_1', { bad: true })).toBe(false);
+    expect(mocks.toggleVote).not.toHaveBeenCalled();
+    expect(mocks.setValue).not.toHaveBeenCalled();
+    expect(useToastStore.getState().toasts.at(-1)?.type).toBe('negative');
+  });
+
+  it('derives arrayUnion (hasVoted: false) or arrayRemove (hasVoted: true) from the requested value even when item is omitted or stale', async () => {
+    const staleItemWithVote = makeItem({
       id: 'i1',
       name: 'Task',
       groupId: 'g1',
       position: 'a0',
-      values: {},
+      values: { vote_1: { votersIds: ['u1'] } },
     });
     expect(
-      await tableActions.setCell(voteCtx, 'i1', 'vote_1', { votersIds: ['u1'] }, itemWithoutVote),
+      await tableActions.setCell(voteCtx, 'i1', 'vote_1', { votersIds: ['u1'] }, staleItemWithVote),
     ).toBe(true);
     expect(mocks.toggleVote).toHaveBeenCalledWith('u1', 'b1', 'i1', 'vote_1', false);
 
-    const itemWithVote = makeItem({
-      id: 'i1',
-      name: 'Task',
-      groupId: 'g1',
-      position: 'a0',
-      values: { vote_1: { votersIds: ['u1', 'u2'] } },
-    });
-    expect(
-      await tableActions.setCell(voteCtx, 'i1', 'vote_1', { votersIds: ['u2'] }, itemWithVote),
-    ).toBe(true);
+    mocks.toggleVote.mockClear();
+    expect(await tableActions.setCell(voteCtx, 'i1', 'vote_1', { votersIds: ['u1'] })).toBe(true);
+    expect(mocks.toggleVote).toHaveBeenCalledWith('u1', 'b1', 'i1', 'vote_1', false);
+
+    mocks.toggleVote.mockClear();
+    expect(await tableActions.setCell(voteCtx, 'i1', 'vote_1', { votersIds: [] })).toBe(true);
+    expect(mocks.toggleVote).toHaveBeenCalledWith('u1', 'b1', 'i1', 'vote_1', true);
+
+    mocks.toggleVote.mockClear();
+    expect(await tableActions.setCell(voteCtx, 'i1', 'vote_1', { votersIds: ['u2'] })).toBe(true);
     expect(mocks.toggleVote).toHaveBeenCalledWith('u1', 'b1', 'i1', 'vote_1', true);
   });
 

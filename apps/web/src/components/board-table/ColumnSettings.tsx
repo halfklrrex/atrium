@@ -1,4 +1,12 @@
-import type { DropdownSettings, NumbersSettings, StatusSettings } from '@atrium/shared';
+import type {
+  DropdownSettings,
+  HourSettings,
+  NumbersSettings,
+  StatusSettings,
+  TimelineSettings,
+  WeekSettings,
+  WorldClockSettings,
+} from '@atrium/shared';
 import { useState } from 'react';
 import { DropdownLabelEditor, StatusLabelEditor } from '../../columns/LabelEditors';
 import popups from '../../columns/popups.module.css';
@@ -79,6 +87,172 @@ function NumbersSettingsEditor({
   );
 }
 
+/** Progress bar toggle for a timeline column. */
+function TimelineSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: TimelineSettings;
+  onSave: (settings: TimelineSettings) => void;
+  onCancel: () => void;
+}) {
+  const [showProgress, setShowProgress] = useState(settings.showProgress ?? false);
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={showProgress}
+          onChange={(event) => setShowProgress(event.target.checked)}
+        />
+        <span>Show progress bar</span>
+      </label>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={popups.linkButton}
+          onClick={() => onSave({ showProgress })}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** First day of week selector for a week column. */
+function WeekSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: WeekSettings;
+  onSave: (settings: WeekSettings) => void;
+  onCancel: () => void;
+}) {
+  const [firstDayOfWeek, setFirstDayOfWeek] = useState<'monday' | 'sunday'>(
+    settings.firstDayOfWeek ?? 'monday',
+  );
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>First day of week</span>
+        <select
+          className={popups.input}
+          value={firstDayOfWeek}
+          onChange={(event) => setFirstDayOfWeek(event.target.value as 'monday' | 'sunday')}
+        >
+          <option value="monday">Monday</option>
+          <option value="sunday">Sunday</option>
+        </select>
+      </label>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={popups.linkButton}
+          onClick={() => onSave({ firstDayOfWeek })}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 24-hour vs 12-hour format toggle for an hour column. */
+function HourSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: HourSettings;
+  onSave: (settings: HourSettings) => void;
+  onCancel: () => void;
+}) {
+  const [format24Hour, setFormat24Hour] = useState(settings.format24Hour ?? true);
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={format24Hour}
+          onChange={(event) => setFormat24Hour(event.target.checked)}
+        />
+        <span>24-hour format</span>
+      </label>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={popups.linkButton}
+          onClick={() => onSave({ format24Hour })}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 24-hour format and city display toggles for a world clock column. */
+function WorldClockSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: WorldClockSettings;
+  onSave: (settings: WorldClockSettings) => void;
+  onCancel: () => void;
+}) {
+  const [format24Hour, setFormat24Hour] = useState(settings.format24Hour ?? true);
+  const [showCity, setShowCity] = useState(settings.showCity ?? true);
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={format24Hour}
+          onChange={(event) => setFormat24Hour(event.target.checked)}
+        />
+        <span>24-hour format</span>
+      </label>
+      <label className={popups.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={showCity}
+          onChange={(event) => setShowCity(event.target.checked)}
+        />
+        <span>Show city name</span>
+      </label>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={popups.linkButton}
+          onClick={() => onSave({ format24Hour, showCity })}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The settings popover of one column, opened from its header menu. */
 export function ColumnSettingsPopup({
   column,
@@ -110,12 +284,40 @@ export function ColumnSettingsPopup({
           onSave={save}
           onCancel={close}
         />
-      ) : (
+      ) : column.def.type === 'numbers' ? (
         <NumbersSettingsEditor
           settings={column.settings as NumbersSettings}
           onSave={save}
           onCancel={close}
         />
+      ) : column.def.type === 'timeline' ? (
+        <TimelineSettingsEditor
+          settings={column.settings as TimelineSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'week' ? (
+        <WeekSettingsEditor
+          settings={column.settings as WeekSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'hour' ? (
+        <HourSettingsEditor
+          settings={column.settings as HourSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'world_clock' ? (
+        <WorldClockSettingsEditor
+          settings={column.settings as WorldClockSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : (
+        <div className={popups.body}>
+          <p className={popups.muted}>No settings for this column</p>
+        </div>
       )}
     </AnchoredPopup>
   );

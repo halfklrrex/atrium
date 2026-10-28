@@ -57,7 +57,7 @@ describe('Time Column UIs', () => {
           onChange={() => {}}
         />,
       );
-      expect(screen.getByText('2026-10-20 - 2026-10-25')).toBeInTheDocument();
+      expect(screen.getByText('Oct 20 - 25')).toBeInTheDocument();
     });
   });
 
@@ -85,7 +85,7 @@ describe('Time Column UIs', () => {
           onChange={() => {}}
         />,
       );
-      expect(screen.getByText('W43 (2026-10-19 - 2026-10-25)')).toBeInTheDocument();
+      expect(screen.getByText('Oct 19 - 25')).toBeInTheDocument();
     });
   });
 
@@ -144,7 +144,7 @@ describe('Time Column UIs', () => {
       expect(container.querySelector('svg')).toBeInTheDocument();
     });
 
-    it('renders timezone and city when showCity is true', () => {
+    it('renders live local time and city when showCity is true', () => {
       render(
         <worldClockUi.Cell
           value={{ timezone: 'Europe/London' }}
@@ -154,7 +154,7 @@ describe('Time Column UIs', () => {
           onChange={() => {}}
         />,
       );
-      expect(screen.getByText('Europe/London (London)')).toBeInTheDocument();
+      expect(screen.getByText('London')).toBeInTheDocument();
     });
   });
 });

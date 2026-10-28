@@ -438,3 +438,98 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- Timeline Pill ---- */
+
+.timelinePill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--atrium-table-pill-height);
+  padding: 0 var(--space-8);
+  overflow: hidden;
+  border-radius: var(--border-radius-big);
+  background: var(--group-color, var(--primary-color));
+  color: var(--atrium-table-on-fill);
+  font: var(--atrium-table-pill-font);
+}
+
+.timelinePillProgress {
+  background: var(--dark-background-color);
+}
+
+.timelineFill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background: var(--group-color, var(--primary-color));
+}
+
+.timelineText {
+  position: relative;
+  z-index: var(--atrium-z-raised);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- World Clock ---- */
+
+.worldClockCell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.worldClockTime {
+  flex: none;
+  color: var(--primary-text-color);
+  font: var(--atrium-table-cell-font);
+}
+
+.worldClockCity {
+  overflow: hidden;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Location ---- */
+
+.locationCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.locationPin {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--atrium-table-link);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.locationPin:hover {
+  color: var(--primary-color);
+}
+
+.locationPin svg {
+  width: var(--atrium-table-icon);
+  height: var(--atrium-table-icon);
+}
