@@ -8,6 +8,7 @@ import { resetMembersStore, useMembersStore } from '../../data/members-store';
 import type { InviteDoc, MemberDoc } from '../../data/model';
 import { InvitePage } from '../../pages/InvitePage';
 import { makeWorkspace, ts } from '../../test/fixtures';
+import { chooseMenuItem } from '../../test/menu';
 import { MembersDialog } from './MembersDialog';
 import { memberRowActions } from './permissions';
 import { describeExpiry } from './roles';
@@ -160,7 +161,7 @@ async function pickMenuAction(
   item: string,
 ): Promise<HTMLElement> {
   await user.click(screen.getByRole('button', { name: `Actions for ${who}` }));
-  await user.click(await screen.findByRole('menuitem', { name: item }, SLOW_UI));
+  await chooseMenuItem(user, item, SLOW_UI);
   return screen.findByRole('alertdialog', {}, SLOW_UI);
 }
 

@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BoardViewDoc } from '../../data';
 import { syntheticMainView } from '../../data/views';
+import { chooseMenuItem } from '../../test/menu';
 import { useFilterStore } from '../board-filters';
 import { BoardViewsContext, type BoardViewsValue } from './view-context';
 import { viewPermissions } from './view-permissions';
@@ -122,9 +123,7 @@ describe('view tabs', () => {
   it('renames a view inline: Rename, type, Enter', async () => {
     renderTabs({ canEdit: true });
     openMenuOf('Due this week');
-    await userEvent
-      .setup({ pointerEventsCheck: 0 })
-      .click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    await chooseMenuItem(userEvent.setup({ pointerEventsCheck: 0 }), 'Rename');
     const input = await screen.findByRole('textbox', { name: 'View name' });
     fireEvent.change(input, { target: { value: 'Due soon' } });
     fireEvent.keyDown(input, { key: 'Enter' });
