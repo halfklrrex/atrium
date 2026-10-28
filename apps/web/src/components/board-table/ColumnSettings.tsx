@@ -1,15 +1,20 @@
 import type {
+  ButtonSettings,
   DropdownSettings,
+  FilesSettings,
   HourSettings,
   NumbersSettings,
   StatusSettings,
+  TimeTrackingSettings,
   TimelineSettings,
   WeekSettings,
   WorldClockSettings,
 } from '@atrium/shared';
+import classNames from 'classnames';
 import { useState } from 'react';
 import { DropdownLabelEditor, StatusLabelEditor } from '../../columns/LabelEditors';
 import popups from '../../columns/popups.module.css';
+import { GROUP_COLORS } from '../../theme/palette';
 import { AnchoredPopup } from './AnchoredPopup';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
@@ -253,6 +258,179 @@ function WorldClockSettingsEditor({
   );
 }
 
+/** Max file size (1..100 MB) and allowed file types for a files column. */
+function FilesSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: FilesSettings;
+  onSave: (settings: FilesSettings) => void;
+  onCancel: () => void;
+}) {
+  const [maxSize, setMaxSize] = useState(String(settings.maxFileSizeMb ?? 50));
+  const [allowedTypes, setAllowedTypes] = useState((settings.allowedTypes ?? []).join(', '));
+
+  const save = () => {
+    const parsedSize = Number(maxSize);
+    const maxFileSizeMb =
+      Number.isFinite(parsedSize) && maxSize.trim() !== ''
+        ? Math.max(1, Math.min(100, Math.round(parsedSize)))
+        : 50;
+    const parsedTypes = allowedTypes
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    onSave(
+      parsedTypes.length > 0 ? { maxFileSizeMb, allowedTypes: parsedTypes } : { maxFileSizeMb },
+    );
+  };
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Max file size (MB)</span>
+        <input
+          className={popups.input}
+          type="number"
+          min={1}
+          max={100}
+          value={maxSize}
+          onChange={(event) => setMaxSize(event.target.value)}
+        />
+      </label>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Allowed types</span>
+        <input
+          className={popups.input}
+          value={allowedTypes}
+          placeholder=".pdf, image/*"
+          onChange={(event) => setAllowedTypes(event.target.value)}
+        />
+      </label>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className={popups.linkButton} onClick={save}>
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Label text and palette colour for a button column. */
+function ButtonSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: ButtonSettings;
+  onSave: (settings: ButtonSettings) => void;
+  onCancel: () => void;
+}) {
+  const [label, setLabel] = useState(settings.label ?? 'Click');
+  const [color, setColor] = useState(settings.color ?? GROUP_COLORS[17]!.hex);
+
+  const save = () => {
+    const cleanLabel = label.trim().slice(0, 50) || 'Click';
+    onSave({ label: cleanLabel, color });
+  };
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Button label</span>
+        <input
+          className={popups.input}
+          value={label}
+          maxLength={50}
+          placeholder="Click"
+          autoFocus
+          onChange={(event) => setLabel(event.target.value)}
+        />
+      </label>
+      <div className={popups.field}>
+        <span className={popups.fieldLabel}>Button colour</span>
+        <div className={popups.palette} role="radiogroup" aria-label="Button colour">
+          {GROUP_COLORS.map((swatch) => {
+            const selected = swatch.hex.toLowerCase() === color.toLowerCase();
+            return (
+              <button
+                key={swatch.hex}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={swatch.label}
+                title={swatch.label}
+                className={classNames(popups.paletteSwatch, selected && popups.paletteSelected)}
+                style={{ backgroundColor: swatch.hex }}
+                onClick={() => setColor(swatch.hex)}
+              />
+            );
+          })}
+        </div>
+      </div>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className={popups.linkButton} onClick={save}>
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Session history and required note toggles for a time tracking column. */
+function TimeTrackingSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: TimeTrackingSettings;
+  onSave: (settings: TimeTrackingSettings) => void;
+  onCancel: () => void;
+}) {
+  const [trackHistory, setTrackHistory] = useState(settings.trackHistory ?? true);
+  const [requireNote, setRequireNote] = useState(settings.requireNote ?? false);
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={trackHistory}
+          onChange={(event) => setTrackHistory(event.target.checked)}
+        />
+        <span>Track session history</span>
+      </label>
+      <label className={popups.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={requireNote}
+          onChange={(event) => setRequireNote(event.target.checked)}
+        />
+        <span>Require a note when starting</span>
+      </label>
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={popups.linkButton}
+          onClick={() => onSave({ trackHistory, requireNote })}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The settings popover of one column, opened from its header menu. */
 export function ColumnSettingsPopup({
   column,
@@ -311,6 +489,24 @@ export function ColumnSettingsPopup({
       ) : column.def.type === 'world_clock' ? (
         <WorldClockSettingsEditor
           settings={column.settings as WorldClockSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'files' ? (
+        <FilesSettingsEditor
+          settings={column.settings as FilesSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'button' ? (
+        <ButtonSettingsEditor
+          settings={column.settings as ButtonSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'time_tracking' ? (
+        <TimeTrackingSettingsEditor
+          settings={column.settings as TimeTrackingSettings}
           onSave={save}
           onCancel={close}
         />

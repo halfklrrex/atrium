@@ -1,4 +1,5 @@
 import { autoNumberUi } from './auto-number';
+import { buttonUi } from './button';
 import { checkboxUi } from './checkbox';
 import { colorUi } from './color';
 import { countryUi } from './country';
@@ -6,6 +7,7 @@ import { creationLogUi } from './creation-log';
 import { dateUi } from './date';
 import { dropdownUi } from './dropdown';
 import { emailUi } from './email';
+import { filesUi } from './files';
 import { hourUi } from './hour';
 import { itemIdUi } from './item-id';
 import { lastUpdatedUi } from './last-updated';
@@ -20,6 +22,7 @@ import { ratingUi } from './rating';
 import { statusUi } from './status';
 import { tagsUi } from './tags';
 import { textUi } from './text';
+import { timeTrackingUi } from './time-tracking';
 import { timelineUi } from './timeline';
 import type { AnyColumnUi } from './types';
 import { voteUi } from './vote';
@@ -65,6 +68,9 @@ export function registerColumnUi(ui: AnyColumnUi): void {
   hourUi,
   worldClockUi,
   locationUi,
+  filesUi,
+  buttonUi,
+  timeTrackingUi,
 ].forEach(registerColumnUi);
 
 export function getColumnUi(type: string): AnyColumnUi | undefined {
@@ -99,4 +105,7 @@ export const ADD_COLUMN_ORDER = [
   'hour',
   'world_clock',
   'location',
+  'files',
+  'button',
+  'time_tracking',
 ] as const;

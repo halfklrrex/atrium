@@ -135,6 +135,69 @@ describe('ColumnSettingsPopup', () => {
     expect(screen.getByLabelText('Decimals')).toHaveValue('2');
   });
 
+  it('edits maxFileSizeMb and allowedTypes for files column and omits allowedTypes when blank', () => {
+    const { unmount } = renderSettings(makeColumnView('files', { maxFileSizeMb: 50 }));
+
+    const sizeInput = screen.getByLabelText('Max file size (MB)');
+    const typesInput = screen.getByLabelText('Allowed types');
+    expect(sizeInput).toHaveValue(50);
+    expect(typesInput).toHaveValue('');
+
+    fireEvent.change(sizeInput, { target: { value: '25' } });
+    fireEvent.change(typesInput, { target: { value: ' .pdf, image/* , ' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(tableActions.updateColumn).toHaveBeenCalledWith(mockCtx, 'col-files', {
+      settings: { maxFileSizeMb: 25, allowedTypes: ['.pdf', 'image/*'] },
+    });
+    unmount();
+
+    renderSettings(makeColumnView('files', { maxFileSizeMb: 10, allowedTypes: ['.pdf'] }));
+    fireEvent.change(screen.getByLabelText('Max file size (MB)'), { target: { value: '150' } });
+    fireEvent.change(screen.getByLabelText('Allowed types'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(tableActions.updateColumn).toHaveBeenLastCalledWith(mockCtx, 'col-files', {
+      settings: { maxFileSizeMb: 100 },
+    });
+  });
+
+  it('edits label and colour for button column', () => {
+    const col = makeColumnView('button', { label: 'Click', color: '#579bfc' });
+    renderSettings(col);
+
+    const labelInput = screen.getByLabelText('Button label');
+    expect(labelInput).toHaveValue('Click');
+
+    const blueSwatch = screen.getByRole('radio', { name: 'Blue' });
+    expect(blueSwatch).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.change(labelInput, { target: { value: '  Approve  ' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Purple' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(tableActions.updateColumn).toHaveBeenCalledWith(mockCtx, 'col-button', {
+      settings: { label: 'Approve', color: '#9d50dd' },
+    });
+  });
+
+  it('toggles trackHistory and requireNote for time_tracking column', () => {
+    const col = makeColumnView('time_tracking', { trackHistory: true, requireNote: false });
+    renderSettings(col);
+
+    const historyCheckbox = screen.getByRole('checkbox', { name: 'Track session history' });
+    const noteCheckbox = screen.getByRole('checkbox', { name: 'Require a note when starting' });
+    expect(historyCheckbox).toBeChecked();
+    expect(noteCheckbox).not.toBeChecked();
+
+    fireEvent.click(historyCheckbox);
+    fireEvent.click(noteCheckbox);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(tableActions.updateColumn).toHaveBeenCalledWith(mockCtx, 'col-time_tracking', {
+      settings: { trackHistory: false, requireNote: true },
+    });
+  });
+
   it('displays "No settings for this column" for types without a settings editor (e.g. text, location)', () => {
     const { unmount } = renderSettings(makeColumnView('text', {}));
     expect(screen.getByText('No settings for this column')).toBeInTheDocument();

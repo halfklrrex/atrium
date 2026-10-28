@@ -31,15 +31,7 @@ import {
  * UI lands. When one does, move it into `COLUMNS` below and remove it from this list; the drift test
  * in `showcase.test.mjs` fails until you do.
  */
-export const PENDING_TYPES = [
-  'dependency',
-  'board_relation',
-  'mirror',
-  'button',
-  'files',
-  'formula',
-  'time_tracking',
-];
+export const PENDING_TYPES = ['dependency', 'board_relation', 'mirror', 'formula'];
 
 /** Board ids the seed script owns. Anything else is off limits (see `isOwnedPath`). */
 export const SHOWCASE_MAIN_ID = 'showcase-main';
@@ -214,6 +206,19 @@ const COLUMNS = [
     settings: { format24Hour: true, showCity: true },
   },
   { id: 'location', type: 'location', title: 'Location', settings: {} },
+  { id: 'files', type: 'files', title: 'Files', settings: { maxFileSizeMb: 50 } },
+  {
+    id: 'button',
+    type: 'button',
+    title: 'Action',
+    settings: { label: 'Approve', color: '#579bfc' },
+  },
+  {
+    id: 'time_tracking',
+    type: 'time_tracking',
+    title: 'Time tracked',
+    settings: { trackHistory: true, requireNote: false },
+  },
 ];
 
 /** Column types the main showcase board uses (checked against the web registry by a test). */
@@ -338,6 +343,14 @@ const ITEMS = [
     hour: { hour: 10, minute: 0 },
     worldClock: 'America/New_York',
     location: { lat: 40.7128, lng: -74.006, address: 'New York, NY' },
+    files: [
+      ['hero-copy-f1', 'tagline-shortlist.pdf', 184320, 'application/pdf'],
+      ['hero-copy-f2', 'hero-wireframe.png', 512000, 'image/png'],
+    ],
+    timeTracking: [
+      [3600, 4, 'Tagline workshop with team'],
+      [1800, 2, 'Refining copy options', 'jordan'],
+    ],
     created: 12,
     updates: [
       {
@@ -395,6 +408,12 @@ const ITEMS = [
     hour: { hour: 14, minute: 30 },
     worldClock: 'Europe/Berlin',
     location: { lat: 52.52, lng: 13.405, address: 'Berlin, Germany' },
+    files: [
+      ['pricing-f1', 'pricing-tiers-v2.fig', 2457600, 'application/octet-stream'],
+      ['pricing-f2', 'competitor-grid.pdf', 327680, 'application/pdf'],
+      ['pricing-f3', 'mobile-cards.png', 614400, 'image/png'],
+    ],
+    timeTracking: [[7500, 5, 'Initial pricing layout and comparison table', 'sam']],
     created: 20,
     updates: [
       {
@@ -448,6 +467,7 @@ const ITEMS = [
     hour: { hour: 9, minute: 15 },
     worldClock: 'Europe/London',
     location: { lat: 51.5074, lng: -0.1278, address: 'London, UK' },
+    timeTracking: [[5400, 3, 'Configure DNS and staging deploy pipeline', 'jordan']],
     created: 15,
   },
   {
@@ -1098,6 +1118,40 @@ function rawValues(spec, ownerUid, anchor) {
   if (spec.hour) values.hour = spec.hour;
   if (spec.worldClock) values.world_clock = { timezone: spec.worldClock };
   if (spec.location) values.location = spec.location;
+  if (spec.files) {
+    const itemId = `showcase-${spec.key}`;
+    values.files = {
+      files: spec.files.map(([id, name, size, mimeType], idx) => ({
+        id,
+        name,
+        storagePath: `boards/${SHOWCASE_MAIN_ID}/items/${itemId}/files/${id}`,
+        size,
+        mimeType,
+        uploadedAt: new Date(anchor - Math.max(1, spec.created - idx) * DAY).toISOString(),
+        uploadedBy: ownerUid,
+      })),
+    };
+  }
+  if (spec.timeTracking) {
+    const history = spec.timeTracking.map(([duration, daysAgo, note, who], idx) => {
+      const startedAt = anchor - daysAgo * DAY + idx * HOUR;
+      const endedAt = startedAt + duration * 1000;
+      return {
+        id: `${spec.key}-tt-${idx + 1}`,
+        startedAt,
+        endedAt,
+        duration,
+        userId: who ? memberUid(who) : ownerUid,
+        ...(note ? { note } : {}),
+      };
+    });
+    const totalDuration = history.reduce((sum, s) => sum + s.duration, 0);
+    values.time_tracking = {
+      duration: totalDuration,
+      running: false,
+      history,
+    };
+  }
   return values;
 }
 
@@ -1175,6 +1229,7 @@ export function buildShowcase({
       subitemColumns,
       columnLocks: ['budget'],
       groups,
+      serverManagedColumnIds: columnRegistry.serverManagedColumnIds(columns),
       createdAt: ago(30 * DAY),
       updatedAt: ago(2 * HOUR),
     }),
