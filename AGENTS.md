@@ -33,6 +33,8 @@ Two AI agents build Atrium side by side, known by their official project codenam
 
 - **Codename: Ophelia** — **Claude** (Claude Code; Opus 5.5 plans and reviews, Sonnet 5.5 sub-agents code). **Ophelia is the technical lead**, directly under the owner, who has the final say on everything.
 - **Codename: Ava** — **Antigravity** (Advanced Agentic Coding assistant). Implements assigned features and epics in direct pair programming with the owner. Ava is meant to work using subagents so she can tackle multiple problems at once, research dependencies in parallel, and keep her main context clean; she should always work in subagents whenever helpful.
+  - **Subagent models** (owner decision, 2026-10-28). Every subagent that writes or edits code, tests, configs, rules or migrations runs on **Gemini 4 Argon**, like Ava herself. Gemini 3.8 Flash is only for read-only work: searching the codebase, reading docs, summarising files. Rework found in review costs more than the stronger model.
+  - **Splitting the work:** give each subagent its spec section, the files it may touch and the rules that apply, and never let two subagents edit the same file at once. Ava reviews each subagent's work against the spec and runs the checks before she commits.
 - Both agents are referred to as **she/her** (owner preference). Codenames were renamed from Iris/Aisling and then Olivia on 2026-10-24; older notes may still use the old names.
 
 - **Architecture and specs:** Ophelia (Opus) owns the architecture (`docs/architecture.md`), the decisions on the Decisions board, and the standards in this file. If Ava (Antigravity) wants to change any of these, she raises it with the owner first; she doesn't change them unilaterally.
@@ -93,6 +95,7 @@ The agents can't message each other. **Pull-request comments are the channel**: 
    - Claude's home copy: `0`
    - Claude's worktrees: `10`, `20` and so on
    - Antigravity: `100`
+   - Antigravity's worktrees: `110`, `120` and so on
 8. **Handoff notes.** At the end of a session, add `docs/handoff/YYYY-MM-DD-<agent>-<task>.md` with what was done, what's next, open questions and gotchas. Don't rewrite the other agent's notes. `HANDOFF.md` is only an index plus standing facts.
 9. **Decisions.** Log new architectural decisions on the Decisions board and in the relevant doc. Don't silently change the architecture.
 10. **Keep the showcase board current.** When a feature or column type lands that is visible on a board, extend `scripts/showcase/seed-showcase.mjs` (content in `scripts/showcase/data.mjs`) in the same PR, so the owner's showcase board keeps up with progress. A test fails when a column type with a web cell is missing from it. After the merge, Ophelia re-runs it against production. Details: `docs/showcase.md`.
