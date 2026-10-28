@@ -28,7 +28,7 @@ import { useItems, useUserLookup, useWorkspace, type BoardDoc, type ItemDoc } fr
 import { positionAfterAll } from '../../lib/positions';
 import { useBoardFilter, useFilterStore, useKanbanSettings } from '../board-filters';
 import { BoardToolbar } from '../board-table/BoardToolbar';
-import { isClientReadOnlyType } from '../board-table/derived';
+import { isColumnReadOnlyForUser } from '../board-table/derived';
 import { tableActions, type TableCtx } from '../board-table/table-actions';
 import { buildColumnViews } from '../board-table/table-model';
 import { useTableStore } from '../board-table/table-store';
@@ -70,7 +70,8 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const { data: workspace } = useWorkspace(board.workspaceId);
-  const canEdit = canEditBoard(resolveBoardRole(board, uid, workspace?.roles[uid]));
+  const boardRole = resolveBoardRole(board, uid, workspace?.roles[uid]);
+  const canEdit = canEditBoard(boardRole);
   const { data: items, loading, error } = useItems(board.id);
   const memberLookup = useUserLookup(board.workspaceId);
   const boardId = board.id;
@@ -88,6 +89,8 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
   const columnDefs = useDeepStable(board.columns);
   const subitemDefs = useDeepStable(board.subitemColumns ?? []);
   const groupDefs = useDeepStable(board.groups);
+  const columnLocks = useDeepStable(board.columnLocks ?? []);
+  const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
   const columns = useMemo(() => buildColumnViews(columnDefs), [columnDefs]);
   const kanban = useKanbanSettings(boardId);
   const status = useMemo(
@@ -141,14 +144,19 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
       uid,
       columns: columnDefs,
       subitemColumns: subitemDefs,
+      board: boardLocks,
+      boardRole,
       getItems: () => itemsRef.current,
       getGroups: () => groupDefs,
     }),
-    [boardId, uid, columnDefs, subitemDefs, groupDefs],
+    [boardId, uid, columnDefs, subitemDefs, boardLocks, boardRole, groupDefs],
   );
 
   // ---- Who can do what
-  const canWrite = canEdit && status !== null && !isClientReadOnlyType('status');
+  const canWrite =
+    canEdit &&
+    status !== null &&
+    !isColumnReadOnlyForUser('status', boardLocks, status.def.id, boardRole);
   const sorted = isSorted(filterState);
   // `null` = draggable; text = not draggable (and the card's tooltip, when there is any).
   const dragOff = !canWrite ? '' : sorted ? SORTED_TOOLTIP : null;

@@ -5,12 +5,32 @@
  * only exist to give a good message and to never send a write that would be refused.
  */
 import {
+  COLUMN_LOCKED_MESSAGE,
+  COLUMN_LOCKED_TOOLTIP,
+  canEditColumn,
   columnRegistry,
+  isColumnLocked,
+  type BoardRole,
+  type BoardWithColumnLocks,
   type ColumnContext,
   type ColumnDef,
   type ValidationResult,
 } from '@atrium/shared';
 import type { ItemDoc } from '../../data';
+
+export {
+  COLUMN_LOCKED_MESSAGE,
+  COLUMN_LOCKED_TOOLTIP,
+  canEditColumn,
+  isColumnLocked,
+  type BoardRole,
+  type BoardWithColumnLocks,
+};
+
+export interface ColumnLockContext {
+  board?: BoardWithColumnLocks | null;
+  boardRole?: BoardRole | null;
+}
 
 /** The `ColumnContext` of one item on a board. Plain data the table already holds. */
 export function columnContextFor(
@@ -57,8 +77,21 @@ export function isClientReadOnlyType(type: string): boolean {
 }
 
 /**
- * Validates a cell write before it is sent: schema, settings-dependent rules and the derived and
- * server-managed column bans. A column that no longer exists on the board is refused too.
+ * True when a column is read-only for this user: either the type itself is client read-only
+ * (derived / server-managed), or the column is locked and the caller is not a board owner.
+ */
+export function isColumnReadOnlyForUser(
+  type: string,
+  board: BoardWithColumnLocks | null | undefined,
+  columnId: string,
+  boardRole?: BoardRole | null | undefined,
+): boolean {
+  return isClientReadOnlyType(type) || !canEditColumn(boardRole, board, columnId);
+}
+
+/**
+ * Validates a cell write before it is sent: schema, settings-dependent rules, column locks and the
+ * derived and server-managed column bans. A column that no longer exists on the board is refused too.
  */
 export function validateCellWrite(
   boardId: string,
@@ -66,9 +99,13 @@ export function validateCellWrite(
   columnId: string,
   value: unknown,
   item?: ItemDoc,
+  lockCtx?: ColumnLockContext,
 ): ValidationResult {
   const def = columns.find((c) => c.id === columnId);
   if (!def) return { ok: false, message: 'This column no longer exists' };
+  if (lockCtx && !canEditColumn(lockCtx.boardRole, lockCtx.board, columnId)) {
+    return { ok: false, message: COLUMN_LOCKED_MESSAGE };
+  }
   return columnRegistry.validateCell(
     def,
     value,
@@ -77,17 +114,26 @@ export function validateCellWrite(
 }
 
 /**
- * `values` without the ids of derived and server-managed columns: new items must never carry them
- * (rules refuse such a create), so a duplicated item starts with those cells empty.
+ * `values` without the ids of derived and server-managed columns (and locked columns when the
+ * caller is not a board owner): new items must never carry them (rules refuse such a create), so a
+ * duplicated item starts with those cells empty.
  */
 export function withoutUnwritableValues(
   values: Record<string, unknown>,
   columns: readonly ColumnDef[],
+  options?: ColumnLockContext,
 ): Record<string, unknown> {
   const unwritable = new Set([
     ...columnRegistry.derivedColumnIds(columns),
     ...columnRegistry.serverManagedColumnIds(columns),
   ]);
+  if (options && options.boardRole !== 'owner') {
+    for (const id of Object.keys(values)) {
+      if (isColumnLocked(options.board, id)) {
+        unwritable.add(id);
+      }
+    }
+  }
   if (unwritable.size === 0) return values;
   return Object.fromEntries(Object.entries(values).filter(([id]) => !unwritable.has(id)));
 }

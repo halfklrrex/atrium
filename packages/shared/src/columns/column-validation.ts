@@ -190,6 +190,10 @@ function cloneValue<T>(val: T): T {
  * Applies default values configured on columns to an item's values map
  * for any columns that do not already have an assigned value.
  * Uses structuredClone to ensure each item receives an independent deep copy of the default value.
+ *
+ * NOTE: Nothing calls `applyDefaultColumnValues` on item creation today. When column defaults
+ * get wired later, non-owners (`boardRole !== 'owner'`) must skip locked columns (`board.columnLocks`)
+ * so Firestore rules do not reject the item creation for writing a locked column key.
  */
 export function applyDefaultColumnValues(
   columns: readonly ColumnDef[],

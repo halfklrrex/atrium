@@ -1,4 +1,5 @@
 import {
+  COLUMN_LOCKED_MESSAGE,
   columnRegistry,
   createDefaultFilterState,
   type ColumnDef,
@@ -9,6 +10,7 @@ import type { ItemDoc } from '../../data';
 import { ts } from '../../test/fixtures';
 import { comparePositions } from '../../lib/positions';
 import { defaultColumnTitle, duplicateColumnTitle } from './column-naming';
+import { isColumnReadOnlyForUser, validateCellWrite, withoutUnwritableValues } from './derived';
 import { appendPositions, dropPosition, indexWithout, positionsAfter } from './move-math';
 import { splitMatches } from './search';
 import {
@@ -299,5 +301,58 @@ describe('column views and grid', () => {
 
   it('keeps comparePositions available for sorted siblings', () => {
     expect(comparePositions({ id: 'a', position: 'a0' }, { id: 'b', position: 'a1' })).toBe(-1);
+  });
+});
+
+describe('column locks client validation & unwritable values', () => {
+  const cols = [
+    column('budget', 'numbers', 'a0'),
+    column('notes', 'text', 'a1'),
+    column('seq_id', 'item_id', 'a2'),
+  ];
+  const lockedBoard = { columnLocks: ['budget'] };
+
+  it('validateCellWrite refuses locked column writes for editors and allows them for owners', () => {
+    expect(
+      validateCellWrite('b1', cols, 'budget', '500', undefined, {
+        board: lockedBoard,
+        boardRole: 'editor',
+      }),
+    ).toEqual({
+      ok: false,
+      message: COLUMN_LOCKED_MESSAGE,
+    });
+
+    expect(
+      validateCellWrite('b1', cols, 'budget', '500', undefined, {
+        board: lockedBoard,
+        boardRole: 'owner',
+      }),
+    ).toEqual({ ok: true });
+
+    expect(
+      validateCellWrite('b1', cols, 'notes', 'hello', undefined, {
+        board: lockedBoard,
+        boardRole: 'editor',
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it('withoutUnwritableValues strips locked column values for editors and keeps them for owners', () => {
+    const rawValues = { budget: 1200, notes: 'Keep this', seq_id: 42 };
+    expect(
+      withoutUnwritableValues(rawValues, cols, { board: lockedBoard, boardRole: 'editor' }),
+    ).toEqual({ notes: 'Keep this' });
+
+    expect(
+      withoutUnwritableValues(rawValues, cols, { board: lockedBoard, boardRole: 'owner' }),
+    ).toEqual({ budget: 1200, notes: 'Keep this' });
+  });
+
+  it('isColumnReadOnlyForUser combines derived/server-managed and column locks', () => {
+    expect(isColumnReadOnlyForUser('item_id', lockedBoard, 'seq_id', 'owner')).toBe(true);
+    expect(isColumnReadOnlyForUser('numbers', lockedBoard, 'budget', 'editor')).toBe(true);
+    expect(isColumnReadOnlyForUser('numbers', lockedBoard, 'budget', 'owner')).toBe(false);
+    expect(isColumnReadOnlyForUser('text', lockedBoard, 'notes', 'editor')).toBe(false);
   });
 });

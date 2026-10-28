@@ -13,6 +13,8 @@ export interface BoardStructureState {
   /** Columns of the subitem tables (`board.subitemColumns`); `[]` until the first subitem. */
   subitemColumns: ColumnDef[];
   groups: GroupDef[];
+  /** Ids of locked columns (`board.columnLocks`); `[]` when unset. */
+  columnLocks?: string[];
 }
 
 /** What an updater returns: the arrays it changed (missing ones are left as they are). */
@@ -36,6 +38,7 @@ export async function updateBoardStructure(
       columns: (data.columns ?? []) as ColumnDef[],
       subitemColumns: (data.subitemColumns ?? []) as ColumnDef[],
       groups: (data.groups ?? []) as GroupDef[],
+      columnLocks: (data.columnLocks ?? []) as string[],
     };
     const patch = update(current);
     if (!patch) return null;

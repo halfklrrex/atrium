@@ -11,11 +11,20 @@ import {
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Menu, MenuButton, MenuDivider, MenuItem } from '@vibe/core';
-import { Add, Delete, Duplicate, Edit, Settings, SortAscending, SortDescending } from '@vibe/icons';
+import {
+  Add,
+  Delete,
+  Duplicate,
+  Edit,
+  Locked,
+  Settings,
+  SortAscending,
+  SortDescending,
+} from '@vibe/icons';
 import classNames from 'classnames';
 import { useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ADD_COLUMN_ORDER, getColumnUi } from '../../columns/registry';
-import { columnRegistry } from '@atrium/shared';
+import { COLUMN_LOCKED_TOOLTIP, columnRegistry, isColumnLocked } from '@atrium/shared';
 import { AnchoredPopup } from './AnchoredPopup';
 import { ColumnSettingsPopup } from './ColumnSettings';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -190,7 +199,17 @@ function HeaderCell({ column, group }: { column: ColumnView; group: GroupDef }) 
             }
           }}
         >
-          {column.def.title}
+          <span className={styles.headerTitleText}>{column.def.title}</span>
+          {isColumnLocked(env.ctx.board, columnId) ? (
+            <span
+              className={styles.lockIcon}
+              data-testid={`column-lock-icon-${columnId}`}
+              aria-label={COLUMN_LOCKED_TOOLTIP}
+              title={COLUMN_LOCKED_TOOLTIP}
+            >
+              <Locked aria-hidden="true" />
+            </span>
+          ) : null}
         </span>
       )}
       <ColumnMenu column={column} group={group} />
@@ -375,6 +394,20 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
                   ))}
                 </Menu>
               </MenuItem>
+            ) : null}
+            {column && env.canManage ? (
+              <MenuItem
+                title="Restrict column editing"
+                icon={Locked}
+                selected={isColumnLocked(env.ctx.board, columnId)}
+                onClick={() =>
+                  void tableActions.toggleColumnLock(
+                    env.boardId,
+                    columnId,
+                    !isColumnLocked(env.ctx.board, columnId),
+                  )
+                }
+              />
             ) : null}
             {column && env.canEdit ? <MenuDivider /> : null}
             {column && env.canEdit ? (

@@ -75,6 +75,15 @@ export const boardSchema = z.object({
    * on older boards (reads as `[]`).
    */
   serverManagedColumnIds: z.array(slugIdSchema).default([]),
+  /**
+   * Ids of columns (and subitemColumns) locked so only board owners can edit their values.
+   * Older boards may lack this field (reads as `[]`).
+   */
+  columnLocks: z
+    .array(slugIdSchema)
+    .max(200)
+    .refine((ids) => new Set(ids).size === ids.length, 'Column lock IDs must be unique')
+    .default([]),
   itemTerminology: z.string().min(1).max(40),
   state: entityStateSchema,
   deletedAt: timestampSchema.nullable(),

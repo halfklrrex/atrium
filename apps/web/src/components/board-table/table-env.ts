@@ -10,6 +10,8 @@ export interface TableEnv {
   uid: string;
   /** Can this person edit cells and structure (editor or owner on the board)? */
   canEdit: boolean;
+  /** Is this person a board owner (can lock/unlock columns and edit locked columns)? */
+  canManage?: boolean;
   /** Columns this view shows (Hide applied). */
   columns: ColumnView[];
   /** Every board column, hidden ones included (position maths and reordering); `columns` when unset. */

@@ -9,8 +9,10 @@ import {
   type StopTimeTrackingResult,
   type TimeTrackingValue,
   type WorkspaceRole,
+  COLUMN_LOCKED_MESSAGE,
   buttonSettingsSchema,
   canEditBoard,
+  canEditColumn,
   resolveBoardRole,
   startTimer,
   stopTimer,
@@ -23,6 +25,7 @@ export interface BoardData {
   workspaceId: string;
   access: Record<string, BoardRole>;
   columns: Array<{ id: string; type: string; settings?: unknown }>;
+  columnLocks?: string[];
 }
 
 export interface ItemData {
@@ -62,15 +65,15 @@ export interface ColumnActionsTx {
   newSessionId(): string;
 }
 
-export async function startTimeTrackingInTransaction(
+async function requireColumnEditAccess(
   tx: ColumnActionsTx,
+  boardId: string,
   uid: string,
-  req: StartTimeTrackingRequest,
-  serverTimestamp: unknown,
-): Promise<StartTimeTrackingResult> {
-  const board = await tx.getBoard(req.boardId);
+  columnId: string,
+): Promise<BoardData> {
+  const board = await tx.getBoard(boardId);
   if (!board) {
-    throw new HttpsError('not-found', `Board "${req.boardId}" not found.`);
+    throw new HttpsError('not-found', `Board "${boardId}" not found.`);
   }
 
   const wsRole = await tx.getWorkspaceMemberRole(board.workspaceId, uid);
@@ -78,6 +81,19 @@ export async function startTimeTrackingInTransaction(
   if (!canEditBoard(role)) {
     throw new HttpsError('permission-denied', 'You do not have permission to edit this board.');
   }
+  if (!canEditColumn(role, board, columnId)) {
+    throw new HttpsError('permission-denied', COLUMN_LOCKED_MESSAGE);
+  }
+  return board;
+}
+
+export async function startTimeTrackingInTransaction(
+  tx: ColumnActionsTx,
+  uid: string,
+  req: StartTimeTrackingRequest,
+  serverTimestamp: unknown,
+): Promise<StartTimeTrackingResult> {
+  const board = await requireColumnEditAccess(tx, req.boardId, uid, req.columnId);
 
   const col = board.columns.find((c) => c.id === req.columnId);
   if (!col) {
@@ -147,16 +163,7 @@ export async function stopTimeTrackingInTransaction(
   req: StopTimeTrackingRequest,
   serverTimestamp: unknown,
 ): Promise<StopTimeTrackingResult> {
-  const board = await tx.getBoard(req.boardId);
-  if (!board) {
-    throw new HttpsError('not-found', `Board "${req.boardId}" not found.`);
-  }
-
-  const wsRole = await tx.getWorkspaceMemberRole(board.workspaceId, uid);
-  const role = resolveBoardRole(board, uid, wsRole);
-  if (!canEditBoard(role)) {
-    throw new HttpsError('permission-denied', 'You do not have permission to edit this board.');
-  }
+  const board = await requireColumnEditAccess(tx, req.boardId, uid, req.columnId);
 
   const col = board.columns.find((c) => c.id === req.columnId);
   if (!col) {
@@ -227,16 +234,7 @@ export async function clickButtonInTransaction(
   req: ClickButtonRequest,
   serverTimestamp: unknown,
 ): Promise<ClickButtonResult> {
-  const board = await tx.getBoard(req.boardId);
-  if (!board) {
-    throw new HttpsError('not-found', `Board "${req.boardId}" not found.`);
-  }
-
-  const wsRole = await tx.getWorkspaceMemberRole(board.workspaceId, uid);
-  const role = resolveBoardRole(board, uid, wsRole);
-  if (!canEditBoard(role)) {
-    throw new HttpsError('permission-denied', 'You do not have permission to edit this board.');
-  }
+  const board = await requireColumnEditAccess(tx, req.boardId, uid, req.columnId);
 
   const col = board.columns.find((c) => c.id === req.columnId);
   if (!col) {

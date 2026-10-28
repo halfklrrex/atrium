@@ -194,6 +194,7 @@ export function adminColumnActionsTx(firestore: Firestore, tx: Transaction): Col
         workspaceId: snap.get('workspaceId'),
         access: snap.get('access') ?? {},
         columns: snap.get('columns') ?? [],
+        columnLocks: snap.get('columnLocks') ?? [],
       };
     },
     async getWorkspaceMemberRole(workspaceId, uid) {

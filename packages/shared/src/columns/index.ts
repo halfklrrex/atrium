@@ -56,6 +56,7 @@ export * from './long-text';
 export * from './mirror';
 export * from './numbers';
 export * from './people';
+export * from './column-locks';
 export * from './column-validation';
 export * from './phone';
 export * from './progress';

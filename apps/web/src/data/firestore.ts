@@ -29,6 +29,8 @@ import {
   type WorkspaceMember,
 } from '@atrium/shared';
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -476,6 +478,14 @@ export const writes = {
     await updateDoc(doc(db, COLLECTIONS.boards, boardId), {
       state,
       deletedAt: state === 'deleted' ? serverTimestamp() : null,
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  /** Lock or unlock a column on the board. Only board owners may do this (rules). */
+  async toggleColumnLock(boardId: string, columnId: string, locked: boolean): Promise<void> {
+    await updateDoc(doc(db, COLLECTIONS.boards, boardId), {
+      columnLocks: locked ? arrayUnion(columnId) : arrayRemove(columnId),
       updatedAt: serverTimestamp(),
     });
   },
