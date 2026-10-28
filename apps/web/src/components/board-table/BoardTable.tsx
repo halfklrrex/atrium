@@ -244,6 +244,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
   const env = useMemo<TableEnv>(
     () => ({
       boardId,
+      workspaceId: board.workspaceId,
       uid,
       canEdit,
       columns,
@@ -259,6 +260,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
     }),
     [
       boardId,
+      board.workspaceId,
       uid,
       canEdit,
       columns,

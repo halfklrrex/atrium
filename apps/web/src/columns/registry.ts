@@ -1,13 +1,16 @@
 import { autoNumberUi } from './auto-number';
+import { boardRelationUi } from './board-relation';
 import { buttonUi } from './button';
 import { checkboxUi } from './checkbox';
 import { colorUi } from './color';
 import { countryUi } from './country';
 import { creationLogUi } from './creation-log';
 import { dateUi } from './date';
+import { dependencyUi } from './dependency';
 import { dropdownUi } from './dropdown';
 import { emailUi } from './email';
 import { filesUi } from './files';
+import { formulaUi } from './formula';
 import { hourUi } from './hour';
 import { itemIdUi } from './item-id';
 import { lastUpdatedUi } from './last-updated';
@@ -71,6 +74,9 @@ export function registerColumnUi(ui: AnyColumnUi): void {
   filesUi,
   buttonUi,
   timeTrackingUi,
+  formulaUi,
+  dependencyUi,
+  boardRelationUi,
 ].forEach(registerColumnUi);
 
 export function getColumnUi(type: string): AnyColumnUi | undefined {
@@ -108,4 +114,7 @@ export const ADD_COLUMN_ORDER = [
   'files',
   'button',
   'time_tracking',
+  'formula',
+  'dependency',
+  'board_relation',
 ] as const;

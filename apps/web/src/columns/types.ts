@@ -15,6 +15,13 @@ export interface CellContext {
   itemId?: string;
   /** True when the user can edit the board (used by server-managed cells whose client `canEdit` is false). */
   canAct?: boolean;
+  /** Live board items accessor (used by dependency cells and editors to resolve item names and cycles). */
+  getItems?: () => readonly {
+    id: string;
+    name: string;
+    parentItemId?: string | null;
+    values: Record<string, unknown>;
+  }[];
 }
 
 export interface CellProps<Value, Settings> {

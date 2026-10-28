@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { type CellResolver, evaluate, isFormulaError } from '../formula';
+import {
+  type CellResolver,
+  createCellResolver,
+  evaluate,
+  evaluateRow,
+  isFormulaError,
+} from '../formula';
+import type { ColumnDef } from '../schemas/board';
 import { defineColumnType } from './registry';
 
 export const formulaSettingsSchema = z
@@ -12,7 +19,6 @@ export const formulaSettingsSchema = z
   .strict();
 export type FormulaSettings = z.infer<typeof formulaSettingsSchema>;
 
-// TODO(derived): Formula column values are derived dynamically in-memory and not stored in Firestore.
 export const formulaValueSchema = z.union([z.string(), z.number(), z.boolean()]).nullable();
 export type FormulaValue = z.infer<typeof formulaValueSchema>;
 
@@ -89,6 +95,7 @@ export function computeFormula(
 export const formulaColumn = defineColumnType<FormulaSettings, FormulaValue>({
   type: 'formula',
   label: 'Formula',
+  derived: true,
   settingsSchema: formulaSettingsSchema,
   valueSchema: formulaValueSchema,
   summaries: ['count', 'count_filled', 'count_empty', 'percent_filled'],
@@ -116,5 +123,37 @@ export const formulaColumn = defineColumnType<FormulaSettings, FormulaValue>({
       return Number(strA) - Number(strB);
     }
     return strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+  },
+  compute: (ctx, settings) => {
+    if (!settings.expression.trim()) return null;
+    const rowEval = evaluateRow(ctx.columns as ColumnDef[], ctx.item);
+    const matchingFormulaCol = (ctx.columns as ColumnDef[]).find(
+      (c) =>
+        c.type === 'formula' &&
+        (c.settings as { expression?: string } | undefined)?.expression === settings.expression,
+    );
+    if (matchingFormulaCol && matchingFormulaCol.id in rowEval) {
+      const val = rowEval[matchingFormulaCol.id];
+      if (val === null || val === undefined) return null;
+      if (typeof val === 'number' || typeof val === 'boolean' || typeof val === 'string') {
+        return val;
+      }
+      return formatFormulaResult(val, settings);
+    }
+    const mergedValues: Record<string, unknown> = { ...(ctx.item.values ?? {}), ...rowEval };
+    for (const col of ctx.columns as ColumnDef[]) {
+      if (col.type === 'item_id' && typeof ctx.item.seq === 'number') {
+        mergedValues[col.id] = String(ctx.item.seq);
+      } else if (col.type === 'auto_number' && typeof ctx.item.boardSeq === 'number') {
+        mergedValues[col.id] = { auto_number: ctx.item.boardSeq };
+      }
+    }
+    const resolver = createCellResolver(ctx.columns as ColumnDef[], mergedValues);
+    const raw = computeFormulaRaw(ctx.item, settings, resolver);
+    if (raw === null || raw === undefined) return null;
+    if (typeof raw === 'number' || typeof raw === 'boolean' || typeof raw === 'string') {
+      return raw;
+    }
+    return formatFormulaResult(raw, settings);
   },
 });

@@ -29,6 +29,9 @@ export const SETTINGS_TYPES: ReadonlySet<string> = new Set([
   'files',
   'button',
   'time_tracking',
+  'formula',
+  'dependency',
+  'board_relation',
 ]);
 
 /** Groups with more rows than this render only the rows near the viewport. */

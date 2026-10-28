@@ -7,6 +7,9 @@ import type { ColumnView, GroupModel } from './table-model';
 /** Board-wide values every row and header needs. It only changes when the structure does. */
 export interface TableEnv {
   boardId: string;
+  workspaceId?: string;
+  /** Optional override of readable workspace boards (used by Connect Boards settings tests). */
+  workspaceBoards?: readonly { id: string; name: string }[];
   uid: string;
   /** Can this person edit cells and structure (editor or owner on the board)? */
   canEdit: boolean;
