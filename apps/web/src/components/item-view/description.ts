@@ -17,6 +17,9 @@ const BLOCKS = new Set([
   'image',
 ]);
 
+/** Nodes that count as content even with no text (add new ones, e.g. mentions, here). */
+const CONTENT_NODES = new Set(['image', 'horizontalRule', 'table', 'emoji']);
+
 /** Nodes that exist only while something happens (an image uploading); they are never saved. */
 const TRANSIENT_NODES = new Set(['imageUpload']);
 
@@ -61,9 +64,16 @@ export function docToText(doc: unknown): string {
     .trim();
 }
 
-/** True when the doc has no text worth saving. */
+/** True when the doc has no text and no content node (image, divider, table, emoji) worth saving. */
 export function isEmptyDoc(doc: unknown): boolean {
-  return docToText(doc).length === 0;
+  const hasContent = (node: unknown): boolean => {
+    if (!node || typeof node !== 'object') return false;
+    const n = node as { type?: string; text?: string; content?: unknown[] };
+    if (typeof n.text === 'string' && n.text.trim().length > 0) return true;
+    if (n.type && CONTENT_NODES.has(n.type)) return true;
+    return Array.isArray(n.content) && n.content.some(hasContent);
+  };
+  return !hasContent(doc);
 }
 
 export type DescriptionResult =

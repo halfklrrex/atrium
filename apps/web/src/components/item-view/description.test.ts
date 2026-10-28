@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildDescription, createDebouncer, docToText } from './description';
+import { buildDescription, createDebouncer, docToText, isEmptyDoc } from './description';
 
 const doc = (text: string) => ({
   type: 'doc',
@@ -92,5 +92,41 @@ describe('docToText with tables and dividers', () => {
       ],
     };
     expect(docToText(d)).toBe('Name\nQty\nTea\n2\nAfter');
+  });
+});
+
+describe('isEmptyDoc with content nodes', () => {
+  const wrap = (...content: unknown[]) => ({ type: 'doc', content });
+
+  it('is not empty for an image without alt, a divider, an empty table or an emoji', () => {
+    expect(isEmptyDoc(wrap({ type: 'image', attrs: { src: 'a.png' } }))).toBe(false);
+    expect(isEmptyDoc(wrap({ type: 'horizontalRule' }))).toBe(false);
+    expect(
+      isEmptyDoc(
+        wrap({
+          type: 'table',
+          content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [] }] }],
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isEmptyDoc(wrap({ type: 'paragraph', content: [{ type: 'emoji', attrs: { name: 'tea' } }] })),
+    ).toBe(false);
+  });
+
+  it('is empty for an empty doc, an empty paragraph or whitespace-only text', () => {
+    expect(isEmptyDoc({ type: 'doc' })).toBe(true);
+    expect(isEmptyDoc(doc(''))).toBe(true);
+    expect(isEmptyDoc(doc('   \n '))).toBe(true);
+  });
+
+  it('treats an imageUpload placeholder alone as empty through buildDescription', () => {
+    expect(buildDescription(wrap({ type: 'imageUpload' }))).toEqual({ ok: true, value: null });
+  });
+
+  it('keeps an image-only doc with empty text', () => {
+    const image = { type: 'image', attrs: { src: 'a.png' } };
+    const d = wrap(image);
+    expect(buildDescription(d)).toEqual({ ok: true, value: { doc: d, text: '' } });
   });
 });
