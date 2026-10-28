@@ -153,6 +153,8 @@ describe('memberRowActions', () => {
 // Vibe's menu and the confirm panel render through async popper/portal steps, so on a slow
 // CI runner the default 1000ms `findBy*` window can expire. Give those waits a real budget.
 const SLOW_UI = { timeout: 5000 };
+// Several SLOW_UI waits chain inside one test, so the per-test timeout must cover their sum.
+const UI_TEST_TIMEOUT = 20_000;
 
 async function pickMenuAction(
   user: ReturnType<typeof userEvent.setup>,
@@ -164,7 +166,7 @@ async function pickMenuAction(
   return screen.findByRole('alertdialog', {}, SLOW_UI);
 }
 
-describe('MembersDialog', () => {
+describe('MembersDialog', { timeout: UI_TEST_TIMEOUT }, () => {
   it('lists members with names and emails, owner first', () => {
     renderDialog('owner');
     const list = screen.getByRole('list', { name: 'Members' });
@@ -328,7 +330,7 @@ describe('describeExpiry', () => {
   });
 });
 
-describe('InvitePage', () => {
+describe('InvitePage', { timeout: UI_TEST_TIMEOUT }, () => {
   function renderPage() {
     render(
       <AuthContext.Provider value={authFor('friend')}>
