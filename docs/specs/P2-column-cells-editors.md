@@ -18,7 +18,7 @@ Author: Ophelia (Opus 5.5) · Implementer: Ava (Antigravity) · Roadmap: P2 item
 
 ## Split into three PRs
 
-Do them in this order, within your 2-open-PR limit. Each PR:
+Do them in this order. They overlap, so only one of them is open as a PR at a time (see the work-in-progress limit in `AGENTS.md`). Each PR:
 
 - removes its types from `PENDING_TYPES` and adds them to `ADD_COLUMN_ORDER` (in monday's order) and to the showcase with realistic values;
 - adds unit tests for the cell, the editor and the settings editor;
