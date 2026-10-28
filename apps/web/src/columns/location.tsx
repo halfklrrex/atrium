@@ -65,8 +65,14 @@ function LocationEditor({
       return;
     }
 
-    const latNum = trimmedLat === '' ? 0 : Number(trimmedLat);
-    const lngNum = trimmedLng === '' ? 0 : Number(trimmedLng);
+    // The schema needs both coordinates and there is no geocoding: never invent 0, 0.
+    if (!trimmedLat || !trimmedLng) {
+      setError('Enter both latitude and longitude');
+      return;
+    }
+
+    const latNum = Number(trimmedLat);
+    const lngNum = Number(trimmedLng);
 
     if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
       setError('Latitude must be between -90 and 90, and longitude between -180 and 180');
