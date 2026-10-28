@@ -267,3 +267,12 @@
   color: var(--secondary-text-color);
   font: var(--font-text2-normal);
 }
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  cursor: pointer;
+}

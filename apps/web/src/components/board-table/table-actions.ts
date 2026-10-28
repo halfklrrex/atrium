@@ -207,6 +207,12 @@ export const tableActions = {
     value: unknown,
     item?: ItemDoc,
   ): Promise<boolean> {
+    const check = validateCellWrite(ctx.boardId, ctx.columns, columnId, value, item);
+    if (!check.ok) {
+      showToast(check.message, { type: 'negative' });
+      return false;
+    }
+
     const col = ctx.columns.find((c) => c.id === columnId);
     if (col?.type === 'vote') {
       if (value === null || value === undefined) {
@@ -215,17 +221,12 @@ export const tableActions = {
           'Could not save the change.',
         );
       }
-      const hasVoted = (
-        item?.values?.[columnId] as { votersIds?: string[] } | undefined
-      )?.votersIds?.includes(ctx.uid);
-      return tableActions.toggleVote(ctx, itemId, columnId, Boolean(hasVoted));
+      const requestedInVoters = Boolean(
+        (value as { votersIds?: string[] }).votersIds?.includes(ctx.uid),
+      );
+      return tableActions.toggleVote(ctx, itemId, columnId, !requestedInVoters);
     }
 
-    const check = validateCellWrite(ctx.boardId, ctx.columns, columnId, value, item);
-    if (!check.ok) {
-      showToast(check.message, { type: 'negative' });
-      return false;
-    }
     return attempt(
       () => itemWrites.setValue(ctx.uid, ctx.boardId, itemId, columnId, value),
       'Could not save the change.',

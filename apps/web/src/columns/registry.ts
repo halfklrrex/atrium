@@ -10,6 +10,7 @@ import { hourUi } from './hour';
 import { itemIdUi } from './item-id';
 import { lastUpdatedUi } from './last-updated';
 import { linkUi } from './link';
+import { locationUi } from './location';
 import { longTextUi } from './long-text';
 import { numbersUi } from './numbers';
 import { peopleUi } from './people';
@@ -63,6 +64,7 @@ export function registerColumnUi(ui: AnyColumnUi): void {
   weekUi,
   hourUi,
   worldClockUi,
+  locationUi,
 ].forEach(registerColumnUi);
 
 export function getColumnUi(type: string): AnyColumnUi | undefined {
@@ -96,4 +98,5 @@ export const ADD_COLUMN_ORDER = [
   'week',
   'hour',
   'world_clock',
+  'location',
 ] as const;
