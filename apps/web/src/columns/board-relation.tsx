@@ -218,7 +218,12 @@ function BoardRelationCell({ value }: CellProps<BoardRelationValue, BoardRelatio
   const names = linkedItems.flatMap((ref) => {
     const boardCache = sessionCache.get(ref.boardId);
     if (!boardCache || !boardCache.has(ref.itemId)) return [];
-    return [boardCache.get(ref.itemId) ?? UNAVAILABLE_ITEM_LABEL];
+    return [
+      {
+        key: `${ref.boardId}:${ref.itemId}`,
+        name: boardCache.get(ref.itemId) ?? UNAVAILABLE_ITEM_LABEL,
+      },
+    ];
   });
 
   if (names.length === 0) return <div className={styles.root} />;
@@ -229,11 +234,8 @@ function BoardRelationCell({ value }: CellProps<BoardRelationValue, BoardRelatio
   return (
     <div className={styles.root}>
       <span className={styles.pills}>
-        {shown.map((name, i) => (
-          <span
-            key={`${linkedItems[i]?.boardId ?? ''}:${linkedItems[i]?.itemId ?? i}`}
-            className={styles.pill}
-          >
+        {shown.map(({ key, name }) => (
+          <span key={key} className={styles.pill}>
             {name}
           </span>
         ))}
