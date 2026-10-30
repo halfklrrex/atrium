@@ -398,6 +398,14 @@ const FULL_VIEW_DESCRIPTION = {
       ],
     },
     {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Reviewer: ' },
+        { type: 'mention', attrs: { id: AVERY.uid, label: AVERY.displayName } },
+        { type: 'text', text: ' will sign it off.' },
+      ],
+    },
+    {
       type: 'bulletList',
       content: [
         'Lint, typecheck and unit tests',

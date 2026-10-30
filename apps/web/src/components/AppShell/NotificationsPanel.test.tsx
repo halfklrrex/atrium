@@ -276,6 +276,22 @@ describe('NotificationsPanel list', () => {
     expect(useUiStore.getState().notificationsOpen).toBe(false);
   });
 
+  it('shows a description mention and opens the item without an update target', async () => {
+    mockList = [
+      note('n9', {
+        updateId: null,
+        replyId: null,
+        snippet: 'Ask @Avery Quinn about the trip',
+      }),
+    ];
+    renderPanel();
+    setOpen(true);
+    expect(screen.getByText('Mentioned you in a description')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Ask @Avery Quinn about the trip'));
+    expect(mockMarkRead).toHaveBeenCalledWith('u1', 'n9');
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/boards\/b1\/items\/i1\|\|$/);
+  });
+
   it('opens a read assigned notification on the item alone, without marking it', async () => {
     renderPanel();
     setOpen(true);

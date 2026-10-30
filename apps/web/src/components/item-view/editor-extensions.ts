@@ -9,6 +9,8 @@ import type { EmojiSuggestController } from './emoji-data';
 import { DescriptionImage, ImageFileHandlers, ImageUpload } from './editor-images';
 import { KeyedHighlight, KeyedTextStyle, TextStyleKeys } from './editor-marks';
 import styles from './DescriptionEditor.module.css';
+import { createMentionExtension } from './mention/mention-extension';
+import type { MentionController } from './mention/mention-controller';
 import { createSlashCommand } from './slash-menu/slash-command';
 import { SuggestController, type SlashController } from './slash-menu/slash-controller';
 
@@ -31,13 +33,16 @@ export interface EditorExtensionOptions {
   itemId?: string;
   /** Feeds the `:` emoji list; a private one when omitted (tests). */
   emojiController?: EmojiSuggestController;
+  /** Feeds the `@` member list; without one (read-only, tests) the chip renders but no list opens. */
+  mentionController?: MentionController | null;
 }
 
 /**
  * Everything the description supports. StarterKit brings headings, bold, italic, underline,
  * strikethrough, code, code blocks, quotes, dividers, lists, links, undo and their markdown input
  * rules (`#`, `-`, `1.`, `>`, three backticks, `---`, `**bold**`, ...); the task item adds `[ ]`.
- * Pass 2 adds keyed text colour, highlight and font, emoji, and description images.
+ * Pass 2 adds keyed text colour, highlight and font, emoji, and description images; pass 3 the
+ * `@` mention chip.
  */
 export function createEditorExtensions(
   controller: SlashController,
@@ -53,6 +58,7 @@ export function createEditorExtensions(
     TextStyleKeys,
     KeyedHighlight,
     createEmojiExtension(options.emojiController ?? new SuggestController()),
+    createMentionExtension(options.mentionController ?? null),
     DescriptionImage.configure(image),
     ImageUpload,
     ImageFileHandlers.configure(image),

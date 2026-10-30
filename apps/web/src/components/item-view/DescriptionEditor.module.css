@@ -298,6 +298,12 @@
   font: var(--atrium-doc-code-font);
 }
 
+/* An @mention chip: the same primary-colour treatment as "@Name" in the update feed. */
+.content :global(.ProseMirror span[data-type='mention']) {
+  color: var(--primary-color);
+  font-weight: var(--font-weight-bold);
+}
+
 .content :global(.ProseMirror pre) {
   padding: var(--space-8) var(--space-12);
   border-radius: var(--border-radius-4);

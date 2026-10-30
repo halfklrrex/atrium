@@ -188,6 +188,26 @@ for (const theme of ['light', 'dark'] as const) {
       await resetFullViewDescription();
     });
 
+    test('board: description mention list open', async ({ page }) => {
+      await fullViewReady(page);
+      const editor = page.locator('.ProseMirror');
+      await expect(editor.locator('span[data-type="mention"]')).toBeVisible();
+      await editor.getByText('Details live in the spec linked from this item.').click();
+      await page.keyboard.press('Control+End');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type('@');
+      await expect(page.getByRole('listbox', { name: 'People' })).toBeVisible();
+      await shoot(page, `item-mention-list-${theme}`);
+      // Leave the shared description as it was found, like the slash menu screen above.
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.press('Backspace');
+      await expect
+        .poll(async () => JSON.stringify((await readFullViewDescription())?.doc).includes('"@"'))
+        .toBe(false);
+      await resetFullViewDescription();
+    });
+
     test('board: description colour popover open', async ({ page }) => {
       await fullViewReady(page);
       await page.locator('.ProseMirror').getByText('blocked').dblclick();

@@ -262,12 +262,27 @@ function buildGroups(list = GROUPS) {
 
 /**
  * Rich-text description of an item (full item view): blocks `{ h }` (heading), `{ p }`, `{ ul }`
- * (bullets), `{ todo: [[text, checked]] }` (checklist), turned into a ProseMirror doc plus its text.
+ * (bullets), `{ todo: [[text, checked]] }` (checklist) and `{ mention: [before, memberKey, after] }`
+ * (a paragraph with an @mention chip of a SHOWCASE_MEMBERS member), turned into a ProseMirror doc plus
+ * its text.
  */
 function descriptionOf(blocks) {
   const text = (t) => ({ type: 'text', text: t });
   const para = (t) => ({ type: 'paragraph', content: [text(t)] });
+  const mentioned = (key) => SHOWCASE_MEMBERS.find((m) => m.key === key);
   const content = blocks.map((b) => {
+    if (b.mention) {
+      const [before, key, after] = b.mention;
+      const who = mentioned(key);
+      return {
+        type: 'paragraph',
+        content: [
+          text(before),
+          { type: 'mention', attrs: { id: who.uid, label: who.displayName } },
+          text(after),
+        ],
+      };
+    }
     if (b.h) return { type: 'heading', attrs: { level: 2 }, content: [text(b.h)] };
     if (b.ul) {
       return {
@@ -288,7 +303,11 @@ function descriptionOf(blocks) {
     return para(b.p);
   });
   const plain = blocks
-    .flatMap((b) => b.h ?? b.p ?? b.ul ?? b.todo.map(([t]) => t))
+    .flatMap((b) =>
+      b.mention
+        ? [`${b.mention[0]}@${mentioned(b.mention[1]).displayName}${b.mention[2]}`]
+        : (b.h ?? b.p ?? b.ul ?? b.todo.map(([t]) => t)),
+    )
     .join('\n')
     .slice(0, 10000);
   return { doc: { type: 'doc', content }, text: plain };
@@ -306,6 +325,7 @@ const ITEMS = [
     description: [
       { h: 'Goal' },
       { p: 'Pick the tagline and lock the hero copy so design can finish the section.' },
+      { mention: ['Run the final wording past ', 'jordan', ' before sign-off.'] },
       { h: 'Shortlist' },
       {
         ul: ['Everything in one place', 'Plan together, finish together', 'Work, simply organised'],
