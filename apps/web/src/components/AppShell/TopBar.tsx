@@ -2,6 +2,8 @@ import { IconButton } from '@vibe/core';
 import { Apps, Help, Inbox, Invite, Menu as MenuIcon, Notifications, Search } from '@vibe/icons';
 import classNames from 'classnames';
 import { Link } from 'react-router';
+import { useAuth } from '../../auth/auth-context';
+import { formatUnreadCount, useUnreadNotifications } from '../../data/notifications';
 import { AtriumMark } from '../AtriumLogo';
 import { showComingSoon } from '../toast-store';
 import { useCurrentWorkspace } from './useCurrentWorkspace';
@@ -30,6 +32,9 @@ export function TopBar() {
   const setNotificationsOpen = useUiStore((s) => s.setNotificationsOpen);
   const openDialog = useUiStore((s) => s.openDialog);
   const { workspace } = useCurrentWorkspace();
+  const { user } = useAuth();
+  const { count: unread } = useUnreadNotifications(user?.uid);
+  const unreadLabel = formatUnreadCount(unread);
   const onAction = (label: string) => {
     if (label === 'Invite members' && workspace) {
       openDialog({ type: 'members', workspaceId: workspace.id, tab: 'invites' });
@@ -57,16 +62,21 @@ export function TopBar() {
         <span className={styles.brandSuffix}>workboards</span>
       </Link>
       <div className={styles.topBarActions}>
-        <span data-notifications-trigger="">
+        <span data-notifications-trigger="" className={styles.bell}>
           <IconButton
             icon={Notifications}
             kind="tertiary"
-            aria-label="Notifications"
+            aria-label={unread > 0 ? `Notifications, ${unreadLabel} unread` : 'Notifications'}
             aria-expanded={notificationsOpen}
             aria-controls="notifications-panel"
             active={notificationsOpen}
             onClick={() => setNotificationsOpen(!notificationsOpen)}
           />
+          {unread > 0 ? (
+            <span className={styles.badge} aria-hidden="true" data-testid="notifications-badge">
+              {unreadLabel}
+            </span>
+          ) : null}
         </span>
         {ACTIONS.map(({ label, icon, narrow }) => (
           <span key={label} className={classNames(!narrow && styles.hideNarrow)}>

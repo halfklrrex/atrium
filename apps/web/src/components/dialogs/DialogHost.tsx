@@ -3,6 +3,7 @@ import { AboutDialog } from './AboutDialog';
 import { BoardPermissionsDialog, NewBoardDialog } from './BoardDialogs';
 import { MembersDialog } from '../membership/MembersDialog';
 import { DeleteFolderDialog, FolderDialog } from './FolderDialogs';
+import { NotificationSettingsDialog } from './NotificationSettingsDialog';
 import { NewWorkspaceDialog, WorkspaceSettingsDialog } from './WorkspaceDialogs';
 
 /** Renders the single dialog described by the UI store (opened from menus anywhere in the app). */
@@ -48,6 +49,8 @@ export function DialogHost() {
       return (
         <MembersDialog workspaceId={dialog.workspaceId} initialTab={dialog.tab} onClose={close} />
       );
+    case 'notificationSettings':
+      return <NotificationSettingsDialog onClose={close} />;
     case 'about':
       return <AboutDialog onClose={close} />;
   }

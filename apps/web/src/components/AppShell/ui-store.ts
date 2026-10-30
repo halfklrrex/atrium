@@ -18,6 +18,7 @@ export type DialogState =
   | { type: 'deleteFolder'; workspaceId: string; folderId: string }
   | { type: 'boardPermissions'; boardId: string }
   | { type: 'members'; workspaceId: string; tab?: 'members' | 'invites' }
+  | { type: 'notificationSettings' }
   | { type: 'about' };
 
 interface UiState {
@@ -27,7 +28,7 @@ interface UiState {
   /** Desktop sidebar collapsed to zero width (remembered between visits). */
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  /** Right-hand notifications panel (UI shell only until P4). */
+  /** Right-hand notifications panel (the bell inbox). */
   notificationsOpen: boolean;
   setNotificationsOpen: (open: boolean) => void;
   dialog: DialogState | null;

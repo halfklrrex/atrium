@@ -58,6 +58,28 @@
   display: inline-flex;
 }
 
+/* The bell is the one top-bar button with a count on it. */
+.bell {
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline-end: var(--space-4);
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: var(--space-16);
+  height: var(--space-16);
+  padding-inline: var(--space-4);
+  border-radius: var(--border-radius-big);
+  background: var(--negative-color);
+  color: var(--text-color-on-primary);
+  font: var(--font-text3-bold);
+  pointer-events: none;
+}
+
 .appsButton {
   margin-inline-start: var(--atrium-topbar-apps-gap);
 }
