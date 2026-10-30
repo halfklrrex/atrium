@@ -13,6 +13,7 @@ import {
   favoriteSchema,
   itemSchema,
   itemUpdateSchema,
+  notificationSchema,
   recentSchema,
   updateReplySchema,
   workspaceMemberSchema,
@@ -24,6 +25,7 @@ import {
   SHOWCASE_MEMBERS,
   SHOWCASE_MEMBER_UIDS,
   SHOWCASE_MAIN_ID,
+  SHOWCASE_NOTIFICATION_IDS,
   anchorOf,
   buildShowcase,
   isOwnedPath,
@@ -68,6 +70,7 @@ test('every document re-validates against its shared schema', () => {
     [/^boards\/[^/]+\/items\/[^/]+\/updates\/[^/]+\/replies\/[^/]+$/, updateReplySchema],
     [/^users\/[^/]+\/favorites\/[^/]+$/, favoriteSchema],
     [/^users\/[^/]+\/recents\/[^/]+$/, recentSchema],
+    [/^users\/[^/]+\/notifications\/[^/]+$/, notificationSchema],
     [/^workspaces\/[^/]+\/members\/[^/]+$/, workspaceMemberSchema],
   ];
   for (const { path, data } of docs) {
@@ -281,6 +284,36 @@ test('the owner has the main board as a favourite and a recent visit', () => {
   assert.ok(docs.some((d) => d.path === `users/${OWNER}/recents/${SHOWCASE_MAIN_ID}`));
 });
 
+test('the owner has one notification of each kind, unread and read mixed, on real showcase content', () => {
+  const { docs, summary } = build();
+  const notes = docs.filter((d) => d.path.startsWith(`users/${OWNER}/notifications/`));
+  assert.deepEqual(
+    notes.map((d) => d.path.split('/').at(-1)),
+    SHOWCASE_NOTIFICATION_IDS,
+  );
+  assert.equal(summary.notifications, 3);
+  assert.deepEqual(notes.map((d) => d.data.kind).sort(), ['assigned', 'mention', 'reply']);
+  assert.ok(notes.some((d) => d.data.readAt === null));
+  assert.ok(notes.some((d) => d.data.readAt !== null));
+  const paths = new Set(docs.map((d) => d.path));
+  for (const { data } of notes) {
+    // Nobody notifies themselves, and the thing it points at exists in the seed.
+    assert.notEqual(data.actorId, OWNER);
+    assert.ok(SHOWCASE_MEMBER_UIDS.includes(data.actorId));
+    assert.ok(paths.has(`boards/${data.boardId}/items/${data.itemId}`));
+    if (data.updateId) {
+      assert.ok(paths.has(`boards/${data.boardId}/items/${data.itemId}/updates/${data.updateId}`));
+    }
+    if (data.replyId) {
+      assert.ok(
+        paths.has(
+          `boards/${data.boardId}/items/${data.itemId}/updates/${data.updateId}/replies/${data.replyId}`,
+        ),
+      );
+    }
+  }
+});
+
 test('building twice gives identical documents', () => {
   const serialise = (r) => JSON.stringify(r.docs.map((d) => [d.path, encodeFields(d.data)]));
   assert.equal(serialise(build()), serialise(build()));
@@ -389,6 +422,11 @@ test('ownership allow-list', () => {
   assert.ok(!isOwnedPath(`users/${OWNER}/favorites/real-board`, OWNER));
   assert.ok(!isOwnedPath('users/someone-else/favorites/showcase-main', OWNER));
   assert.ok(!isOwnedPath(`users/${OWNER}/notifications/showcase-main`, OWNER));
+  assert.ok(isOwnedPath(`users/${OWNER}/notifications/${SHOWCASE_NOTIFICATION_IDS[0]}`, OWNER));
+  assert.ok(!isOwnedPath(`users/${OWNER}/notifications/real-notification`, OWNER));
+  assert.ok(
+    !isOwnedPath(`users/someone-else/notifications/${SHOWCASE_NOTIFICATION_IDS[0]}`, OWNER),
+  );
   assert.ok(!isOwnedPath('workspaces/ws-test', OWNER));
   assert.ok(!isOwnedPath('boards/showcase-main/../real-board', OWNER));
 });
@@ -534,6 +572,7 @@ const snapshot = (client) =>
 const isShowcasePath = (p) =>
   /^boards\/showcase-/.test(p) ||
   /\/(favorites|recents)\/showcase-/.test(p) ||
+  /\/notifications\/showcase-notification-/.test(p) ||
   /^workspaces\/[^/]+\/members\/showcase-user-/.test(p);
 const foreignDocs = (client) =>
   Object.fromEntries([...client.store.entries()].filter(([p]) => !isShowcasePath(p)));

@@ -18,6 +18,7 @@ import {
   groupDefSchema,
   itemSchema,
   itemUpdateSchema,
+  notificationSchema,
   recentSchema,
   updateReplySchema,
   workspaceMemberSchema,
@@ -46,6 +47,11 @@ export const SHOWCASE_ARCHIVED_ID = 'showcase-archived-demo';
 export const SHOWCASE_TRASHED_ID = 'showcase-trashed-demo';
 export const SHOWCASE_BOARD_IDS = [SHOWCASE_MAIN_ID, SHOWCASE_ARCHIVED_ID, SHOWCASE_TRASHED_ID];
 export const SHOWCASE_PREFIX = 'showcase-';
+/** The owner's three showcase notifications (`users/{owner}/notifications/<id>`), one per kind. */
+export const SHOWCASE_NOTIFICATION_PREFIX = 'showcase-notification-';
+export const SHOWCASE_NOTIFICATION_IDS = ['mention', 'reply', 'assigned'].map(
+  (kind) => `${SHOWCASE_NOTIFICATION_PREFIX}${kind}`,
+);
 
 /**
  * Three fake people, so People cells show names and initials instead of "Board member". They get a
@@ -1441,6 +1447,53 @@ export function buildShowcase({
     }),
   });
 
+  // ---- The owner's bell: one notification of each kind, unread and read mixed ----
+  // Cloud Functions create these in the app; clients cannot, so the seed script writes them.
+  const itemNamed = (key) => {
+    const spec = ITEMS.find((i) => i.key === key);
+    if (!spec) throw new Error(`Notification: unknown item "${key}"`);
+    return { itemId: `showcase-${key}`, itemName: spec.name };
+  };
+  const person = (key) => SHOWCASE_MEMBERS.find((m) => m.key === key);
+  const notification = (kind, actor, itemKey, extra) =>
+    docs.push({
+      path: `users/${ownerUid}/notifications/${SHOWCASE_NOTIFICATION_PREFIX}${kind}`,
+      data: notificationSchema.parse({
+        kind,
+        actorId: actor.uid,
+        actorName: actor.displayName,
+        actorPhotoURL: null,
+        workspaceId,
+        boardId: SHOWCASE_MAIN_ID,
+        boardName: '🧪 Atrium Showcase',
+        ...itemNamed(itemKey),
+        updateId: null,
+        replyId: null,
+        columnId: null,
+        ...extra,
+      }),
+    });
+  notification('mention', person('jordan'), 'hero-copy', {
+    updateId: 'showcase-hero-copy-u2',
+    snippet: 'Can you double-check the tagline before it goes to the founders?',
+    createdAt: ago(20 * 60 * 1000),
+    readAt: null,
+  });
+  notification('reply', person('sam'), 'privacy-policy', {
+    updateId: 'showcase-privacy-policy-u1',
+    replyId: 'showcase-privacy-policy-u1-r1',
+    snippet: 'Counsel confirmed a short summary plus a link to the full cookie table is fine.',
+    createdAt: ago(3 * HOUR),
+    readAt: ago(2 * HOUR),
+  });
+  notification('assigned', person('casey'), 'pricing-page', {
+    columnId: 'person',
+    snippet: '',
+    createdAt: ago(1 * DAY),
+    readAt: null,
+  });
+  summary.notifications = SHOWCASE_NOTIFICATION_IDS.length;
+
   // Positions inside every group must be unique and ascending.
   for (const [groupId, n] of positionInGroup) {
     if (n > DIGITS.length) throw new Error(`Group "${groupId}" has too many items`);
@@ -1456,7 +1509,7 @@ export function buildShowcase({
 /**
  * Whether the seed script may create, update or delete the document at `path`. The only paths it
  * owns are: `boards/showcase-*` and everything below them, the owner's `favorites` and
- * `recents` documents named like a showcase board, and the fake members' `members` docs in the
+ * `recents` documents named like a showcase board, the three `showcase-notification-*` notifications, and the fake members' `members` docs in the
  * workspace being seeded. Nothing else, ever.
  */
 export function isOwnedPath(path, ownerUid, workspaceId) {
@@ -1479,8 +1532,9 @@ export function isOwnedPath(path, ownerUid, workspaceId) {
     return (
       parts.length === 4 &&
       parts[1] === ownerUid &&
-      (parts[2] === 'favorites' || parts[2] === 'recents') &&
-      SHOWCASE_BOARD_IDS.includes(parts[3])
+      (((parts[2] === 'favorites' || parts[2] === 'recents') &&
+        SHOWCASE_BOARD_IDS.includes(parts[3])) ||
+        (parts[2] === 'notifications' && SHOWCASE_NOTIFICATION_IDS.includes(parts[3])))
     );
   }
   return false;
