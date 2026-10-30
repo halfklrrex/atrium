@@ -100,14 +100,26 @@ service cloud.firestore {
     // users/{uid}: readable and (partially) writable by self only. Created by the bootstrapUser callable.
     // ---------------------------------------------------------------------
     match /users/{userId} {
+      // Which notification kinds the user wants (P4); a missing key or map means all on.
+      function validNotificationPrefs(p) {
+        return p is map
+          && p.keys().hasOnly(['assigned', 'reply', 'mention'])
+          && p.keys().hasAll(['assigned', 'reply', 'mention'])
+          && p.assigned is bool && p.reply is bool && p.mention is bool;
+      }
+
       allow read: if signedIn() && uid() == userId;
 
       allow update: if signedIn() && uid() == userId
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['timezone', 'locale', 'lastWorkspaceId', 'theme'])
+             .hasOnly(['timezone', 'locale', 'lastWorkspaceId', 'theme', 'notificationPrefs'])
         && request.resource.data.timezone is string && request.resource.data.timezone.size() <= 64
         && request.resource.data.locale is string && request.resource.data.locale.size() <= 32
         && request.resource.data.theme in ['light', 'dark', 'black', 'system']
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['notificationPrefs'])
+          || validNotificationPrefs(request.resource.data.notificationPrefs)
+        )
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastWorkspaceId'])
           || (request.resource.data.lastWorkspaceId is string
@@ -149,6 +161,19 @@ service cloud.firestore {
 
       allow read: if signedIn() && uid() == userId;
       allow create, update: if signedIn() && uid() == userId && validRecent(request.resource.data);
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // ---------------------------------------------------------------------
+    // users/{uid}/notifications/{id}: written only by Cloud Functions (P4 bell inbox). The recipient
+    // reads them, marks them read or unread (`readAt` alone) and deletes them.
+    // ---------------------------------------------------------------------
+    match /users/{userId}/notifications/{notificationId} {
+      allow read: if signedIn() && uid() == userId;
+      allow create: if false;
+      allow update: if signedIn() && uid() == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
+        && (request.resource.data.readAt == null || request.resource.data.readAt == request.time);
       allow delete: if signedIn() && uid() == userId;
     }
 
@@ -567,12 +592,21 @@ service cloud.firestore {
               && oldLikes.difference(newLikes).hasOnly([uid()]);
           }
 
+          // Optional `mentions` (uids of @mentioned members); Functions drop non-members, so the
+          // rules only bound the list. Never changeable on update (changed keys are whitelisted).
+          function validMentions(d) {
+            return !('mentions' in d)
+              || (d.mentions is list && d.mentions.size() <= 20 && d.mentions.toSet().size() == d.mentions.size());
+          }
+
           function validUpdateCreate(d) {
             return d.keys().hasOnly(['itemId', 'authorId', 'authorName', 'authorPhotoUrl',
-                                     'content', 'likes', 'repliesCount', 'createdAt', 'updatedAt'])
+                                     'content', 'likes', 'repliesCount', 'createdAt', 'updatedAt',
+                                     'mentions'])
               && d.keys().hasAll(['itemId', 'authorId', 'content', 'likes', 'repliesCount',
                                   'createdAt', 'updatedAt'])
               && d.itemId == itemId
+              && validMentions(d)
               && d.authorId == uid()
               && (!('authorName' in d) || d.authorName is string)
               && (!('authorPhotoUrl' in d) || d.authorPhotoUrl == null || d.authorPhotoUrl is string)
@@ -609,10 +643,11 @@ service cloud.firestore {
           match /replies/{replyId} {
             function validReplyCreate(d) {
               return d.keys().hasOnly(['updateId', 'authorId', 'authorName', 'authorPhotoUrl',
-                                       'content', 'likes', 'createdAt', 'updatedAt'])
+                                       'content', 'likes', 'createdAt', 'updatedAt', 'mentions'])
                 && d.keys().hasAll(['updateId', 'authorId', 'content', 'likes',
                                     'createdAt', 'updatedAt'])
                 && d.updateId == updateId
+                && validMentions(d)
                 && d.authorId == uid()
                 && (!('authorName' in d) || d.authorName is string)
                 && (!('authorPhotoUrl' in d) || d.authorPhotoUrl == null || d.authorPhotoUrl is string)
