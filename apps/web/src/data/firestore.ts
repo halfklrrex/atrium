@@ -20,6 +20,7 @@ import {
   type FolderInput,
   type Item,
   type ItemUpdate,
+  type Notification,
   type Recent,
   type UpdateReply,
   type User,
@@ -60,6 +61,7 @@ import type {
   InviteDoc,
   ItemUpdateDoc,
   MemberDoc,
+  NotificationDoc,
   RecentDoc,
   UpdateReplyDoc,
   UserDoc,
@@ -92,6 +94,7 @@ const itemUpdateConverter = converter<ItemUpdate>();
 const updateReplyConverter = converter<UpdateReply>();
 const favoriteConverter = converter<Favorite>();
 const recentConverter = converter<Recent>();
+const notificationConverter = converter<Notification>();
 const memberConverter = converter<WorkspaceMember>();
 const inviteConverter = converter<WorkspaceInvite>();
 
@@ -108,6 +111,7 @@ const COLLECTIONS = {
   replies: 'replies',
   favorites: 'favorites',
   recents: 'recents',
+  notifications: 'notifications',
 } as const;
 
 export const refs = {
@@ -117,6 +121,12 @@ export const refs = {
     collection(db, COLLECTIONS.users, uid, COLLECTIONS.favorites).withConverter(favoriteConverter),
   recents: (uid: string): CollectionReference<RecentDoc> =>
     collection(db, COLLECTIONS.users, uid, COLLECTIONS.recents).withConverter(recentConverter),
+
+  /** Written only by Cloud Functions; the recipient reads them and sets `readAt` or deletes. */
+  notifications: (uid: string): CollectionReference<NotificationDoc> =>
+    collection(db, COLLECTIONS.users, uid, COLLECTIONS.notifications).withConverter(
+      notificationConverter,
+    ),
 
   workspaces: (): CollectionReference<WorkspaceDoc> =>
     collection(db, COLLECTIONS.workspaces).withConverter(workspaceConverter),
@@ -206,6 +216,9 @@ export const refs = {
  * use field paths, `deleteField()` or `serverTimestamp()` do not fit the converter's value types.
  */
 export const plainRefs = {
+  user: (uid: string): DocumentReference<DocumentData> => doc(db, COLLECTIONS.users, uid),
+  notification: (uid: string, id: string): DocumentReference<DocumentData> =>
+    doc(db, COLLECTIONS.users, uid, COLLECTIONS.notifications, id),
   board: (boardId: string): DocumentReference<DocumentData> => doc(db, COLLECTIONS.boards, boardId),
   item: (boardId: string, itemId: string): DocumentReference<DocumentData> =>
     doc(db, COLLECTIONS.boards, boardId, COLLECTIONS.items, itemId),
@@ -243,6 +256,14 @@ export const queries = {
   /** The user's most recently visited boards, newest first. */
   recents: (uid: string): Query<RecentDoc> =>
     query(refs.recents(uid), orderBy('visitedAt', 'desc'), limit(MAX_RECENTS)),
+
+  /** The bell list: newest first, `count` at a time ("Load more" raises it). */
+  notifications: (uid: string, count: number): Query<NotificationDoc> =>
+    query(refs.notifications(uid), orderBy('createdAt', 'desc'), limit(count)),
+
+  /** Unread ones only, capped so the bell can say "99+" without counting the whole inbox. */
+  unreadNotifications: (uid: string, cap: number): Query<NotificationDoc> =>
+    query(refs.notifications(uid), where('readAt', '==', null), limit(cap)),
 
   activeItems: (boardId: string): Query<ItemDoc> =>
     query(refs.items(boardId), where('state', '==', 'active')),

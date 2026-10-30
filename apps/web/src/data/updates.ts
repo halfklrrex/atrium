@@ -60,6 +60,8 @@ export interface CreateUpdateParams {
   authorName?: string;
   authorPhotoUrl?: string | null;
   content: string;
+  /** Uids picked from the @ list whose "@Name" is still in `content`. */
+  mentions?: readonly string[];
 }
 
 export interface CreateReplyParams {
@@ -70,6 +72,8 @@ export interface CreateReplyParams {
   authorName?: string;
   authorPhotoUrl?: string | null;
   content: string;
+  /** Uids picked from the @ list whose "@Name" is still in `content`. */
+  mentions?: readonly string[];
 }
 
 export interface ToggleLikeParams {
@@ -104,7 +108,10 @@ export interface DeleteReplyParams {
 
 /** Creates a new update post in the item feed. */
 export async function createUpdate(params: CreateUpdateParams): Promise<string> {
-  const parsed = createItemUpdateInputSchema.parse({ content: params.content });
+  const parsed = createItemUpdateInputSchema.parse({
+    content: params.content,
+    ...(params.mentions?.length ? { mentions: [...params.mentions] } : {}),
+  });
   const collectionRef = refs.updates(params.boardId, params.itemId);
   const newRef = doc(collectionRef);
 
@@ -117,6 +124,7 @@ export async function createUpdate(params: CreateUpdateParams): Promise<string> 
     ...(params.authorName ? { authorName: params.authorName } : {}),
     ...(params.authorPhotoUrl !== undefined ? { authorPhotoUrl: params.authorPhotoUrl } : {}),
     content: parsed.content,
+    ...(parsed.mentions?.length ? { mentions: parsed.mentions } : {}),
     likes: [],
     repliesCount: 0,
     createdAt: serverTimestamp(),
@@ -140,7 +148,10 @@ export async function toggleLikeUpdate(params: ToggleLikeParams): Promise<void> 
 
 /** Creates a reply to an update post and increments parent repliesCount. */
 export async function createReply(params: CreateReplyParams): Promise<string> {
-  const parsed = createUpdateReplyInputSchema.parse({ content: params.content });
+  const parsed = createUpdateReplyInputSchema.parse({
+    content: params.content,
+    ...(params.mentions?.length ? { mentions: [...params.mentions] } : {}),
+  });
   const collectionRef = refs.replies(params.boardId, params.itemId, params.updateId);
   const newRef = doc(collectionRef);
 
@@ -151,6 +162,7 @@ export async function createReply(params: CreateReplyParams): Promise<string> {
     ...(params.authorName ? { authorName: params.authorName } : {}),
     ...(params.authorPhotoUrl !== undefined ? { authorPhotoUrl: params.authorPhotoUrl } : {}),
     content: parsed.content,
+    ...(parsed.mentions?.length ? { mentions: parsed.mentions } : {}),
     likes: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
