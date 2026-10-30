@@ -69,8 +69,7 @@ function ButtonCell({ settings, column, ctx }: CellProps<ButtonValue, ButtonSett
         loading={busy}
         style={
           {
-            // eslint-disable-next-line no-restricted-syntax -- user-chosen button colour (data)
-            '--atrium-btn-bg': settings?.color || '#579bfc',
+            '--atrium-btn-bg': settings?.color || 'var(--primary-color)',
             '--atrium-btn-fg': fg,
           } as CSSProperties
         }

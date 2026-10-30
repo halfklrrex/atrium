@@ -17,6 +17,14 @@ vi.mock('../lib/callables', () => ({
   describeCallableError: (_err: unknown, fallback: string) => fallback,
 }));
 
+vi.mock('../data/members-store', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useUserLookup: () => (uid: string) =>
+    uid === 'user-avery'
+      ? { uid, name: 'Avery Quinn', photoURL: null, email: 'avery@example.com' }
+      : undefined,
+}));
+
 const Cell = filesUi.Cell as ComponentType<CellProps<FilesValue, FilesSettings>>;
 
 const dummyColumn: ColumnDef = {
@@ -199,8 +207,25 @@ describe('files column UI', () => {
       expect(dialog).toBeInTheDocument();
       expect(dialog).toHaveTextContent('architecture.pdf');
       expect(dialog).toHaveTextContent('1.5 MB');
-      expect(dialog).toHaveTextContent('user-avery');
+      expect(dialog).toHaveTextContent('Avery Quinn');
+      expect(dialog).not.toHaveTextContent('user-avery');
       expect(dialog).toHaveTextContent('Oct 23');
+    });
+
+    it('shows "Unknown member" for an uploader that cannot be resolved, never the uid', () => {
+      render(
+        <Cell
+          value={{ files: [makeFile(1, { uploadedBy: 'uid-gone-123' })] }}
+          settings={{ maxFileSizeMb: 10 }}
+          column={dummyColumn}
+          ctx={dummyContext}
+          onChange={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Attachments (1)' }));
+      const dialog = screen.getByRole('dialog', { name: 'Attachments' });
+      expect(dialog).toHaveTextContent('Unknown member');
+      expect(dialog).not.toHaveTextContent('uid-gone-123');
     });
 
     it('downloads a file via fileCalls.getDownloadUrl and opens in a new tab', async () => {

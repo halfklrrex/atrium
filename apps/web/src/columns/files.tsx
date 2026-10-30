@@ -8,6 +8,7 @@ import {
 import { Button } from '@vibe/core';
 import { Add, Delete, Download, File as FileIcon } from '@vibe/icons';
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { UNKNOWN_MEMBER_NAME, useUserLookup } from '../data/members-store';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
 import { putWithProgress } from '../components/item-view/description-image-upload';
 import { showToast } from '../components/toast-store';
@@ -46,6 +47,7 @@ function explainFileDisallowed(
 }
 
 function FilesCell({ value, settings, column, ctx }: CellProps<FilesValue, FilesSettings>) {
+  const lookup = useUserLookup();
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -221,7 +223,8 @@ function FilesCell({ value, settings, column, ctx }: CellProps<FilesValue, Files
                           {file.name}
                         </span>
                         <span className={popups.fieldLabel}>
-                          {formatFileSize(file.size)} · {file.uploadedBy} ·{' '}
+                          {formatFileSize(file.size)} ·{' '}
+                          {lookup(file.uploadedBy)?.name ?? UNKNOWN_MEMBER_NAME} ·{' '}
                           {formatUploadDate(file.uploadedAt)}
                         </span>
                       </div>

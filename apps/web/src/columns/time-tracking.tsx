@@ -5,9 +5,10 @@ import {
   type TimeTrackingSettings,
   type TimeTrackingValue,
 } from '@atrium/shared';
-import { Time } from '@vibe/icons';
+import { Play, Time } from '@vibe/icons';
 import classNames from 'classnames';
 import { useRef, useState, type MouseEvent } from 'react';
+import { UNKNOWN_MEMBER_NAME, useUserLookup } from '../data/members-store';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
 import { showToast } from '../components/toast-store';
 import { columnActionCalls, describeCallableError } from '../lib/callables';
@@ -35,6 +36,7 @@ function TimeTrackingCell({
   const cellRef = useRef<HTMLDivElement>(null);
   const [activePopup, setActivePopup] = useState<'note' | 'history' | null>(null);
   const [popupAnchor, setPopupAnchor] = useState<HTMLElement | null>(null);
+  const lookup = useUserLookup();
   const [noteText, setNoteText] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -127,9 +129,7 @@ function TimeTrackingCell({
               <rect x="4" y="4" width="8" height="8" rx="1" />
             </svg>
           ) : (
-            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M5 3.5L12.5 8L5 12.5V3.5Z" />
-            </svg>
+            <Play aria-hidden />
           )}
         </button>
         {trackHistory ? (
@@ -199,7 +199,7 @@ function TimeTrackingCell({
               ) : (
                 sessions.map((session) => (
                   <div key={session.id} role="listitem" className={popups.listRow}>
-                    <span>{session.userId}</span>
+                    <span>{lookup(session.userId)?.name ?? UNKNOWN_MEMBER_NAME}</span>
                     <span className={popups.muted}>
                       {formatSessionTimestamp(session.startedAt)} –{' '}
                       {session.endedAt !== undefined
