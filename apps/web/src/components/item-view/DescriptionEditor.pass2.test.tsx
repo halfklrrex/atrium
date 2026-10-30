@@ -259,7 +259,12 @@ describe('emoji', () => {
     const picker = await screen.findByRole('dialog', { name: 'Emoji' });
     expect(within(picker).getByRole('group', { name: 'Recently used' })).toBeInTheDocument();
     expect(within(picker).getAllByRole('tab')).toHaveLength(9);
-    await user.type(within(picker).getByPlaceholderText('Search emoji'), 'rocket');
+    // One accessible name, and no visible label repeating the placeholder.
+    const search = within(picker).getByLabelText('Search emoji');
+    expect(search).toHaveAttribute('placeholder', 'Search emoji');
+    expect(picker.querySelectorAll('label')).toHaveLength(0);
+    expect(within(picker).queryByText('Search emoji')).not.toBeInTheDocument();
+    await user.type(search, 'rocket');
     const results = within(picker).getByRole('group', { name: 'Search results' });
     expect(within(results).getByRole('button', { name: 'rocket' })).toBeInTheDocument();
   });

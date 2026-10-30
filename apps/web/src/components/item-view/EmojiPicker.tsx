@@ -79,7 +79,7 @@ export function EmojiPicker({
         }}
       >
         <TextField
-          title="Search emoji"
+          inputAriaLabel="Search emoji"
           placeholder="Search emoji"
           value={query}
           autoFocus
