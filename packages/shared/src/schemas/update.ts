@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { mentionsSchema } from './notification';
 import { idSchema, timestampSchema, uidSchema, type WriteDoc } from './common';
 
 /**
@@ -11,6 +12,8 @@ export const itemUpdateSchema = z.object({
   authorName: z.string().max(200).optional(),
   authorPhotoUrl: z.string().max(2048).nullable().optional(),
   content: z.string().min(1).max(50000),
+  /** Uids mentioned with the @ picker (P4 notifications); set on create, never edited. */
+  mentions: mentionsSchema.optional(),
   likes: z.array(uidSchema),
   repliesCount: z.number().int().nonnegative(),
   createdAt: timestampSchema,
@@ -29,6 +32,8 @@ export const updateReplySchema = z.object({
   authorName: z.string().max(200).optional(),
   authorPhotoUrl: z.string().max(2048).nullable().optional(),
   content: z.string().min(1).max(50000),
+  /** Uids mentioned with the @ picker (P4 notifications); set on create, never edited. */
+  mentions: mentionsSchema.optional(),
   likes: z.array(uidSchema),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
@@ -39,11 +44,13 @@ export type UpdateReplyWrite = WriteDoc<UpdateReply>;
 /** Form input for creating or updating an update post. */
 export const createItemUpdateInputSchema = z.object({
   content: z.string().trim().min(1).max(50000),
+  mentions: mentionsSchema.optional(),
 });
 export type CreateItemUpdateInput = z.infer<typeof createItemUpdateInputSchema>;
 
 /** Form input for creating a reply to an update post. */
 export const createUpdateReplyInputSchema = z.object({
   content: z.string().trim().min(1).max(50000),
+  mentions: mentionsSchema.optional(),
 });
 export type CreateUpdateReplyInput = z.infer<typeof createUpdateReplyInputSchema>;
