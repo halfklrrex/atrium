@@ -5,6 +5,10 @@ import type { SuggestController } from './slash-menu/slash-controller';
  * The emoji the editor offers: the extension's own data (no second emoji library), without the
  * skin-tone and hair components, the regional-indicator letters, and any fallback image URLs, so a
  * font without an emoji shows its code instead of loading a picture from a CDN.
+ *
+ * Emoji that default to text presentation (heart, skull, shamrock, airplane, ...) come from the
+ * extension without U+FE0F, so Windows draws them as monochrome text glyphs. `asEmojiPresentation`
+ * adds it.
  */
 export const EMOJIS: EmojiItem[] = allEmojis
   .filter(
@@ -12,10 +16,18 @@ export const EMOJIS: EmojiItem[] = allEmojis
       item.emoji && item.group !== 'components' && !item.name.startsWith('regional_indicator_'),
   )
   .map((item) => {
-    const copy = { ...item };
+    const copy = { ...item, emoji: asEmojiPresentation(item.emoji ?? '') };
     delete copy.fallbackImage;
     return copy;
   });
+
+/** Appends the emoji variation selector (U+FE0F) to a lone code point that defaults to text. */
+export function asEmojiPresentation(emoji: string): string {
+  const isSingle = [...emoji].length === 1;
+  return isSingle && /\p{Emoji}/u.test(emoji) && !/\p{Emoji_Presentation}/u.test(emoji)
+    ? `${emoji}️`
+    : emoji;
+}
 
 export interface EmojiCategory {
   id: string;
