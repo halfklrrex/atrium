@@ -1,0 +1,38 @@
+/* The @ list under a composer; it sits in AnchoredPopup, which owns the surface and shadow. */
+.list {
+  composes: atrium-scroll from global;
+  display: flex;
+  flex-direction: column;
+  min-width: var(--atrium-table-text-popover-width);
+  max-height: var(--atrium-popover-max-height);
+  padding: var(--space-4);
+  overflow: auto;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: var(--atrium-menu-row-height);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--atrium-table-radius);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  cursor: pointer;
+}
+
+.active {
+  background: var(--primary-background-hover-color);
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "@Name" inside a posted update or reply. */
+.mention {
+  color: var(--primary-color);
+  font-weight: var(--font-weight-bold);
+}

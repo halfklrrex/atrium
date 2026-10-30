@@ -32,6 +32,14 @@ import styles from './ItemView.module.css';
 
 const DescriptionEditor = lazy(() => import('./DescriptionEditor'));
 
+/** Router state the window understands: set by the board (back button) and by notifications. */
+interface ItemViewState {
+  fromBoard?: boolean;
+  /** Open the thread of this update and scroll it into view. */
+  updateId?: string | null;
+  replyId?: string | null;
+}
+
 export interface ItemViewProps {
   board: BoardDoc;
   itemId: string;
@@ -93,7 +101,8 @@ export function ItemView({ board, itemId }: ItemViewProps) {
   const visible = useItemViewStore((s) => s.visible[boardId]);
   const { prev, next, index, total } = neighbours(visible, itemId);
 
-  const fromBoard = (location.state as { fromBoard?: boolean } | null)?.fromBoard === true;
+  const routeState = location.state as ItemViewState | null;
+  const fromBoard = routeState?.fromBoard === true;
   const close = useCallback(() => {
     if (fromBoard) navigate(-1);
     else navigate(boardPath(boardId), { replace: true });
@@ -185,7 +194,12 @@ export function ItemView({ board, itemId }: ItemViewProps) {
         <section className={styles.section} aria-label="Updates">
           <h3 className={styles.sectionTitle}>Updates</h3>
           <div className={styles.updates}>
-            <UpdatesFeed boardId={boardId} itemId={item.id} />
+            <UpdatesFeed
+              boardId={boardId}
+              itemId={item.id}
+              focusUpdateId={routeState?.updateId}
+              focusReplyId={routeState?.replyId}
+            />
           </div>
         </section>
       </div>

@@ -218,3 +218,8 @@
   justify-content: center;
   padding: var(--space-32);
 }
+
+/* The update a notification opened. */
+.updateTargeted {
+  border-color: var(--primary-color);
+}

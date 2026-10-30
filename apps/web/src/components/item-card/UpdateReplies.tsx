@@ -1,11 +1,14 @@
 import { Button, Icon, IconButton, Loader } from '@vibe/core';
 import { Delete, ThumbsUp } from '@vibe/icons';
 import classNames from 'classnames';
-import { useState, type KeyboardEvent } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { createReply, deleteReply, toggleLikeReply, useUpdateReplies } from '../../data/updates';
 import { formatRelativeShort } from '../../lib/format';
 import { UserAvatar } from '../UserAvatar';
+import { MentionedText } from './MentionedText';
+import { MentionTextarea } from './MentionTextarea';
+import { mentionIdsInText, type PickedMention } from './mentions';
 import styles from './UpdateReplies.module.css';
 
 interface UpdateRepliesProps {
@@ -14,6 +17,8 @@ interface UpdateRepliesProps {
   updateId: string;
   /** Focus the reply field on mount (set when opened with the Reply button). */
   autoFocusComposer?: boolean;
+  /** Scroll this reply into view and mark it (opened from a notification). */
+  focusReplyId?: string | null;
 }
 
 export function UpdateReplies({
@@ -21,12 +26,21 @@ export function UpdateReplies({
   itemId,
   updateId,
   autoFocusComposer = false,
+  focusReplyId = null,
 }: UpdateRepliesProps) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const { data: replies, loading } = useUpdateReplies(boardId, itemId, updateId);
   const [content, setContent] = useState('');
+  const [picked, setPicked] = useState<PickedMention[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!focusReplyId || !replies.some((r) => r.id === focusReplyId)) return;
+    document
+      .getElementById(`reply-${focusReplyId}`)
+      ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  }, [focusReplyId, replies]);
 
   const handleSubmit = async () => {
     const trimmed = content.trim();
@@ -41,8 +55,10 @@ export function UpdateReplies({
         authorName: user?.displayName ?? user?.email ?? undefined,
         authorPhotoUrl: user?.photoURL ?? null,
         content: trimmed,
+        mentions: mentionIdsInText(trimmed, picked),
       });
       setContent('');
+      setPicked([]);
     } catch (error) {
       console.error('Failed to post reply', error);
     } finally {
@@ -68,7 +84,14 @@ export function UpdateReplies({
             const canDelete = uid && reply.authorId === uid;
 
             return (
-              <div key={reply.id} className={styles.replyRow}>
+              <div
+                key={reply.id}
+                id={`reply-${reply.id}`}
+                className={classNames(
+                  styles.replyRow,
+                  reply.id === focusReplyId && styles.targeted,
+                )}
+              >
                 <div className={styles.avatar}>
                   <UserAvatar
                     uid={reply.authorId}
@@ -87,7 +110,9 @@ export function UpdateReplies({
                         {formatRelativeShort(reply.createdAt)}
                       </span>
                     </div>
-                    <div className={styles.replyContent}>{reply.content}</div>
+                    <div className={styles.replyContent}>
+                      <MentionedText text={reply.content} mentions={reply.mentions} />
+                    </div>
                   </div>
 
                   <div className={styles.replyFooter}>
@@ -140,13 +165,15 @@ export function UpdateReplies({
             <UserAvatar uid={uid} size="medium" />
           </div>
           <div className={styles.composerInputWrap}>
-            <textarea
+            <MentionTextarea
+              boardId={boardId}
               className={styles.replyInput}
               rows={1}
               placeholder="Write a reply and mention others with @"
               value={content}
               autoFocus={autoFocusComposer}
-              onChange={(e) => setContent(e.target.value)}
+              onValueChange={setContent}
+              onMention={(m) => setPicked((prev) => [...prev, m])}
               onKeyDown={handleKeyDown}
             />
             {content.trim() && (
