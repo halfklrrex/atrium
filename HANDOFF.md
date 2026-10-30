@@ -23,6 +23,12 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **Actionable column** on the Roadmap: Yes (owner's move), Agents (owner answered, so it's back with us), No. Check the Agents items at the start of every session (`AGENTS.md`).
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
+## Open work (2026-10-30, newest first; the 2026-10-26 list below is partly stale)
+
+- **Ophelia, resume here:** P4 notifications web UI is built and committed but **not pushed, no PR**, in the worktree `D:\DevProjects\Atrium\atrium-cl-wt\p4-notifications-web` (branch `claude/p4-notifications-web`, offset 20). Re-run the checks, review, push, run the baseline workflow, visual QA, merge, then the live two-user check and the showcase re-run. Steps: `docs/handoff/2026-10-30-ophelia-p4-notifications-emoji.md`.
+- **Live since 2026-10-30:** the P4 notifications backend (PR #34, nothing visible yet) and the emoji fixes (PRs #33 and #35).
+- **Owner decision pending:** flag emoji on Windows (needs a CDN picture fallback).
+
 ## Open work (2026-10-26)
 
 - **Ava's queue (specs ready):**
@@ -52,6 +58,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - [2026-10-26 · Ophelia · reviews, specs, VF5, subitems](docs/handoff/2026-10-26-ophelia-specs-vf5-subitems.md)
 - [2026-10-26 · Ophelia · the repository is now public](docs/handoff/2026-10-26-ophelia-public-repo.md)
 - [2026-10-27 · Ophelia · numeric item IDs, description editor passes 1 and 2](docs/handoff/2026-10-27-ophelia-ids-editor.md)
+- [2026-10-30 · Ophelia · P4 notifications backend, emoji fixes, web UI waiting](docs/handoff/2026-10-30-ophelia-p4-notifications-emoji.md)
 - [2026-10-24 · Antigravity · Board filter, sort, search & group-by](docs/handoff/2026-10-24-antigravity-board-filters-sort.md)
 - [2026-10-25 · Antigravity · Files storage upload, rules & tests](docs/handoff/2026-10-25-antigravity-files-storage-upload.md)
 - [2026-10-25 · Antigravity · Server-side column actions](docs/handoff/2026-10-25-antigravity-server-column-actions.md)
