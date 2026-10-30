@@ -26,3 +26,7 @@ export { purgeTrash } from './scheduled/purgeTrash';
 export { purgeOrphanUploads } from './scheduled/purgeOrphanUploads';
 export { onBoardColumnsWritten } from './triggers/onBoardColumnsWritten';
 export { onItemCreated } from './triggers/onItemCreated';
+export { onItemPeopleAssigned } from './triggers/onItemPeopleAssigned';
+export { onUpdateCreated } from './triggers/onUpdateCreated';
+export { onReplyCreated } from './triggers/onReplyCreated';
+export { purgeOldNotifications } from './scheduled/purgeOldNotifications';
