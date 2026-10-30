@@ -8,6 +8,14 @@ import { __notifySharedTickerForTests } from './shared-ticker';
 import { formatSessionTimestamp, timeTrackingUi } from './time-tracking';
 import type { CellContext, CellProps } from './types';
 
+vi.mock('../data/members-store', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useUserLookup: () => (uid: string) =>
+    uid === 'user-avery'
+      ? { uid, name: 'Avery Quinn', photoURL: null, email: 'avery@example.com' }
+      : undefined,
+}));
+
 const Cell = timeTrackingUi.Cell as ComponentType<
   CellProps<TimeTrackingValue, TimeTrackingSettings>
 >;
@@ -250,11 +258,40 @@ describe('time_tracking column UI', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Time Tracking history' });
     expect(dialog).toBeInTheDocument();
-    expect(screen.getByText('user-avery')).toBeInTheDocument();
+    expect(screen.getByText('Avery Quinn')).toBeInTheDocument();
     expect(
       screen.getByText(`${formatSessionTimestamp(startedAt)} – ${formatSessionTimestamp(endedAt)}`),
     ).toBeInTheDocument();
     expect(screen.getByText('Drafted initial spec')).toBeInTheDocument();
     expect(screen.getAllByText('1h 30m').length).toBeGreaterThanOrEqual(2);
+    expect(dialog).not.toHaveTextContent('user-avery');
+  });
+
+  it('shows "Unknown member" for a session owner that cannot be resolved, never the uid', () => {
+    render(
+      <Cell
+        value={{
+          duration: 60,
+          running: false,
+          history: [
+            {
+              id: 'sess-x',
+              startedAt: Date.UTC(2026, 9, 28, 9, 0, 0),
+              endedAt: Date.UTC(2026, 9, 28, 9, 1, 0),
+              duration: 60,
+              userId: 'uid-gone-123',
+            },
+          ],
+        }}
+        settings={{ trackHistory: true, requireNote: false }}
+        column={dummyColumn}
+        ctx={dummyContext}
+        onChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '1m' }));
+    const dialog = screen.getByRole('dialog', { name: 'Time Tracking history' });
+    expect(dialog).toHaveTextContent('Unknown member');
+    expect(dialog).not.toHaveTextContent('uid-gone-123');
   });
 });

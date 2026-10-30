@@ -7,6 +7,9 @@ import type { MemberDoc } from './model';
 /** Name shown for a person whose profile is unknown (for example someone who has left). */
 export const UNKNOWN_PERSON_NAME = 'Board member';
 
+/** Name shown for an uploader or session owner whose profile can't be resolved. */
+export const UNKNOWN_MEMBER_NAME = 'Unknown member';
+
 /** What the UI needs to draw a person. */
 export interface PersonInfo {
   uid: string;
