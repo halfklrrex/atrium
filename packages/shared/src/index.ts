@@ -8,6 +8,7 @@ export * from './schemas/workspace';
 export * from './schemas/board';
 export * from './schemas/item';
 export * from './schemas/update';
+export * from './schemas/notification';
 export * from './schemas/view';
 export * from './schemas/files-upload';
 export * from './schemas/description-images';

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { themePreferenceSchema } from '../roles';
+import { notificationPrefsSchema } from './notification';
 import { idSchema, positionSchema, timestampSchema, type WriteDoc } from './common';
 
 /** `users/{uid}` (architecture §5.1). */
@@ -11,6 +12,7 @@ export const userSchema = z.object({
   locale: z.string().max(32),
   lastWorkspaceId: idSchema.nullable(),
   theme: themePreferenceSchema,
+  notificationPrefs: notificationPrefsSchema.optional(),
   createdAt: timestampSchema,
 });
 export type User = z.infer<typeof userSchema>;
@@ -23,6 +25,7 @@ export const userProfileUpdateSchema = z
     locale: z.string().max(32),
     lastWorkspaceId: idSchema,
     theme: themePreferenceSchema,
+    notificationPrefs: notificationPrefsSchema,
   })
   .partial()
   .strict();
