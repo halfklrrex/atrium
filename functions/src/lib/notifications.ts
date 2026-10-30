@@ -242,6 +242,77 @@ export async function notifyPeopleAssigned(
   });
 }
 
+// -- Description mentions ----------------------------------------------------------------------
+
+/**
+ * The uids of the `mention` nodes in a ProseMirror JSON doc: unique, string `attrs.id` only, at
+ * most `NOTIFICATION_LIMITS.mentions`. The server trusts the saved doc, never a client-sent list.
+ */
+export function mentionedUidsOf(doc: unknown): string[] {
+  const found = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== 'object' || found.size >= NOTIFICATION_LIMITS.mentions) return;
+    const n = node as { type?: unknown; attrs?: { id?: unknown }; content?: unknown };
+    if (n.type === 'mention' && typeof n.attrs?.id === 'string' && n.attrs.id) {
+      found.add(n.attrs.id);
+    }
+    if (Array.isArray(n.content)) n.content.forEach(walk);
+  };
+  walk(doc);
+  return [...found];
+}
+
+interface DescriptionLike {
+  doc?: unknown;
+  text?: unknown;
+}
+
+const descriptionOf = (value: unknown): DescriptionLike | undefined =>
+  value && typeof value === 'object' ? (value as DescriptionLike) : undefined;
+
+export interface DescriptionWriteChange {
+  eventId: string;
+  boardId: string;
+  itemId: string;
+  before?: { description?: unknown };
+  after: { name?: string; state?: string; description?: unknown; updatedBy?: string };
+}
+
+/**
+ * `onItemPeopleAssigned`: members whose mention chip is new in the saved description get a
+ * `mention` (no update or reply attached). Reads nothing unless the description changed, and the
+ * board only when there is a new uid.
+ */
+export async function notifyDescriptionMentions(
+  store: NotificationStore,
+  change: DescriptionWriteChange,
+): Promise<number> {
+  const { before, after } = change;
+  if (after.state === 'deleted') return 0;
+  if (JSON.stringify(before?.description ?? null) === JSON.stringify(after.description ?? null)) {
+    return 0;
+  }
+  const previous = new Set(mentionedUidsOf(descriptionOf(before?.description)?.doc));
+  const added = mentionedUidsOf(descriptionOf(after.description)?.doc).filter(
+    (uid) => !previous.has(uid),
+  );
+  if (added.length === 0) return 0;
+  const actorId = after.updatedBy;
+  if (!actorId) return 0;
+  const text = descriptionOf(after.description)?.text;
+  return await deliverNotifications(store, {
+    eventId: change.eventId,
+    boardId: change.boardId,
+    itemId: change.itemId,
+    actorId,
+    ...(typeof after.name === 'string' ? { itemName: after.name } : {}),
+    updateId: null,
+    replyId: null,
+    snippet: makeSnippet(typeof text === 'string' ? text : ''),
+    candidates: added.map((uid) => ({ uid, kind: 'mention' as const })),
+  });
+}
+
 // -- Updates and replies -------------------------------------------------------------------------
 
 export interface PostedContent {

@@ -4,12 +4,15 @@ import {
   PURGE_BATCH_SIZE,
   addedPeople,
   makeSnippet,
+  mentionedUidsOf,
+  notifyDescriptionMentions,
   notificationId,
   notifyPeopleAssigned,
   notifyReply,
   notifyUpdateMentions,
   purgeExpiredNotifications,
   retentionCutoff,
+  type DescriptionWriteChange,
   type ItemWriteChange,
   type NewNotification,
   type NotificationBoard,
@@ -372,5 +375,125 @@ describe('purgeExpiredNotifications', () => {
     const store = new FakePurgeStore(docs);
     await expect(purgeExpiredNotifications(store, now)).resolves.toBe(PURGE_BATCH_SIZE + 5);
     expect(store.docs.size).toBe(0);
+  });
+});
+
+const chip = (id: unknown, label = 'Someone') => ({ type: 'mention', attrs: { id, label } });
+const descOf = (...nodes: unknown[]) => ({
+  doc: { type: 'doc', content: [{ type: 'paragraph', content: nodes }] },
+  text: 'Ask @Blake Reed about the trip',
+});
+
+describe('mentionedUidsOf', () => {
+  it('finds nested chips, ignores other nodes and non-string ids, and de-duplicates', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [chip(BLAKE), chip(BLAKE), chip(42), chip(''), chip(null)] },
+        {
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [chip(CASEY)] }] }],
+        },
+        { type: 'emoji', attrs: { id: 'x', name: 'smile' } },
+      ],
+    };
+    expect(mentionedUidsOf(doc)).toEqual([BLAKE, CASEY]);
+    expect(mentionedUidsOf(null)).toEqual([]);
+    expect(mentionedUidsOf('nope')).toEqual([]);
+  });
+});
+
+describe('notifyDescriptionMentions', () => {
+  const change = (
+    before: unknown,
+    after: unknown,
+    extra: Partial<DescriptionWriteChange['after']> = {},
+  ): DescriptionWriteChange => ({
+    eventId: 'e1',
+    boardId: 'b1',
+    itemId: 'i1',
+    ...(before === undefined ? {} : { before: { description: before } }),
+    after: { name: 'Plan the trip', description: after, updatedBy: AVERY, ...extra },
+  });
+
+  it('notifies a new chip once, with the snippet and no update', async () => {
+    const store = new FakeStore();
+    await expect(
+      notifyDescriptionMentions(store, change(undefined, descOf(chip(BLAKE)))),
+    ).resolves.toBe(1);
+    expect(store.forUser(BLAKE)).toEqual([
+      expect.objectContaining({
+        kind: 'mention',
+        actorId: AVERY,
+        itemName: 'Plan the trip',
+        updateId: null,
+        replyId: null,
+        columnId: null,
+        snippet: 'Ask @Blake Reed about the trip',
+      }),
+    ]);
+  });
+
+  it('notifies nobody for an unchanged chip, a removed chip, a self mention or a non-member', async () => {
+    const store = new FakeStore();
+    const withChip = descOf(chip(BLAKE));
+    const edited = { ...withChip, text: 'edited text' };
+    await expect(notifyDescriptionMentions(store, change(withChip, edited))).resolves.toBe(0);
+    await expect(notifyDescriptionMentions(store, change(withChip, descOf()))).resolves.toBe(0);
+    await expect(
+      notifyDescriptionMentions(store, change(undefined, descOf(chip(AVERY)))),
+    ).resolves.toBe(0);
+    await expect(
+      notifyDescriptionMentions(store, change(undefined, descOf(chip(STRANGER)))),
+    ).resolves.toBe(0);
+    expect(store.creates).toBe(0);
+  });
+
+  it('respects a disabled mention preference', async () => {
+    const store = new FakeStore();
+    store.prefs.set(BLAKE, { mention: false });
+    await expect(
+      notifyDescriptionMentions(store, change(undefined, descOf(chip(BLAKE)))),
+    ).resolves.toBe(0);
+  });
+
+  it('notifies only the newly added chip when a second one appears', async () => {
+    const store = new FakeStore();
+    await expect(
+      notifyDescriptionMentions(
+        store,
+        change(descOf(chip(BLAKE)), descOf(chip(BLAKE), chip(CASEY))),
+      ),
+    ).resolves.toBe(1);
+    expect(store.forUser(BLAKE)).toHaveLength(0);
+    expect(store.forUser(CASEY)).toHaveLength(1);
+  });
+
+  it('creates the same notification once when the event is retried', async () => {
+    const store = new FakeStore();
+    const c = change(undefined, descOf(chip(BLAKE)));
+    await expect(notifyDescriptionMentions(store, c)).resolves.toBe(1);
+    await expect(notifyDescriptionMentions(store, c)).resolves.toBe(0);
+    expect(store.creates).toBe(1);
+  });
+
+  it('reads nothing when the description did not change, or when no chip is new', async () => {
+    const store = new FakeStore();
+    const same = descOf(chip(BLAKE));
+    await expect(notifyDescriptionMentions(store, change(same, same))).resolves.toBe(0);
+    await expect(notifyDescriptionMentions(store, change(same, descOf()))).resolves.toBe(0);
+    expect(store.reads).toBe(0);
+  });
+
+  it('skips when the item has no updatedBy, and for a deleted item', async () => {
+    const store = new FakeStore();
+    const after = descOf(chip(BLAKE));
+    const noActor = change(undefined, after);
+    delete noActor.after.updatedBy;
+    await expect(notifyDescriptionMentions(store, noActor)).resolves.toBe(0);
+    await expect(
+      notifyDescriptionMentions(store, change(undefined, after, { state: 'deleted' })),
+    ).resolves.toBe(0);
+    expect(store.creates).toBe(0);
   });
 });
