@@ -21,6 +21,7 @@ import {
   createEmptyWorkspace,
   removeKanbanView,
   removeView,
+  seedNotifications,
 } from './seed';
 
 /** True when `target` is what a click at its centre would hit, i.e. nothing is painted over it. */
@@ -340,12 +341,25 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `create-board-dialog-${theme}`);
     });
 
-    test('notifications panel open', async ({ page }) => {
+    test('notifications panel open, empty', async ({ page }) => {
       await page.goto('/');
       await homeReady(page);
       await page.getByRole('button', { name: 'Notifications', exact: true }).click();
       const panel = page.getByRole('complementary', { name: 'Notifications' });
       await expect(panel.getByText("You're all caught up!")).toBeVisible();
+      await shoot(page, `notifications-panel-empty-${theme}`);
+    });
+
+    test('notifications panel open, with notifications', async ({ page }) => {
+      await seedNotifications();
+      await page.goto('/');
+      await homeReady(page);
+      // The bell carries the unread count: two of the three are unread.
+      await page.getByRole('button', { name: 'Notifications, 2 unread' }).click();
+      const panel = page.getByRole('complementary', { name: 'Notifications' });
+      await expect(panel.getByText('Mentioned you in an update')).toBeVisible();
+      await expect(panel.getByText('Replied to your update')).toBeVisible();
+      await expect(panel.getByText('Assigned you to an item')).toBeVisible();
       await shoot(page, `notifications-panel-${theme}`);
     });
 

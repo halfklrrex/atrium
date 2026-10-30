@@ -72,7 +72,7 @@ async function clearSeededData(firestore: Firestore): Promise<void> {
 }
 
 /**
- * Favourites and recents, plus the user's remembered workspace. Opening boards or workspaces in a
+ * Favourites, recents and notifications, plus the user's remembered workspace. Opening boards or workspaces in a
  * test rewrites these (visit times, last workspace), so every test starts from this state again.
  */
 export async function resetUserState(
@@ -81,7 +81,7 @@ export async function resetUserState(
 ): Promise<void> {
   const user = firestore.collection('users').doc(AVERY.uid);
   await firestore.collection('workspaces').doc(IDS.emptyWorkspace).delete();
-  for (const name of ['favorites', 'recents']) {
+  for (const name of ['favorites', 'recents', 'notifications']) {
     const stale = await user.collection(name).listDocuments();
     await Promise.all(stale.map((ref) => ref.delete()));
   }
@@ -622,4 +622,57 @@ export async function clearRecents(): Promise<void> {
     .collection('recents')
     .listDocuments();
   await Promise.all(stale.map((ref) => ref.delete()));
+}
+
+/**
+ * Three notifications for Avery, one of each kind (two unread, one read), as Cloud Functions would
+ * have written them. `resetUserState` removes them again before every test.
+ */
+export async function seedNotifications(): Promise<void> {
+  const firestore = adminDb();
+  const user = firestore.collection('users').doc(AVERY.uid);
+  const common = {
+    workspaceId: IDS.personalWorkspace,
+    boardId: IDS.roadmap,
+    boardName: 'Product roadmap',
+    itemId: FULL_VIEW_ITEM,
+    itemName: 'Ship the pipeline',
+    actorPhotoURL: null,
+    updateId: null,
+    replyId: null,
+    columnId: null,
+    snippet: '',
+  };
+  const batch = firestore.batch();
+  batch.set(user.collection('notifications').doc('mention-visual'), {
+    ...common,
+    kind: 'mention',
+    actorId: 'visual-jordan',
+    actorName: 'Jordan Lee',
+    updateId: 'update-visual',
+    snippet: 'Can you double-check the release notes before we publish?',
+    createdAt: ago(20 * 60_000),
+    readAt: null,
+  });
+  batch.set(user.collection('notifications').doc('reply-visual'), {
+    ...common,
+    kind: 'reply',
+    actorId: 'visual-sam',
+    actorName: 'Sam Rivera',
+    updateId: 'update-visual',
+    replyId: 'reply-visual',
+    snippet: 'Thanks, the workflow now runs on every pull request.',
+    createdAt: ago(3 * HOUR),
+    readAt: ago(2 * HOUR),
+  });
+  batch.set(user.collection('notifications').doc('assigned-visual'), {
+    ...common,
+    kind: 'assigned',
+    actorId: 'visual-casey',
+    actorName: 'Casey Morgan',
+    columnId: 'person',
+    createdAt: ago(DAY),
+    readAt: null,
+  });
+  await batch.commit();
 }

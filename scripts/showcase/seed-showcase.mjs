@@ -8,7 +8,7 @@
 //
 // Safety: the script only ever creates, updates or deletes the documents it owns (see
 // `isOwnedPath` in data.mjs): the `showcase-*` boards with their items, updates, replies and views, and the
-// owner's favourite/recent entries for them, plus the 3 fake members' `members` profile docs. It refuses to run when the workspace is missing or the
+// owner's favourite/recent entries for them, her 3 `showcase-notification-*` notifications, plus the 3 fake members' `members` profile docs. It refuses to run when the workspace is missing or the
 // owner is not a member, and aborts if a write would fall outside that allow-list.
 //
 // Run through tsx (it imports the TypeScript in @atrium/shared): see the `showcase` package script.
@@ -22,6 +22,7 @@ import {
   isOwnedPath,
   SHOWCASE_BOARD_IDS,
   SHOWCASE_MEMBER_UIDS,
+  SHOWCASE_NOTIFICATION_PREFIX,
   anchorOf,
 } from './data.mjs';
 import { createFirestoreRest } from './firestore-rest.mjs';
@@ -307,6 +308,12 @@ export async function runSeed({
       }
     }
   }
+  // Showcase notifications the content no longer has (the owner may also have deleted some: they
+  // are simply written again). Her own notifications from the app are never listed here.
+  for (const id of await client.listDocIds(`users/${ownerUid}/notifications`)) {
+    const path = `users/${ownerUid}/notifications/${id}`;
+    if (id.startsWith(SHOWCASE_NOTIFICATION_PREFIX) && !desired.has(path)) deletes.add(path);
+  }
   // A reset also recreates the fake members' profile docs from scratch.
   if (reset) {
     for (const uid of SHOWCASE_MEMBER_UIDS) {
@@ -337,7 +344,7 @@ export async function runSeed({
   );
   log(
     `  content    ${summary.items} active items (+${summary.subitems} subitems), ${summary.archived} archived, ${summary.trashed} trashed, ` +
-      `${summary.updates} updates, ${summary.replies} replies, ${SHOWCASE_BOARD_IDS.length} boards, ` +
+      `${summary.updates} updates, ${summary.replies} replies, ${summary.notifications} notifications, ${SHOWCASE_BOARD_IDS.length} boards, ` +
       `${summary.members} fake member profiles`,
   );
   log(`  documents  ${writeCount} to write, ${deleteCount} to delete`);

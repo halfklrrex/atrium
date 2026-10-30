@@ -8,6 +8,7 @@
 - `showcase-archived-demo` and `showcase-trashed-demo`: two tiny boards, one archived and one deleted, so the workspace's **Archive & Trash** page has something to show. (That page lists boards. Archived and trashed _items_ have no screen yet; they are in the data for when one lands.)
 - **Three fake workspace members** (Jordan Lee, Sam Rivera and Casey Morgan, fixed uids `showcase-user-*`, `@example.com` emails), so People cells show names and initials instead of "Board member". They get `workspaces/{id}/members/{uid}` profile docs **only**: they are not in the workspace's `roles` or `memberIds`, are not real accounts, cannot sign in and do not appear in the Members dialog. Several items list them in the Owner column.
 - The owner's favourite and "recently visited" entries for the main board.
+- Three notifications in the owner's bell (`users/{owner}/notifications/showcase-notification-*`): a mention, a reply and an assignment from the fake members, two unread and one read, pointing at real showcase items and updates. Clients cannot create notifications, so the script writes them directly.
 
 Dates are laid out around "today" (UTC, midnight), so running it on a later day moves the whole board forward and keeps it fresh. `--now YYYY-MM-DD` pins the day.
 
@@ -40,7 +41,7 @@ pnpm showcase --project atrium-board --workspace <workspaceId> --owner <ownerUid
 
 ### Safety
 
-The script only ever creates, updates or deletes documents it owns: `boards/showcase-*` with their `items`, `updates` and `replies` (and any other sub-collection, on `--reset`), plus the owner's `favorites/showcase-*` and `recents/showcase-*`, plus the three fake members' `workspaces/<workspace>/members/showcase-user-*` docs (only in the workspace being seeded; `--reset` recreates them). The workspace document, real members' docs, `invites` and `roles` are never touched. Every write and delete is checked against that allow-list (`isOwnedPath` in `data.mjs`) before anything is sent. It also refuses to run when:
+The script only ever creates, updates or deletes documents it owns: `boards/showcase-*` with their `items`, `updates` and `replies` (and any other sub-collection, on `--reset`), plus the owner's `favorites/showcase-*`, `recents/showcase-*` and `notifications/showcase-notification-*`, plus the three fake members' `workspaces/<workspace>/members/showcase-user-*` docs (only in the workspace being seeded; `--reset` recreates them). The workspace document, real members' docs, `invites` and `roles` are never touched. Every write and delete is checked against that allow-list (`isOwnedPath` in `data.mjs`) before anything is sent. It also refuses to run when:
 
 - the workspace does not exist, or the owner is not a member (or is only a viewer);
 - a `showcase-*` board id already exists in a _different_ workspace;
