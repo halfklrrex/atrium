@@ -105,3 +105,35 @@
 .aboutLinks a {
   color: var(--link-color);
 }
+
+.switches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.switchText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.switchLabel {
+  color: var(--primary-text-color);
+  font: var(--font-text1-normal);
+}
+
+.switchHint {
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}

@@ -117,6 +117,7 @@
   --atrium-empty-top: 150px; /* page empty state: gap under the page header */
   --atrium-empty-width: 435px; /* page empty state: text column */
   --atrium-notifications-width: 480px;
+  --atrium-notifications-person-width: 160px; /* the "Filter by person" dropdown */
   --atrium-motion-panel: 200ms; /* empty-state rise and the notifications slide */
   --atrium-panel-title-font: 500 20px / 28px var(--title-font-family);
   --atrium-panel-shadow: -4px 0 16px var(--illus-shadow);
