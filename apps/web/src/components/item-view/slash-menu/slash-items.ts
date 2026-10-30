@@ -6,6 +6,7 @@ import {
   Divider,
   Emoji,
   Image,
+  Mention,
   Quote,
   Table,
   Text,
@@ -145,6 +146,15 @@ export const SLASH_ITEMS: SlashItem[] = [
       start(e, r).run();
       ui.openEmojiPicker();
     },
+  },
+  {
+    id: 'mention',
+    title: 'Mention',
+    hint: '@',
+    keywords: ['at', 'person', 'member', 'someone'],
+    Icon: Mention,
+    // Leaves an "@" in place of the "/query"; the editor's "@" list opens on it.
+    run: (e, r) => start(e, r).insertContent('@').run(),
   },
 ];
 

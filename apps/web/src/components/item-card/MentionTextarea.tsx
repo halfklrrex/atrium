@@ -1,4 +1,3 @@
-import { resolveBoardRole } from '@atrium/shared';
 import classNames from 'classnames';
 import {
   useCallback,
@@ -21,9 +20,8 @@ import {
   type MentionQuery,
   type PickedMention,
 } from './mentions';
+import { mentionCandidates } from './mention-candidates';
 import styles from './MentionTextarea.module.css';
-
-const MAX_SUGGESTIONS = 8;
 
 type PopupKeys = (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
 
@@ -147,15 +145,10 @@ function MentionPopup({ boardId, anchor, mention, keysRef, onPick, onClose }: Me
   const { members } = useWorkspaceMembers(board?.workspaceId);
   const [active, setActive] = useState(0);
 
-  const needle = mention.query.trim().toLowerCase();
-  const candidates = useMemo(() => {
-    if (!board || !workspace) return [];
-    return members
-      .filter((m) => m.id !== uid && resolveBoardRole(board, m.id, workspace.roles[m.id]) !== null)
-      .map((m) => ({ uid: m.id, name: m.displayName || m.email, photoURL: m.photoURL }))
-      .filter((m) => m.name && m.name.toLowerCase().includes(needle))
-      .slice(0, MAX_SUGGESTIONS);
-  }, [board, workspace, members, uid, needle]);
+  const candidates = useMemo(
+    () => mentionCandidates({ board, workspace, members, query: mention.query, excludeUid: uid }),
+    [board, workspace, members, uid, mention.query],
+  );
 
   // A shorter list must not leave the highlight past its end.
   const current = Math.min(active, Math.max(candidates.length - 1, 0));

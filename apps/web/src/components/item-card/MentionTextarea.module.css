@@ -25,6 +25,12 @@
   background: var(--primary-background-hover-color);
 }
 
+.empty {
+  padding: var(--space-8);
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
 .name {
   overflow: hidden;
   text-overflow: ellipsis;

@@ -19,6 +19,8 @@ import { ensureDocFontsLoaded } from './editor-fonts';
 import { createEditorExtensions } from './editor-extensions';
 import { EmojiPicker } from './EmojiPicker';
 import { EmojiSuggestMenu } from './EmojiSuggest';
+import { MentionController } from './mention/mention-controller';
+import { MentionMenu } from './mention/MentionMenu';
 import { SlashController, SuggestController } from './slash-menu/slash-controller';
 import { SlashMenu } from './slash-menu/SlashMenu';
 import { TableControls } from './TableControls';
@@ -62,9 +64,16 @@ export default function DescriptionEditor({
   const debouncer = useMemo(() => createDebouncer(DESCRIPTION_SAVE_DELAY), []);
   const slash = useMemo(() => new SlashController(), []);
   const emojiSuggest = useMemo(() => new SuggestController<EmojiItem>(), []);
+  const mentionSuggest = useMemo(() => new MentionController(), []);
   const extensions = useMemo(
-    () => createEditorExtensions(slash, { boardId, itemId, emojiController: emojiSuggest }),
-    [slash, boardId, itemId, emojiSuggest],
+    () =>
+      createEditorExtensions(slash, {
+        boardId,
+        itemId,
+        emojiController: emojiSuggest,
+        mentionController: readOnly ? null : mentionSuggest,
+      }),
+    [slash, boardId, itemId, emojiSuggest, mentionSuggest, readOnly],
   );
   const shellRef = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -184,6 +193,9 @@ export default function DescriptionEditor({
       </div>
       {!readOnly ? <SlashMenu controller={slash} editor={editor} /> : null}
       {!readOnly ? <EmojiSuggestMenu controller={emojiSuggest} editor={editor} /> : null}
+      {!readOnly ? (
+        <MentionMenu controller={mentionSuggest} editor={editor} boardId={boardId} />
+      ) : null}
       {emojiAnchor ? (
         <EmojiPicker anchor={emojiAnchor} editor={editor} onClose={() => setEmojiAnchor(null)} />
       ) : null}

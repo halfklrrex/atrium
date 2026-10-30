@@ -18,6 +18,33 @@ describe('description helpers', () => {
     expect(docToText(d)).toBe('Title\nBody');
   });
 
+  it('writes a mention chip as @label and counts it as content', () => {
+    const d = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Ask ' },
+            { type: 'mention', attrs: { id: 'u2', label: 'Jamie Rowe' } },
+            { type: 'text', text: ' soon' },
+          ],
+        },
+      ],
+    };
+    expect(docToText(d)).toBe('Ask @Jamie Rowe soon');
+    const onlyChip = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'mention', attrs: { id: 'u2', label: 'Jamie Rowe' } }],
+        },
+      ],
+    };
+    expect(isEmptyDoc(onlyChip)).toBe(false);
+  });
+
   it('stores null for an empty doc, and a capped text otherwise', () => {
     expect(buildDescription(doc(''))).toEqual({ ok: true, value: null });
     const long = buildDescription(doc('a'.repeat(12_000)));

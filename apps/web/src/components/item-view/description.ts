@@ -17,8 +17,8 @@ const BLOCKS = new Set([
   'image',
 ]);
 
-/** Nodes that count as content even with no text (add new ones, e.g. mentions, here). */
-const CONTENT_NODES = new Set(['image', 'horizontalRule', 'table', 'emoji']);
+/** Nodes that count as content even with no text (add new ones here). */
+const CONTENT_NODES = new Set(['image', 'horizontalRule', 'table', 'emoji', 'mention']);
 
 /** Nodes that exist only while something happens (an image uploading); they are never saved. */
 const TRANSIENT_NODES = new Set(['imageUpload']);
@@ -39,7 +39,7 @@ export function stripTransientNodes(doc: Record<string, unknown>): Record<string
 
 /**
  * The plain text of a ProseMirror JSON doc, for search; blocks are separated by a newline. Images
- * contribute their alt text and emoji their `:shortcode:`.
+ * contribute their alt text and emoji their `:shortcode:`, mentions `@label`.
  */
 export function docToText(doc: unknown): string {
   const parts: string[] = [];
@@ -54,6 +54,7 @@ export function docToText(doc: unknown): string {
     if (typeof n.text === 'string') parts.push(n.text);
     if (n.type === 'image' && n.attrs?.alt) parts.push(` ${String(n.attrs.alt)} `);
     if (n.type === 'emoji' && n.attrs?.name) parts.push(`:${String(n.attrs.name)}:`);
+    if (n.type === 'mention' && n.attrs?.label) parts.push(`@${String(n.attrs.label)}`);
     if (Array.isArray(n.content)) n.content.forEach(walk);
     if (n.type && BLOCKS.has(n.type)) parts.push('\n');
   };
