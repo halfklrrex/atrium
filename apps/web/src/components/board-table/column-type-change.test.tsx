@@ -265,6 +265,16 @@ describe('column menu', () => {
     expect(screen.queryByRole('menuitem', { name: 'Button' })).toBeNull();
   });
 
+  it('makes the long type submenu scroll inside the viewport', async () => {
+    render(<BoardTable board={makeTestBoard()} />);
+    await openMenu();
+    const entry = await screen.findByRole('menuitem', { name: 'Change column type' });
+    fireEvent.mouseEnter(entry);
+    fireEvent.click(entry);
+    const item = await screen.findByRole('menuitem', { name: 'Text' });
+    expect(item.closest('[role="menu"]')?.className).toMatch(/submenuScroll/);
+  });
+
   it('hides the submenu for viewers and, on a locked column, for editors', async () => {
     mocks.workspaceRole = 'viewer';
     const { unmount } = render(

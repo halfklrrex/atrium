@@ -427,7 +427,11 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
             ) : null}
             {column && typeOptions.length > 0 ? (
               <MenuItem title="Change column type" icon={Switcher}>
-                <Menu id={`column-type-${group.id}-${columnId}`} size="medium">
+                <Menu
+                  id={`column-type-${group.id}-${columnId}`}
+                  size="medium"
+                  className={styles.submenuScroll}
+                >
                   {typeOptions.map((type) => (
                     <MenuItem
                       key={type}
@@ -475,7 +479,11 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
             ) : null}
             {column && env.canEdit ? (
               <MenuItem title="Add column to the right" icon={Add}>
-                <Menu id={`column-add-${group.id}-${columnId}`} size="medium">
+                <Menu
+                  id={`column-add-${group.id}-${columnId}`}
+                  size="medium"
+                  className={styles.submenuScroll}
+                >
                   {ADD_COLUMN_ORDER.map((type) => (
                     <MenuItem
                       key={type}
