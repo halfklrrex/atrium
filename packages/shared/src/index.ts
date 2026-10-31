@@ -15,6 +15,7 @@ export * from './schemas/description-images';
 export * from './schemas/column-actions';
 export * from './schemas/column-type-change';
 export * from './schemas/membership';
+export * from './schemas/board-sharing';
 export * from './columns';
 export * from './derived-ids';
 export * from './firebase-env';
