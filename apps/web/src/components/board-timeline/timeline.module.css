@@ -27,7 +27,9 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  padding-inline-start: var(--atrium-calendar-gutter);
+
+  /* A margin, not padding: the scroll viewport starts at the pane's left edge, so scrolled content is clipped there. */
+  margin-inline-start: var(--atrium-calendar-gutter);
   overflow: auto;
   outline: 0;
 }
@@ -328,12 +330,14 @@
 }
 
 .summaryLabel {
-  position: absolute;
-  top: var(--space-4);
-  inset-inline-start: 0;
+  /* Sticky, so the text stays at the pane's edge while its group's range scrolls under it. */
+  position: sticky;
+  inset-inline-start: var(--tl-pane-width);
   display: flex;
   gap: var(--space-8);
   align-items: center;
+  width: max-content;
+  margin-block-start: var(--space-4);
   color: var(--primary-text-color);
   font: var(--atrium-timeline-summary-font);
   white-space: nowrap;
@@ -540,7 +544,7 @@
 
 @media (width <= 768px) {
   .scroll {
-    padding-inline-start: 0;
+    margin-inline-start: 0;
   }
 
   .settings {

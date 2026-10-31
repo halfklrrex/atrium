@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   columnRegistry,
   defaultTimelineViewSettings,
@@ -612,5 +614,36 @@ describe('Timeline settings panel', () => {
     open({ colorBy: 'gone' });
     const panel = await openPanel();
     expect(panel.getByRole('combobox', { name: 'Colour items by' })).toHaveValue('');
+  });
+});
+
+describe('clipping at the group-name pane', () => {
+  const css = readFileSync(join(__dirname, 'timeline.module.css'), 'utf8');
+  const rule = (selector: string) => {
+    const start = css.indexOf(`
+${selector} {`);
+    return css.slice(start, css.indexOf('}', start));
+  };
+
+  it('scrolls the grid in a viewport that starts at the pane, with the gutter outside it', () => {
+    open({ columnId: 'plan' });
+    const scroll = document.querySelector('[class*="scroll"]') as HTMLElement;
+    // The grid is the scroller's only child, so nothing else sits in the scrolled area.
+    expect(scroll.children).toHaveLength(1);
+    expect(scroll.firstElementChild).toBe(screen.getByRole('group', { name: 'Timeline' }));
+    // Padding would let content scroll through the gutter; a margin clips at the viewport edge.
+    expect(rule('.scroll')).toMatch(/margin-inline-start: var\(--atrium-calendar-gutter\)/);
+    expect(rule('.scroll')).not.toMatch(/padding-inline/);
+    expect(rule('.scroll')).toMatch(/overflow: auto/);
+  });
+
+  it('keeps the lane names and the summary text at the pane edge while scrolling', () => {
+    open({ columnId: 'plan' });
+    expect(rule('.laneName')).toMatch(/position: sticky/);
+    expect(rule('.summaryLabel')).toMatch(/position: sticky/);
+    expect(rule('.summaryLabel')).toMatch(/inset-inline-start: var\(--tl-pane-width\)/);
+    const summary = document.querySelector('[data-group="g1"] [class*="summaryLabel"]');
+    expect(summary).toHaveTextContent('Alpha');
+    expect(summary).toHaveTextContent('16 days');
   });
 });
