@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { WorkspaceRole } from '@atrium/shared';
+import type { BoardRole, WorkspaceRole } from '@atrium/shared';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import {
   FieldPath,
@@ -22,6 +22,7 @@ import {
   type SnapshotEntry,
   type SnapshotMeta,
 } from './column-type-change';
+import type { BoardSharingTx } from './board-sharing';
 import { HttpsError } from 'firebase-functions/v2/https';
 
 if (getApps().length === 0) initializeApp();
@@ -368,5 +369,35 @@ export function adminColumnTypeChangeStore(firestore: Firestore): ColumnTypeChan
     },
     nowMs: () => Date.now(),
     newId: () => randomUUID().replace(/-/g, '').slice(0, 24),
+  };
+}
+
+/** Adapts an Admin SDK transaction to the narrow interface used by the board sharing callables. */
+export function adminBoardSharingTx(firestore: Firestore, tx: Transaction): BoardSharingTx {
+  const boardRef = (id: string) => firestore.collection('boards').doc(id);
+  return {
+    async getBoard(boardId) {
+      const snap = await tx.get(boardRef(boardId));
+      if (!snap.exists) return null;
+      return {
+        workspaceId: String(snap.get('workspaceId') ?? ''),
+        kind: snap.get('kind'),
+        access: (snap.get('access') as Record<string, BoardRole> | undefined) ?? {},
+        state: snap.get('state') ?? 'active',
+      };
+    },
+    async getWorkspaceRoles(workspaceId) {
+      const snap = await tx.get(firestore.collection('workspaces').doc(workspaceId));
+      if (!snap.exists) return null;
+      return (snap.get('roles') as Record<string, WorkspaceRole> | undefined) ?? {};
+    },
+    writeSharing(boardId, next) {
+      tx.update(boardRef(boardId), {
+        kind: next.kind,
+        access: next.access,
+        accessUids: Object.keys(next.access),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    },
   };
 }
