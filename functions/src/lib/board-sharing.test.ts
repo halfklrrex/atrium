@@ -54,7 +54,7 @@ const ROLES: Record<string, WorkspaceRole> = {
   outsider: 'member',
 };
 
-function setup(board: Partial<SharingBoard> = {}) {
+function setup(board: Partial<SharingBoard> & { accessUids?: string[] } = {}) {
   const tx = new FakeTx();
   tx.workspaces.set(WS, { ...ROLES });
   tx.boards.set(B, {
