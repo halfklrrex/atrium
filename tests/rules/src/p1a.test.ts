@@ -154,18 +154,17 @@ describe('board create: accessUids, position, icon', () => {
 describe('board update: accessUids invariant, position, folderId', () => {
   const ownerRef = () => doc(as(USERS.owner), 'boards', PRIVATE_BOARD);
 
-  it('lets an owner change access together with a matching accessUids', async () => {
-    await assertSucceeds(
+  // `access`, `accessUids` and `kind` are written only by the P4b callables (Admin SDK), so even a
+  // consistent change by a board owner is refused. The accessUids invariant still guards the shape.
+  it('denies an owner changing access, with or without a matching accessUids', async () => {
+    await assertFails(
       updateDoc(ownerRef(), {
         access: { [USERS.owner]: 'owner', [USERS.viewer]: 'editor' },
         accessUids: [USERS.owner, USERS.viewer],
         updatedAt: serverTimestamp(),
       }),
     );
-  });
-
-  it('lets an owner change a role without touching accessUids (same key set)', async () => {
-    await assertSucceeds(
+    await assertFails(
       updateDoc(ownerRef(), {
         access: { [USERS.owner]: 'owner', [USERS.member]: 'editor' },
         updatedAt: serverTimestamp(),
@@ -182,24 +181,10 @@ describe('board update: accessUids invariant, position, folderId', () => {
     );
     await assertFails(
       updateDoc(ownerRef(), {
-        access: { [USERS.owner]: 'owner' },
-        updatedAt: serverTimestamp(),
-      }),
-    );
-    await assertFails(
-      updateDoc(ownerRef(), {
         accessUids: [USERS.owner, USERS.viewer],
         updatedAt: serverTimestamp(),
       }),
     );
-    await assertFails(
-      updateDoc(ownerRef(), {
-        access: { [USERS.owner]: 'owner', [USERS.viewer]: 'viewer' },
-        accessUids: [USERS.owner, USERS.outsider],
-        updatedAt: serverTimestamp(),
-      }),
-    );
-    // duplicates would pass a plain set comparison, so the size must match too
     await assertFails(
       updateDoc(ownerRef(), {
         access: { [USERS.owner]: 'owner', [USERS.member]: 'viewer' },
@@ -209,8 +194,8 @@ describe('board update: accessUids invariant, position, folderId', () => {
     );
   });
 
-  it('keeps accessUids owner-only even when it stays consistent', async () => {
-    // member is an editor on the main board; rewriting accessUids is not an editor action
+  it('denies an editor rewriting access even when accessUids stays consistent', async () => {
+    // member is an editor on the main board
     await assertFails(
       updateDoc(doc(as(USERS.member), 'boards', MAIN_BOARD), {
         access: { [USERS.owner]: 'owner', [USERS.member]: 'owner' },

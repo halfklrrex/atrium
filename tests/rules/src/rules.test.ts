@@ -370,12 +370,17 @@ describe('boards', () => {
     await assertFails(updateDoc(ref, { state: 'deleted', updatedAt: serverTimestamp() }));
   });
 
-  it('lets owners (including workspace admins on main boards) manage access and state', async () => {
+  it('lets owners (including workspace admins on main boards) manage state but not access', async () => {
     for (const uid of [USERS.owner, USERS.admin]) {
-      await assertSucceeds(
+      await assertFails(
         updateDoc(doc(as(uid), 'boards', MAIN_BOARD), {
           access: { [USERS.owner]: 'owner', [USERS.viewer]: 'viewer' },
           accessUids: [USERS.owner, USERS.viewer],
+          updatedAt: serverTimestamp(),
+        }),
+      );
+      await assertSucceeds(
+        updateDoc(doc(as(uid), 'boards', MAIN_BOARD), {
           state: 'archived',
           updatedAt: serverTimestamp(),
         }),

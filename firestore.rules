@@ -307,19 +307,19 @@ service cloud.firestore {
       }
 
       // Editors may change structure (columns, groups, name...) and move the board (`folderId`,
-      // `position`). Access, kind, lifecycle state and `columnLocks` are owner-only; workspaceId,
-      // `icon`, `derivedColumnIds` and `serverManagedColumnIds` (both maintained by the
-      // onBoardColumnsWritten function) and audit fields are immutable for clients. `accessUids`
-      // must always be the key set of `access`.
+      // `position`). Lifecycle state and `columnLocks` are owner-only; `access`, `accessUids` and
+      // `kind` are written only by the setBoardAccess / setBoardKind / leaveBoard callables (P4b), so
+      // not even an owner can change them from a client; workspaceId, `icon`, `derivedColumnIds` and
+      // `serverManagedColumnIds` (both maintained by the onBoardColumnsWritten function) and audit
+      // fields are immutable for clients. `accessUids` must always be the key set of `access`.
       function validBoardUpdate() {
         let changed = request.resource.data.diff(resource.data).affectedKeys();
         let role = boardRole(resource.data);
         return role in ['owner', 'editor']
           && changed.hasOnly(['folderId', 'position', 'name', 'description', 'columns',
-                              'subitemColumns', 'groups', 'itemTerminology', 'access', 'accessUids',
-                              'kind', 'state', 'deletedAt', 'columnLocks', 'updatedAt'])
-          && (!changed.hasAny(['access', 'accessUids', 'kind', 'state', 'deletedAt', 'columnLocks'])
-              || role == 'owner')
+                              'subitemColumns', 'groups', 'itemTerminology', 'state', 'deletedAt',
+                              'columnLocks', 'updatedAt'])
+          && (!changed.hasAny(['state', 'deletedAt', 'columnLocks']) || role == 'owner')
           && (!changed.hasAny(['columnLocks'])
               || (request.resource.data.get('columnLocks', null) is list
                   && request.resource.data.columnLocks.size() <= 200))
