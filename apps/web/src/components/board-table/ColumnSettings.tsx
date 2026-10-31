@@ -843,8 +843,8 @@ function MirrorSettingsEditor({
       <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
         <p className={popups.muted}>Add a Connect boards column first</p>
         <p className={popups.muted}>
-          A Mirror column shows values from the items connected through a Connect boards column.
-          Add one to this board, connect it to a board, then come back here to choose what to show.
+          A Mirror column shows values from the items connected through a Connect boards column. Add
+          one to this board, connect it to a board, then come back here to choose what to show.
         </p>
         <div className={popups.footer}>
           <button type="button" className={popups.linkButton} onClick={onCancel}>

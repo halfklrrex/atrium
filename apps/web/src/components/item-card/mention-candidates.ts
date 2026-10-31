@@ -45,7 +45,10 @@ export function mentionCandidates({
     }))
     .filter((m) => {
       if (!m.name) return false;
-      const words = `${m.name} ${m.local}`.toLowerCase().split(/[\s._-]+/).filter(Boolean);
+      const words = `${m.name} ${m.local}`
+        .toLowerCase()
+        .split(/[\s._-]+/)
+        .filter(Boolean);
       // Every typed word must match the start of or sit inside some word of the name or email,
       // in any order; the whole name and the whole email part also count, as before.
       const whole = `${m.name.toLowerCase()} ${m.local.toLowerCase()}`;
