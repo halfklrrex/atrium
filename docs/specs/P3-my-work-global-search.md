@@ -31,7 +31,7 @@ Author: Ophelia (Opus 5.5) · Implementer: Sonnet 5.5 · Roadmap: P3 "My Work & 
    - Cost: at most (readable boards + matches) reads per settled search. With 30 boards and 10 searches a day per person, well under Blaze's free tier.
 5. **Boards and workspaces are searched client-side** from the board listing documents, already the source of the sidebar. Only `state == 'active'` boards.
 6. **Updates are not searched in v1** (they'd need their own tokens on a much larger collection). See Out of scope.
-7. **Shortcut: Ctrl/Cmd+B** opens search, as in monday. It's ignored while focus is in an input, textarea, select or contenteditable, so bold in the description editor keeps working. It calls `preventDefault` (Firefox's bookmarks sidebar).
+7. **Shortcut: Ctrl/Cmd+B** (monday's) **and Ctrl/Cmd+K** (approved plan, common elsewhere) open search. It's ignored while focus is in an input, textarea, select or contenteditable, so bold in the description editor keeps working. It calls `preventDefault` (Firefox's bookmarks sidebar).
 8. **My Work v1 is read-only.** Cells render with the column modules' `Cell` (`canEdit: false`); a row click opens the item at `/boards/:b/items/:i`. Inline editing, "New item", Calendar tab and "Customize" (choose the date column per board) come later.
 
 ## Data model and indexes (PR 1)
@@ -69,7 +69,7 @@ Author: Ophelia (Opus 5.5) · Implementer: Sonnet 5.5 · Roadmap: P3 "My Work & 
 - **Empty term:** "Recent boards" from `useRecents` (up to 8).
 - **Typing:** workspaces and boards filter instantly (decision 5). Items start at 2 characters, debounced 300 ms, through `searchItems(boards, term, signal)` in `data/search.ts` (decision 4; a newer term aborts the older run; results stream in per board). Merge, prefer names that start with the term, cap 50, show "Searching N boards" while running.
 - **Rows:** board rows = kind icon, name, workspace breadcrumb; item rows = name, "Board › Group" breadcrumb, subitem icon when it is one; the matched text highlighted like `NotificationCard`. Enter or click navigates (`/boards/:b`, `/boards/:b/items/:i`, `/workspaces/:w`) and closes.
-- **Keyboard:** Up/Down move the active row (`aria-activedescendant`, `role="listbox"`), Enter opens, Esc closes, Ctrl/Cmd+B toggles (decision 7; one listener in `AppShell`).
+- **Keyboard:** Up/Down move the active row (`aria-activedescendant`, `role="listbox"`), Enter opens, Esc closes, Ctrl/Cmd+B or Ctrl/Cmd+K toggles (decision 7; one listener in `AppShell`).
 - **Wiring:** TopBar's Search action and Home's Quick Search open the dialog (remove them from the coming-soon path).
 - **States:** "No results for “term”" with the `NoSearchResults` illustration; an items error shows an inline "Couldn't search items" with Retry while board results stay.
 
@@ -112,6 +112,6 @@ None of the three touches `firestore.rules`, `firebase.json` or `pnpm-lock.yaml`
 
 ## Questions for the owner
 
-1. Shortcut Ctrl/Cmd+B (monday's) or Ctrl/Cmd+K (common elsewhere)? The spec uses Ctrl/Cmd+B.
+1. Shortcut: decided (owner-approved plan): both Ctrl/Cmd+B and Ctrl/Cmd+K, ignored inside inputs and editors.
 2. Should search cover updates in a follow-up? It needs tokens on every update (more index writes); fine at family scale, but it's a separate PR.
 3. My Work is read-only in v1 (click opens the item). Is inline editing of Status and Date there a priority for the next pass?
