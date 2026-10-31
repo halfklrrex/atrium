@@ -336,8 +336,8 @@ test('invalid data fails loudly', () => {
 
 test('every column type with a web UI is in the showcase; the rest are declared pending', () => {
   const source = readFileSync(resolve(repoRoot, 'apps/web/src/columns/registry.ts'), 'utf8');
-  const order = /ADD_COLUMN_ORDER\s*=\s*\[([^\]]*)\]/.exec(source);
-  assert.ok(order, 'could not find ADD_COLUMN_ORDER in apps/web/src/columns/registry.ts');
+  const order = /ADD_COLUMN_TYPES\s*=\s*\[([^\]]*)\]/.exec(source);
+  assert.ok(order, 'could not find ADD_COLUMN_TYPES in apps/web/src/columns/registry.ts');
   const webTypes = [...order[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
   assert.ok(webTypes.length >= 9);
 
