@@ -17,15 +17,26 @@ import {
   Duplicate,
   Edit,
   Locked,
+  Retry,
   Settings,
   SortAscending,
   SortDescending,
+  Switcher,
+  Undo,
 } from '@vibe/icons';
 import classNames from 'classnames';
 import { useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { ADD_COLUMN_ORDER, getColumnUi } from '../../columns/registry';
-import { COLUMN_LOCKED_TOOLTIP, columnRegistry, isColumnLocked } from '@atrium/shared';
+import { useNow } from '../../lib/use-now';
+import {
+  COLUMN_LOCKED_TOOLTIP,
+  COLUMN_MIGRATION_STALE_MS,
+  columnRegistry,
+  columnTypeChangeSupport,
+  isColumnLocked,
+} from '@atrium/shared';
 import { AnchoredPopup } from './AnchoredPopup';
+import { ChangeColumnTypeDialog } from './ChangeColumnTypeDialog';
 import { ColumnSettingsPopup } from './ColumnSettings';
 import { ConfirmDialog } from './ConfirmDialog';
 import { dragProps } from './drag-props';
@@ -309,6 +320,7 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
   const columnId = column?.def.id ?? NAME_COLUMN;
   const title = column?.def.title ?? 'Item';
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [changeTo, setChangeTo] = useState<string | null>(null);
   const store = useTableStore;
   const { filterState, setSortConditions } = useBoardFilter(env.boardId);
   const normCol = columnId === NAME_COLUMN ? 'name' : columnId;
@@ -319,6 +331,24 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
         ?.direction ?? null);
   // Rows this menu's column writes to: top-level items, or the subitems of the block.
   const scopeItems = () => env.getItems().filter((i) => subitems || !i.parentItemId);
+
+  // Changing the type: board owners and editors, owners only on a locked column. Types the column
+  // can't become are not listed; types that lose its values carry a warning.
+  const def = column?.def;
+  const mayChangeType =
+    !!def && env.canEdit && (!isColumnLocked(env.ctx.board, columnId) || env.canManage === true);
+  const migrating = def?.migrating;
+  const lastChange = def?.lastTypeChange;
+  const now = useNow(!!migrating || !!lastChange);
+  const stale = !!migrating && now - migrating.startedAt >= COLUMN_MIGRATION_STALE_MS;
+  const canUndo = mayChangeType && !migrating && !!lastChange && lastChange.expiresAt > now;
+  const typeOptions =
+    def && mayChangeType && !migrating
+      ? ADD_COLUMN_ORDER.filter((type) => {
+          const support = columnTypeChangeSupport(def.type, type);
+          return support.allowed && (!support.ownerOnly || env.canManage === true);
+        })
+      : [];
 
   const applySort = (direction: 'asc' | 'desc') => {
     const withoutCol = filterState.sortConditions.filter(
@@ -381,6 +411,54 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
                 onClick={() => void tableActions.duplicateColumn(env.ctx, column, scopeItems())}
               />
             ) : null}
+            {column && typeOptions.length > 0 ? (
+              <MenuItem title="Change column type" icon={Switcher}>
+                <Menu id={`column-type-${group.id}-${columnId}`} size="medium">
+                  {typeOptions.map((type) => (
+                    <MenuItem
+                      key={type}
+                      title={columnRegistry.get(type).label}
+                      icon={getColumnUi(type)?.icon}
+                      tooltipContent={columnTypeChangeSupport(column.def.type, type).warning}
+                      onClick={() => setChangeTo(type)}
+                    />
+                  ))}
+                </Menu>
+              </MenuItem>
+            ) : null}
+            {column && canUndo && lastChange ? (
+              <MenuItem
+                title="Undo type change"
+                icon={Undo}
+                onClick={() =>
+                  void tableActions.revertColumnType(
+                    env.ctx,
+                    column.def.title,
+                    lastChange.snapshotId,
+                  )
+                }
+              />
+            ) : null}
+            {column && mayChangeType && stale && migrating ? (
+              <MenuItem
+                title="Resume type change"
+                icon={Retry}
+                onClick={() => void tableActions.resumeColumnType(env.ctx, column.def)}
+              />
+            ) : null}
+            {column && mayChangeType && stale && migrating ? (
+              <MenuItem
+                title="Undo type change"
+                icon={Undo}
+                onClick={() =>
+                  void tableActions.revertColumnType(
+                    env.ctx,
+                    column.def.title,
+                    migrating.snapshotId,
+                  )
+                }
+              />
+            ) : null}
             {column && env.canEdit ? (
               <MenuItem title="Add column to the right" icon={Add}>
                 <Menu id={`column-add-${group.id}-${columnId}`} size="medium">
@@ -416,6 +494,20 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
           </Menu>
         </MenuButton>
       </span>
+      {changeTo && column ? (
+        <ChangeColumnTypeDialog
+          boardId={env.boardId}
+          workspaceId={env.workspaceId}
+          column={column.def}
+          columns={env.ctx.columns}
+          toType={changeTo}
+          items={scopeItems()}
+          onConfirm={({ toSettings, valueCount }) =>
+            tableActions.changeColumnType(env.ctx, column.def, changeTo, toSettings, valueCount)
+          }
+          onClose={() => setChangeTo(null)}
+        />
+      ) : null}
       {confirmDelete && column ? (
         <ConfirmDialog
           title={`Delete "${column.def.title}"?`}

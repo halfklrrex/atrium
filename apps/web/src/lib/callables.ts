@@ -1,5 +1,6 @@
 import {
   ACCEPT_INVITE_CALLABLE,
+  CHANGE_COLUMN_TYPE_CALLABLE,
   BOOTSTRAP_USER_CALLABLE,
   CHANGE_MEMBER_ROLE_CALLABLE,
   CREATE_INVITE_CALLABLE,
@@ -10,10 +11,13 @@ import {
   LEAVE_WORKSPACE_CALLABLE,
   LIST_MY_INVITES_CALLABLE,
   REMOVE_MEMBER_CALLABLE,
+  REVERT_COLUMN_TYPE_CALLABLE,
   REQUEST_DESCRIPTION_IMAGE_UPLOAD_CALLABLE,
   REVOKE_INVITE_CALLABLE,
   acceptInviteResultSchema,
   bootstrapUserResultSchema,
+  changeColumnTypeRequestSchema,
+  changeColumnTypeResultSchema,
   clickButtonRequestSchema,
   clickButtonResultSchema,
   createInviteResultSchema,
@@ -31,6 +35,8 @@ import {
   requestDescriptionImageUploadResultSchema,
   requestFileUploadRequestSchema,
   requestFileUploadResultSchema,
+  revertColumnTypeRequestSchema,
+  revertColumnTypeResultSchema,
   startTimeTrackingRequestSchema,
   startTimeTrackingResultSchema,
   stopTimeTrackingRequestSchema,
@@ -39,6 +45,8 @@ import {
   type AcceptInviteResult,
   type BootstrapUserRequest,
   type BootstrapUserResult,
+  type ChangeColumnTypeRequest,
+  type ChangeColumnTypeResult,
   type ChangeMemberRoleRequest,
   type ClickButtonRequest,
   type ClickButtonResult,
@@ -66,6 +74,8 @@ import {
   type RequestDescriptionImageUploadResult,
   type RequestFileUploadRequest,
   type RequestFileUploadResult,
+  type RevertColumnTypeRequest,
+  type RevertColumnTypeResult,
   type RevokeInviteRequest,
   type StartTimeTrackingRequest,
   type StartTimeTrackingResult,
@@ -234,6 +244,31 @@ export const fileCalls = {
   finalizeUpload: callFinalizeFileUpload,
   getDownloadUrl: callGetFileDownloadUrl,
   deleteAttachment: callDeleteFileAttachment,
+};
+
+/**
+ * Column type changes (P2). A migration of a big board can run for minutes, so these calls wait up to
+ * the Function's own timeout (9 minutes) instead of the SDK's 70 seconds.
+ */
+const MIGRATION_CALL_TIMEOUT_MS = 540_000;
+
+export const columnTypeCalls = {
+  change: async (request: ChangeColumnTypeRequest): Promise<ChangeColumnTypeResult> => {
+    const { data } = await httpsCallable<ChangeColumnTypeRequest, unknown>(
+      functions,
+      CHANGE_COLUMN_TYPE_CALLABLE,
+      { timeout: MIGRATION_CALL_TIMEOUT_MS },
+    )(changeColumnTypeRequestSchema.parse(request));
+    return changeColumnTypeResultSchema.parse(data);
+  },
+  revert: async (request: RevertColumnTypeRequest): Promise<RevertColumnTypeResult> => {
+    const { data } = await httpsCallable<RevertColumnTypeRequest, unknown>(
+      functions,
+      REVERT_COLUMN_TYPE_CALLABLE,
+      { timeout: MIGRATION_CALL_TIMEOUT_MS },
+    )(revertColumnTypeRequestSchema.parse(request));
+    return revertColumnTypeResultSchema.parse(data);
+  },
 };
 
 const FRIENDLY_CALLABLE_CODE_MESSAGES: Record<string, string> = {

@@ -204,7 +204,13 @@ export function CalendarView({ board }: CalendarViewProps) {
   const canWrite =
     canEdit &&
     column !== null &&
-    !isColumnReadOnlyForUser(column.def.type, boardLocks, column.def.id, boardRole);
+    !isColumnReadOnlyForUser(
+      column.def.type,
+      boardLocks,
+      column.def.id,
+      boardRole,
+      !!column.def.migrating,
+    );
 
   // ---- Drag and drop
   const sensors = useSensors(

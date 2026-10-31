@@ -52,6 +52,7 @@ import {
 import { newSlugId } from '../lib/ids';
 import { db } from '../lib/firebase';
 import { newBoardSeedItems } from './seed-items';
+import { withoutServerColumnFields } from './server-column-fields';
 import type {
   BoardDoc,
   BoardViewDoc,
@@ -472,8 +473,8 @@ export const writes = {
       accessUids: [uid],
       position,
       icon: null,
-      columns: source.columns,
-      subitemColumns: source.subitemColumns,
+      columns: withoutServerColumnFields(source.columns),
+      subitemColumns: withoutServerColumnFields(source.subitemColumns),
       groups: source.groups,
       itemTerminology: source.itemTerminology,
       derivedColumnIds: [],

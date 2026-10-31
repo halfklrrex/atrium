@@ -76,17 +76,23 @@ export function isClientReadOnlyType(type: string): boolean {
   return columnRegistry.isDerived(type) || columnRegistry.isServerManaged(type);
 }
 
+/** Message and tooltip of a column whose type is being changed (`ColumnDef.migrating`). */
+export const COLUMN_MIGRATING_MESSAGE = 'This column is being converted. Try again in a moment.';
+export const COLUMN_MIGRATING_TOOLTIP = 'Converting this column…';
+
 /**
  * True when a column is read-only for this user: either the type itself is client read-only
- * (derived / server-managed), or the column is locked and the caller is not a board owner.
+ * (derived / server-managed), the column is locked and the caller is not a board owner, or its type
+ * is being changed right now (`migrating`).
  */
 export function isColumnReadOnlyForUser(
   type: string,
   board: BoardWithColumnLocks | null | undefined,
   columnId: string,
   boardRole?: BoardRole | null | undefined,
+  migrating?: boolean,
 ): boolean {
-  return isClientReadOnlyType(type) || !canEditColumn(boardRole, board, columnId);
+  return isClientReadOnlyType(type) || !canEditColumn(boardRole, board, columnId) || !!migrating;
 }
 
 /**
@@ -103,6 +109,7 @@ export function validateCellWrite(
 ): ValidationResult {
   const def = columns.find((c) => c.id === columnId);
   if (!def) return { ok: false, message: 'This column no longer exists' };
+  if (def.migrating) return { ok: false, message: COLUMN_MIGRATING_MESSAGE };
   if (lockCtx && !canEditColumn(lockCtx.boardRole, lockCtx.board, columnId)) {
     return { ok: false, message: COLUMN_LOCKED_MESSAGE };
   }

@@ -7,6 +7,7 @@ import type { ColumnDef, GroupDef } from '@atrium/shared';
 import { runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { plainRefs } from './firestore';
+import { keepServerColumnFields } from './server-column-fields';
 
 export interface BoardStructureState {
   columns: ColumnDef[];
@@ -42,7 +43,12 @@ export async function updateBoardStructure(
     };
     const patch = update(current);
     if (!patch) return null;
-    tx.update(ref, { ...patch, updatedAt: serverTimestamp() });
-    return { ...current, ...patch };
+    const safe: StructurePatch = { ...patch };
+    if (patch.columns) safe.columns = keepServerColumnFields(patch.columns, current.columns);
+    if (patch.subitemColumns) {
+      safe.subitemColumns = keepServerColumnFields(patch.subitemColumns, current.subitemColumns);
+    }
+    tx.update(ref, { ...safe, updatedAt: serverTimestamp() });
+    return { ...current, ...safe };
   });
 }

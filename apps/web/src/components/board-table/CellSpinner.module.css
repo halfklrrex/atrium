@@ -1,0 +1,8 @@
+.spinner {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: var(--space-4);
+  display: flex;
+  transform: translateY(-50%);
+  pointer-events: none;
+}

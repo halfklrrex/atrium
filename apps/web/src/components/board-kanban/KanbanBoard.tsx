@@ -156,7 +156,13 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
   const canWrite =
     canEdit &&
     status !== null &&
-    !isColumnReadOnlyForUser('status', boardLocks, status.def.id, boardRole);
+    !isColumnReadOnlyForUser(
+      'status',
+      boardLocks,
+      status.def.id,
+      boardRole,
+      !!status.def.migrating,
+    );
   const sorted = isSorted(filterState);
   // `null` = draggable; text = not draggable (and the card's tooltip, when there is any).
   const dragOff = !canWrite ? '' : sorted ? SORTED_TOOLTIP : null;

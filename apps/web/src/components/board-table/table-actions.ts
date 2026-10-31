@@ -5,6 +5,7 @@
  * server rejects it, so a failed edit reverts on screen and shows the error toast from here.
  */
 import {
+  COLUMN_MIGRATION_CHUNK_SIZE,
   columnRegistry,
   defaultSubitemColumns,
   isSubitem,
@@ -24,6 +25,7 @@ import {
   type NewItemInput,
   type StructurePatch,
 } from '../../data';
+import { columnTypeCalls, describeCallableError } from '../../lib/callables';
 import { newSlugId } from '../../lib/ids';
 import {
   comparePositions,
@@ -92,6 +94,9 @@ const subitemsOf = (ctx: TableCtx, parentId: string): ItemDoc[] =>
   (ctx.getItems?.() ?? []).filter((i) => i.parentItemId === parentId);
 
 type ColumnsKey = 'columns' | 'subitemColumns';
+/** The scope name the type-change callables use for this table. */
+const columnScopeOf = (ctx: TableCtx): ColumnsKey =>
+  ctx.scope === 'subitems' ? 'subitemColumns' : 'columns';
 const columnsKey = (ctx: TableCtx): ColumnsKey =>
   ctx.scope === 'subitems' ? 'subitemColumns' : 'columns';
 /** The column list a column action works on, and the patch that writes it back. */
@@ -711,6 +716,98 @@ export const tableActions = {
       );
     showToast(`Column "${column.title}" deleted.`);
     return true;
+  },
+
+  /**
+   * Change a column's type on the server (values are converted and backed up there). Resolves true
+   * when the change finished; the toast offers Undo. A failure leaves the column as it was, or marked
+   * as converting when the run died half way: the column menu then offers Resume and Undo.
+   */
+  async changeColumnType(
+    ctx: TableCtx,
+    column: ColumnDef,
+    toType: string,
+    toSettings: Record<string, unknown>,
+    valueCount = 0,
+  ): Promise<boolean> {
+    const toLabel = columnRegistry.find(toType)?.label ?? toType;
+    if (valueCount > COLUMN_MIGRATION_CHUNK_SIZE) {
+      showToast(`Converting ${valueCount} values in "${column.title}"…`);
+    }
+    try {
+      const result = await columnTypeCalls.change({
+        boardId: ctx.boardId,
+        columnId: column.id,
+        scope: columnScopeOf(ctx),
+        toType,
+        toSettings,
+        snapshotId: newSlugId(20),
+      });
+      const cleared = result.cleared > 0 ? `, ${result.cleared} cleared` : '';
+      showToast(`"${column.title}" is now ${toLabel}. ${result.converted} converted${cleared}.`, {
+        type: 'positive',
+        action: {
+          label: 'Undo',
+          onClick: () => void tableActions.revertColumnType(ctx, column.title, result.snapshotId),
+        },
+      });
+      return true;
+    } catch (error) {
+      console.error('Could not change the column type.', error);
+      const reason = describeCallableError(error, 'Could not change the column type.');
+      showToast(
+        `${reason} If the column keeps showing a spinner, open its menu to resume or undo.`,
+        {
+          type: 'negative',
+        },
+      );
+      return false;
+    }
+  },
+
+  /** Finish a conversion that died half way (same snapshot, so nothing is converted twice). */
+  async resumeColumnType(ctx: TableCtx, column: ColumnDef): Promise<boolean> {
+    const snapshotId = column.migrating?.snapshotId;
+    if (!snapshotId) return false;
+    try {
+      const result = await columnTypeCalls.change({
+        boardId: ctx.boardId,
+        columnId: column.id,
+        scope: columnScopeOf(ctx),
+        toType: column.type,
+        toSettings: {},
+        snapshotId,
+      });
+      showToast(`"${column.title}" finished converting. ${result.converted} converted.`, {
+        type: 'positive',
+        action: {
+          label: 'Undo',
+          onClick: () => void tableActions.revertColumnType(ctx, column.title, result.snapshotId),
+        },
+      });
+      return true;
+    } catch (error) {
+      console.error('Could not resume the column type change.', error);
+      showToast(describeCallableError(error, 'Could not finish the type change.'), {
+        type: 'negative',
+      });
+      return false;
+    }
+  },
+
+  /** Put a column back as it was before a type change (values and definition). */
+  async revertColumnType(ctx: TableCtx, title: string, snapshotId: string): Promise<boolean> {
+    try {
+      await columnTypeCalls.revert({ boardId: ctx.boardId, snapshotId });
+      showToast(`"${title}" is back to its old type.`, { type: 'positive' });
+      return true;
+    } catch (error) {
+      console.error('Could not undo the column type change.', error);
+      showToast(describeCallableError(error, 'Could not undo the type change.'), {
+        type: 'negative',
+      });
+      return false;
+    }
   },
 
   /** Copy a column, values included, next to the original. */
