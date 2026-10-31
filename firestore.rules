@@ -365,6 +365,23 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------------------
+      // boards/{boardId}/columnSnapshots/{snapshotId} (+ /chunks/{n}): the backup of a column type
+      // change (old column definition and every old value), written, read and purged only by Cloud
+      // Functions (changeColumnType, revertColumnType, purgeTrash). Clients get nothing, not even board
+      // owners. The `migrating` and `lastTypeChange` marks inside `columns[]` are server-only too, but
+      // rules cannot look inside list entries: the web strips them from every structure write, and a
+      // client that forged them could only block or mislead its own board (revert verifies the
+      // snapshot, and a stale mark can be taken over after 10 minutes).
+      // -------------------------------------------------------------------
+      match /columnSnapshots/{snapshotId} {
+        allow read, write: if false;
+
+        match /chunks/{chunkId} {
+          allow read, write: if false;
+        }
+      }
+
+      // -------------------------------------------------------------------
       // boards/{boardId}/counters/{counterId}: per-board item-number counters (`items`), written
       // only by the onItemCreated function and the backfill script. Clients get nothing.
       // -------------------------------------------------------------------
