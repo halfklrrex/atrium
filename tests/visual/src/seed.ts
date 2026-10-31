@@ -669,6 +669,56 @@ export async function removeCalendarView(): Promise<void> {
     .delete();
 }
 
+/** Id of the shared Timeline view the Timeline screen adds to the roadmap board (and removes again). */
+export const TIMELINE_VIEW = 'view-roadmap-timeline';
+
+/** A shared Timeline view on the roadmap board: lanes per group, items placed by the Date column. */
+export async function addTimelineView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(TIMELINE_VIEW)
+    .set({
+      name: 'Timeline',
+      type: 'timeline',
+      position: 'a1',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        timeline: {
+          columnId: 'date',
+          zoom: 'days',
+          colorBy: null,
+          collapsedGroupIds: [],
+          showGroupSummary: true,
+          showToday: true,
+          showWeekends: true,
+          showLegend: true,
+        },
+      },
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeTimelineView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(TIMELINE_VIEW)
+    .delete();
+}
+
 /** Forget every recently visited board, so Home shows its "No boards visited yet" state. */
 export async function clearRecents(): Promise<void> {
   const stale = await adminDb()

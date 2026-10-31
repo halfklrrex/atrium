@@ -1553,6 +1553,41 @@ export function buildShowcase({
   });
   summary.views += 1;
 
+  // ---- A shared Timeline "Roadmap": a lane per group, bars from the Timeline column, coloured by Status ----
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-roadmap-timeline`,
+    data: boardViewSchema.parse({
+      name: 'Roadmap',
+      type: 'timeline',
+      position: 'a4',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        timeline: {
+          columnId: 'timeline',
+          zoom: 'weeks',
+          colorBy: 'status',
+          collapsedGroupIds: [],
+          showGroupSummary: true,
+          showToday: true,
+          showWeekends: true,
+          showLegend: true,
+        },
+      },
+      createdAt: ago(3 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
+
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
   const sideBoardColumns = columns
