@@ -12,9 +12,12 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
   - saved views and the Kanban view (VF6 fidelity pass, 2026-10-26)
   - workspace membership, invites and member profiles (P4a, 2026-10-26)
   - thin monday-style scrollbars everywhere (VF7, 2026-10-26)
-  - the P2 column cells (25 types; 8 still pending)
+  - every registered column type has a web cell, including Files, Button, Time tracking, Formula, Dependency, Connect boards and Mirror
+  - change a column's type, with undo (2026-10-31)
+  - the Calendar and Timeline views (2026-10-31)
+  - @mentions in updates, replies and descriptions
   - archive, trash and undo
-  - empty states and the notifications panel
+  - empty states and the notifications bell and panel (2026-10-30)
   - the layering fix for menus
 - **Data:** Firestore named database **`atrium-1`** (`eur3`, scheduled backups), through `FIRESTORE_DATABASE_ID`. `(default)` (`nam5`) is unused legacy.
 - **Showcase:** the "🧪 Atrium Showcase" board is in the owner's Test Workspace (id in `.private/project-ids.md`, gitignored, local only). Re-seed it per `docs/showcase.md`.
@@ -23,26 +26,14 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **Actionable column** on the Roadmap: Yes (owner's move), Agents (owner answered, so it's back with us), No. Check the Agents items at the start of every session (`AGENTS.md`).
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
-## Open work (2026-10-30, newest first; the 2026-10-26 list below is partly stale)
+## Open work (2026-10-31)
 
-- **Ophelia, resume here:** P4 notifications web UI is built and committed but **not pushed, no PR**, in the worktree `D:\DevProjects\Atrium\atrium-cl-wt\p4-notifications-web` (branch `claude/p4-notifications-web`, offset 20). Re-run the checks, review, push, run the baseline workflow, visual QA, merge, then the live two-user check and the showcase re-run. Steps: `docs/handoff/2026-10-30-ophelia-p4-notifications-emoji.md`.
-- **Live since 2026-10-30:** the P4 notifications backend (PR #34, nothing visible yet) and the emoji fixes (PRs #33 and #35).
+- **Ava is on a break with no end date.** Ophelia works alone. Ava's stale `ag/*` branches are superseded by rebased copies on `main` and can be deleted. Her Roadmap items are now Agent = Claude.
+- **Ophelia, resume here:** P4b board sharing is being built by a Sonnet subagent (spec `docs/specs/P4b-board-sharing.md`, worktree `atrium-cl-wt\p4b-board-sharing`, branch `claude/p4b-board-sharing`). Review, push, run the baseline workflow, merge, then the live two-account check. After that: the Roadmap items with Actionable = Agents, the bug inbox, and the "Column settings & column permissions" item (probably ready to sign off).
+- **Owner review (Actionable = Yes):** notifications, Files, Button, Connect boards and Mirror, @mentions in descriptions, Calendar, Timeline, change a column's type, plus the older list (scrollbars, membership, saved views, the showcase).
+- **Next candidates (nothing claimed):** P3 My Work and global search, Gantt, Workload, Chart; P4 teams and profiles, activity log, email notifications, PWA and web push; P5 automations (design first). VF backlog: Members dialog fidelity, Kanban inline subitems, sticky bar names on the Timeline.
 - **Owner decision pending:** flag emoji on Windows (needs a CDN picture fallback).
-
-## Open work (2026-10-26)
-
-- **Ava's queue (specs ready):**
-  - `P2-column-cells-editors.md`, PR A first;
-  - then `P2-column-locks.md` (rebase on main after subitems lands; both change the items rules);
-  - then cells PRs B and C.
-- **Ophelia:**
-  - Start with the Roadmap items where Actionable = Agents, then the owner's answer on "VF: item card & updates sidebar" (they asked to discuss the next pass).
-  - Spec ready to build: `P2-change-column-type.md`.
-  - Specs still owed: mirror, `auto_number`, P4b board sharing, the formula function list.
-  - VF backlog: Members dialog, invite page and People picker fidelity (low priority); Kanban inline subitems.
-- **Owner review (Actionable = Yes):** the scrollbars (VF7), membership and invites, saved views, the showcase, the progress/auto-number and tags/rating/... columns, and the group "⋯" handle bug.
-- **Ava, note:** P4a changed `firestore.rules` (`members`, `invites`). Rebase Column locks on main before you touch the rules.
-- Details: `docs/handoff/2026-10-26-ophelia-p4a-vf6.md`.
+- Details, gotchas and what to check live: `docs/handoff/2026-10-31-ophelia-ava-queue-and-p3.md`.
 
 ## Notes index
 
@@ -59,6 +50,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - [2026-10-26 · Ophelia · the repository is now public](docs/handoff/2026-10-26-ophelia-public-repo.md)
 - [2026-10-27 · Ophelia · numeric item IDs, description editor passes 1 and 2](docs/handoff/2026-10-27-ophelia-ids-editor.md)
 - [2026-10-30 · Ophelia · P4 notifications backend, emoji fixes, web UI waiting](docs/handoff/2026-10-30-ophelia-p4-notifications-emoji.md)
+- [2026-10-31 · Ophelia · Ava's queue, @mentions, Calendar, Timeline, Mirror, change column type](docs/handoff/2026-10-31-ophelia-ava-queue-and-p3.md)
 - [2026-10-24 · Antigravity · Board filter, sort, search & group-by](docs/handoff/2026-10-24-antigravity-board-filters-sort.md)
 - [2026-10-25 · Antigravity · Files storage upload, rules & tests](docs/handoff/2026-10-25-antigravity-files-storage-upload.md)
 - [2026-10-25 · Antigravity · Server-side column actions](docs/handoff/2026-10-25-antigravity-server-column-actions.md)
