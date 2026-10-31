@@ -202,6 +202,15 @@ describe('board updates must carry updatedBy', () => {
     );
   });
 
+  it('a folder/position-only update by someone other than the last editor needs the stamp', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'boards', MAIN_BOARD), { updatedBy: USERS.owner });
+    });
+    const move = { folderId: null, position: 'a9', updatedAt: serverTimestamp() };
+    await assertFails(updateDoc(boardRef(USERS.member), move));
+    await assertSucceeds(updateDoc(boardRef(USERS.member), { ...move, updatedBy: USERS.member }));
+  });
+
   it('lets a board be created with updatedBy == caller, or without it, but not with another uid', async () => {
     const db = as(USERS.member);
     const payload = (overrides: Record<string, unknown> = {}) => ({
