@@ -13,6 +13,7 @@ import { NotificationsPanel } from './NotificationsPanel';
 import { ItemCardDrawer } from '../item-card/ItemCardDrawer';
 import { TopBar } from './TopBar';
 import { useCurrentWorkspace } from './useCurrentWorkspace';
+import { useSearchShortcut } from './useSearchShortcut';
 import { useUiStore } from './ui-store';
 
 /**
@@ -42,6 +43,8 @@ export function AppShell() {
   useEffect(() => {
     if (uid) void useInvitesStore.getState().load(uid);
   }, [uid]);
+
+  useSearchShortcut();
 
   return (
     <div className={styles.shell}>

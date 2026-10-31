@@ -74,7 +74,7 @@ export function HomePage() {
             kind="primary"
             size="medium"
             leftIcon={Search}
-            onClick={() => showComingSoon('Quick search')}
+            onClick={() => openDialog({ type: 'search' })}
           >
             Quick Search
           </Button>

@@ -274,6 +274,15 @@ export const queries = {
       where('state', '==', 'active'),
     ),
 
+  /** Global search: active items of one board whose server-maintained `nameTokens` has `word`. */
+  itemsByNameToken: (boardId: string, word: string, count: number): Query<ItemDoc> =>
+    query(
+      refs.items(boardId),
+      where('nameTokens', 'array-contains', word),
+      where('state', '==', 'active'),
+      limit(count),
+    ),
+
   activeItems: (boardId: string): Query<ItemDoc> =>
     query(refs.items(boardId), where('state', '==', 'active')),
 
