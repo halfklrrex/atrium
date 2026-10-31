@@ -354,7 +354,11 @@ for (const theme of ['light', 'dark'] as const) {
       await page.getByRole('columnheader', { name: 'Area' }).first().hover();
       await page.getByRole('button', { name: 'Options for Area' }).first().click();
       await page.getByRole('menuitem', { name: 'Change column type' }).hover();
-      await page.getByRole('menuitem', { name: 'Text', exact: true }).click();
+      // Vibe's submenu item only reacts to a click once the pointer has settled on it (a real user
+      // always hovers first); a bare Playwright click moves and presses in one go and is ignored.
+      const target = page.getByRole('menuitem', { name: 'Text', exact: true });
+      await target.hover();
+      await target.click();
       await expect(page.getByTestId('change-type-counts')).toBeVisible();
       await shoot(page, `board-change-type-dialog-${theme}`, PARK_IN_HEADER);
       await page.getByRole('button', { name: 'Cancel' }).click();
