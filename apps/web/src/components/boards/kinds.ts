@@ -15,6 +15,6 @@ export const BOARD_KIND_OPTIONS: readonly { value: BoardKind; label: string; hin
   {
     value: 'shareable',
     label: 'Shareable',
-    hint: 'Only board members can see it; it can also be shared with guests.',
+    hint: 'Like private: only board members can see it in the workspace.',
   },
 ];

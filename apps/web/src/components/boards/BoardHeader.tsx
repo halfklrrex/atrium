@@ -8,6 +8,7 @@ import { useWorkspace, type BoardDoc } from '../../data';
 import { formatDate } from '../../lib/format';
 import { InlineEdit } from '../InlineEdit';
 import { Popover } from '../Popover';
+import { useUiStore } from '../AppShell/ui-store';
 import { showComingSoon } from '../toast-store';
 import { UserAvatar } from '../UserAvatar';
 import { ViewTabs } from '../board-views/ViewTabs';
@@ -16,6 +17,7 @@ import { boardActions } from './board-actions';
 import { BoardMenu } from './BoardMenu';
 import styles from './BoardHeader.module.css';
 import { FavoriteStar } from './FavoriteStar';
+import { sharedCount } from './board-sharing';
 import { BOARD_KIND_OPTIONS } from './kinds';
 
 /** Board title row and the view tabs. */
@@ -27,6 +29,7 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
   const canEdit = canEditBoard(role);
   const [infoOpen, setInfoOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const openDialog = useUiStore((s) => s.openDialog);
 
   const memberIds = board.accessUids;
   const kindLabel = BOARD_KIND_OPTIONS.find((o) => o.value === board.kind)?.label ?? board.kind;
@@ -127,8 +130,12 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
               <UserAvatar key={id} uid={id} />
             ))}
           </AvatarGroup>
-          <Button kind="secondary" size="small" onClick={() => showComingSoon('Inviting members')}>
-            Invite / {memberIds.length}
+          <Button
+            kind="secondary"
+            size="small"
+            onClick={() => openDialog({ type: 'shareBoard', boardId: board.id })}
+          >
+            Invite / {sharedCount(board, workspace)}
           </Button>
           <BoardMenu board={board} size="small" onRename={() => setRenaming(true)} />
           <FavoriteStar board={board} />

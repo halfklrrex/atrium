@@ -1,9 +1,4 @@
-import {
-  canManageBoard,
-  createBoardInputSchema,
-  resolveBoardRole,
-  type BoardKind,
-} from '@atrium/shared';
+import { createBoardInputSchema, type BoardKind } from '@atrium/shared';
 import {
   Modal,
   ModalBasicLayout,
@@ -16,11 +11,10 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
-import { useBoard, useBoards, useWorkspace, writes } from '../../data';
+import { useBoards, writes } from '../../data';
 import { positionAfterAll } from '../../lib/positions';
 import { describeError } from '../boards/board-actions';
 import { BOARD_KIND_OPTIONS } from '../boards/kinds';
-import { showToast } from '../toast-store';
 import styles from './dialogs.module.css';
 import { submitOnEnter } from './submitOnEnter';
 
@@ -136,72 +130,6 @@ export function NewBoardDialog({
           text: 'Create board',
           onClick: () => void submit(),
           disabled: !parsed.success || submitting,
-          loading: submitting,
-        }}
-        secondaryButton={{ text: 'Cancel', onClick: onClose, disabled: submitting }}
-      />
-    </Modal>
-  );
-}
-
-/** "Board permissions": switch between Main, Private and Shareable (board owners only). */
-export function BoardPermissionsDialog({
-  boardId,
-  onClose,
-}: {
-  boardId: string;
-  onClose: () => void;
-}) {
-  const { user } = useAuth();
-  const { data: board } = useBoard(boardId);
-  const { data: workspace } = useWorkspace(board?.workspaceId);
-  const [selected, setSelected] = useState<BoardKind | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  if (!board) return null;
-  const kind = selected ?? board.kind;
-  const role = resolveBoardRole(board, user?.uid ?? '', workspace?.roles[user?.uid ?? '']);
-  const isOwner = canManageBoard(role);
-
-  async function submit() {
-    if (!board || !isOwner || kind === board.kind) return onClose();
-    setSubmitting(true);
-    setError(null);
-    try {
-      await writes.updateBoard(board.id, { kind });
-      showToast('Board permissions updated.', { type: 'positive' });
-      onClose();
-    } catch (e) {
-      setError(describeError(e, 'Could not change the board type.'));
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Modal id="board-permissions-dialog" show size="small" onClose={onClose}>
-      <ModalBasicLayout>
-        <ModalHeader title="Board permissions" />
-        <ModalContent>
-          <div className={styles.form}>
-            <p className={styles.confirmText}>{board.name}</p>
-            <KindOptions value={kind} onChange={setSelected} name="board-kind" />
-            {!isOwner ? (
-              <p className={styles.hint}>Only the board owner can change who can see this board.</p>
-            ) : null}
-            {error ? (
-              <p className={styles.error} role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-        </ModalContent>
-      </ModalBasicLayout>
-      <ModalFooter
-        primaryButton={{
-          text: 'Save',
-          onClick: () => void submit(),
-          disabled: !isOwner || submitting,
           loading: submitting,
         }}
         secondaryButton={{ text: 'Cancel', onClick: onClose, disabled: submitting }}

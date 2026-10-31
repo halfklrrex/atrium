@@ -1,0 +1,134 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-height: var(--atrium-members-dialog-min-height);
+}
+
+.sectionTitle {
+  display: block;
+  margin-bottom: var(--space-8);
+  color: var(--primary-text-color);
+  font: var(--font-text2-medium);
+}
+
+.kinds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.hint {
+  margin: var(--space-4) 0 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.kinds .hint {
+  padding-inline-start: var(--space-24);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: var(--atrium-row-height);
+  padding-block: var(--space-8);
+  border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--primary-text-color);
+  font: var(--font-text2-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email {
+  overflow: hidden;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspaceRole {
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.roleControl {
+  width: var(--atrium-members-role-width);
+}
+
+.roleStatic {
+  display: block;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+  text-align: end;
+}
+
+.empty {
+  margin: var(--space-8) 0 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.error {
+  margin: 0;
+  color: var(--negative-color);
+  font: var(--font-text2-normal);
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-medium);
+}
+
+.confirmText {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text1-normal);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--space-8);
+}
+
+@media (width <= 768px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .workspaceRole {
+    display: none;
+  }
+}

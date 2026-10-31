@@ -10,6 +10,7 @@ import {
   ClassicFolder as Folder,
   Locked,
   Move,
+  Remove,
 } from '@vibe/icons';
 import { useMatch, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
@@ -17,6 +18,7 @@ import { useBoards, useFavorites, useFolders, useWorkspace, type BoardDoc } from
 import { useUiStore } from '../AppShell/ui-store';
 import { FavoriteFilled } from './FavoriteStar';
 import { boardActions } from './board-actions';
+import { canLeaveBoard } from './board-sharing';
 import { folderChoices } from './folder-choices';
 
 interface BoardMenuProps {
@@ -67,6 +69,7 @@ function BoardMenuContent({ board, onRename }: Pick<BoardMenuProps, 'board' | 'o
   const role = resolveBoardRole(board, uid, workspace?.roles[uid]);
   const canEdit = canEditBoard(role);
   const isOwner = canManageBoard(role);
+  const canLeave = canLeaveBoard(board, uid);
   const isFavorite = favorites.some((f) => f.boardId === board.id);
 
   const leaveIfOpen = () => {
@@ -114,7 +117,16 @@ function BoardMenuContent({ board, onRename }: Pick<BoardMenuProps, 'board' | 'o
         <MenuItem
           title="Board permissions"
           icon={Locked}
-          onClick={() => openDialog({ type: 'boardPermissions', boardId: board.id })}
+          onClick={() => openDialog({ type: 'shareBoard', boardId: board.id })}
+        />
+      ) : null}
+      {canLeave ? (
+        <MenuItem
+          title="Leave board"
+          icon={Remove}
+          onClick={() => {
+            void boardActions.leave(board).then((ok) => ok && leaveIfOpen());
+          }}
         />
       ) : null}
       {isOwner ? <MenuDivider /> : null}

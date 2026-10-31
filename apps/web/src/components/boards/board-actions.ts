@@ -5,6 +5,7 @@ import {
   type WorkspaceRole,
 } from '@atrium/shared';
 import { writes, type BoardDoc, type FavoriteDoc, type FolderDoc } from '../../data';
+import { boardSharingCalls, describeCallableError } from '../../lib/callables';
 import { positionAfterAll, positionBetween } from '../../lib/positions';
 import { showToast } from '../toast-store';
 
@@ -110,6 +111,19 @@ export const boardActions = {
       },
     });
     return true;
+  },
+
+  /** Remove the signed-in user from a private or shareable board (refused for its only owner). */
+  async leave(board: BoardDoc): Promise<boolean> {
+    try {
+      await boardSharingCalls.leave({ boardId: board.id });
+      showToast(`You left "${board.name}".`, { type: 'positive' });
+      return true;
+    } catch (error) {
+      console.error('Could not leave the board', error);
+      showToast(describeCallableError(error, 'Could not leave the board.'), { type: 'negative' });
+      return false;
+    }
   },
 
   async restore(board: BoardDoc): Promise<void> {

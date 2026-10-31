@@ -1,6 +1,7 @@
 import { useUiStore } from '../AppShell/ui-store';
 import { AboutDialog } from './AboutDialog';
-import { BoardPermissionsDialog, NewBoardDialog } from './BoardDialogs';
+import { ShareBoardDialog } from '../boards/ShareBoardDialog';
+import { NewBoardDialog } from './BoardDialogs';
 import { MembersDialog } from '../membership/MembersDialog';
 import { DeleteFolderDialog, FolderDialog } from './FolderDialogs';
 import { NotificationSettingsDialog } from './NotificationSettingsDialog';
@@ -43,8 +44,8 @@ export function DialogHost() {
           onClose={close}
         />
       );
-    case 'boardPermissions':
-      return <BoardPermissionsDialog boardId={dialog.boardId} onClose={close} />;
+    case 'shareBoard':
+      return <ShareBoardDialog boardId={dialog.boardId} onClose={close} />;
     case 'members':
       return (
         <MembersDialog workspaceId={dialog.workspaceId} initialTab={dialog.tab} onClose={close} />

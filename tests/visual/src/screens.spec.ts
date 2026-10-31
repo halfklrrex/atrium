@@ -325,6 +325,17 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `board-options-menu-${theme}`, PARK_IN_HEADER);
     });
 
+    // P4b: the board's Share dialog (kind choice, people with access, add people).
+    test('board: share dialog', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}`);
+      await boardReady(page);
+      await page.getByRole('button', { name: /^Invite \/ \d+$/ }).click();
+      const dialog = page.getByRole('dialog', { name: /^Share / });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole('radiogroup')).toBeVisible();
+      await shoot(page, `board-share-dialog-${theme}`, PARK_IN_HEADER);
+    });
+
     test('board: column header menu over the table', async ({ page }) => {
       await page.goto(`/boards/${IDS.roadmap}`);
       await boardReady(page);

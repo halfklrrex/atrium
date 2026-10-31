@@ -16,7 +16,7 @@ export type DialogState =
       parentFolderId?: string | null;
     }
   | { type: 'deleteFolder'; workspaceId: string; folderId: string }
-  | { type: 'boardPermissions'; boardId: string }
+  | { type: 'shareBoard'; boardId: string }
   | { type: 'members'; workspaceId: string; tab?: 'members' | 'invites' }
   | { type: 'notificationSettings' }
   | { type: 'about' };
