@@ -266,6 +266,14 @@ export const queries = {
   unreadNotifications: (uid: string, cap: number): Query<NotificationDoc> =>
     query(refs.notifications(uid), where('readAt', '==', null), limit(cap)),
 
+  /** My Work: active items of one board assigned to `uid` (server-maintained `assigneeUids`). */
+  assignedItems: (boardId: string, uid: string): Query<ItemDoc> =>
+    query(
+      refs.items(boardId),
+      where('assigneeUids', 'array-contains', uid),
+      where('state', '==', 'active'),
+    ),
+
   activeItems: (boardId: string): Query<ItemDoc> =>
     query(refs.items(boardId), where('state', '==', 'active')),
 

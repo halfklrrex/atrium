@@ -3,6 +3,7 @@ import {
   columnRegistry,
   defaultBoardStructure,
   defaultSubitemColumns,
+  itemIndexFields,
   type BoardStructure,
   type BoardWrite,
   type ColumnDef,
@@ -471,9 +472,11 @@ async function seedRoadmapItems(firestore: Firestore): Promise<void> {
   let seq = 0;
   let subitems = 0;
   const all = roadmapItems();
+  const indexBoard = { columns: roadmapStructure().columns };
   for (const [index, { id, item }] of all.entries()) {
     seq += 1;
-    const numbered = { ...item, seq, boardSeq: index + 1 };
+    // `assigneeUids` and `nameTokens` come from the item trigger in production; no Functions run here.
+    const numbered = { ...item, ...itemIndexFields(indexBoard, item), seq, boardSeq: index + 1 };
     if (id !== FULL_VIEW_ITEM) {
       batch.set(items.doc(id), numbered);
       continue;

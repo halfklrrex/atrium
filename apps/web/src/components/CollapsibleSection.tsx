@@ -8,17 +8,20 @@ export function CollapsibleSection({
   title,
   badge,
   defaultOpen = true,
+  className,
   children,
 }: {
   title: string;
   badge?: ReactNode;
   defaultOpen?: boolean;
+  /** Extra class on the section (set `--collapsible-title-color` to colour the title). */
+  className?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const panelId = useId();
   return (
-    <section className={styles.section}>
+    <section className={className ? `${styles.section} ${className}` : styles.section}>
       <h2 className={styles.heading}>
         <button
           type="button"
