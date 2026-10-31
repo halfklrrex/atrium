@@ -16,6 +16,7 @@ import {
   defaultSubitemColumns,
   favoriteSchema,
   groupDefSchema,
+  itemIndexFields,
   itemSchema,
   itemUpdateSchema,
   notificationSchema,
@@ -1306,6 +1307,7 @@ export function buildShowcase({
   const groupIds = new Set(groups.map((g) => g.id));
   const subitemColumns = defaultSubitemColumns().map((c) => columnDefSchema.parse(c));
   const subitemColumnsById = new Map(subitemColumns.map((c) => [c.id, c]));
+  const indexBoard = { columns, subitemColumns };
 
   const boardDoc = (overrides) =>
     boardSchema.parse({
@@ -1370,6 +1372,7 @@ export function buildShowcase({
           createdBy: ownerUid,
           updatedAt: ago(Math.max(0.1, Math.min(parent.created - 1, 1 + (n % 3))) * DAY),
           updatedBy: ownerUid,
+          ...itemIndexFields(indexBoard, { name: sub.name, values, parentItemId: parentId }),
         }),
       });
       summary.subitems += 1;
@@ -1409,6 +1412,8 @@ export function buildShowcase({
         createdBy: ownerUid,
         updatedAt,
         updatedBy: ownerUid,
+        // The index fields My Work queries; the item trigger would write the same values.
+        ...itemIndexFields(indexBoard, { name: spec.name, values, parentItemId: null }),
       }),
     });
     return itemId;

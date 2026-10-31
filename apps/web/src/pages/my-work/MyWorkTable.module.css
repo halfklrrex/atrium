@@ -1,0 +1,169 @@
+.sections {
+  padding-block-start: var(--space-16);
+}
+
+.bucketPast {
+  --collapsible-title-color: var(--negative-color);
+}
+
+.bucketToday {
+  --collapsible-title-color: var(--positive-color);
+}
+
+.bucketThisWeek,
+.bucketNextWeek {
+  --collapsible-title-color: var(--primary-color);
+}
+
+.bucketLater,
+.bucketNone {
+  --collapsible-title-color: var(--primary-text-color);
+}
+
+.bucketDone {
+  --collapsible-title-color: var(--secondary-text-color);
+}
+
+.count {
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.table {
+  min-width: var(--atrium-my-work-min-width);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-small);
+}
+
+.headerRow,
+.row {
+  display: grid;
+  grid-template-columns: var(--atrium-my-work-columns);
+  align-items: stretch;
+}
+
+.headerRow {
+  height: var(--atrium-table-row-height);
+  border-block-end: var(--atrium-table-border);
+  background: var(--allgrey-background-color);
+}
+
+.headerCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-8);
+  color: var(--primary-text-color);
+  font: var(--font-text2-medium);
+}
+
+.headerCell:first-child {
+  justify-content: flex-start;
+  padding-inline-start: var(--space-16);
+}
+
+.row {
+  height: var(--atrium-table-row-height);
+  border-block-end: var(--atrium-table-border);
+  background: var(--primary-background-color);
+  cursor: pointer;
+}
+
+.row:last-child {
+  border-block-end: 0;
+}
+
+.row:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.cell,
+.nameCell,
+.boardCell,
+.groupCell {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-inline-start: var(--atrium-table-border);
+}
+
+.cell {
+  font: var(--atrium-table-cell-font);
+}
+
+.nameCell,
+.boardCell,
+.groupCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding-inline: var(--space-8);
+  font: var(--atrium-table-cell-font);
+  color: var(--primary-text-color);
+}
+
+.nameCell {
+  padding-inline-start: var(--space-16);
+  border-inline-start: 0;
+}
+
+.nameLink {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}
+
+.nameLink:focus-visible {
+  outline: var(--atrium-focus-ring);
+  border-radius: var(--border-radius-small);
+}
+
+.subitemIcon,
+.boardIcon {
+  flex: none;
+  color: var(--icon-color);
+}
+
+.boardText {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.boardName,
+.groupTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspaceName {
+  flex: 0 100 auto; /* gives way first when the cell is narrow */
+  min-width: 0;
+  overflow: hidden;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupDot {
+  flex: none;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--border-radius-big);
+  background: var(--group-color);
+}

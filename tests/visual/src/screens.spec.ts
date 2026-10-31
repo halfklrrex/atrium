@@ -82,6 +82,9 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto('/my-work');
       await appReady(page);
       await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible();
+      // Avery is assigned on the Product roadmap: the date sections load once its listener answers.
+      await expect(page.getByRole('grid', { name: 'Past dates' })).toBeVisible();
+      await expect(page.getByRole('grid', { name: 'Without a date' })).toBeVisible();
       await shoot(page, `my-work-${theme}`);
     });
 

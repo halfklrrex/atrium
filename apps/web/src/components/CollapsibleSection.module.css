@@ -16,7 +16,7 @@
   border: 0;
   border-radius: var(--border-radius-small);
   background: transparent;
-  color: var(--primary-text-color);
+  color: var(--collapsible-title-color, var(--primary-text-color));
   font: var(--font-text1-medium);
   cursor: pointer;
 }

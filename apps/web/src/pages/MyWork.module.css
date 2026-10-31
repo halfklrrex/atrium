@@ -84,3 +84,24 @@
   color: var(--secondary-text-color);
   font: var(--font-text2-normal);
 }
+
+.notice {
+  margin: var(--space-16) 0 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-block-start: var(--space-24);
+}
+
+.skeletonRow {
+  height: var(--atrium-table-row-height);
+}
+
+.page .noMatch {
+  padding-block-start: var(--space-64);
+}
