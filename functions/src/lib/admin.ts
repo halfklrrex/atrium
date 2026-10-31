@@ -23,6 +23,8 @@ import {
   type SnapshotMeta,
 } from './column-type-change';
 import type { BoardSharingTx } from './board-sharing';
+import { actorOf, activityDoc } from './activity';
+import { appendActivityTx, getMemberProfilesTx, newActivityId } from './admin-activity';
 import { HttpsError } from 'firebase-functions/v2/https';
 
 if (getApps().length === 0) initializeApp();
@@ -191,8 +193,6 @@ export function adminColumnActionsTx(firestore: Firestore, tx: Transaction): Col
   const workspaceRef = (workspaceId: string) => firestore.collection('workspaces').doc(workspaceId);
   const itemRef = (boardId: string, itemId: string) =>
     firestore.collection('boards').doc(boardId).collection('items').doc(itemId);
-  const activityCol = (boardId: string) =>
-    firestore.collection('boards').doc(boardId).collection('activity');
 
   return {
     async getBoard(boardId) {
@@ -233,10 +233,13 @@ export function adminColumnActionsTx(firestore: Firestore, tx: Transaction): Col
         updatedBy,
       );
     },
+    async getMemberProfile(workspaceId, uid) {
+      return (await getMemberProfilesTx(firestore, tx, workspaceId, [uid])).get(uid) ?? null;
+    },
     async appendActivity(boardId, activity) {
-      const newDoc = activityCol(boardId).doc();
-      tx.create(newDoc, activity);
-      return newDoc.id;
+      const id = newActivityId(firestore, boardId);
+      appendActivityTx(firestore, tx, boardId, id, activity);
+      return id;
     },
     nowMs: () => Date.now(),
     newSessionId: () => randomUUID(),
@@ -333,7 +336,7 @@ export function adminColumnTypeChangeStore(firestore: Firestore): ColumnTypeChan
       const snap = await chunksCol(boardId, snapshotId).orderBy('index').get();
       return snap.docs.map((doc) => (doc.get('entries') ?? []) as SnapshotEntry[]);
     },
-    async updateColumn(boardId, scope, columnId, decide, snapshotPatch) {
+    async updateColumn(boardId, scope, columnId, decide, snapshotPatch, write) {
       await firestore.runTransaction(async (tx) => {
         const ref = boardRef(boardId);
         const snap = await tx.get(ref);
@@ -343,10 +346,25 @@ export function adminColumnTypeChangeStore(firestore: Firestore): ColumnTypeChan
         const current = list.find((c) => c.id === columnId) ?? null;
         const next = decide(current, board);
         if (next === current) return;
+        // Reads first: the actor's profile for the activity entry.
+        const profiles = write.activity
+          ? await getMemberProfilesTx(firestore, tx, board.workspaceId, [write.updatedBy])
+          : null;
         tx.update(ref, {
           [scope]: list.map((c) => (c.id === columnId ? next : c)),
           updatedAt: FieldValue.serverTimestamp(),
+          updatedBy: write.updatedBy,
         });
+        if (write.activity && profiles) {
+          const actor = actorOf(write.updatedBy, profiles.get(write.updatedBy));
+          appendActivityTx(
+            firestore,
+            tx,
+            boardId,
+            newActivityId(firestore, boardId),
+            activityDoc(actor, write.activity.kind, write.activity.fields),
+          );
+        }
         if (snapshotPatch) {
           tx.update(snapRef(boardId, snapshotPatch.snapshotId), jsonClean(snapshotPatch.patch));
         }
@@ -391,13 +409,20 @@ export function adminBoardSharingTx(firestore: Firestore, tx: Transaction): Boar
       if (!snap.exists) return null;
       return (snap.get('roles') as Record<string, WorkspaceRole> | undefined) ?? {};
     },
-    writeSharing(boardId, next) {
+    writeSharing(boardId, next, updatedBy) {
       tx.update(boardRef(boardId), {
         kind: next.kind,
         access: next.access,
         accessUids: Object.keys(next.access),
         updatedAt: FieldValue.serverTimestamp(),
+        updatedBy,
       });
+    },
+    getMemberProfiles: (workspaceId, uids) => getMemberProfilesTx(firestore, tx, workspaceId, uids),
+    appendActivity(boardId, docs) {
+      for (const doc of docs) {
+        appendActivityTx(firestore, tx, boardId, newActivityId(firestore, boardId), doc);
+      }
     },
   };
 }

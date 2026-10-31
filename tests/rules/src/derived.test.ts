@@ -123,16 +123,25 @@ describe('clients cannot change derivedColumnIds', () => {
   it('denies every change, including by the board owner', async () => {
     for (const uid of [USERS.owner, USERS.admin, USERS.member]) {
       await assertFails(
-        updateDoc(boardRef(uid), { derivedColumnIds: [], updatedAt: serverTimestamp() }),
+        updateDoc(boardRef(uid), {
+          derivedColumnIds: [],
+          updatedAt: serverTimestamp(),
+          updatedBy: uid,
+        }),
       );
       await assertFails(
         updateDoc(boardRef(uid), {
           derivedColumnIds: ['calc', 'note'],
           updatedAt: serverTimestamp(),
+          updatedBy: uid,
         }),
       );
       await assertFails(
-        updateDoc(boardRef(uid), { derivedColumnIds: deleteField(), updatedAt: serverTimestamp() }),
+        updateDoc(boardRef(uid), {
+          derivedColumnIds: deleteField(),
+          updatedAt: serverTimestamp(),
+          updatedBy: uid,
+        }),
       );
     }
   });
@@ -142,6 +151,7 @@ describe('clients cannot change derivedColumnIds', () => {
       updateDoc(boardRef(USERS.owner, LEGACY_BOARD), {
         derivedColumnIds: ['x'],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
   });
@@ -155,6 +165,7 @@ describe('clients cannot change derivedColumnIds', () => {
           { id: 'extra', type: 'formula', title: 'Extra', position: 'a2', settings: {} },
         ],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
   });
@@ -258,6 +269,7 @@ describe('legacy boards without derivedColumnIds', () => {
       updateDoc(boardRef(USERS.member, LEGACY_BOARD), {
         name: 'Renamed',
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
   });

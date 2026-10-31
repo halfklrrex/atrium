@@ -132,12 +132,14 @@ describe('board create and update rules for columnLocks', () => {
       updateDoc(boardRef(USERS.member), {
         columnLocks: [],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
     await assertFails(
       updateDoc(boardRef(USERS.member), {
         columnLocks: arrayUnion('note'),
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
 
@@ -146,12 +148,14 @@ describe('board create and update rules for columnLocks', () => {
       updateDoc(boardRef(USERS.owner), {
         columnLocks: arrayUnion('note'),
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
     await assertSucceeds(
       updateDoc(boardRef(USERS.admin), {
         columnLocks: arrayRemove('note'),
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.admin,
       }),
     );
 
@@ -160,12 +164,14 @@ describe('board create and update rules for columnLocks', () => {
       updateDoc(boardRef(USERS.owner), {
         columnLocks: 'not-a-list',
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
     await assertFails(
       updateDoc(boardRef(USERS.owner), {
         columnLocks: deleteField(),
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
     const over200 = Array.from({ length: 201 }, (_, i) => `c_${i}`);
@@ -173,6 +179,7 @@ describe('board create and update rules for columnLocks', () => {
       updateDoc(boardRef(USERS.owner), {
         columnLocks: over200,
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
   });

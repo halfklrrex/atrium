@@ -19,6 +19,7 @@ import {
   timeTrackingValueSchema,
 } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { actorOf, activityDoc, type MemberProfile, type NewActivity } from './activity';
 
 export interface BoardData {
   kind: BoardKind;
@@ -35,19 +36,6 @@ export interface ItemData {
   values: Record<string, unknown>;
 }
 
-export interface ActivityAppendData {
-  kind: 'button_clicked';
-  itemId: string;
-  columnId: string;
-  userId: string;
-  createdAt: unknown;
-  data: {
-    itemName: string;
-    columnLabel: string;
-    columnColor?: string;
-  };
-}
-
 export interface ColumnActionsTx {
   getBoard(boardId: string): Promise<BoardData | null>;
   getWorkspaceMemberRole(workspaceId: string, uid: string): Promise<WorkspaceRole | null>;
@@ -60,7 +48,10 @@ export interface ColumnActionsTx {
     updatedBy: string,
     serverTimestamp: unknown,
   ): void;
-  appendActivity(boardId: string, activity: ActivityAppendData): Promise<string>;
+  /** The workspace member's display name and photo, `null` when there is no member document. */
+  getMemberProfile(workspaceId: string, uid: string): Promise<MemberProfile | null>;
+  /** Creates the activity entry (P4) in the same transaction and returns its id. */
+  appendActivity(boardId: string, activity: NewActivity): Promise<string>;
   nowMs(): number;
   newSessionId(): string;
 }
@@ -232,7 +223,8 @@ export async function clickButtonInTransaction(
   tx: ColumnActionsTx,
   uid: string,
   req: ClickButtonRequest,
-  serverTimestamp: unknown,
+  /** Unused since the activity entry is stamped by the adapter; kept so the callable's call is unchanged. */
+  _serverTimestamp: unknown,
 ): Promise<ClickButtonResult> {
   const board = await requireColumnEditAccess(tx, req.boardId, uid, req.columnId);
 
@@ -258,22 +250,18 @@ export async function clickButtonInTransaction(
     ? settingsParsed.data
     : { label: 'Click', color: '#579bfc' };
 
-  const activityData: { itemName: string; columnLabel: string; columnColor?: string } = {
-    itemName: item.name,
-    columnLabel: settings.label,
-  };
-  if (settings.color) {
-    activityData.columnColor = settings.color;
-  }
-
-  const activityId = await tx.appendActivity(req.boardId, {
-    kind: 'button_clicked',
-    itemId: req.itemId,
-    columnId: req.columnId,
-    userId: uid,
-    createdAt: serverTimestamp,
-    data: activityData,
-  });
+  const actor = actorOf(uid, await tx.getMemberProfile(board.workspaceId, uid));
+  const activityId = await tx.appendActivity(
+    req.boardId,
+    activityDoc(actor, 'button_clicked', {
+      itemId: req.itemId,
+      itemName: item.name,
+      columnId: req.columnId,
+      columnTitle: settings.label,
+      columnType: 'button',
+      data: settings.color ? { columnColor: settings.color } : {},
+    }),
+  );
 
   return { success: true, activityId, timestamp: nowMs };
 }

@@ -6,7 +6,7 @@
 import type { ColumnDef, GroupDef } from '@atrium/shared';
 import { runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { plainRefs } from './firestore';
+import { plainRefs, requireUid } from './firestore';
 import { keepServerColumnFields } from './server-column-fields';
 
 export interface BoardStructureState {
@@ -48,7 +48,7 @@ export async function updateBoardStructure(
     if (patch.subitemColumns) {
       safe.subitemColumns = keepServerColumnFields(patch.subitemColumns, current.subitemColumns);
     }
-    tx.update(ref, { ...safe, updatedAt: serverTimestamp() });
+    tx.update(ref, { ...safe, updatedAt: serverTimestamp(), updatedBy: requireUid() });
     return { ...current, ...safe };
   });
 }

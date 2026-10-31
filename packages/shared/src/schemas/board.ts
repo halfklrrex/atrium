@@ -120,6 +120,12 @@ export const boardSchema = z.object({
   state: entityStateSchema,
   deletedAt: timestampSchema.nullable(),
   ...auditFields,
+  /**
+   * Who made the last client edit (rules force it to the caller's uid on every client update; the
+   * sharing and column-type callables set it too). The activity trigger attributes board changes to
+   * it. Absent on older boards and on boards created before it existed.
+   */
+  updatedBy: uidSchema.optional(),
 });
 /** What the "New board" dialog collects. */
 export const createBoardInputSchema = z.object({

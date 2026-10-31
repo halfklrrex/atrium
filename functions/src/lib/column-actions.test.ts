@@ -1,11 +1,11 @@
 import type { BoardRole, TimeTrackingValue, WorkspaceRole } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { describe, expect, it } from 'vitest';
+import type { NewActivity } from './activity';
 import {
   clickButtonInTransaction,
   startTimeTrackingInTransaction,
   stopTimeTrackingInTransaction,
-  type ActivityAppendData,
   type BoardData,
   type ColumnActionsTx,
   type ItemData,
@@ -16,7 +16,7 @@ interface TestStore {
   workspaceRoles: Record<string, WorkspaceRole>;
   item?: ItemData | null;
   updatedValues?: { columnId: string; value: unknown; updatedBy: string };
-  appendedActivities: Array<{ boardId: string; activity: ActivityAppendData }>;
+  appendedActivities: Array<{ boardId: string; activity: NewActivity }>;
   currentTimeMs: number;
   generatedSessionId: string;
 }
@@ -34,6 +34,9 @@ function createFakeTx(store: TestStore): ColumnActionsTx {
     },
     updateItemValues(_boardId, _itemId, columnId, value, updatedBy) {
       store.updatedValues = { columnId, value, updatedBy };
+    },
+    async getMemberProfile(_wsId, uid) {
+      return uid === 'u_member' ? { name: 'Avery Quinn', photoURL: null } : null;
     },
     async appendActivity(boardId, activity) {
       store.appendedActivities.push({ boardId, activity });
@@ -567,17 +570,40 @@ describe('column-actions', () => {
         boardId: 'b_1',
         activity: {
           kind: 'button_clicked',
+          actorId: 'u_member',
+          actorName: 'Avery Quinn',
+          actorPhotoUrl: null,
           itemId: 'item_1',
+          itemName: 'Ship v1.0',
+          parentItemId: null,
           columnId: 'col_btn',
-          userId: 'u_member',
-          createdAt: 'SERVER_TIMESTAMP',
-          data: {
-            itemName: 'Ship v1.0',
-            columnLabel: 'Deploy',
-            columnColor: '#579bfc',
-          },
+          columnTitle: 'Deploy',
+          columnType: 'button',
+          groupId: null,
+          groupTitle: null,
+          data: { columnColor: '#579bfc' },
         },
       });
+    });
+
+    it('logs nothing when the click is refused', async () => {
+      const store: TestStore = {
+        board: baseBoard,
+        workspaceRoles: { u_viewer: 'viewer' },
+        item: baseItem,
+        appendedActivities: [],
+        currentTimeMs: 1,
+        generatedSessionId: 's',
+      };
+      await expect(
+        clickButtonInTransaction(
+          createFakeTx(store),
+          'u_viewer',
+          { boardId: 'b_1', itemId: 'item_1', columnId: 'col_btn' },
+          'TS',
+        ),
+      ).rejects.toThrow();
+      expect(store.appendedActivities).toEqual([]);
     });
 
     it('appends activity record using default button settings when settings have no color', async () => {
@@ -604,7 +630,7 @@ describe('column-actions', () => {
 
       expect(result.success).toBe(true);
       expect(store.appendedActivities[0]?.activity.data.columnColor).toBe('#579bfc');
-      expect(store.appendedActivities[0]?.activity.data.columnLabel).toBe('Click');
+      expect(store.appendedActivities[0]?.activity.columnTitle).toBe('Click');
     });
 
     it('rejects button click if column is not a button or user is a viewer', async () => {

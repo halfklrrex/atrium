@@ -1,6 +1,7 @@
 import type { BoardKind, BoardRole, EntityState, WorkspaceRole } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { describe, expect, it } from 'vitest';
+import type { MemberProfile, NewActivity } from './activity';
 import {
   leaveBoardInTransaction,
   setBoardAccessInTransaction,
@@ -17,6 +18,10 @@ class FakeTx implements BoardSharingTx {
   boards = new Map<string, SharingBoard & { accessUids: string[] }>();
   workspaces = new Map<string, Record<string, WorkspaceRole>>();
   writes = 0;
+  updatedBy: string[] = [];
+  activity: NewActivity[] = [];
+  /** Uids that have a member document; the name is `Name of <uid>`. */
+  members = new Set(['owner1', 'editor1', 'viewer1', 'admin']);
   private wrote = false;
 
   begin(): this {
@@ -33,9 +38,25 @@ class FakeTx implements BoardSharingTx {
     const r = this.workspaces.get(id);
     return Promise.resolve(r ? { ...r } : null);
   }
-  writeSharing(id: string, next: { kind: BoardKind; access: Record<string, BoardRole> }) {
+  getMemberProfiles(_ws: string, uids: readonly string[]) {
+    if (this.wrote) throw new Error('Read after write inside transaction');
+    const out = new Map<string, MemberProfile>();
+    for (const uid of uids)
+      if (this.members.has(uid)) out.set(uid, { name: `Name of ${uid}`, photoURL: null });
+    return Promise.resolve(out);
+  }
+  appendActivity(_id: string, docs: readonly NewActivity[]) {
+    if (!this.wrote) throw new Error('Activity must follow the board write');
+    this.activity.push(...docs);
+  }
+  writeSharing(
+    id: string,
+    next: { kind: BoardKind; access: Record<string, BoardRole> },
+    updatedBy: string,
+  ) {
     this.wrote = true;
     this.writes += 1;
+    this.updatedBy.push(updatedBy);
     const b = this.boards.get(id);
     if (!b) throw new Error('no board');
     b.kind = next.kind;
@@ -201,6 +222,75 @@ describe('setBoardAccess', () => {
     expect(await code(missing)).toBe('not-found');
     tx.workspaces.clear();
     expect(await code(set(tx, 'owner1', 'viewer1', 'viewer'))).toBe('not-found');
+  });
+});
+
+describe('activity entries', () => {
+  it('setBoardAccess logs one board_access_changed per call with old and new role, and stamps updatedBy', async () => {
+    const tx = setup();
+    await set(tx, 'owner1', 'viewer1', 'viewer');
+    await set(tx, 'owner1', 'editor1', 'viewer');
+    await set(tx, 'owner1', 'editor1', null);
+    expect(tx.updatedBy).toEqual(['owner1', 'owner1', 'owner1']);
+    expect(tx.activity.map((a) => [a.kind, a.data])).toEqual([
+      [
+        'board_access_changed',
+        { targetUid: 'viewer1', targetName: 'Name of viewer1', fromRole: null, toRole: 'viewer' },
+      ],
+      [
+        'board_access_changed',
+        {
+          targetUid: 'editor1',
+          targetName: 'Name of editor1',
+          fromRole: 'editor',
+          toRole: 'viewer',
+        },
+      ],
+      [
+        'board_access_changed',
+        { targetUid: 'editor1', targetName: 'Name of editor1', fromRole: 'viewer', toRole: null },
+      ],
+    ]);
+    expect(tx.activity[0]).toMatchObject({ actorId: 'owner1', actorName: 'Name of owner1' });
+  });
+
+  it('falls back to "Someone" for a person without a member document', async () => {
+    const tx = setup();
+    tx.members.delete('viewer1');
+    await set(tx, 'owner1', 'viewer1', 'viewer');
+    expect(tx.activity[0]?.data.targetName).toBe('Someone');
+  });
+
+  it('logs nothing on a refused call or an idempotent retry', async () => {
+    const tx = setup();
+    await code(set(tx, 'editor1', 'viewer1', 'viewer')); // permission-denied
+    await code(set(tx, 'owner1', 'owner1', null)); // last owner
+    await set(tx, 'owner1', 'viewer1', 'viewer');
+    await set(tx, 'owner1', 'viewer1', 'viewer'); // retry: no change
+    expect(tx.activity).toHaveLength(1);
+  });
+
+  it('setBoardKind logs board_kind_changed and leaveBoard logs board_left', async () => {
+    const tx = setup({ kind: 'main', access: { editor1: 'editor' }, accessUids: ['editor1'] });
+    await kind(tx, 'admin', 'shareable');
+    expect(tx.activity).toHaveLength(1);
+    expect(tx.activity[0]).toMatchObject({
+      kind: 'board_kind_changed',
+      actorId: 'admin',
+      data: { fromKind: 'main', toKind: 'shareable' },
+    });
+    expect(tx.updatedBy).toEqual(['admin']);
+
+    const t2 = setup();
+    await set(t2, 'owner1', 'admin', 'owner');
+    t2.activity = [];
+    await leave(t2, 'owner1');
+    expect(t2.activity).toHaveLength(1);
+    expect(t2.activity[0]).toMatchObject({
+      kind: 'board_left',
+      actorId: 'owner1',
+      data: { fromRole: 'owner' },
+    });
   });
 });
 

@@ -162,12 +162,14 @@ describe('board update: accessUids invariant, position, folderId', () => {
         access: { [USERS.owner]: 'owner', [USERS.viewer]: 'editor' },
         accessUids: [USERS.owner, USERS.viewer],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
     await assertFails(
       updateDoc(ownerRef(), {
         access: { [USERS.owner]: 'owner', [USERS.member]: 'editor' },
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
   });
@@ -177,12 +179,14 @@ describe('board update: accessUids invariant, position, folderId', () => {
       updateDoc(ownerRef(), {
         access: { [USERS.owner]: 'owner', [USERS.viewer]: 'viewer' },
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
     await assertFails(
       updateDoc(ownerRef(), {
         accessUids: [USERS.owner, USERS.viewer],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
     await assertFails(
@@ -190,6 +194,7 @@ describe('board update: accessUids invariant, position, folderId', () => {
         access: { [USERS.owner]: 'owner', [USERS.member]: 'viewer' },
         accessUids: [USERS.owner, USERS.member, USERS.member],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
   });
@@ -201,28 +206,49 @@ describe('board update: accessUids invariant, position, folderId', () => {
         access: { [USERS.owner]: 'owner', [USERS.member]: 'owner' },
         accessUids: [USERS.owner, USERS.member],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
   });
 
   it('lets editors move a board (position, folderId) within the workspace', async () => {
     const ref = doc(as(USERS.member), 'boards', MAIN_BOARD);
-    await assertSucceeds(updateDoc(ref, { position: 'a1', updatedAt: serverTimestamp() }));
-    await assertSucceeds(updateDoc(ref, { folderId: 'f1', updatedAt: serverTimestamp() }));
-    await assertSucceeds(updateDoc(ref, { folderId: null, updatedAt: serverTimestamp() }));
+    await assertSucceeds(
+      updateDoc(ref, { position: 'a1', updatedAt: serverTimestamp(), updatedBy: USERS.member }),
+    );
+    await assertSucceeds(
+      updateDoc(ref, { folderId: 'f1', updatedAt: serverTimestamp(), updatedBy: USERS.member }),
+    );
+    await assertSucceeds(
+      updateDoc(ref, { folderId: null, updatedAt: serverTimestamp(), updatedBy: USERS.member }),
+    );
   });
 
   it('denies moving a board into a folder of another workspace or a missing folder', async () => {
     const ref = doc(as(USERS.member), 'boards', MAIN_BOARD);
-    await assertFails(updateDoc(ref, { folderId: 'f2', updatedAt: serverTimestamp() }));
-    await assertFails(updateDoc(ref, { folderId: 'missing', updatedAt: serverTimestamp() }));
+    await assertFails(
+      updateDoc(ref, { folderId: 'f2', updatedAt: serverTimestamp(), updatedBy: USERS.member }),
+    );
+    await assertFails(
+      updateDoc(ref, {
+        folderId: 'missing',
+        updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
+      }),
+    );
   });
 
   it('denies an invalid position and any icon change', async () => {
     const ref = doc(as(USERS.owner), 'boards', MAIN_BOARD);
-    await assertFails(updateDoc(ref, { position: '', updatedAt: serverTimestamp() }));
-    await assertFails(updateDoc(ref, { position: 7, updatedAt: serverTimestamp() }));
-    await assertFails(updateDoc(ref, { icon: 'x', updatedAt: serverTimestamp() }));
+    await assertFails(
+      updateDoc(ref, { position: '', updatedAt: serverTimestamp(), updatedBy: USERS.owner }),
+    );
+    await assertFails(
+      updateDoc(ref, { position: 7, updatedAt: serverTimestamp(), updatedBy: USERS.owner }),
+    );
+    await assertFails(
+      updateDoc(ref, { icon: 'x', updatedAt: serverTimestamp(), updatedBy: USERS.owner }),
+    );
   });
 
   it('lets an owner archive and restore a board (undo) but not an editor', async () => {
@@ -232,16 +258,23 @@ describe('board update: accessUids invariant, position, folderId', () => {
         state: 'archived',
         deletedAt: null,
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
     await assertSucceeds(
-      updateDoc(ownerBoard, { state: 'active', deletedAt: null, updatedAt: serverTimestamp() }),
+      updateDoc(ownerBoard, {
+        state: 'active',
+        deletedAt: null,
+        updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
+      }),
     );
     await assertFails(
       updateDoc(doc(as(USERS.member), 'boards', MAIN_BOARD), {
         state: 'deleted',
         deletedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
   });
@@ -317,6 +350,7 @@ describe('stale board access after leaving the workspace', () => {
       updateDoc(doc(as(FORMER), 'boards', STALE_MAIN), {
         name: 'Hijacked',
         updatedAt: serverTimestamp(),
+        updatedBy: FORMER,
       }),
     );
   });

@@ -200,9 +200,11 @@ describe('adminColumnActionsTx emulator tests', () => {
     expect(data?.kind).toBe('button_clicked');
     expect(data?.itemId).toBe('i1');
     expect(data?.columnId).toBe('col_button_nocolor');
-    expect(data?.userId).toBe(USERS.member);
-    expect(data?.data.itemName).toBe('Task One');
-    expect(data?.data.columnLabel).toBe('Click Me');
+    expect(data?.actorId).toBe(USERS.member);
+    expect(data?.itemName).toBe('Task One');
+    expect(data?.columnTitle).toBe('Click Me');
+    expect(data?.columnType).toBe('button');
+    expect(data?.expiresAt).toBeDefined();
   });
 
   it('denies viewer on start, stop, and button click with permission-denied', async () => {

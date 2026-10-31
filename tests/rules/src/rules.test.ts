@@ -60,7 +60,7 @@ describe('default deny', () => {
   it('denies collections that have no rules yet', async () => {
     await assertFails(getDoc(doc(as(USERS.owner), 'invites', 'x')));
     await assertFails(setDoc(doc(as(USERS.owner), 'invites', 'x'), { a: 1 }));
-    await assertFails(getDoc(doc(as(USERS.owner), 'boards', MAIN_BOARD, 'activity', 'x')));
+    await assertFails(getDoc(doc(as(USERS.owner), 'boards', MAIN_BOARD, 'nosuchcollection', 'x')));
   });
 });
 
@@ -357,6 +357,7 @@ describe('boards', () => {
         columns: [{ id: 'c1', type: 'text', title: 'Notes', position: 'a0', settings: {} }],
         name: 'Renamed',
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
     await assertFails(
@@ -364,10 +365,15 @@ describe('boards', () => {
         access: { [USERS.member]: 'owner' },
         accessUids: [USERS.member],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
-    await assertFails(updateDoc(ref, { kind: 'private', updatedAt: serverTimestamp() }));
-    await assertFails(updateDoc(ref, { state: 'deleted', updatedAt: serverTimestamp() }));
+    await assertFails(
+      updateDoc(ref, { kind: 'private', updatedAt: serverTimestamp(), updatedBy: USERS.member }),
+    );
+    await assertFails(
+      updateDoc(ref, { state: 'deleted', updatedAt: serverTimestamp(), updatedBy: USERS.member }),
+    );
   });
 
   it('lets owners (including workspace admins on main boards) manage state but not access', async () => {
@@ -377,12 +383,14 @@ describe('boards', () => {
           access: { [USERS.owner]: 'owner', [USERS.viewer]: 'viewer' },
           accessUids: [USERS.owner, USERS.viewer],
           updatedAt: serverTimestamp(),
+          updatedBy: uid,
         }),
       );
       await assertSucceeds(
         updateDoc(doc(as(uid), 'boards', MAIN_BOARD), {
           state: 'archived',
           updatedAt: serverTimestamp(),
+          updatedBy: uid,
         }),
       );
     }
@@ -393,17 +401,31 @@ describe('boards', () => {
       updateDoc(doc(as(USERS.viewer), 'boards', MAIN_BOARD), {
         name: 'x',
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.viewer,
       }),
     );
     await assertFails(
       updateDoc(doc(as(USERS.outsider), 'boards', MAIN_BOARD), {
         name: 'x',
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.outsider,
       }),
     );
     const owner = doc(as(USERS.owner), 'boards', MAIN_BOARD);
-    await assertFails(updateDoc(owner, { workspaceId: 'other', updatedAt: serverTimestamp() }));
-    await assertFails(updateDoc(owner, { createdBy: USERS.admin, updatedAt: serverTimestamp() }));
+    await assertFails(
+      updateDoc(owner, {
+        workspaceId: 'other',
+        updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
+      }),
+    );
+    await assertFails(
+      updateDoc(owner, {
+        createdBy: USERS.admin,
+        updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
+      }),
+    );
   });
 
   it('denies client deletes', async () => {
