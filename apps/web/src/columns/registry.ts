@@ -123,6 +123,10 @@ const ADD_COLUMN_TYPES = [
 ] as const;
 
 /** Types offered by the add-column picker, the "Add column to the right" menu and "Change column type", sorted alphabetically by display label. */
-export const ADD_COLUMN_ORDER: readonly (typeof ADD_COLUMN_TYPES)[number][] = [...ADD_COLUMN_TYPES].sort((a, b) =>
-  columnRegistry.get(a).label.localeCompare(columnRegistry.get(b).label, 'en', { sensitivity: 'base' }),
+export const ADD_COLUMN_ORDER: readonly (typeof ADD_COLUMN_TYPES)[number][] = [
+  ...ADD_COLUMN_TYPES,
+].sort((a, b) =>
+  columnRegistry
+    .get(a)
+    .label.localeCompare(columnRegistry.get(b).label, 'en', { sensitivity: 'base' }),
 );

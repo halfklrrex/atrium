@@ -26,16 +26,16 @@ export function formatSessionTimestamp(ms: number): string {
   });
 }
 
-/** Current time that re-renders every second while `active` (a running session), else the shared ticker value. */
+/** Current time, re-rendered every second while `active` (a running session), else the shared ticker value. */
 function useLiveNow(active: boolean, sharedNow: number): number {
-  const [liveNow, setLiveNow] = useState(() => Date.now());
+  const [, setTick] = useState(0);
   useEffect(() => {
     if (!active) return undefined;
-    setLiveNow(Date.now());
-    const id = setInterval(() => setLiveNow(Date.now()), 1000);
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, [active]);
-  return active ? Math.max(liveNow, sharedNow) : sharedNow;
+  // eslint-disable-next-line react-hooks/purity -- the clock is the point: each tick re-reads it
+  return active ? Math.max(Date.now(), sharedNow) : sharedNow;
 }
 
 function TimeTrackingCell({
