@@ -58,7 +58,7 @@ async function fullViewReady(page: Page) {
   await expect(view.getByText('Ship the pipeline')).toBeVisible();
   await expect(view.getByText('Write the workflow')).toBeVisible();
   await expect(view.getByText('The workflow runs on every pull request now.')).toBeVisible();
-  await expect(page.getByText('Loading�')).toHaveCount(0);
+  await expect(page.getByText('Loading…')).toHaveCount(0);
 }
 
 for (const theme of ['light', 'dark'] as const) {
