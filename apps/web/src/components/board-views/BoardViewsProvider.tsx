@@ -2,6 +2,7 @@ import type { ViewSettings } from '@atrium/shared';
 import { useCallback, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
+import { getErrorCode } from '../../auth/auth-errors';
 import { viewWrites, type BoardDoc, type BoardViewDoc } from '../../data';
 import { currentViewState, settingsFromState, useFilterStore } from '../board-filters';
 import { useItemViewStore } from '../item-view/item-view-store';
@@ -72,9 +73,11 @@ export function BoardViewsProvider({
       useFilterStore.getState().markSaved(boardId);
     } catch (error) {
       console.warn('Could not save the view', error);
-      showToast('Could not save the view. Check your connection and try again.', {
-        type: 'negative',
-      });
+      const code = getErrorCode(error);
+      showToast(
+        `Could not save the view. Check your connection and try again.${code ? ` (${code})` : ''}`,
+        { type: 'negative' },
+      );
     }
   }, [boardId, uid, view]);
 
