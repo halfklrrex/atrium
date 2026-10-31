@@ -14,6 +14,31 @@ import {
 /** Short random slug, stable for the life of the column/group (architecture §5.4). */
 export const slugIdSchema = z.string().regex(/^[a-z0-9_-]{1,40}$/i, 'Expected a short slug id');
 
+/**
+ * Marks a column whose type is being changed (`changeColumnType` / `revertColumnType`). Written only
+ * by those Cloud Functions; the web strips it from every structure write (rules cannot look inside
+ * list entries). While it is set the column's cells are read-only in the web.
+ */
+export const columnMigratingSchema = z.object({
+  snapshotId: slugIdSchema,
+  /** Epoch milliseconds when the run took the column; a run older than 10 minutes counts as stuck. */
+  startedAt: z.number().int().min(0),
+  kind: z.enum(['change', 'revert']),
+});
+export type ColumnMigrating = z.infer<typeof columnMigratingSchema>;
+
+/**
+ * The last completed type change of a column, kept while its snapshot exists so the column menu can
+ * offer "Undo type change". Written only by Cloud Functions (same strip rule as `migrating`).
+ */
+export const columnTypeChangeSchema = z.object({
+  snapshotId: slugIdSchema,
+  fromType: z.string().min(1).max(40),
+  /** Epoch milliseconds when the snapshot is purged. */
+  expiresAt: z.number().int().min(0),
+});
+export type ColumnTypeChange = z.infer<typeof columnTypeChangeSchema>;
+
 /** `ColumnDef` embedded in `boards/{id}.columns` / `subitemColumns`. `settings` is validated per type. */
 export const columnDefSchema = z.object({
   id: slugIdSchema,
@@ -31,6 +56,10 @@ export const columnDefSchema = z.object({
   collapsed: z.boolean().optional(),
   /** Cosmetic flag indicating whether this column is hidden from table views. */
   hidden: z.boolean().optional(),
+  /** Server-only: a type change is running on this column. */
+  migrating: columnMigratingSchema.optional(),
+  /** Server-only: the last type change, undoable while its snapshot exists. */
+  lastTypeChange: columnTypeChangeSchema.optional(),
 });
 export type ColumnDef = z.infer<typeof columnDefSchema>;
 export type ColumnDefInput = z.input<typeof columnDefSchema>;
