@@ -139,8 +139,20 @@ const AREA = { design: 1, engineering: 2, content: 3, marketing: 4, legal: 5 };
 /** Every column type the web board table can render today, in table order. */
 const COLUMNS = [
   { id: 'person', type: 'people', title: 'Owner', settings: {} },
-  { id: 'status', type: 'status', title: 'Status', settings: { labels: STATUS_LABELS } },
-  { id: 'priority', type: 'status', title: 'Priority', settings: { labels: PRIORITY_LABELS } },
+  {
+    id: 'status',
+    type: 'status',
+    title: 'Status',
+    settings: { labels: STATUS_LABELS },
+    required: true,
+  },
+  {
+    id: 'priority',
+    type: 'status',
+    title: 'Priority',
+    settings: { labels: PRIORITY_LABELS },
+    defaultValue: { index: PRIORITY.medium },
+  },
   { id: 'due', type: 'date', title: 'Due date', settings: {} },
   {
     id: 'budget',
@@ -294,6 +306,8 @@ function buildColumns() {
       title: column.title,
       position: orderKey(i),
       settings: settings.data,
+      ...(column.required ? { required: true } : {}),
+      ...(column.defaultValue === undefined ? {} : { defaultValue: column.defaultValue }),
     });
   });
 }

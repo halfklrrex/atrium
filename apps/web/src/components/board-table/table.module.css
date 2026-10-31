@@ -516,6 +516,12 @@
   color: var(--secondary-text-color);
 }
 
+.requiredMark {
+  flex: none;
+  color: var(--negative-color);
+  font-weight: var(--font-weight-bold);
+}
+
 .lockIcon svg {
   width: var(--space-16);
   height: var(--space-16);

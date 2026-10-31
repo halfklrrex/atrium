@@ -80,15 +80,12 @@ describe('P2 Column Validation & Defaults', () => {
       type: 'progress',
       title: 'Progress',
       position: '100',
-      settings: {},
+      settings: columnRegistry.defaultSettings('progress') as Record<string, unknown>,
       defaultValue: 50,
     };
     const derivedRes = validateColumnDef(derivedWithDefault, columnRegistry);
     expect(derivedRes.valid).toBe(false);
-    expect(derivedRes).toHaveProperty(
-      'error',
-      expect.stringContaining('does not support default values'),
-    );
+    expect(derivedRes).toHaveProperty('error', expect.stringContaining('Invalid default value'));
 
     // Rejects invalid default value conforming to type's valueSchema
     const invalidDefaultCol: ColumnDef = {
@@ -311,10 +308,7 @@ describe('P2 Column Validation & Defaults', () => {
         registry,
       );
       expect(result.valid).toBe(false);
-      expect(result).toHaveProperty(
-        'error',
-        expect.stringContaining('does not support default values'),
-      );
+      expect(result).toHaveProperty('error', expect.stringContaining('Invalid default value'));
     }
     // Without a default they are fine.
     expect(
@@ -323,5 +317,65 @@ describe('P2 Column Validation & Defaults', () => {
         registry,
       ).valid,
     ).toBe(true);
+  });
+
+  it('checks a default against the column settings (status index, dropdown id)', () => {
+    const status = columnRegistry.defaultSettings('status') as Record<string, unknown>;
+    const base = { id: 'c', title: 'C', position: '1' };
+    expect(
+      validateColumnDef(
+        { ...base, type: 'status', settings: status, defaultValue: { index: 1 } },
+        columnRegistry,
+      ).valid,
+    ).toBe(true);
+    const badStatus = validateColumnDef(
+      { ...base, type: 'status', settings: status, defaultValue: { index: 99 } },
+      columnRegistry,
+    );
+    expect(badStatus.valid).toBe(false);
+    expect(badStatus).toHaveProperty('error', expect.stringContaining('Invalid default value'));
+
+    const dropdown = { labels: [{ id: 1, label: 'Design' }], limitSelect: false };
+    expect(
+      validateColumnDef(
+        { ...base, type: 'dropdown', settings: dropdown, defaultValue: { ids: [1] } },
+        columnRegistry,
+      ).valid,
+    ).toBe(true);
+    expect(
+      validateColumnDef(
+        { ...base, type: 'dropdown', settings: dropdown, defaultValue: { ids: [7] } },
+        columnRegistry,
+      ).valid,
+    ).toBe(false);
+    expect(
+      validateColumnDef(
+        { ...base, type: 'time_tracking', settings: {}, defaultValue: {} },
+        columnRegistry,
+      ),
+    ).toHaveProperty('error', expect.stringContaining('does not support default values'));
+  });
+
+  it('treats the empty shapes of vote, long text, checkbox and rating as empty', () => {
+    expect(isColumnValueEmpty('vote', { votersIds: [] })).toBe(true);
+    expect(isColumnValueEmpty('vote', { votersIds: ['u1'] })).toBe(false);
+    expect(isColumnValueEmpty('long_text', { text: '' })).toBe(true);
+    expect(isColumnValueEmpty('long_text', { text: '  \n ' })).toBe(true);
+    expect(isColumnValueEmpty('long_text', { text: 'Hi' })).toBe(false);
+    expect(isColumnValueEmpty('checkbox', { checked: false })).toBe(true);
+    expect(isColumnValueEmpty('checkbox', { checked: 'false' })).toBe(true);
+    expect(isColumnValueEmpty('checkbox', { checked: 'true' })).toBe(false);
+    expect(isColumnValueEmpty('checkbox', { checked: true })).toBe(false);
+    expect(isColumnValueEmpty('rating', { rating: 0 })).toBe(true);
+    expect(isColumnValueEmpty('rating', { rating: 3 })).toBe(false);
+  });
+
+  it('applyDefaultColumnValues skips derived and server-managed columns', () => {
+    const cols: ColumnDef[] = [
+      { id: 'p', type: 'progress', title: 'P', position: '1', settings: {}, defaultValue: 50 },
+      { id: 't', type: 'time_tracking', title: 'T', position: '2', settings: {}, defaultValue: {} },
+      { id: 'n', type: 'text', title: 'N', position: '3', settings: {}, defaultValue: 'x' },
+    ];
+    expect(applyDefaultColumnValues(cols)).toEqual({ n: 'x' });
   });
 });
