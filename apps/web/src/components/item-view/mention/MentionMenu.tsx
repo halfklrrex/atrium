@@ -51,6 +51,12 @@ function MentionList({
   // A shorter list must not leave the highlight past its end.
   const current = Math.min(active, Math.max(candidates.length - 1, 0));
 
+  // With spaces allowed in the query, a multi-word query that matches nobody ends the mention.
+  const noMatchWithSpace = candidates.length === 0 && /\s/.test(query.trim());
+  useEffect(() => {
+    if (noMatchWithSpace) exitSuggestion(editor.view, mentionPluginKey);
+  }, [noMatchWithSpace, editor]);
+
   useEffect(() => {
     controller.setKeys((event) => {
       if (candidates.length === 0) return false;

@@ -33,6 +33,8 @@ export function createMentionExtension(controller: MentionController | null) {
   return AtriumMention.configure({
     suggestion: {
       char: '@',
+      // Names have spaces; the list closes itself when a multi-word query matches nobody.
+      allowSpaces: true,
       pluginKey: mentionPluginKey,
       // The list works the members out itself; the plugin only needs to stay open.
       items: () => [],
