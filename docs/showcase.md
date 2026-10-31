@@ -4,8 +4,9 @@
 
 ## What it creates
 
-- `showcase-main`: the board "🧪 Atrium Showcase". It has 4 groups (This week, Next up, Backlog, Done), 26 active items, 2 archived and 2 trashed items, and every column type the board table can render today (People, two Status columns, Date, Numbers with a € unit, Dropdown, Text, Long text, Checkbox, Link). Four items carry updates and replies in the item card feed. Shared views show in the view tabs: a table "Due this week" (filtered and sorted by date, two columns hidden), a Kanban "Status board" and a Calendar "Due dates" (placed by Due date, coloured by Status). Dates are spread over the last and next 30 days, with some overdue items and some empty cells.
+- `showcase-main`: the board "🧪 Atrium Showcase". It has 4 groups (This week, Next up, Backlog, Done), 26 active items, 2 archived and 2 trashed items, and every column type the board table can render today (People, two Status columns, Date, Numbers with a € unit, Dropdown, Text, Long text, Checkbox, Link, Connect boards and two Mirrors). Four items carry updates and replies in the item card feed. Shared views show in the view tabs: a table "Due this week" (filtered and sorted by date, two columns hidden), a Kanban "Status board" and a Calendar "Due dates" (placed by Due date, coloured by Status). Dates are spread over the last and next 30 days, with some overdue items and some empty cells.
 - `showcase-archived-demo` and `showcase-trashed-demo`: two tiny boards, one archived and one deleted, so the workspace's **Archive & Trash** page has something to show. (That page lists boards. Archived and trashed _items_ have no screen yet; they are in the data for when one lands.)
+- `showcase-linked-demo`: an active board "🔗 Showcase: Linked tasks" with five items (Status and Budget columns). The main board's **Related items** (Connect boards) column links to it, and its two **Mirror** columns read from it: "Linked status" lists the linked items' Status as coloured chips, "Total budget" sums their Budget.
 - **Three fake workspace members** (Jordan Lee, Sam Rivera and Casey Morgan, fixed uids `showcase-user-*`, `@example.com` emails), so People cells show names and initials instead of "Board member". They get `workspaces/{id}/members/{uid}` profile docs **only**: they are not in the workspace's `roles` or `memberIds`, are not real accounts, cannot sign in and do not appear in the Members dialog. Several items list them in the Owner column.
 - The owner's favourite and "recently visited" entries for the main board.
 - Three notifications in the owner's bell (`users/{owner}/notifications/showcase-notification-*`): a mention, a reply and an assignment from the fake members, two unread and one read, pointing at real showcase items and updates. Clients cannot create notifications, so the script writes them directly.
@@ -63,7 +64,7 @@ Everything is built with the shared zod schemas and every cell value goes throug
 
 ### Column types waiting for a web cell (`PENDING_TYPES`)
 
-`tags`, `rating`, `vote`, `color_picker`, `country`, `location`, `email` and `phone` exist in `packages/shared` but have no entry in `apps/web/src/columns/registry.ts`. The table draws an unknown column type as a header over blank cells, which would make the showcase look broken, so they are left out until their UI lands.
+None right now (`PENDING_TYPES` is empty). A type that exists in `packages/shared` but has no entry in `apps/web/src/columns/registry.ts` goes in this list: the table draws an unknown column type as a header over blank cells, which would make the showcase look broken, so they are left out until their UI lands.
 
 ## Backfilling `updatesCount`
 

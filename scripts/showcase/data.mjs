@@ -31,13 +31,20 @@ import {
  * UI lands. When one does, move it into `COLUMNS` below and remove it from this list; the drift test
  * in `showcase.test.mjs` fails until you do.
  */
-export const PENDING_TYPES = ['mirror'];
+export const PENDING_TYPES = [];
 
 /** Board ids the seed script owns. Anything else is off limits (see `isOwnedPath`). */
 export const SHOWCASE_MAIN_ID = 'showcase-main';
 export const SHOWCASE_ARCHIVED_ID = 'showcase-archived-demo';
 export const SHOWCASE_TRASHED_ID = 'showcase-trashed-demo';
-export const SHOWCASE_BOARD_IDS = [SHOWCASE_MAIN_ID, SHOWCASE_ARCHIVED_ID, SHOWCASE_TRASHED_ID];
+/** The board the main board's Connect boards column links to, and the Mirror columns read from. */
+export const SHOWCASE_LINKED_ID = 'showcase-linked-demo';
+export const SHOWCASE_BOARD_IDS = [
+  SHOWCASE_MAIN_ID,
+  SHOWCASE_ARCHIVED_ID,
+  SHOWCASE_TRASHED_ID,
+  SHOWCASE_LINKED_ID,
+];
 export const SHOWCASE_PREFIX = 'showcase-';
 /** The owner's three showcase notifications (`users/{owner}/notifications/<id>`), one per kind. */
 export const SHOWCASE_NOTIFICATION_PREFIX = 'showcase-notification-';
@@ -235,8 +242,40 @@ const COLUMNS = [
     id: 'related',
     type: 'board_relation',
     title: 'Related items',
-    settings: { boardIds: [SHOWCASE_MAIN_ID], allowMultipleItems: true, twoWay: false },
+    settings: { boardIds: [SHOWCASE_LINKED_ID], allowMultipleItems: true, twoWay: false },
   },
+  {
+    id: 'linked_status',
+    type: 'mirror',
+    title: 'Linked status',
+    settings: {
+      relationColumnId: 'related',
+      targetColumnIds: { [SHOWCASE_LINKED_ID]: 'status' },
+      aggregation: 'none',
+    },
+  },
+  {
+    id: 'linked_budget',
+    type: 'mirror',
+    title: 'Total budget',
+    settings: {
+      relationColumnId: 'related',
+      targetColumnIds: { [SHOWCASE_LINKED_ID]: 'budget' },
+      aggregation: 'sum',
+    },
+  },
+];
+
+/**
+ * The few items of the linked demo board (Status and Budget columns only). The main board's Related
+ * items column links to them, and its two Mirror columns show their Status and sum their Budget.
+ */
+const LINKED_ITEMS = [
+  { key: 'brand-guidelines', name: 'Brand guidelines refresh', status: 'done', budget: 1200 },
+  { key: 'legal-review', name: 'Legal review of the terms', status: 'working', budget: 800 },
+  { key: 'photo-shoot', name: 'Team photo shoot', status: 'stuck', budget: 2500 },
+  { key: 'translation', name: 'Spanish translation', status: 'review', budget: 1500 },
+  { key: 'analytics-audit', name: 'Analytics audit', status: 'working', budget: 600 },
 ];
 
 /** Column types the main showcase board uses (checked against the web registry by a test). */
@@ -340,6 +379,7 @@ const ITEMS = [
   // ---- This week ----
   {
     key: 'hero-copy',
+    relatesTo: ['brand-guidelines', 'translation'],
     description: [
       { h: 'Goal' },
       { p: 'Pick the tagline and lock the hero copy so design can finish the section.' },
@@ -414,6 +454,7 @@ const ITEMS = [
   },
   {
     key: 'pricing-page',
+    relatesTo: ['photo-shoot', 'analytics-audit', 'legal-review', 'translation'],
     dependsOn: ['hero-copy'],
     description: [
       { h: 'Context' },
@@ -508,7 +549,7 @@ const ITEMS = [
     location: { lat: 51.5074, lng: -0.1278, address: 'London, UK' },
     timeTracking: [[5400, 3, 'Configure DNS and staging deploy pipeline', 'jordan']],
     dependsOn: ['pricing-page'],
-    relatesTo: ['hero-copy', 'pricing-page'],
+    relatesTo: ['brand-guidelines', 'legal-review'],
     created: 15,
   },
   {
@@ -1179,8 +1220,8 @@ function rawValues(spec, ownerUid, anchor) {
   if (spec.relatesTo) {
     values.related = {
       linkedItems: spec.relatesTo.map((key) => ({
-        boardId: SHOWCASE_MAIN_ID,
-        itemId: `showcase-${key}`,
+        boardId: SHOWCASE_LINKED_ID,
+        itemId: `showcase-linked-${key}`,
       })),
     };
   }
@@ -1548,6 +1589,48 @@ export function buildShowcase({
       updatedAt: ago(2 * DAY),
     }),
   });
+  // ---- A small active board the Related items column links to (so the Mirror columns have data) ----
+  const linkedColumns = columns
+    .filter((c) => ['status', 'budget'].includes(c.id))
+    .map((c, i) => ({ ...c, position: orderKey(i) }));
+  const linkedColumnsById = new Map(linkedColumns.map((c) => [c.id, c]));
+  docs.push({
+    path: `boards/${SHOWCASE_LINKED_ID}`,
+    data: boardDoc({
+      name: '🔗 Showcase: Linked tasks',
+      description:
+        'A small board the showcase board links to. Its Status and Budget feed the Mirror columns.',
+      position: 'Zw',
+      columns: linkedColumns,
+      groups: sideBoardGroups,
+      createdAt: ago(27 * DAY),
+      updatedAt: ago(1 * DAY),
+    }),
+  });
+  LINKED_ITEMS.forEach((spec, n) => {
+    const values = {
+      status: parseCell(linkedColumnsById, 'status', { index: STATUS[spec.status] }, spec.name),
+      budget: parseCell(linkedColumnsById, 'budget', spec.budget, spec.name),
+    };
+    docs.push({
+      path: `boards/${SHOWCASE_LINKED_ID}/items/showcase-linked-${spec.key}`,
+      data: itemSchema.parse({
+        name: spec.name,
+        groupId: GROUPS[0].id,
+        position: orderKey(n),
+        parentItemId: null,
+        values,
+        state: 'active',
+        deletedAt: null,
+        updatesCount: 0,
+        createdAt: ago((20 - n) * DAY),
+        createdBy: ownerUid,
+        updatedAt: ago((1 + n) * DAY),
+        updatedBy: ownerUid,
+      }),
+    });
+  });
+  summary.boards[SHOWCASE_LINKED_ID] = { items: LINKED_ITEMS.length };
   summary.boards[SHOWCASE_ARCHIVED_ID] = { items: 0 };
   summary.boards[SHOWCASE_TRASHED_ID] = { items: 0 };
 
