@@ -3,15 +3,34 @@ import { create } from 'zustand';
 import {
   MAIN_VIEW_ID,
   createDefaultFilterState,
+  defaultCalendarSettings,
   defaultKanbanSettings,
+  defaultTimelineViewSettings,
   defaultViewSettings,
   type BoardFilterState,
+  type CalendarSettings,
   type KanbanSettings,
+  type TimelineViewSettings,
   type FilterCondition,
   type FilterGroup,
   type SortCondition,
   type ViewSettings,
 } from '@atrium/shared';
+
+/** The per-type settings a view can carry, by view type (a table has none). */
+export interface TypeSettingsMap {
+  kanban: KanbanSettings;
+  calendar: CalendarSettings;
+  timeline: TimelineViewSettings;
+}
+export type SettingsViewType = keyof TypeSettingsMap;
+
+const TYPE_KEYS: readonly SettingsViewType[] = ['kanban', 'calendar', 'timeline'];
+const TYPE_DEFAULTS: { [K in SettingsViewType]: () => TypeSettingsMap[K] } = {
+  kanban: defaultKanbanSettings,
+  calendar: defaultCalendarSettings,
+  timeline: defaultTimelineViewSettings,
+};
 
 /** What a view remembers and what the toolbar can change without saving: filters plus Hide. */
 export interface ViewState {
@@ -19,6 +38,10 @@ export interface ViewState {
   hiddenColumnIds: string[];
   /** Kanban lane and card settings; `null` for a view that has none (a table, or nothing saved yet). */
   kanban: KanbanSettings | null;
+  /** Calendar settings; `null` for a view that has none. */
+  calendar: CalendarSettings | null;
+  /** Timeline settings; `null` for a view that has none. */
+  timeline: TimelineViewSettings | null;
 }
 
 /** `saved` mirrors the stored view; `current` is what the user sees (and may have changed). */
@@ -45,15 +68,19 @@ export function stateFromSettings(settings: ViewSettings | null | undefined): Vi
     },
     hiddenColumnIds: [...s.hiddenColumnIds],
     kanban: s.kanban ? structuredClone(s.kanban) : null,
+    calendar: s.calendar ? structuredClone(s.calendar) : null,
+    timeline: s.timeline ? structuredClone(s.timeline) : null,
   };
 }
 
 /** The part of a view state that is saved (search text is per session and never saved). */
 export function settingsFromState(state: ViewState, base?: ViewSettings): ViewSettings {
-  const { kanban: _stored, ...rest } = base ?? defaultViewSettings();
+  const { kanban: _k, calendar: _c, timeline: _t, ...rest } = base ?? defaultViewSettings();
   return {
     ...rest,
     ...(state.kanban ? { kanban: state.kanban } : {}),
+    ...(state.calendar ? { calendar: state.calendar } : {}),
+    ...(state.timeline ? { timeline: state.timeline } : {}),
     filter: {
       personIds: state.filter.personIds,
       filterGroup: state.filter.filterGroup,
@@ -71,7 +98,7 @@ const fingerprint = (state: ViewState): string =>
     state.filter.sortConditions,
     state.filter.groupByColumnId,
     state.hiddenColumnIds,
-    state.kanban,
+    ...TYPE_KEYS.map((key) => state[key]),
   ]);
 
 export function isViewDirty(entry: ViewEntry | undefined): boolean {
@@ -82,6 +109,8 @@ const emptyState = (): ViewState => ({
   filter: createDefaultFilterState(),
   hiddenColumnIds: [],
   kanban: null,
+  calendar: null,
+  timeline: null,
 });
 
 interface FilterStoreState {
@@ -113,6 +142,12 @@ interface FilterStoreState {
   setGroupBy: (boardId: string, groupByColumnId: string | null) => void;
   resetFilters: (boardId: string) => void;
   setHiddenColumnIds: (boardId: string, ids: string[]) => void;
+  /** Change one view type's settings (counts as an unsaved change). */
+  setTypeSettings: <T extends SettingsViewType>(
+    boardId: string,
+    type: T,
+    patch: Partial<TypeSettingsMap[T]>,
+  ) => void;
   /** Change Kanban lane and card settings (counts as an unsaved change). */
   setKanban: (boardId: string, patch: Partial<KanbanSettings>) => void;
   /** Collapse or expand one Kanban lane. */
@@ -277,11 +312,13 @@ export const useFilterStore = create<FilterStoreState>()((set, get) => {
     setHiddenColumnIds: (boardId, hiddenColumnIds) =>
       change(boardId, (current) => ({ ...current, hiddenColumnIds })),
 
-    setKanban: (boardId, patch) =>
+    setTypeSettings: (boardId, type, patch) =>
       change(boardId, (current) => ({
         ...current,
-        kanban: { ...(current.kanban ?? defaultKanbanSettings()), ...patch },
+        [type]: { ...(current[type] ?? TYPE_DEFAULTS[type]()), ...patch },
       })),
+
+    setKanban: (boardId, patch) => get().setTypeSettings(boardId, 'kanban', patch),
 
     toggleLane: (boardId, laneKey) =>
       change(boardId, (current) => {
@@ -323,10 +360,19 @@ export function useViewIdDirty(boardId: string, viewId: string): boolean {
   return useFilterStore((s) => isViewDirty(s.views[viewKey(boardId, viewId)]));
 }
 
+/** The active view's settings of one type (unsaved changes included; defaults when none are stored). */
+export function useViewTypeSettings<T extends SettingsViewType>(
+  boardId: string | undefined,
+  type: T,
+): TypeSettingsMap[T] {
+  const stored = useFilterStore((s) => entryOf(s, boardId ?? '__default__')?.current[type]) as
+    TypeSettingsMap[T] | null | undefined;
+  return useMemo(() => stored ?? TYPE_DEFAULTS[type](), [stored, type]);
+}
+
 /** The active Kanban view's settings (unsaved changes included; defaults when none are stored). */
 export function useKanbanSettings(boardId: string | undefined): KanbanSettings {
-  const kanban = useFilterStore((s) => entryOf(s, boardId ?? '__default__')?.current.kanban);
-  return useMemo(() => kanban ?? defaultKanbanSettings(), [kanban]);
+  return useViewTypeSettings(boardId, 'kanban');
 }
 
 /** Column ids the active view hides (unsaved Hide changes included). */

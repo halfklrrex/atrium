@@ -1,5 +1,7 @@
 import {
+  defaultCalendarSettings,
   defaultKanbanSettings,
+  defaultTimelineViewSettings,
   defaultViewSettings,
   uniqueViewName,
   type ViewSettings,
@@ -25,7 +27,31 @@ const fail = (what: string, error: unknown): void => {
   showToast(`${what} Check your connection and try again.`, { type: 'negative' });
 };
 
-const LABELS: Record<ViewType, string> = { table: 'Table', kanban: 'Kanban' };
+const LABELS: Record<ViewType, string> = {
+  table: 'Table',
+  kanban: 'Kanban',
+  calendar: 'Calendar',
+  timeline: 'Timeline',
+};
+
+/** The settings a new view of a type starts with. */
+function newViewSettings(type: ViewType): ViewSettings {
+  const base = defaultViewSettings();
+  switch (type) {
+    case 'table':
+      return base;
+    case 'kanban':
+      return { ...base, kanban: defaultKanbanSettings() };
+    case 'calendar':
+      return { ...base, calendar: defaultCalendarSettings() };
+    case 'timeline':
+      return { ...base, timeline: defaultTimelineViewSettings() };
+    default: {
+      const never: never = type;
+      return never;
+    }
+  }
+}
 
 /** A key right after `view` (between it and the next tab). */
 function positionAfter(views: readonly BoardViewDoc[], view: BoardViewDoc): string {
@@ -49,10 +75,7 @@ export const viewActions = {
         ),
         ownerId: newViewOwner(ctx.uid, ctx.canEdit),
         position: positionAfterAll(ctx.views.filter((v) => v.id !== 'main')),
-        settings:
-          type === 'kanban'
-            ? { ...defaultViewSettings(), kanban: defaultKanbanSettings() }
-            : defaultViewSettings(),
+        settings: newViewSettings(type),
       });
       ctx.goTo(id);
     } catch (error) {

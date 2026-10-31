@@ -4,6 +4,7 @@ import {
   boardReady,
   expect,
   homeReady,
+  calendarReady,
   kanbanReady,
   shoot,
   test,
@@ -12,13 +13,16 @@ import type { Locator, Page } from '@playwright/test';
 import {
   FULL_VIEW_ITEM,
   IDS,
+  CALENDAR_VIEW,
   KANBAN_VIEW,
+  addCalendarView,
   addKanbanView,
   addView,
   clearRecents,
   readFullViewDescription,
   resetFullViewDescription,
   createEmptyWorkspace,
+  removeCalendarView,
   removeKanbanView,
   removeView,
   seedNotifications,
@@ -159,6 +163,29 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-kanban-collapsed-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeKanbanView();
+      }
+    });
+
+    test('board: Calendar view (month)', async ({ page }) => {
+      await addCalendarView('month');
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${CALENDAR_VIEW}`);
+        // Nine of the roadmap's dated items fall in October 2026.
+        await calendarReady(page, 'October 2026', 9);
+        await shoot(page, `board-calendar-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeCalendarView();
+      }
+    });
+
+    test('board: Calendar view (week)', async ({ page }) => {
+      await addCalendarView('week');
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${CALENDAR_VIEW}`);
+        await calendarReady(page, 'Oct 19 � 25, 2026', 3);
+        await shoot(page, `board-calendar-week-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeCalendarView();
       }
     });
 
