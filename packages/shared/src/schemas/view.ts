@@ -43,7 +43,7 @@ export const sortConditionSchema: z.ZodType<SortCondition> = z.object({
   direction: z.enum(['asc', 'desc']),
 });
 
-export const viewTypeSchema = z.enum(['table', 'kanban']);
+export const viewTypeSchema = z.enum(['table', 'kanban', 'calendar', 'timeline']);
 export type ViewType = z.infer<typeof viewTypeSchema>;
 
 export const viewFilterSettingsSchema = z.object({
@@ -78,11 +78,70 @@ export function defaultKanbanSettings(): KanbanSettings {
   return { columnId: null, cardColumnIds: null, collapsedLaneIds: [], showEmptyLanes: true };
 }
 
+/** Caps for a Timeline view's settings. */
+export const TIMELINE_LIMITS = { collapsedGroups: 60 } as const;
+
+const columnIdSchema = z.string().min(1).max(128);
+
+/** Settings of a Calendar view (`views/{id}.settings.calendar`). */
+export const calendarSettingsSchema = z.object({
+  /** The date or timeline column that places items; null = first date column, else first timeline column. */
+  columnId: columnIdSchema.nullable(),
+  mode: z.enum(['month', 'week']),
+  /** A status column whose label colours the items; null = the group colour. */
+  colorBy: columnIdSchema.nullable(),
+  showWeekends: z.boolean(),
+  firstDayOfWeek: z.enum(['monday', 'sunday']),
+});
+export type CalendarSettings = z.infer<typeof calendarSettingsSchema>;
+
+export function defaultCalendarSettings(): CalendarSettings {
+  return {
+    columnId: null,
+    mode: 'month',
+    colorBy: null,
+    showWeekends: true,
+    firstDayOfWeek: 'monday',
+  };
+}
+
+/** Settings of a Timeline view (`views/{id}.settings.timeline`). */
+export const timelineViewSettingsSchema = z.object({
+  /** The timeline or date column that places items; null = first timeline column, else first date column. */
+  columnId: columnIdSchema.nullable(),
+  zoom: z.enum(['days', 'weeks', 'months']),
+  colorBy: columnIdSchema.nullable(),
+  /** Group ids whose lane the user collapsed. */
+  collapsedGroupIds: z.array(columnIdSchema).max(TIMELINE_LIMITS.collapsedGroups),
+  showGroupSummary: z.boolean(),
+  showToday: z.boolean(),
+  showWeekends: z.boolean(),
+  showLegend: z.boolean(),
+});
+export type TimelineViewSettings = z.infer<typeof timelineViewSettingsSchema>;
+
+export function defaultTimelineViewSettings(): TimelineViewSettings {
+  return {
+    columnId: null,
+    zoom: 'weeks',
+    colorBy: null,
+    collapsedGroupIds: [],
+    showGroupSummary: true,
+    showToday: true,
+    showWeekends: true,
+    showLegend: true,
+  };
+}
+
 export const viewSettingsSchema = z.object({
   filter: viewFilterSettingsSchema,
   hiddenColumnIds: z.array(z.string().min(1).max(128)).max(VIEW_LIMITS.hiddenColumns),
   /** Only Kanban views have these. */
   kanban: kanbanSettingsSchema.optional(),
+  /** Only Calendar views have these. */
+  calendar: calendarSettingsSchema.optional(),
+  /** Only Timeline views have these. */
+  timeline: timelineViewSettingsSchema.optional(),
 });
 export type ViewSettings = z.infer<typeof viewSettingsSchema>;
 export type ViewFilterSettings = z.infer<typeof viewFilterSettingsSchema>;

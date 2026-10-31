@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   VIEW_LIMITS,
   boardViewSchema,
+  TIMELINE_LIMITS,
+  defaultCalendarSettings,
   defaultKanbanSettings,
+  defaultTimelineViewSettings,
   defaultViewSettings,
   uniqueViewName,
   viewSettingsSchema,
@@ -132,5 +135,59 @@ describe('kanban view settings', () => {
     expect(viewSettingsSchema.safeParse(explicit).success).toBe(true);
     const bad = { ...settings, kanban: { ...defaultKanbanSettings(), showEmptyLanes: 'yes' } };
     expect(viewSettingsSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe('calendar and timeline view settings', () => {
+  it('has the documented defaults', () => {
+    expect(defaultCalendarSettings()).toEqual({
+      columnId: null,
+      mode: 'month',
+      colorBy: null,
+      showWeekends: true,
+      firstDayOfWeek: 'monday',
+    });
+    expect(defaultTimelineViewSettings()).toEqual({
+      columnId: null,
+      zoom: 'weeks',
+      colorBy: null,
+      collapsedGroupIds: [],
+      showGroupSummary: true,
+      showToday: true,
+      showWeekends: true,
+      showLegend: true,
+    });
+  });
+
+  it('accepts both inside the view settings', () => {
+    const settings = {
+      ...defaultViewSettings(),
+      calendar: { ...defaultCalendarSettings(), columnId: 'due', mode: 'week' as const },
+      timeline: {
+        ...defaultTimelineViewSettings(),
+        zoom: 'months' as const,
+        collapsedGroupIds: ['g1'],
+      },
+    };
+    expect(viewSettingsSchema.safeParse(settings).success).toBe(true);
+  });
+
+  it('refuses bad values and oversized lists', () => {
+    const base = defaultViewSettings();
+    const cal = (patch: object) => ({
+      ...base,
+      calendar: { ...defaultCalendarSettings(), ...patch },
+    });
+    const tl = (patch: object) => ({
+      ...base,
+      timeline: { ...defaultTimelineViewSettings(), ...patch },
+    });
+    expect(viewSettingsSchema.safeParse(cal({ mode: 'day' })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(cal({ firstDayOfWeek: 'friday' })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(cal({ showWeekends: 1 })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(tl({ zoom: 'years' })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(tl({ columnId: '' })).success).toBe(false);
+    const many = Array.from({ length: TIMELINE_LIMITS.collapsedGroups + 1 }, (_, i) => `g${i}`);
+    expect(viewSettingsSchema.safeParse(tl({ collapsedGroupIds: many })).success).toBe(false);
   });
 });
