@@ -25,7 +25,7 @@ Author: Ophelia (Opus 5.5) · Implementer: Sonnet 5.5 · Roadmap: P3 "My Work & 
    - Rejected: a client-written field (rules can't compute a union over dynamic column ids, so it would be unverifiable); a `users/{uid}/assignments` fan-out index (it would hold copies of item data that outlive a lost board access, and needs cleanup on every access change).
 2. **My Work queries per board, never across boards.** For each active board I can list, one listener on `boards/{b}/items where assigneeUids array-contains me and state == 'active'`. The existing per-board read rule authorises it, so access to private boards, removed members and lost shares is enforced by the rules exactly as on the board page. Cost: 1 read per board on open (Firestore bills an empty result as one read) plus only my items, then live deltas.
    - Cap: **100 boards** (by most-recent visit first, then name). Above it, a notice "Showing work from 100 of N boards". Family scale is far below this.
-3. **The client re-verifies.** `assigneeUids` is an index hint. The web recomputes it with the same shared function from the item's values and the board's current columns and drops items that no longer match (a deleted People column leaves a stale hint until the item's next write). A column changed *to* People writes its values through the Admin SDK, which fires the trigger, so false negatives don't arise.
+3. **The client re-verifies.** `assigneeUids` is an index hint. The web recomputes it with the same shared function from the item's values and the board's current columns and drops items that no longer match (a deleted People column leaves a stale hint until the item's next write). A column changed _to_ People writes its values through the Admin SDK, which fires the trigger, so false negatives don't arise.
 4. **Item search uses Firestore token queries, per board; no external search service.** Tokens: lowercase, diacritics stripped (NFKD), split on anything that isn't a letter or digit, every prefix of each word from 2 to 15 characters, unique, at most 100 per item. A search takes the **longest word** of the term (cut to 15 characters) and runs `items where nameTokens array-contains <word> and state == 'active' limit 10` on each readable board, at most 10 queries in flight; the client then requires every word of the term as a substring of the name.
    - Rejected: a Cloud Function that scans items (reads every item per search); Algolia/Typesense (a paid third party holding family data outside `eur3`); loading every item client-side (reads every item of every board); `name` range prefix queries (case-sensitive, first word only).
    - Cost: at most (readable boards + matches) reads per settled search. With 30 boards and 10 searches a day per person, well under Blaze's free tier.
@@ -76,11 +76,13 @@ Author: Ophelia (Opus 5.5) · Implementer: Sonnet 5.5 · Roadmap: P3 "My Work & 
 ## Rules and tests
 
 No rules change. PR 1 adds `tests/rules/src/item-index.test.ts`:
+
 - a client can't create an item with `assigneeUids` or `nameTokens`, and can't change or remove them on update (owner included);
 - a workspace member can run the per-board `assigneeUids array-contains` and `nameTokens array-contains` queries on a `main` board, and is **denied** them on a private board they aren't on, and after removal from the workspace;
 - a collection-group `items` query with `assigneeUids array-contains uid` is denied.
 
 Other tests:
+
 - **Shared:** token normalisation (accents, punctuation, numbers, emoji, very long names capped at 100), `searchWordsOf` ordering, `assigneeUidsOf` (teams ignored, invalid values ignored, subitem columns for subitems).
 - **Functions (fakes):** fields written on create; name change rewrites tokens without a board read; values change rewrites assignees; no write when equal (idempotent retry, own-write loop); deleted items skipped; `updatedAt` untouched. Backfill script test.
 - **Web PR 2:** bucketing across week and month boundaries and Sunday/Monday, Done precedence, date fallback to timeline, client re-verification drops stale rows, search filter, the cap notice, the four states, row click navigation.
@@ -95,6 +97,7 @@ Searching updates, replies, descriptions, docs and people; search filters (by wo
 ## Verify
 
 `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:rules`, `pnpm build` in every PR.
+
 - PR 1: deploy creates the two indexes (they build for a few minutes; the web PRs merge after they're `READY`: `gcloud firestore indexes composite list --database=atrium-1`). Then Ophelia runs the backfill (dry run, then `--apply`) against production.
 - PR 2: on production, assign yourself on two boards in two workspaces plus a private board, check the buckets; remove access to the private board from a second account and confirm its items disappear for that account.
 - PR 3: search a word from an item on a private board from an account that isn't on it: no result. Ctrl/Cmd+B in the description editor still bolds.
