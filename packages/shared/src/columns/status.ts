@@ -113,6 +113,12 @@ export const statusColumn = defineColumnType<StatusSettings, StatusValue>({
     ...statusDistribution(values, settings),
   }),
   toText: (value, settings) => findStatusLabel(value, settings)?.label ?? value.label ?? '',
+  validateValue: (value, settings) => {
+    if (findStatusLabel(value, settings)) return { ok: true };
+    // A blank label with no index is an empty status.
+    if (value.index === undefined && (value.label ?? '').trim() === '') return { ok: true };
+    return { ok: false, message: 'Status value does not match any label of the column' };
+  },
   compare: (a, b, settings) => {
     const ia = findStatusLabel(a, settings)?.index ?? Number.MAX_SAFE_INTEGER;
     const ib = findStatusLabel(b, settings)?.index ?? Number.MAX_SAFE_INTEGER;

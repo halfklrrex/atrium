@@ -13,6 +13,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Menu, MenuButton, MenuDivider, MenuItem } from '@vibe/core';
 import {
   Add,
+  Check,
   Delete,
   Duplicate,
   Edit,
@@ -35,6 +36,7 @@ import {
   columnTypeChangeSupport,
   isColumnLocked,
 } from '@atrium/shared';
+import { isClientReadOnlyType } from './derived';
 import { AnchoredPopup } from './AnchoredPopup';
 import { ChangeColumnTypeDialog } from './ChangeColumnTypeDialog';
 import { ColumnSettingsPopup } from './ColumnSettings';
@@ -211,6 +213,16 @@ function HeaderCell({ column, group }: { column: ColumnView; group: GroupDef }) 
           }}
         >
           <span className={styles.headerTitleText}>{column.def.title}</span>
+          {column.def.required ? (
+            <span
+              className={styles.requiredMark}
+              data-testid={`column-required-mark-${columnId}`}
+              aria-label="Required column"
+              title="Required column"
+            >
+              *
+            </span>
+          ) : null}
           {isColumnLocked(env.ctx.board, columnId) ? (
             <span
               className={styles.lockIcon}
@@ -329,6 +341,8 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
     ? null
     : (filterState.sortConditions.find((s) => s.columnId === normCol || s.columnId === columnId)
         ?.direction ?? null);
+  // Derived and server-managed columns are never filled by a person, so they cannot be required.
+  const canBeRequired = !!column && !isClientReadOnlyType(column.def.type);
   // Rows this menu's column writes to: top-level items, or the subitems of the block.
   const scopeItems = () => env.getItems().filter((i) => subitems || !i.parentItemId);
 
@@ -484,6 +498,18 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
                     columnId,
                     !isColumnLocked(env.ctx.board, columnId),
                   )
+                }
+              />
+            ) : null}
+            {column && env.canEdit && canBeRequired ? (
+              <MenuItem
+                title="Required column"
+                icon={Check}
+                selected={column.def.required === true}
+                onClick={() =>
+                  void tableActions.updateColumn(env.ctx, columnId, {
+                    required: column.def.required === true ? false : true,
+                  })
                 }
               />
             ) : null}

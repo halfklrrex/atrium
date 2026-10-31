@@ -10,7 +10,12 @@ import type { ItemDoc } from '../../data';
 import { ts } from '../../test/fixtures';
 import { comparePositions } from '../../lib/positions';
 import { defaultColumnTitle, duplicateColumnTitle } from './column-naming';
-import { isColumnReadOnlyForUser, validateCellWrite, withoutUnwritableValues } from './derived';
+import {
+  isColumnReadOnlyForUser,
+  newItemValues,
+  validateCellWrite,
+  withoutUnwritableValues,
+} from './derived';
 import { appendPositions, dropPosition, indexWithout, positionsAfter } from './move-math';
 import { splitMatches } from './search';
 import {
@@ -354,5 +359,40 @@ describe('column locks client validation & unwritable values', () => {
     expect(isColumnReadOnlyForUser('numbers', lockedBoard, 'budget', 'editor')).toBe(true);
     expect(isColumnReadOnlyForUser('numbers', lockedBoard, 'budget', 'owner')).toBe(false);
     expect(isColumnReadOnlyForUser('text', lockedBoard, 'notes', 'editor')).toBe(false);
+  });
+});
+
+describe('newItemValues (column defaults on a new item)', () => {
+  const cols = [
+    column('note', 'text', 'a0', { defaultValue: 'TBD' }),
+    column('budget', 'numbers', 'a1', { defaultValue: 100 }),
+    column('seq', 'item_id', 'a2'),
+    column('progress', 'progress', 'a3', { defaultValue: 50 }),
+    column('plain', 'text', 'a4'),
+  ];
+
+  it('applies defaults, skipping derived columns and those without a default', () => {
+    expect(newItemValues(cols)).toEqual({ note: 'TBD', budget: 100 });
+  });
+
+  it('lets explicit values win over defaults', () => {
+    expect(newItemValues(cols, undefined, { note: 'Real' })).toEqual({ note: 'Real', budget: 100 });
+  });
+
+  it('skips locked columns for non-owners only', () => {
+    const board = { columnLocks: ['budget'] };
+    expect(newItemValues(cols, { board, boardRole: 'editor' })).toEqual({ note: 'TBD' });
+    expect(newItemValues(cols, { board, boardRole: 'owner' })).toEqual({
+      note: 'TBD',
+      budget: 100,
+    });
+  });
+
+  it('is undefined when there is nothing to write, and clones object defaults', () => {
+    expect(newItemValues([column('plain', 'text', 'a0')])).toBeUndefined();
+    const tags = column('tags', 'tags', 'a0', { defaultValue: { tag_ids: [1] } });
+    const a = newItemValues([tags])!;
+    (a.tags as { tag_ids: number[] }).tag_ids.push(2);
+    expect(tags.defaultValue).toEqual({ tag_ids: [1] });
   });
 });

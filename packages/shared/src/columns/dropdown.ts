@@ -43,6 +43,12 @@ export const dropdownColumn = defineColumnType<DropdownSettings, DropdownValue>(
   summaries: ['count', 'count_filled', 'count_empty', 'percent_filled', 'distribution'],
   defaultSettings: () => ({ labels: [], limitSelect: false }),
   toText: (value, settings) => labelTexts(value, settings).join(', '),
+  validateValue: (value, settings) => {
+    const known = new Set(settings.labels.map((l) => l.id));
+    return value.ids.every((id) => known.has(id))
+      ? { ok: true }
+      : { ok: false, message: 'Dropdown value uses a label that does not exist in the column' };
+  },
   compare: (a, b, settings) =>
     labelTexts(a, settings)
       .join(', ')

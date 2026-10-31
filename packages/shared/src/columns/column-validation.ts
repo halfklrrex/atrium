@@ -1,21 +1,13 @@
 import type { ColumnDef, ColumnDefInput } from '../schemas/board';
+import { columnRegistry } from './index';
 import type { ColumnTypeRegistry } from './registry';
 
 /**
- * Column types that do not support a default value.
- * Buttons, time tracking, and purely derived columns cannot have a default cell value.
+ * Column types that never take a default value, whatever their registration. Derived and
+ * server-managed types are refused by `registry.validateCell` already, so only these two (kept
+ * static so a registry without the module still refuses them) are listed.
  */
-export const DISALLOWED_DEFAULT_TYPES = new Set<string>([
-  'button',
-  'time_tracking',
-  'progress',
-  'auto_number',
-  'item_id',
-  'creation_log',
-  'last_updated',
-  'mirror',
-  'formula',
-]);
+export const DISALLOWED_DEFAULT_TYPES = new Set<string>(['button', 'time_tracking']);
 
 /** Maximum byte length for serialized default values (10 KB). */
 export const MAX_DEFAULT_VALUE_SIZE_BYTES = 10 * 1024;
@@ -24,8 +16,10 @@ export const MAX_DEFAULT_VALUE_SIZE_BYTES = 10 * 1024;
  * Validates a column definition against the column registry.
  * - Ensures the column type is registered.
  * - Validates column settings against the type's settingsSchema.
- * - Validates defaultValue against the type's valueSchema, bounds its serialized size,
- *   and ensures the type supports default values (rejected on button, time tracking, derived types).
+ * - Validates defaultValue with `registry.validateCell` (value schema, then the type's
+ *   `validateValue` against the column's settings, so a status index or dropdown id that is not in
+ *   the column's labels is refused), bounds its serialized size, and refuses defaults on button,
+ *   time tracking, derived and server-managed types.
  */
 export function validateColumnDef(
   col: ColumnDefInput | ColumnDef,
@@ -35,15 +29,7 @@ export function validateColumnDef(
     return { valid: false, error: `Unknown column type "${col.type}"` };
   }
 
-  // Check if type allows defaults before validating settings
-  // Derived and server-managed types (FW2) can never hold a client-written default, whether or not
-  // they are in the static list above (e.g. `files`, once its module sets `serverManaged`).
-  if (
-    col.defaultValue !== undefined &&
-    (DISALLOWED_DEFAULT_TYPES.has(col.type) ||
-      registry.isDerived(col.type) ||
-      registry.isServerManaged(col.type))
-  ) {
+  if (col.defaultValue !== undefined && DISALLOWED_DEFAULT_TYPES.has(col.type)) {
     return {
       valid: false,
       error: `Column type "${col.type}" does not support default values`,
@@ -73,11 +59,12 @@ export function validateColumnDef(
       return { valid: false, error: 'Default value must be JSON-serializable' };
     }
 
-    const valueParsed = registry.parseValue(col.type, col.defaultValue);
-    if (!valueParsed.success) {
+    // Derived and server-managed types refuse here too (validateCell bans any client value).
+    const checked = registry.validateCell(col as ColumnDef, col.defaultValue);
+    if (!checked.ok) {
       return {
         valid: false,
-        error: `Invalid default value for column type "${col.type}": ${valueParsed.error}`,
+        error: `Invalid default value for column type "${col.type}": ${checked.message}`,
       };
     }
   }
@@ -109,6 +96,20 @@ export function isColumnValueEmpty(type: string, value: unknown): boolean {
 
   if (typeof value === 'object') {
     const obj = value as Record<string, unknown>;
+
+    // Types whose empty value is not an empty collection: decided by the column type.
+    switch (type) {
+      case 'vote':
+        return !Array.isArray(obj.votersIds) || obj.votersIds.length === 0;
+      case 'long_text':
+        return typeof obj.text !== 'string' || obj.text.trim() === '';
+      case 'checkbox':
+        return obj.checked === undefined || obj.checked === false || obj.checked === 'false';
+      case 'rating':
+        return obj.rating === undefined || obj.rating === 0;
+      default:
+        break;
+    }
 
     // People column: { personsAndTeams: [] }
     if ('personsAndTeams' in obj && Array.isArray(obj.personsAndTeams)) {
@@ -191,17 +192,20 @@ function cloneValue<T>(val: T): T {
  * for any columns that do not already have an assigned value.
  * Uses structuredClone to ensure each item receives an independent deep copy of the default value.
  *
- * NOTE: Nothing calls `applyDefaultColumnValues` on item creation today. When column defaults
- * get wired later, non-owners (`boardRole !== 'owner'`) must skip locked columns (`board.columnLocks`)
- * so Firestore rules do not reject the item creation for writing a locked column key.
+ * Derived and server-managed columns are skipped (clients never write them; rules refuse the
+ * create). Locked columns are the caller's job: non-owners (`boardRole !== 'owner'`) must drop
+ * `board.columnLocks` columns from the result (the table's `addItem` does) so Firestore rules do
+ * not reject the item creation for writing a locked column key.
  */
 export function applyDefaultColumnValues(
   columns: readonly ColumnDef[],
   values: Record<string, unknown> = {},
+  registry: ColumnTypeRegistry = columnRegistry,
 ): Record<string, unknown> {
   const result = { ...values };
 
   for (const col of columns) {
+    if (registry.isDerived(col.type) || registry.isServerManaged(col.type)) continue;
     if (col.defaultValue !== undefined && result[col.id] === undefined) {
       result[col.id] = cloneValue(col.defaultValue);
     }

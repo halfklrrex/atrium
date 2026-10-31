@@ -54,7 +54,10 @@ export const columnDefSchema = z.object({
   required: z.boolean().optional(),
   /** Whether this column is collapsed in the table header. */
   collapsed: z.boolean().optional(),
-  /** Cosmetic flag indicating whether this column is hidden from table views. */
+  /**
+   * @deprecated Hiding is per view (`hiddenColumnIds` on the view); nothing reads this flag. Kept
+   * so older documents still parse.
+   */
   hidden: z.boolean().optional(),
   /** Server-only: a type change is running on this column. */
   migrating: columnMigratingSchema.optional(),

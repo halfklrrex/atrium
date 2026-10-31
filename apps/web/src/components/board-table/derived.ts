@@ -7,6 +7,7 @@
 import {
   COLUMN_LOCKED_MESSAGE,
   COLUMN_LOCKED_TOOLTIP,
+  applyDefaultColumnValues,
   canEditColumn,
   columnRegistry,
   isColumnLocked,
@@ -143,4 +144,22 @@ export function withoutUnwritableValues(
   }
   if (unwritable.size === 0) return values;
   return Object.fromEntries(Object.entries(values).filter(([id]) => !unwritable.has(id)));
+}
+
+/**
+ * The cell values a new item starts with: the columns' defaults (derived and server-managed
+ * columns skipped, locked columns skipped for non-owners), then `explicit` on top, which wins.
+ * `undefined` when there is nothing to write.
+ */
+export function newItemValues(
+  columns: readonly ColumnDef[],
+  options?: ColumnLockContext,
+  explicit?: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const writable = columns.filter(
+    (c) => !options || canEditColumn(options.boardRole, options.board, c.id),
+  );
+  const defaults = withoutUnwritableValues(applyDefaultColumnValues(writable), writable, options);
+  const merged = { ...JSON.parse(JSON.stringify(defaults)), ...explicit };
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }

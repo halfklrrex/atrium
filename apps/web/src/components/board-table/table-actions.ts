@@ -6,6 +6,7 @@
  */
 import {
   COLUMN_MIGRATION_CHUNK_SIZE,
+  validateColumnDef,
   columnRegistry,
   defaultSubitemColumns,
   isSubitem,
@@ -38,6 +39,7 @@ import { describeError } from '../boards/board-actions';
 import { showToast } from '../toast-store';
 import {
   isClientReadOnlyType,
+  newItemValues,
   validateCellWrite,
   withoutUnwritableValues,
   type ColumnLockContext,
@@ -161,11 +163,12 @@ export const tableActions = {
     input: { groupId: string; position: string; name?: string; values?: Record<string, unknown> },
   ): Promise<string | null> {
     try {
+      const values = newItemValues(ctx.columns, lockCtxOf(ctx), input.values);
       return await itemWrites.create(ctx.uid, ctx.boardId, {
         name: input.name?.trim() || 'New item',
         groupId: input.groupId,
         position: input.position,
-        ...(input.values ? { values: input.values } : {}),
+        ...(values ? { values } : {}),
       });
     } catch (error) {
       console.error('Could not add the item', error);
@@ -192,11 +195,16 @@ export const tableActions = {
             : { subitemColumns: defaultSubitemColumns(columns.map((c) => c.id)) },
         );
       }
+      // The columns of the subitem block: the board's, or the defaults just written above.
+      const subColumns =
+        ctx.subitemColumns && ctx.subitemColumns.length > 0 ? ctx.subitemColumns : [];
+      const values = newItemValues(subColumns, lockCtxOf(ctx));
       return await itemWrites.create(ctx.uid, ctx.boardId, {
         name: input.name?.trim() || 'New subitem',
         groupId: parent.groupId,
         position: input.position,
         parentItemId: parent.id,
+        ...(values ? { values } : {}),
       });
     } catch (error) {
       console.error('Could not add the subitem', error);
@@ -636,18 +644,26 @@ export const tableActions = {
   async updateColumn(
     ctx: TableCtx,
     columnId: string,
-    patch: Partial<Pick<ColumnDef, 'title' | 'settings' | 'width' | 'position'>>,
+    patch: Partial<
+      Pick<ColumnDef, 'title' | 'settings' | 'width' | 'position' | 'required' | 'defaultValue'>
+    >,
   ): Promise<void> {
     await attempt(
       () =>
         updateBoardStructure(ctx.boardId, (state) => {
           const columns = columnsOf(ctx, state);
-          return columns.some((c) => c.id === columnId)
-            ? columnsPatch(
-                ctx,
-                columns.map((c) => (c.id === columnId ? clean({ ...c, ...patch }) : c)),
-              )
-            : null;
+          const current = columns.find((c) => c.id === columnId);
+          if (!current) return null;
+          const next: ColumnDef = clean({ ...current, ...patch });
+          // Required and default value are validated against the column's type and settings.
+          if ('required' in patch || 'defaultValue' in patch || 'settings' in patch) {
+            const checked = validateColumnDef(next, columnRegistry);
+            if (!checked.valid) throw new Error(checked.error);
+          }
+          return columnsPatch(
+            ctx,
+            columns.map((c) => (c.id === columnId ? next : c)),
+          );
         }),
       'Could not update the column.',
     );
