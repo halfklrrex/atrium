@@ -1,0 +1,73 @@
+/* Pieces the Calendar and Timeline views share. Tokens come from calendar-tokens.css. */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  align-items: center;
+  margin: 0;
+  padding: var(--space-48) var(--space-16);
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+.emptyText {
+  margin: 0;
+}
+
+.addColumnMenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: var(--atrium-calendar-select-width);
+  padding: var(--space-8);
+}
+
+.menuItem {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-calendar-day-font);
+  text-align: start;
+  cursor: pointer;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--primary-background-hover-color);
+  outline: 0;
+}
+
+.legend {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: inline-flex;
+  gap: var(--space-8);
+  align-items: center;
+  color: var(--secondary-text-color);
+  font: var(--atrium-calendar-day-font);
+}
+
+.legendDot {
+  flex: none;
+  width: var(--atrium-calendar-dot);
+  height: var(--atrium-calendar-dot);
+  border-radius: var(--border-radius-big);
+  background: var(--atrium-calendar-pill-default);
+}

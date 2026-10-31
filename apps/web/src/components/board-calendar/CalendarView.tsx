@@ -31,7 +31,6 @@ import {
 import { useAuth } from '../../auth/auth-context';
 import { useItems, useUserLookup, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
 import { WEEKDAY_NAMES, fullDateLabel, parseIsoDay, todayIso } from '../../lib/date-grid';
-import { positionAfterAll } from '../../lib/positions';
 import {
   useActiveViewId,
   useBoardFilter,
@@ -39,17 +38,17 @@ import {
   useViewTypeSettings,
   viewKey,
 } from '../board-filters';
-import { Popover } from '../Popover';
 import { AnchoredPopup } from '../board-table/AnchoredPopup';
 import { BoardToolbar } from '../board-table/BoardToolbar';
-import { isColumnReadOnlyForUser, validateCellWrite } from '../board-table/derived';
+import { isColumnReadOnlyForUser } from '../board-table/derived';
 import { openItemFull } from '../board-table/open-item';
 import { tableActions, type TableCtx } from '../board-table/table-actions';
 import { buildColumnViews } from '../board-table/table-model';
 import { useTableStore } from '../board-table/table-store';
 import { useDeepStable } from '../board-table/useDeepStable';
 import { useItemViewStore } from '../item-view/item-view-store';
-import { showToast } from '../toast-store';
+import { addItemOnDay } from '../board-date-views/add-item-on-day';
+import { ColorLegend, DateViewEmpty } from '../board-date-views/DateViewParts';
 import {
   CALENDAR_COLUMN_TYPES,
   buildCalendar,
@@ -59,7 +58,6 @@ import {
   planMove,
   resolveCalendarColumn,
   shiftAnchor,
-  valueForDay,
   type CalendarPatches,
   type CalendarSegment,
   type CalendarWeek,
@@ -153,7 +151,6 @@ export function CalendarView({ board }: CalendarViewProps) {
   const { filterState } = useBoardFilter(boardId);
   const search = useDeferredValue(useTableStore((s) => s.search)).trim();
   const [patches, setPatches] = useState<CalendarPatches>({});
-  const [addColumnOpen, setAddColumnOpen] = useState(false);
 
   const uiKey = viewKey(boardId, viewId);
   const anchor = useCalendarUi((s) => s.anchors[uiKey]) ?? todayIso();
@@ -264,31 +261,21 @@ export function CalendarView({ board }: CalendarViewProps) {
   };
 
   // ---- Add an item on a day: the board's first group, the column set to that day.
+  const lockCtx = useMemo(() => ({ board: boardLocks, boardRole }), [boardLocks, boardRole]);
   const addOnDay = useCallback(
-    async (day: string) => {
-      if (!column || !canWrite) return;
-      const value = valueForDay(column, day);
-      const check = validateCellWrite(boardId, columnDefs, column.def.id, value, undefined, {
-        board: boardLocks,
-        boardRole,
-      });
-      if (!check.ok) {
-        showToast(check.message, { type: 'negative' });
-        return;
-      }
-      let groupId = [...groupDefs].sort((a, b) => (a.position < b.position ? -1 : 1))[0]?.id;
-      if (!groupId) groupId = (await tableActions.addGroup(ctx, 'top', 'Group Title')) ?? undefined;
-      if (!groupId) return;
-      const id = await tableActions.addItem(ctx, {
-        groupId,
-        position: positionAfterAll(
-          itemsRef.current.filter((i) => i.groupId === groupId && !i.parentItemId),
-        ),
-        values: { [column.def.id]: value },
-      });
-      if (id) openItemFull(boardId, id);
-    },
-    [column, canWrite, boardId, columnDefs, boardLocks, boardRole, groupDefs, ctx],
+    (day: string) =>
+      addItemOnDay({
+        ctx,
+        boardId,
+        column,
+        canWrite,
+        columnDefs,
+        lockCtx,
+        groupDefs,
+        items: itemsRef.current,
+        day,
+      }),
+    [ctx, boardId, column, canWrite, columnDefs, lockCtx, groupDefs],
   );
 
   // ---- Keyboard: arrows move between days.
@@ -392,37 +379,10 @@ export function CalendarView({ board }: CalendarViewProps) {
             Could not load the items. Check your connection and try again.
           </p>
         ) : !model || !column ? (
-          <div className={styles.empty}>
-            <p className={styles.emptyText}>Add a date or timeline column to use this view</p>
-            {canEdit ? (
-              <Popover
-                open={addColumnOpen}
-                onClose={() => setAddColumnOpen(false)}
-                label="Add column"
-                trigger={
-                  <Button size="small" onClick={() => setAddColumnOpen((v) => !v)}>
-                    Add column
-                  </Button>
-                }
-              >
-                <div className={styles.addColumnMenu}>
-                  {(['date', 'timeline'] as const).map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      className={styles.morePopupItem}
-                      onClick={() => {
-                        setAddColumnOpen(false);
-                        void tableActions.addColumn(ctx, type);
-                      }}
-                    >
-                      {columnRegistry.get(type).label}
-                    </button>
-                  ))}
-                </div>
-              </Popover>
-            ) : null}
-          </div>
+          <DateViewEmpty
+            canEdit={canEdit}
+            onAddColumn={(type) => void tableActions.addColumn(ctx, type)}
+          />
         ) : (
           <DndContext
             sensors={sensors}
@@ -465,20 +425,7 @@ export function CalendarView({ board }: CalendarViewProps) {
             </div>
           </DndContext>
         )}
-        {model && model.legend.length > 0 ? (
-          <ul className={styles.legend} aria-label="Legend">
-            {model.legend.map((entry) => (
-              <li key={entry.key} className={styles.legendItem}>
-                <span
-                  className={styles.legendDot}
-                  style={{ background: entry.color }}
-                  aria-hidden="true"
-                />
-                {entry.name}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        {model ? <ColorLegend entries={model.legend} /> : null}
       </div>
     </div>
   );

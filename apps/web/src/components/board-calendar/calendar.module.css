@@ -29,10 +29,6 @@
   text-align: center;
 }
 
-.emptyText {
-  margin: 0;
-}
-
 /* ---- Toolbar extras ---- */
 
 .divider {
@@ -337,38 +333,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* ---- Empty state: add column ---- */
-
-.addColumnMenu {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: var(--atrium-calendar-select-width);
-  padding: var(--space-8);
-}
-
-/* ---- Legend ---- */
-
-.legend {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  gap: var(--space-16);
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.legendItem {
-  display: inline-flex;
-  gap: var(--space-8);
-  align-items: center;
-  color: var(--secondary-text-color);
-  font: var(--atrium-calendar-day-font);
 }
 
 .legendDot {
