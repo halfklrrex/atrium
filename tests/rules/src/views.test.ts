@@ -186,6 +186,28 @@ describe('board views: creating', () => {
     );
   });
 
+  it('allows calendar and timeline views with and without their settings', async () => {
+    const m = USERS.member;
+    const cases: Array<[string, string, Record<string, unknown>]> = [
+      ['c1', 'calendar', { ...emptySettings(), calendar: { columnId: 'due', mode: 'month' } }],
+      ['c2', 'calendar', emptySettings()],
+      ['t1', 'timeline', { ...emptySettings(), timeline: { columnId: null, zoom: 'weeks' } }],
+      ['t2', 'timeline', emptySettings()],
+    ];
+    for (const [id, type, settings] of cases) {
+      await assertSucceeds(setDoc(doc(as(m), viewPath(id)), newView(m, { type, settings })));
+    }
+  });
+
+  it('refuses an unknown settings key and non-map calendar or timeline settings', async () => {
+    const m = USERS.member;
+    const bad = (type: string, settings: Record<string, unknown>) =>
+      assertFails(setDoc(doc(as(m), viewPath('bad')), newView(m, { type, settings })));
+    await bad('calendar', { ...emptySettings(), gantt: {} });
+    await bad('calendar', { ...emptySettings(), calendar: 'month' });
+    await bad('timeline', { ...emptySettings(), timeline: [] });
+  });
+
   it('only allows main as a shared table with the fixed name and position', async () => {
     const m = USERS.member;
     await assertFails(
@@ -198,6 +220,12 @@ describe('board views: creating', () => {
       setDoc(
         doc(as(m), viewPath('main')),
         newView(m, { name: 'Main table', position: 'a0', type: 'kanban' }),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(as(m), viewPath('main')),
+        newView(m, { name: 'Main table', position: 'a0', type: 'calendar' }),
       ),
     );
     await assertFails(
@@ -243,6 +271,7 @@ describe('board views: updating', () => {
     const ref = () => doc(as(USERS.member), viewPath('v1'));
     await assertFails(updateDoc(ref(), bump(USERS.member, { ownerId: USERS.member })));
     await assertFails(updateDoc(ref(), bump(USERS.member, { type: 'kanban' })));
+    await assertFails(updateDoc(ref(), bump(USERS.member, { type: 'calendar' })));
     await assertFails(updateDoc(ref(), bump(USERS.member, { createdBy: USERS.member })));
     await assertFails(updateDoc(ref(), bump(USERS.member, { createdAt: serverTimestamp() })));
     await assertFails(updateDoc(ref(), { name: 'No stamp' }));
