@@ -116,7 +116,7 @@ export const MONTH_NAMES = [
   'November',
   'December',
 ] as const;
-const SHORT_MONTHS = MONTH_NAMES.map((m) => m.slice(0, 3));
+export const SHORT_MONTHS = MONTH_NAMES.map((m) => m.slice(0, 3));
 export const WEEKDAY_NAMES = [
   'Sunday',
   'Monday',
@@ -156,4 +156,22 @@ export function fullDateLabel(iso: string): string {
 export function shortDateLabel(iso: string): string {
   const d = parseIsoDay(iso);
   return `${SHORT_MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
+
+/** The ISO 8601 week number (1-53; weeks start on Monday, week 1 holds the year's first Thursday). */
+export function isoWeekNumber(iso: string): number {
+  const d = parseIsoDay(iso);
+  const thursday = new Date(d.getTime() + (3 - ((d.getUTCDay() + 6) % 7)) * DAY_MS);
+  const jan4 = Date.UTC(thursday.getUTCFullYear(), 0, 4);
+  const jan4Monday = jan4 - ((new Date(jan4).getUTCDay() + 6) % 7) * DAY_MS;
+  return 1 + Math.round((thursday.getTime() - jan4Monday - 3 * DAY_MS) / (7 * DAY_MS));
+}
+
+/** The first day of the month containing `iso`. */
+export const monthStart = (iso: string): string => `${iso.slice(0, 7)}-01`;
+
+/** The last day of the month containing `iso`. */
+export function monthEnd(iso: string): string {
+  const d = parseIsoDay(iso);
+  return addDays(monthStart(iso), daysInMonth(d.getUTCFullYear(), d.getUTCMonth() + 1) - 1);
 }

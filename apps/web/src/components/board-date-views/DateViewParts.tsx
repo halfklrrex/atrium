@@ -12,7 +12,11 @@ export function ColorLegend({ entries }: { entries: readonly LegendEntry[] }) {
     <ul className={styles.legend} aria-label="Legend">
       {entries.map((entry) => (
         <li key={entry.key} className={styles.legendItem}>
-          <span className={styles.legendDot} style={{ background: entry.color }} aria-hidden="true" />
+          <span
+            className={styles.legendDot}
+            style={{ background: entry.color }}
+            aria-hidden="true"
+          />
           {entry.name}
         </li>
       ))}

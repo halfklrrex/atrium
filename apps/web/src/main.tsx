@@ -8,6 +8,7 @@ import './theme/tokens.css';
 import './theme/table-tokens.css';
 import './theme/kanban-tokens.css';
 import './theme/calendar-tokens.css';
+import './theme/timeline-tokens.css';
 import './theme/scrollbar-tokens.css';
 import './theme/editor-tokens.css';
 import './index.css';

@@ -137,7 +137,7 @@ describe('view tabs', () => {
     expect(goTo).toHaveBeenCalledWith('v1');
   });
 
-  it('adds views from the plus menu, with Timeline and the later types marked as coming soon', async () => {
+  it('adds views from the plus menu, with only the later types marked as coming soon', async () => {
     renderTabs({ canEdit: true });
     fireEvent.click(screen.getByRole('button', { name: 'Add view' }));
     const items = await screen.findAllByRole('menuitem');
@@ -150,7 +150,9 @@ describe('view tabs', () => {
     const calendar = items.find((item) => item.textContent === 'Calendar');
     expect(calendar?.className).not.toMatch(/disabled/);
     const timeline = items.find((item) => item.textContent === 'Timeline');
-    expect(timeline?.className).toMatch(/disabled/);
+    expect(timeline?.className).not.toMatch(/disabled/);
+    const gantt = items.find((item) => item.textContent === 'Gantt');
+    expect(gantt?.className).toMatch(/disabled/);
     const table = items.find((item) => item.textContent === 'Table');
     expect(table?.className).not.toMatch(/disabled/);
   });

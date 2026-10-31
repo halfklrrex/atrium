@@ -47,6 +47,16 @@ describe('design tokens', () => {
       '--calendar-span',
       '--calendar-lane',
       '--calendar-pill-color',
+      // Timeline view: a lane's rows, a bar's place on the axis, the day width and the pane width.
+      '--tl-rows',
+      '--tl-start',
+      '--tl-span',
+      '--tl-row',
+      '--tl-day-width',
+      '--tl-axis-days',
+      '--tl-pane-width',
+      '--tl-bar-color',
+      '--tl-weekend-shift',
     ]);
     const missing = [...references.keys()].filter(
       (name) => !known.has(name) && !local.has(name) && !inline.has(name),

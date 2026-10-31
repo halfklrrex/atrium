@@ -50,7 +50,6 @@ const RENAME_DELAY_MS = 150;
 const VIEW_ICONS = { table: Table, kanban: Board, calendar: Calendar, timeline: Timeline } as const;
 
 const SOON_VIEWS = [
-  { title: 'Timeline', icon: Timeline },
   { title: 'Gantt', icon: Gantt },
   { title: 'Chart', icon: Chart },
   { title: 'Map', icon: Pin },
@@ -314,6 +313,11 @@ export function ViewTabs() {
             title="Calendar"
             icon={Calendar}
             onClick={() => void viewActions.add(actions, 'calendar')}
+          />
+          <MenuItem
+            title="Timeline"
+            icon={Timeline}
+            onClick={() => void viewActions.add(actions, 'timeline')}
           />
           {SOON_VIEWS.map((soon) => (
             <MenuItem
