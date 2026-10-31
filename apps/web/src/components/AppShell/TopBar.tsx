@@ -12,7 +12,7 @@ import styles from './AppShell.module.css';
 import { useUiStore } from './ui-store';
 import { UserMenu } from './UserMenu';
 
-/** Placeholder actions: they answer with a "coming soon" toast until their phase lands. */
+/** Top bar actions; those not built yet answer with a "coming soon" toast. */
 const ACTIONS = [
   { label: 'Inbox', icon: Inbox, narrow: true },
   { label: 'Invite members', icon: Invite, narrow: false },
@@ -36,7 +36,9 @@ export function TopBar() {
   const { count: unread } = useUnreadNotifications(user?.uid);
   const unreadLabel = formatUnreadCount(unread);
   const onAction = (label: string) => {
-    if (label === 'Invite members' && workspace) {
+    if (label === 'Search') {
+      openDialog({ type: 'search' });
+    } else if (label === 'Invite members' && workspace) {
       openDialog({ type: 'members', workspaceId: workspace.id, tab: 'invites' });
     } else {
       showComingSoon(label);

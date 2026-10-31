@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import type * as Notifications from '../../data/notifications';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TopBar } from './TopBar';
+import { useUiStore } from './ui-store';
 
 let mockUnread = 0;
 
@@ -48,5 +49,14 @@ describe('TopBar notifications badge', () => {
     renderBar();
     expect(screen.getByTestId('notifications-badge')).toHaveTextContent('99+');
     expect(screen.getByRole('button', { name: 'Notifications, 99+ unread' })).toBeInTheDocument();
+  });
+});
+
+describe('TopBar search', () => {
+  it('opens the global search dialog', () => {
+    useUiStore.setState({ dialog: null });
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(useUiStore.getState().dialog).toEqual({ type: 'search' });
   });
 });

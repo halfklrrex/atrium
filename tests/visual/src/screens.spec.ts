@@ -434,6 +434,18 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `board-search-${theme}`, PARK_IN_HEADER);
     });
 
+    test('global search dialog with a term', async ({ page }) => {
+      await page.goto('/');
+      await homeReady(page);
+      await page.getByRole('button', { name: 'Quick Search' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Search everything' });
+      await expect(dialog.getByRole('searchbox', { name: 'Search everything' })).toBeFocused();
+      await dialog.getByRole('searchbox', { name: 'Search everything' }).fill('sign-in');
+      await expect(dialog.getByRole('group', { name: 'Items' })).toBeVisible();
+      await expect(dialog.getByRole('status')).toHaveCount(0);
+      await shoot(page, `global-search-${theme}`);
+    });
+
     test('sidebar collapsed', async ({ page }) => {
       await page.goto('/');
       await homeReady(page);
