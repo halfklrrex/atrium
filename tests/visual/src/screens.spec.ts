@@ -7,6 +7,7 @@ import {
   calendarReady,
   kanbanReady,
   timelineReady,
+  chartReady,
   shoot,
   test,
 } from './fixtures';
@@ -17,9 +18,11 @@ import {
   CALENDAR_VIEW,
   KANBAN_VIEW,
   TIMELINE_VIEW,
+  CHART_VIEW,
   addCalendarView,
   addKanbanView,
   addTimelineView,
+  addChartView,
   addView,
   clearRecents,
   readFullViewDescription,
@@ -28,6 +31,7 @@ import {
   removeCalendarView,
   removeKanbanView,
   removeTimelineView,
+  removeChartView,
   removeView,
   seedNotifications,
 } from './seed';
@@ -205,6 +209,29 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-timeline-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeTimelineView();
+      }
+    });
+
+    test('board: Chart view (bar, by Status)', async ({ page }) => {
+      await addChartView('bar');
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${CHART_VIEW}`);
+        // All five labelled statuses are in use, so five bars.
+        await chartReady(page, 'Items by Status', 5);
+        await shoot(page, `board-chart-bar-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeChartView();
+      }
+    });
+
+    test('board: Chart view (donut, by group)', async ({ page }) => {
+      await addChartView('donut');
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${CHART_VIEW}`);
+        await chartReady(page, 'Items by Group', 3);
+        await shoot(page, `board-chart-donut-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeChartView();
       }
     });
 

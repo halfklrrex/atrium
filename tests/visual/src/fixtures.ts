@@ -120,6 +120,14 @@ export async function timelineReady(page: Page, bars: number): Promise<void> {
   await expect(page.locator('[data-item]')).toHaveCount(bars);
 }
 
+/** The seeded roadmap as a Chart view: the title, the drawing and its screen-reader summary. */
+export async function chartReady(page: Page, title: string, marks: number): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('heading', { name: title, level: 2 })).toBeVisible();
+  await expect(page.getByRole('img', { name: /chart, items by/ })).toBeVisible();
+  await expect(page.locator('svg [class*="mark"]')).toHaveCount(marks);
+}
+
 /** Home with all four seeded boards and both workspaces rendered (snapshots arrive separately). */
 export async function homeReady(page: Page): Promise<void> {
   await appReady(page);

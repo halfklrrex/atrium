@@ -154,7 +154,7 @@ describe('board views: creating', () => {
     await bad({ name: '' });
     await bad({ name: 'x'.repeat(61) });
     await bad({ name: 5 });
-    await bad({ type: 'chart' });
+    await bad({ type: 'gantt' });
     await bad({ position: '' });
     await bad({ position: 3 });
     await bad({ settings: 'nope' });
@@ -187,13 +187,15 @@ describe('board views: creating', () => {
     );
   });
 
-  it('allows calendar and timeline views with and without their settings', async () => {
+  it('allows calendar, timeline and chart views with and without their settings', async () => {
     const m = USERS.member;
     const cases: Array<[string, string, Record<string, unknown>]> = [
       ['c1', 'calendar', { ...emptySettings(), calendar: { columnId: 'due', mode: 'month' } }],
       ['c2', 'calendar', emptySettings()],
       ['t1', 'timeline', { ...emptySettings(), timeline: { columnId: null, zoom: 'weeks' } }],
       ['t2', 'timeline', emptySettings()],
+      ['ch1', 'chart', { ...emptySettings(), chart: { chartType: 'bar', xColumnId: null } }],
+      ['ch2', 'chart', emptySettings()],
     ];
     for (const [id, type, settings] of cases) {
       await assertSucceeds(setDoc(doc(as(m), viewPath(id)), newView(m, { type, settings })));
@@ -207,6 +209,7 @@ describe('board views: creating', () => {
     await bad('calendar', { ...emptySettings(), gantt: {} });
     await bad('calendar', { ...emptySettings(), calendar: 'month' });
     await bad('timeline', { ...emptySettings(), timeline: [] });
+    await bad('chart', { ...emptySettings(), chart: 'bar' });
   });
 
   it('only allows main as a shared table with the fixed name and position', async () => {
@@ -227,6 +230,12 @@ describe('board views: creating', () => {
       setDoc(
         doc(as(m), viewPath('main')),
         newView(m, { name: 'Main table', position: 'a0', type: 'calendar' }),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(as(m), viewPath('main')),
+        newView(m, { name: 'Main table', position: 'a0', type: 'chart' }),
       ),
     );
     await assertFails(
@@ -273,6 +282,7 @@ describe('board views: updating', () => {
     await assertFails(updateDoc(ref(), bump(USERS.member, { ownerId: USERS.member })));
     await assertFails(updateDoc(ref(), bump(USERS.member, { type: 'kanban' })));
     await assertFails(updateDoc(ref(), bump(USERS.member, { type: 'calendar' })));
+    await assertFails(updateDoc(ref(), bump(USERS.member, { type: 'chart' })));
     await assertFails(updateDoc(ref(), bump(USERS.member, { createdBy: USERS.member })));
     await assertFails(updateDoc(ref(), bump(USERS.member, { createdAt: serverTimestamp() })));
     await assertFails(updateDoc(ref(), { name: 'No stamp' }));
@@ -320,6 +330,18 @@ describe('board views: saving settings (regression: "Save to this view" failed)'
       showWeekends: true,
       showLegend: true,
     },
+    chart: {
+      chartType: 'bar',
+      xColumnId: null,
+      dateBucket: 'month',
+      stackColumnId: null,
+      yMode: 'count',
+      yColumnId: null,
+      sortBy: 'board',
+      showLegend: true,
+      showValues: true,
+      showEmpty: true,
+    },
   } as const;
 
   it('reads a missing main view (a signed-in reader sees "not found", not permission-denied)', async () => {
@@ -356,7 +378,7 @@ describe('board views: saving settings (regression: "Save to this view" failed)'
     await assertFails(setDoc(ref, newView(USERS.viewer, { name: 'Main table', position: 'a0' })));
   });
 
-  it.each(['kanban', 'calendar', 'timeline'] as const)(
+  it.each(['kanban', 'calendar', 'timeline', 'chart'] as const)(
     'saves %s settings on a shared and on a personal view',
     async (kind) => {
       await seedView('s1', null, { type: kind });

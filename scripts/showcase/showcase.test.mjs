@@ -705,8 +705,8 @@ test('re-running keeps the item numbers the function assigned', async () => {
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
   const { docs, summary } = build();
   const views = docs.filter((d) => /^boards\/showcase-main\/views\/[^/]+$/.test(d.path));
-  assert.equal(summary.views, 4);
-  assert.equal(views.length, 4);
+  assert.equal(summary.views, 6);
+  assert.equal(views.length, 6);
   const view = views.find((v) => v.data.name === 'Due this week').data;
   assert.equal(view.name, 'Due this week');
   assert.equal(view.type, 'table');
@@ -854,4 +854,21 @@ test('the emulator host must be local', () => {
     () => emulatorHost({ FIRESTORE_EMULATOR_HOST: 'firestore.example.com:443' }),
     /not a local address/,
   );
+});
+
+test('the main board has shared Chart views: "Budget by owner" (sum per person) and "Status mix" (donut)', () => {
+  const { docs } = build();
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const bar = docs.find(
+    (d) => d.path === 'boards/showcase-main/views/showcase-budget-by-owner',
+  ).data;
+  assert.equal(bar.type, 'chart');
+  assert.equal(bar.ownerId, null);
+  assert.equal(bar.settings.chart.chartType, 'bar');
+  assert.equal(board.columns.find((c) => c.id === bar.settings.chart.xColumnId).type, 'people');
+  assert.equal(bar.settings.chart.yMode, 'sum');
+  assert.equal(board.columns.find((c) => c.id === bar.settings.chart.yColumnId).type, 'numbers');
+  const donut = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-status-mix').data;
+  assert.equal(donut.settings.chart.chartType, 'donut');
+  assert.equal(board.columns.find((c) => c.id === donut.settings.chart.xColumnId).type, 'status');
 });

@@ -43,7 +43,7 @@ export const sortConditionSchema: z.ZodType<SortCondition> = z.object({
   direction: z.enum(['asc', 'desc']),
 });
 
-export const viewTypeSchema = z.enum(['table', 'kanban', 'calendar', 'timeline']);
+export const viewTypeSchema = z.enum(['table', 'kanban', 'calendar', 'timeline', 'chart']);
 export type ViewType = z.infer<typeof viewTypeSchema>;
 
 export const viewFilterSettingsSchema = z.object({
@@ -133,6 +133,51 @@ export function defaultTimelineViewSettings(): TimelineViewSettings {
   };
 }
 
+/** Axis key meaning "the board's groups". */
+export const CHART_GROUP_AXIS = '__group';
+
+/** Bucket key for items without a value on the X axis. */
+export const CHART_EMPTY_BUCKET = '__empty';
+
+/** Bucket key for the merged smallest buckets. */
+export const CHART_OTHER_BUCKET = '__other';
+
+/** Most X buckets, stacked series and pie slices a chart draws before merging into "Other". */
+export const CHART_LIMITS = { xBuckets: 50, series: 12, slices: 12 } as const;
+
+/** Settings of a Chart view (`views/{id}.settings.chart`). */
+export const chartSettingsSchema = z.object({
+  chartType: z.enum(['bar', 'stacked_bar', 'line', 'pie', 'donut']),
+  /** A column id or `__group`; null = the first status column, else groups. */
+  xColumnId: columnIdSchema.nullable(),
+  dateBucket: z.enum(['day', 'week', 'month']),
+  /** Stacked bar only; null = the first status column that isn't X, else groups. */
+  stackColumnId: columnIdSchema.nullable(),
+  yMode: z.enum(['count', 'sum', 'average', 'min', 'max']),
+  /** A Numbers column; null with a non-count mode = the first Numbers column. */
+  yColumnId: columnIdSchema.nullable(),
+  sortBy: z.enum(['board', 'value_desc', 'value_asc']),
+  showLegend: z.boolean(),
+  showValues: z.boolean(),
+  showEmpty: z.boolean(),
+});
+export type ChartSettings = z.infer<typeof chartSettingsSchema>;
+
+export function defaultChartSettings(): ChartSettings {
+  return {
+    chartType: 'bar',
+    xColumnId: null,
+    dateBucket: 'month',
+    stackColumnId: null,
+    yMode: 'count',
+    yColumnId: null,
+    sortBy: 'board',
+    showLegend: true,
+    showValues: true,
+    showEmpty: true,
+  };
+}
+
 export const viewSettingsSchema = z.object({
   filter: viewFilterSettingsSchema,
   hiddenColumnIds: z.array(z.string().min(1).max(128)).max(VIEW_LIMITS.hiddenColumns),
@@ -142,6 +187,8 @@ export const viewSettingsSchema = z.object({
   calendar: calendarSettingsSchema.optional(),
   /** Only Timeline views have these. */
   timeline: timelineViewSettingsSchema.optional(),
+  /** Only Chart views have these. */
+  chart: chartSettingsSchema.optional(),
 });
 export type ViewSettings = z.infer<typeof viewSettingsSchema>;
 export type ViewFilterSettings = z.infer<typeof viewFilterSettingsSchema>;

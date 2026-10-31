@@ -9,6 +9,7 @@ import {
   parseNumberText,
   planColumnConversion,
 } from './convert';
+import { defaultChartSettings } from '../schemas/view';
 import { columnRegistry } from './index';
 
 const col = (type: string, settings: unknown = columnRegistry.defaultSettings(type)) => ({
@@ -592,5 +593,20 @@ describe('findColumnDependents', () => {
       { kind: 'view', title: 'Board view' },
     ]);
     expect(findColumnDependents(columns, 'total')).toEqual([]);
+    const chartView = (patch: object) => ({
+      ...view,
+      name: 'Chart',
+      settings: {
+        ...view.settings,
+        kanban: undefined,
+        chart: { ...defaultChartSettings(), ...patch },
+      },
+    });
+    for (const patch of [{ xColumnId: 'num' }, { stackColumnId: 'num' }, { yColumnId: 'num' }]) {
+      expect(findColumnDependents([], 'num', [chartView(patch)])).toEqual([
+        { kind: 'view', title: 'Chart' },
+      ]);
+    }
+    expect(findColumnDependents([], 'num', [chartView({ xColumnId: 'other' })])).toEqual([]);
   });
 });

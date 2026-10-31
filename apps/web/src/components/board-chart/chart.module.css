@@ -1,0 +1,325 @@
+.root {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-16);
+}
+
+.card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-height: var(--atrium-chart-min-height);
+  padding: var(--space-16);
+  border: var(--border-width) var(--border-style) var(--atrium-chart-card-border);
+  border-radius: var(--atrium-surface-radius);
+  background: var(--atrium-chart-bg);
+}
+
+.title {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--atrium-chart-title-font);
+}
+
+.plot {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.state {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+.hint {
+  margin: 0;
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+.srOnly {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- The drawing ---- */
+
+.svgWrap {
+  position: absolute;
+  inset: 0;
+}
+
+.svg {
+  display: block;
+  overflow: visible;
+}
+
+.grid {
+  stroke: var(--atrium-chart-grid);
+  stroke-width: var(--border-width);
+}
+
+.axis {
+  stroke: var(--atrium-chart-axis-text);
+  stroke-width: var(--border-width);
+}
+
+.tickText {
+  fill: var(--atrium-chart-axis-text);
+  font: var(--atrium-chart-tick-font);
+}
+
+.valueText {
+  fill: var(--atrium-chart-value-text);
+  font: var(--atrium-chart-value-font);
+  pointer-events: none;
+}
+
+.mark {
+  fill: var(--chart-color);
+  transition: opacity var(--atrium-chart-motion);
+}
+
+.bar {
+  rx: var(--atrium-chart-bar-radius);
+}
+
+.slice {
+  stroke: var(--atrium-chart-slice-gap-color);
+  fill-rule: evenodd;
+}
+
+.sliceText {
+  fill: var(--text-color-on-primary);
+  font: var(--atrium-chart-value-font);
+  pointer-events: none;
+}
+
+.dimmed {
+  opacity: var(--atrium-chart-dim-opacity);
+}
+
+.line {
+  fill: none;
+  stroke: var(--atrium-chart-series-1);
+  stroke-width: var(--atrium-chart-line-width);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.point {
+  fill: var(--atrium-chart-series-1);
+  stroke: var(--atrium-chart-bg);
+  stroke-width: var(--atrium-chart-line-width);
+  transition: opacity var(--atrium-chart-motion);
+}
+
+.totalText {
+  fill: var(--primary-text-color);
+  font: var(--atrium-chart-total-font);
+}
+
+.totalCaption {
+  fill: var(--atrium-chart-axis-text);
+  font: var(--atrium-chart-total-caption-font);
+}
+
+.tooltip {
+  position: absolute;
+  z-index: var(--atrium-z-raised);
+  max-width: 100%;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-chart-tooltip-bg);
+  color: var(--atrium-chart-tooltip-text);
+  font: var(--atrium-chart-tick-font);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ---- Settings side panel ---- */
+
+.settings {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: var(--atrium-chart-settings-width);
+  max-width: 100%;
+  overflow: auto;
+  border-inline-start: var(--border-width) var(--border-style) var(--atrium-chart-card-border);
+  background: var(--primary-background-color);
+}
+
+.settingsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-16);
+  border-bottom: var(--border-width) var(--border-style) var(--atrium-chart-card-border);
+}
+
+.settingsTitle {
+  color: var(--primary-text-color);
+  font: var(--atrium-chart-title-font);
+}
+
+.settingsSection {
+  border-bottom: var(--border-width) var(--border-style) var(--atrium-chart-card-border);
+}
+
+.settingsSectionHead {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-12) var(--space-16);
+  border: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-chart-value-font);
+  text-align: start;
+  cursor: pointer;
+}
+
+.settingsSectionHead:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(-1 * var(--border-width));
+}
+
+.settingsSectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: 0 var(--space-16) var(--space-16);
+}
+
+.settingsLabel {
+  display: block;
+  margin-block-end: var(--space-4);
+  color: var(--secondary-text-color);
+  font: var(--atrium-chart-tick-font);
+}
+
+.settingsNote {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--atrium-chart-tick-font);
+}
+
+.settingsToggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.typeButtons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.modeButtons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.typeButton {
+  box-sizing: border-box;
+  height: var(--atrium-control-height);
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-chart-tick-font);
+  cursor: pointer;
+}
+
+.typeButton:hover:not(:disabled) {
+  background: var(--primary-background-hover-color);
+}
+
+.typeButton[aria-pressed='true'] {
+  border-color: var(--primary-color);
+  background: var(--primary-selected-color);
+}
+
+.typeButton:disabled {
+  color: var(--disabled-text-color);
+  cursor: not-allowed;
+}
+
+.typeButton:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(-1 * var(--border-width));
+}
+
+.select {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--atrium-control-height);
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-chart-tick-font);
+}
+
+.select:focus-visible {
+  border-color: var(--primary-color);
+  outline: 0;
+}
+
+@media (width <= 768px) {
+  .column {
+    padding: var(--space-8);
+  }
+
+  .settings {
+    position: absolute;
+    z-index: var(--atrium-z-chrome);
+    inset-block: 0;
+    inset-inline-end: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark,
+  .point {
+    transition: none;
+  }
+}

@@ -1607,6 +1607,80 @@ export function buildShowcase({
   });
   summary.views += 1;
 
+  // ---- A shared Chart "Budget by owner": a bar per person, the sum of the Budget column ----
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-budget-by-owner`,
+    data: boardViewSchema.parse({
+      name: 'Budget by owner',
+      type: 'chart',
+      position: 'a5',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        chart: {
+          chartType: 'bar',
+          xColumnId: 'person',
+          dateBucket: 'month',
+          stackColumnId: null,
+          yMode: 'sum',
+          yColumnId: 'budget',
+          sortBy: 'value_desc',
+          showLegend: true,
+          showValues: true,
+          showEmpty: true,
+        },
+      },
+      createdAt: ago(3 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
+
+  // ---- A shared Chart "Status mix": a donut of the items by Status ----
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-status-mix`,
+    data: boardViewSchema.parse({
+      name: 'Status mix',
+      type: 'chart',
+      position: 'a6',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        chart: {
+          chartType: 'donut',
+          xColumnId: 'status',
+          dateBucket: 'month',
+          stackColumnId: null,
+          yMode: 'count',
+          yColumnId: null,
+          sortBy: 'board',
+          showLegend: true,
+          showValues: true,
+          showEmpty: true,
+        },
+      },
+      createdAt: ago(3 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
+
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
   const sideBoardColumns = columns

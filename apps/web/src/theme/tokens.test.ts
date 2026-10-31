@@ -58,6 +58,8 @@ describe('design tokens', () => {
       '--tl-bar-color',
       '--tl-weekend-shift',
       '--tl-today-idx',
+      // Chart view: the colour of a bar, slice or segment.
+      '--chart-color',
     ]);
     const missing = [...references.keys()].filter(
       (name) => !known.has(name) && !local.has(name) && !inline.has(name),

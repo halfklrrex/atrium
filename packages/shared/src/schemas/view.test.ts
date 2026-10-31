@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   VIEW_LIMITS,
   boardViewSchema,
+  CHART_GROUP_AXIS,
+  CHART_LIMITS,
+  chartSettingsSchema,
+  defaultChartSettings,
+  viewTypeSchema,
   TIMELINE_LIMITS,
   defaultCalendarSettings,
   defaultKanbanSettings,
@@ -56,7 +61,7 @@ describe('board view schemas', () => {
   it('rejects empty and over-long names and unknown types', () => {
     expect(boardViewSchema.safeParse({ ...baseView(), name: '' }).success).toBe(false);
     expect(boardViewSchema.safeParse({ ...baseView(), name: 'x'.repeat(61) }).success).toBe(false);
-    expect(boardViewSchema.safeParse({ ...baseView(), type: 'chart' }).success).toBe(false);
+    expect(boardViewSchema.safeParse({ ...baseView(), type: 'gantt' }).success).toBe(false);
   });
 
   it('enforces the size caps', () => {
@@ -189,5 +194,38 @@ describe('calendar and timeline view settings', () => {
     expect(viewSettingsSchema.safeParse(tl({ columnId: '' })).success).toBe(false);
     const many = Array.from({ length: TIMELINE_LIMITS.collapsedGroups + 1 }, (_, i) => `g${i}`);
     expect(viewSettingsSchema.safeParse(tl({ collapsedGroupIds: many })).success).toBe(false);
+  });
+});
+
+describe('chart view settings', () => {
+  it('has the documented defaults', () => {
+    expect(defaultChartSettings()).toEqual({
+      chartType: 'bar',
+      xColumnId: null,
+      dateBucket: 'month',
+      stackColumnId: null,
+      yMode: 'count',
+      yColumnId: null,
+      sortBy: 'board',
+      showLegend: true,
+      showValues: true,
+      showEmpty: true,
+    });
+    expect(chartSettingsSchema.safeParse(defaultChartSettings()).success).toBe(true);
+    expect(CHART_LIMITS).toEqual({ xBuckets: 50, series: 12, slices: 12 });
+  });
+
+  it('accepts chart settings inside the view settings and refuses bad ones', () => {
+    const base = defaultViewSettings();
+    const ch = (patch: object) => ({ ...base, chart: { ...defaultChartSettings(), ...patch } });
+    expect(
+      viewSettingsSchema.safeParse(ch({ chartType: 'donut', xColumnId: CHART_GROUP_AXIS })).success,
+    ).toBe(true);
+    expect(viewSettingsSchema.safeParse(ch({ chartType: 'area' })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(ch({ yMode: 'median' })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(ch({ dateBucket: 'year' })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(ch({ xColumnId: '' })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(ch({ showLegend: 'yes' })).success).toBe(false);
+    expect(viewTypeSchema.safeParse('chart').success).toBe(true);
   });
 });
