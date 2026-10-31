@@ -637,6 +637,19 @@ ${selector} {`);
     expect(rule('.scroll')).toMatch(/overflow: auto/);
   });
 
+  it('keeps a bar name visible at the pane edge when the bar starts off-screen', () => {
+    open({ columnId: 'plan' });
+    expect(rule('.barText')).toMatch(/position: sticky/);
+    expect(rule('.barText')).toMatch(
+      /inset-inline-start: calc\(var\(--tl-pane-width\) \+ var\(--space-8\)\)/,
+    );
+    expect(rule('.barText')).toMatch(/max-width: 100%/);
+    // overflow: hidden on the fill would make it the scroll container and break the sticky name.
+    expect(rule('.barFill')).toMatch(/overflow: clip/);
+    const name = bar('Design').querySelector('[class*="barText"]');
+    expect(name).toHaveTextContent('Design');
+  });
+
   it('keeps the lane names and the summary text at the pane edge while scrolling', () => {
     open({ columnId: 'plan' });
     expect(rule('.laneName')).toMatch(/position: sticky/);
