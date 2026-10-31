@@ -22,6 +22,7 @@ import {
   PENDING_TYPES,
   SHOWCASE_BOARD_IDS,
   SHOWCASE_COLUMN_TYPES,
+  SHOWCASE_LINKED_ID,
   SHOWCASE_MEMBERS,
   SHOWCASE_MEMBER_UIDS,
   SHOWCASE_MAIN_ID,
@@ -250,7 +251,7 @@ test('trashed items were deleted within the last few days, archived ones are arc
   const states = SHOWCASE_BOARD_IDS.map(
     (id) => docs.find((d) => d.path === `boards/${id}`).data.state,
   );
-  assert.deepEqual(states.sort(), ['active', 'archived', 'deleted']);
+  assert.deepEqual(states.sort(), ['active', 'active', 'archived', 'deleted']);
 });
 
 test('updates and replies: 3-4 items, authored by the owner, counts match', () => {
@@ -358,6 +359,49 @@ test('every column type with a web UI is in the showcase; the rest are declared 
       SHOWCASE_COLUMN_TYPES.includes(type) || PENDING_TYPES.includes(type),
       `Column type "${type}" is registered in @atrium/shared but neither shown nor listed in PENDING_TYPES.`,
     );
+  }
+});
+
+test('the Mirror columns read a linked demo board that exists and holds the linked items', () => {
+  const { docs } = build();
+  const main = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const linked = docs.find((d) => d.path === `boards/${SHOWCASE_LINKED_ID}`);
+  assert.ok(linked, 'the linked demo board is seeded');
+  assert.equal(linked.data.state, 'active');
+  const linkedColumnIds = new Set(linked.data.columns.map((c) => c.id));
+  const relation = main.columns.find((c) => c.type === 'board_relation');
+  assert.deepEqual(relation.settings.boardIds, [SHOWCASE_LINKED_ID]);
+
+  const mirrors = main.columns.filter((c) => c.type === 'mirror');
+  assert.deepEqual(
+    mirrors.map((c) => [c.title, c.settings.aggregation]),
+    [
+      ['Linked status', 'none'],
+      ['Total budget', 'sum'],
+    ],
+  );
+  for (const mirror of mirrors) {
+    assert.equal(mirror.settings.relationColumnId, relation.id);
+    assert.ok(linkedColumnIds.has(mirror.settings.targetColumnIds[SHOWCASE_LINKED_ID]));
+  }
+
+  const linkedItemIds = new Set(
+    docs
+      .filter((d) => d.path.startsWith(`boards/${SHOWCASE_LINKED_ID}/items/`))
+      .map((d) => d.path.split('/').pop()),
+  );
+  assert.ok(linkedItemIds.size >= 4);
+  const links = docs
+    .filter((d) => MAIN_ITEM.test(d.path))
+    .flatMap((d) => d.data.values[relation.id]?.linkedItems ?? []);
+  assert.ok(links.length >= 6, 'several main items link to the demo board');
+  for (const ref of links) {
+    assert.equal(ref.boardId, SHOWCASE_LINKED_ID);
+    assert.ok(linkedItemIds.has(ref.itemId), ref.itemId);
+  }
+  // Mirrors store nothing.
+  for (const { path, data } of docs.filter((d) => MAIN_ITEM.test(d.path))) {
+    for (const mirror of mirrors) assert.equal(data.values[mirror.id], undefined, path);
   }
 });
 
