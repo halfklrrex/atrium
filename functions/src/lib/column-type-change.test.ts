@@ -407,8 +407,8 @@ describe('changeColumnType: permissions, locks and refusals', () => {
   });
 
   it('lets a server-managed or derived source become text for owners only', async () => {
-    const files = new FakeStore([{ ...textColumn(), type: 'time_tracking', settings: {} }]);
-    files.addItem('a', { budget: { duration: 0, running: false } });
+    const files = new FakeStore([{ ...textColumn(), type: 'button', settings: { label: 'Go' } }]);
+    files.addItem('a', { budget: {} });
     await expectCode(
       changeColumnTypeLogic(files, EDITOR, toNumbers({ toType: 'text', toSettings: {} })),
       'permission-denied',
@@ -442,7 +442,11 @@ describe('changeColumnType: permissions, locks and refusals', () => {
       'permission-denied',
     );
     await expectCode(
-      changeColumnTypeLogic(derived, OWNER, toNumbers({ columnId: 'calc' })),
+      changeColumnTypeLogic(
+        derived,
+        OWNER,
+        toNumbers({ columnId: 'calc', toType: 'formula', toSettings: { expression: '1' } }),
+      ),
       'failed-precondition',
     );
     const toText = await changeColumnTypeLogic(

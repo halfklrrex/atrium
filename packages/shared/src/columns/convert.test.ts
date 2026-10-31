@@ -413,8 +413,123 @@ describe('columnTypeChangeSupport', () => {
     expect(columnTypeChangeSupport('people', 'text').warning).toBeUndefined();
     expect(columnTypeChangeSupport('files', 'text')).toEqual({ allowed: true, ownerOnly: true });
     expect(columnTypeChangeSupport('formula', 'text')).toEqual({ allowed: true, ownerOnly: true });
-    expect(columnTypeChangeSupport('formula', 'numbers').allowed).toBe(false);
     expect(columnTypeChangeSupport('files', 'status').allowed).toBe(false);
+    expect(columnTypeChangeSupport('button', 'numbers').allowed).toBe(false);
+  });
+
+  it('derived and server-managed sources get the targets that can hold what they show', () => {
+    for (const to of ['numbers', 'date', 'status', 'checkbox', 'location', 'long_text']) {
+      expect(columnTypeChangeSupport('formula', to)).toEqual({ allowed: true, ownerOnly: true });
+    }
+    expect(columnTypeChangeSupport('time_tracking', 'numbers').allowed).toBe(true);
+    expect(columnTypeChangeSupport('time_tracking', 'date').allowed).toBe(false);
+    expect(columnTypeChangeSupport('creation_log', 'date').allowed).toBe(true);
+    expect(columnTypeChangeSupport('last_updated', 'date').allowed).toBe(true);
+    expect(columnTypeChangeSupport('files', 'long_text').allowed).toBe(true);
+    // Never into a derived or server-managed type, nor between two of them.
+    for (const from of ['formula', 'mirror', 'progress', 'files', 'time_tracking', 'button']) {
+      for (const to of ['formula', 'progress', 'mirror', 'files', 'button', 'time_tracking']) {
+        if (from !== to) expect(columnTypeChangeSupport(from, to).allowed).toBe(false);
+      }
+    }
+  });
+
+  it('newer writable types offer every parsed target', () => {
+    for (const from of ['location', 'country', 'hour', 'week', 'world_clock', 'vote']) {
+      expect(columnTypeChangeSupport(from, 'text')).toEqual({ allowed: true });
+      expect(columnTypeChangeSupport(from, 'long_text')).toEqual({ allowed: true });
+    }
+    for (const to of ['location', 'country', 'hour', 'world_clock']) {
+      expect(columnTypeChangeSupport('text', to)).toEqual({ allowed: true });
+    }
+    expect(columnTypeChangeSupport('dependency', 'text').warning).toBeTruthy();
+  });
+});
+
+describe('newer types', () => {
+  it('location <-> text', () => {
+    expect(
+      ok(convertValue(col('location'), 'text', {}, { lat: 1, lng: 2, address: 'Main St' })),
+    ).toBe('Main St');
+    expect(ok(convertValue(col('location'), 'long_text', {}, { lat: 1.5, lng: -2 }))).toEqual({
+      text: '1.5, -2',
+    });
+    expect(ok(convertValue(col('text'), 'location', {}, '40.7, -74.0'))).toEqual({
+      lat: 40.7,
+      lng: -74,
+    });
+    expect(convertValue(col('text'), 'location', {}, '95, 10').ok).toBe(false);
+    expect(convertValue(col('text'), 'location', {}, 'Main St').ok).toBe(false);
+    // Round trip through text keeps the point when there is no address.
+    const text = ok(convertValue(col('location'), 'text', {}, { lat: 12.5, lng: 99 })) as string;
+    expect(ok(convertValue(col('text'), 'location', {}, text))).toEqual({ lat: 12.5, lng: 99 });
+  });
+
+  it('country, hour and world clock from text', () => {
+    expect(ok(convertValue(col('text'), 'country', {}, 'fr'))).toMatchObject({ countryCode: 'FR' });
+    expect(ok(convertValue(col('text'), 'country', {}, 'Japan'))).toMatchObject({
+      countryCode: 'JP',
+    });
+    expect(convertValue(col('text'), 'country', {}, 'Atlantis').ok).toBe(false);
+    expect(ok(convertValue(col('text'), 'hour', {}, '2:30 PM'))).toEqual({ hour: 14, minute: 30 });
+    expect(convertValue(col('text'), 'hour', {}, 'noon').ok).toBe(false);
+    expect(ok(convertValue(col('text'), 'world_clock', {}, 'Europe/Paris'))).toEqual({
+      timezone: 'Europe/Paris',
+    });
+    const clock = ok(
+      convertValue(col('world_clock'), 'text', {}, { timezone: 'Europe/Paris' }),
+    ) as string;
+    expect(ok(convertValue(col('text'), 'world_clock', {}, clock))).toEqual({
+      timezone: 'Europe/Paris',
+    });
+    expect(convertValue(col('text'), 'world_clock', {}, 'Mars/Base').ok).toBe(false);
+  });
+
+  it('vote, week and hour convert to text and numbers', () => {
+    expect(ok(convertValue(col('vote'), 'numbers', {}, { votersIds: ['a', 'b'] }))).toBe(2);
+    expect(ok(convertValue(col('hour'), 'text', {}, { hour: 9, minute: 5 }))).toBe('09:05');
+  });
+
+  it('formula, progress and mirror results become numbers, dates and labels', () => {
+    expect(ok(convertValue(col('progress'), 'numbers', {}, { progress: 40 }))).toBe(40);
+    expect(ok(convertValue(col('auto_number'), 'numbers', {}, { auto_number: 7 }))).toBe(7);
+    expect(ok(convertValue(col('formula'), 'numbers', {}, '12.5'))).toBe(12.5);
+    expect(ok(convertValue(col('formula'), 'date', {}, '2026-03-04'))).toEqual({
+      date: '2026-03-04',
+    });
+    expect(ok(convertValue(col('formula'), 'status', defaults('status'), 'Done'))).toEqual(
+      expect.objectContaining({ index: expect.any(Number) }),
+    );
+    expect(convertValue(col('formula'), 'numbers', {}, 'abc').ok).toBe(false);
+  });
+
+  it('time tracking -> numbers is the total in seconds; files and button stay text', () => {
+    const value = {
+      duration: 5400,
+      running: false,
+      history: [{ id: 's1', startedAt: 1000, endedAt: 5401000, duration: 5400, userId: 'u1' }],
+    };
+    expect(ok(convertValue(col('time_tracking'), 'numbers', {}, value))).toBe(5400);
+    expect(columnTypeChangeSupport('button', 'numbers').allowed).toBe(false);
+    expect(columnTypeChangeSupport('files', 'numbers').allowed).toBe(false);
+  });
+
+  it('creation log and last updated -> date take the UTC day', () => {
+    expect(
+      ok(convertValue(col('creation_log'), 'date', {}, { created_at: '2026-03-04T23:30:00.000Z' })),
+    ).toEqual({ date: '2026-03-04' });
+    expect(
+      ok(convertValue(col('last_updated'), 'date', {}, { updated_at: '2026-05-06T01:00:00.000Z' })),
+    ).toEqual({ date: '2026-05-06' });
+  });
+
+  it('reports converted and cleared counts for a mixed column', () => {
+    const plan = planColumnConversion(col('text'), 'location', {}, [
+      { id: 'a', value: '1, 2' },
+      { id: 'b', value: 'somewhere' },
+      { id: 'c', value: '-33.9, 151.2' },
+    ]);
+    expect(plan).toMatchObject({ converted: 2, cleared: 1 });
   });
 });
 
