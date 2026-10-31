@@ -11,7 +11,7 @@ import {
   type ColumnContext,
 } from './index';
 
-// Test-only types: no production column type is derived yet.
+// Test-only types (alongside the production derived types).
 const itemIdLike = defineColumnType<Record<string, never>, string>({
   type: 'test_item_id',
   label: 'Test item ID',
@@ -72,7 +72,15 @@ describe('derived column framework', () => {
         .filter((t) => t.derived)
         .map((t) => t.type)
         .sort(),
-    ).toEqual(['auto_number', 'creation_log', 'formula', 'item_id', 'last_updated', 'progress']);
+    ).toEqual([
+      'auto_number',
+      'creation_log',
+      'formula',
+      'item_id',
+      'last_updated',
+      'mirror',
+      'progress',
+    ]);
     expect(columnRegistry.derivedColumnIds([def('text'), def('status', 'c2')])).toEqual([]);
     expect(
       columnRegistry.derivedColumnIds([def('text'), def('progress', 'c1'), def('item_id', 'c2')]),
@@ -108,6 +116,17 @@ describe('derived column framework', () => {
     ];
     expect(registry.derivedColumnIds(columns)).toEqual(['b', 'd']);
     expect(registry.derivedColumnIds([])).toEqual([]);
+  });
+});
+
+describe('mirror is derived', () => {
+  it('refuses a client value and computes nothing synchronously', () => {
+    const mirror = def('mirror', 'm1', { relationColumnId: 'rel' });
+    const result = columnRegistry.validateCell(mirror, { mirroredValues: [], displayValue: '' });
+    expect(result).toEqual({ ok: false, message: DERIVED_WRITE_MESSAGE });
+    expect(columnRegistry.isDerived('mirror')).toBe(true);
+    expect(columnRegistry.computeValue(mirror, ctxFor([mirror]))).toBeNull();
+    expect(columnRegistry.derivedColumnIds([mirror, def('text', 't1')])).toEqual(['m1']);
   });
 });
 
