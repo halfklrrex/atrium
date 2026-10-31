@@ -1,4 +1,5 @@
 import {
+  defaultChartSettings,
   defaultCalendarSettings,
   defaultKanbanSettings,
   defaultViewSettings,
@@ -190,6 +191,23 @@ describe('calendar and timeline view state', () => {
     store().setTypeSettings('b1', 'timeline', { zoom: 'days' });
     expect(isViewDirty(store().views[viewKey('b1', 't')])).toBe(true);
     expect(currentViewState('b1').timeline?.showLegend).toBe(true);
+  });
+
+  it('keeps chart settings: starts from saved ones, counts changes, saves and discards them', () => {
+    const saved = (): ViewSettings => ({
+      ...defaultViewSettings(),
+      chart: { ...defaultChartSettings(), chartType: 'donut' },
+    });
+    store().syncView('b1', 'ch', saved());
+    expect(currentViewState('b1').chart?.chartType).toBe('donut');
+    expect(isViewDirty(store().views[viewKey('b1', 'ch')])).toBe(false);
+    store().setTypeSettings('b1', 'chart', { showValues: false });
+    expect(isViewDirty(store().views[viewKey('b1', 'ch')])).toBe(true);
+    expect(settingsFromState(currentViewState('b1'), saved()).chart?.showValues).toBe(false);
+    store().discardChanges('b1');
+    expect(currentViewState('b1').chart?.showValues).toBe(true);
+    store().syncView('b1', 'other', null);
+    expect(settingsFromState(currentViewState('b1')).chart).toBeUndefined();
   });
 
   it('saves each type with the rest and never leaks it into another view', () => {

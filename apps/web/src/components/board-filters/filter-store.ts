@@ -4,12 +4,14 @@ import {
   MAIN_VIEW_ID,
   createDefaultFilterState,
   defaultCalendarSettings,
+  defaultChartSettings,
   defaultKanbanSettings,
   defaultTimelineViewSettings,
   defaultViewSettings,
   type BoardFilterState,
   type ColumnDef,
   type CalendarSettings,
+  type ChartSettings,
   type KanbanSettings,
   type TimelineViewSettings,
   type FilterCondition,
@@ -29,14 +31,16 @@ export interface TypeSettingsMap {
   kanban: KanbanSettings;
   calendar: CalendarSettings;
   timeline: TimelineViewSettings;
+  chart: ChartSettings;
 }
 export type SettingsViewType = keyof TypeSettingsMap;
 
-const TYPE_KEYS: readonly SettingsViewType[] = ['kanban', 'calendar', 'timeline'];
+const TYPE_KEYS: readonly SettingsViewType[] = ['kanban', 'calendar', 'timeline', 'chart'];
 const TYPE_DEFAULTS: { [K in SettingsViewType]: () => TypeSettingsMap[K] } = {
   kanban: defaultKanbanSettings,
   calendar: defaultCalendarSettings,
   timeline: defaultTimelineViewSettings,
+  chart: defaultChartSettings,
 };
 
 /** What a view remembers and what the toolbar can change without saving: filters plus Hide. */
@@ -49,6 +53,8 @@ export interface ViewState {
   calendar: CalendarSettings | null;
   /** Timeline settings; `null` for a view that has none. */
   timeline: TimelineViewSettings | null;
+  /** Chart settings; `null` for a view that has none. */
+  chart: ChartSettings | null;
 }
 
 /** `saved` mirrors the stored view; `current` is what the user sees (and may have changed). */
@@ -77,17 +83,25 @@ export function stateFromSettings(settings: ViewSettings | null | undefined): Vi
     kanban: s.kanban ? structuredClone(s.kanban) : null,
     calendar: s.calendar ? structuredClone(s.calendar) : null,
     timeline: s.timeline ? structuredClone(s.timeline) : null,
+    chart: s.chart ? structuredClone(s.chart) : null,
   };
 }
 
 /** The part of a view state that is saved (search text is per session and never saved). */
 export function settingsFromState(state: ViewState, base?: ViewSettings): ViewSettings {
-  const { kanban: _k, calendar: _c, timeline: _t, ...rest } = base ?? defaultViewSettings();
+  const {
+    kanban: _k,
+    calendar: _c,
+    timeline: _t,
+    chart: _ch,
+    ...rest
+  } = base ?? defaultViewSettings();
   return {
     ...rest,
     ...(state.kanban ? { kanban: state.kanban } : {}),
     ...(state.calendar ? { calendar: state.calendar } : {}),
     ...(state.timeline ? { timeline: state.timeline } : {}),
+    ...(state.chart ? { chart: state.chart } : {}),
     filter: {
       personIds: state.filter.personIds,
       filterGroup: state.filter.filterGroup,
@@ -118,6 +132,7 @@ const emptyState = (): ViewState => ({
   kanban: null,
   calendar: null,
   timeline: null,
+  chart: null,
 });
 
 interface FilterStoreState {

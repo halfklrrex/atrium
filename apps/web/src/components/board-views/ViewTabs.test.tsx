@@ -151,6 +151,8 @@ describe('view tabs', () => {
     expect(calendar?.className).not.toMatch(/disabled/);
     const timeline = items.find((item) => item.textContent === 'Timeline');
     expect(timeline?.className).not.toMatch(/disabled/);
+    const chart = items.find((item) => item.textContent === 'Chart');
+    expect(chart?.className).not.toMatch(/disabled/);
     const gantt = items.find((item) => item.textContent === 'Gantt');
     expect(gantt?.className).toMatch(/disabled/);
     const table = items.find((item) => item.textContent === 'Table');

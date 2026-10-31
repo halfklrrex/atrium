@@ -700,7 +700,10 @@ export function findColumnDependents(
       s.calendar?.columnId === columnId ||
       s.calendar?.colorBy === columnId ||
       s.timeline?.columnId === columnId ||
-      s.timeline?.colorBy === columnId
+      s.timeline?.colorBy === columnId ||
+      s.chart?.xColumnId === columnId ||
+      s.chart?.stackColumnId === columnId ||
+      s.chart?.yColumnId === columnId
     ) {
       found.push({ kind: 'view', title: view.name });
     }

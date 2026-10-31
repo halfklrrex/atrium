@@ -722,6 +722,58 @@ export async function removeTimelineView(): Promise<void> {
     .delete();
 }
 
+/** Id of the shared Chart view the Chart screens add to the roadmap board (and remove again). */
+export const CHART_VIEW = 'view-roadmap-chart';
+
+/** A shared Chart view on the roadmap board: a bar chart of the items by Status, or a donut by group. */
+export async function addChartView(type: 'bar' | 'donut'): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(CHART_VIEW)
+    .set({
+      name: 'Chart',
+      type: 'chart',
+      position: 'a1',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        chart: {
+          chartType: type,
+          xColumnId: type === 'bar' ? 'status' : '__group',
+          dateBucket: 'month',
+          stackColumnId: null,
+          yMode: 'count',
+          yColumnId: null,
+          sortBy: 'board',
+          showLegend: true,
+          showValues: true,
+          showEmpty: true,
+        },
+      },
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeChartView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(CHART_VIEW)
+    .delete();
+}
+
 /** Forget every recently visited board, so Home shows its "No boards visited yet" state. */
 export async function clearRecents(): Promise<void> {
   const stale = await adminDb()

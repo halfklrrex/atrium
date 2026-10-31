@@ -1,5 +1,6 @@
 import {
   defaultCalendarSettings,
+  defaultChartSettings,
   defaultKanbanSettings,
   defaultTimelineViewSettings,
   defaultViewSettings,
@@ -32,6 +33,7 @@ const LABELS: Record<ViewType, string> = {
   kanban: 'Kanban',
   calendar: 'Calendar',
   timeline: 'Timeline',
+  chart: 'Chart',
 };
 
 /** The settings a new view of a type starts with. */
@@ -46,6 +48,8 @@ function newViewSettings(type: ViewType): ViewSettings {
       return { ...base, calendar: defaultCalendarSettings() };
     case 'timeline':
       return { ...base, timeline: defaultTimelineViewSettings() };
+    case 'chart':
+      return { ...base, chart: defaultChartSettings() };
     default: {
       const never: never = type;
       return never;
