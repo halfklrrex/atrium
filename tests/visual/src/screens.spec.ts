@@ -182,7 +182,7 @@ for (const theme of ['light', 'dark'] as const) {
       await addCalendarView('week');
       try {
         await page.goto(`/boards/${IDS.roadmap}/views/${CALENDAR_VIEW}`);
-        await calendarReady(page, 'Oct 19 � 25, 2026', 3);
+        await calendarReady(page, 'Oct 19 \u2013 25, 2026', 3);
         await shoot(page, `board-calendar-week-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeCalendarView();
