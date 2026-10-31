@@ -21,6 +21,7 @@ import {
   type ColumnTypeChangeStore,
   type MigrationItem,
   type SnapshotEntry,
+  type ColumnWrite,
   type SnapshotMeta,
   type ValueWrite,
 } from './column-type-change';
@@ -47,6 +48,8 @@ class FakeStore implements ColumnTypeChangeStore {
   clock = 1_000_000;
   ids = 0;
   ledger: string[] = [];
+  boardWrites: Array<{ updatedBy: string }> = [];
+  activity: Array<ColumnWrite['activity'] & { actor: string }> = [];
   counts: Record<string, number> = {};
   crashAt: { op: string; nth: number } | null = null;
   /** When set, `writeSnapshotChunk` silently drops its data (a failed backup the code must notice). */
@@ -122,12 +125,17 @@ class FakeStore implements ColumnTypeChangeStore {
     scope: ColumnScope,
     columnId: string,
     decide: (current: ColumnDef | null, board: ChangeBoardData) => ColumnDef,
-    snapshotPatch?: { snapshotId: string; patch: Partial<SnapshotMeta> },
+    snapshotPatch: { snapshotId: string; patch: Partial<SnapshotMeta> } | undefined,
+    write: ColumnWrite,
   ) {
     this.tick('updateColumn');
     const list = this.board[scope];
-    const current = list.find((c) => c.id === columnId) ?? null;
-    const next = decide(structuredClone(current), structuredClone(this.board));
+    const current = structuredClone(list.find((c) => c.id === columnId) ?? null);
+    const next = decide(current, structuredClone(this.board));
+    // Like the real transaction: returning the current def unchanged writes nothing, logs nothing.
+    if (next === current) return;
+    this.boardWrites.push({ updatedBy: write.updatedBy });
+    if (write.activity) this.activity.push({ ...write.activity, actor: write.updatedBy });
     this.board[scope] = list.map((c) => (c.id === columnId ? structuredClone(next) : c));
     if (snapshotPatch) {
       const meta = this.snapshots.get(snapshotPatch.snapshotId)!;
@@ -317,6 +325,48 @@ describe('changeColumnType: happy path', () => {
     expect(result.converted).toBe(1);
     expect(store.column('subitemColumns', 'sub').type).toBe('numbers');
     expect(store.valuesOf('sub')).toEqual({ child: 7, parent: 'parent value' });
+  });
+});
+
+describe('changeColumnType: activity and updatedBy', () => {
+  it('logs one column_type_changed entry with the final write, and sets updatedBy on every board write', async () => {
+    const store = numbersBoard(3);
+    await changeColumnTypeLogic(store, EDITOR, toNumbers());
+    expect(store.activity).toEqual([
+      {
+        kind: 'column_type_changed',
+        actor: EDITOR,
+        fields: {
+          columnId: 'budget',
+          columnTitle: 'Budget',
+          columnType: 'numbers',
+          data: { fromText: 'Text', toText: 'Numbers' },
+        },
+      },
+    ]);
+    // "Mark busy" and "finish" both stamp the caller.
+    expect(store.boardWrites).toEqual([{ updatedBy: EDITOR }, { updatedBy: EDITOR }]);
+  });
+
+  it('logs nothing when the change is refused', async () => {
+    const store = numbersBoard(3);
+    await expectCode(changeColumnTypeLogic(store, 'stranger', toNumbers()), 'permission-denied');
+    expect(store.activity).toEqual([]);
+    expect(store.boardWrites).toEqual([]);
+  });
+
+  it('logs a column_type_reverted entry for an undo', async () => {
+    const store = numbersBoard(3);
+    const { snapshotId } = await changeColumnTypeLogic(store, EDITOR, toNumbers());
+    await revertColumnTypeLogic(store, EDITOR, { boardId: 'b1', snapshotId });
+    expect(store.activity.map((a) => a?.kind)).toEqual([
+      'column_type_changed',
+      'column_type_reverted',
+    ]);
+    expect(store.activity[1]).toMatchObject({
+      actor: EDITOR,
+      fields: { columnType: 'text', data: { fromText: 'Numbers', toText: 'Text' } },
+    });
   });
 });
 

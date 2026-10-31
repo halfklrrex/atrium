@@ -69,15 +69,19 @@ describe('clients cannot write sharing fields on an existing board', () => {
           access: { [USERS.owner]: 'owner', [USERS.viewer]: 'editor' },
           accessUids: [USERS.owner, USERS.viewer],
           updatedAt: serverTimestamp(),
+          updatedBy: USERS.owner,
         }),
       );
       for (const kind of ['main', 'private', 'shareable'].filter((k) => k !== currentKind)) {
-        await assertFails(updateDoc(ref, { kind, updatedAt: serverTimestamp() }));
+        await assertFails(
+          updateDoc(ref, { kind, updatedAt: serverTimestamp(), updatedBy: USERS.owner }),
+        );
       }
       await assertFails(
         updateDoc(ref, {
           accessUids: [USERS.owner, USERS.outsider],
           updatedAt: serverTimestamp(),
+          updatedBy: USERS.owner,
         }),
       );
     }
@@ -89,6 +93,7 @@ describe('clients cannot write sharing fields on an existing board', () => {
         updateDoc(doc(as(uid), 'boards', MAIN_BOARD), {
           kind: 'private',
           updatedAt: serverTimestamp(),
+          updatedBy: uid,
         }),
       );
     }
@@ -99,6 +104,7 @@ describe('clients cannot write sharing fields on an existing board', () => {
       updateDoc(doc(as(USERS.owner), 'boards', PRIVATE_BOARD), {
         name: 'Renamed',
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
       }),
     );
   });
@@ -161,11 +167,16 @@ describe('an explicit viewer entry on a main board stays read-only', () => {
       updateDoc(doc(db, 'boards', VIEWER_RESTRICTED), {
         name: 'Nope',
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
     // the same member is still an editor of the other main board
     await assertSucceeds(
-      updateDoc(doc(db, 'boards', MAIN_BOARD), { name: 'Fine', updatedAt: serverTimestamp() }),
+      updateDoc(doc(db, 'boards', MAIN_BOARD), {
+        name: 'Fine',
+        updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
+      }),
     );
   });
 });

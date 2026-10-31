@@ -22,6 +22,7 @@ import {
   resolveBoardRole,
 } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
+import type { ActivityFields } from './activity';
 
 /**
  * `changeColumnType` and `revertColumnType` (P2 "Change a column's type", spec
@@ -95,6 +96,17 @@ export interface ValueWrite {
   value: unknown | typeof DELETE_VALUE;
 }
 
+/**
+ * What the board write of `updateColumn` carries besides the column: `updatedBy` (the caller, so the
+ * board always says who touched it last) and, for the two finishing steps, the activity entry (P4)
+ * that is written in the same transaction, and only when the column was actually changed (a retry
+ * that finds the work done logs nothing).
+ */
+export interface ColumnWrite {
+  updatedBy: string;
+  activity?: { kind: 'column_type_changed' | 'column_type_reverted'; fields: ActivityFields };
+}
+
 export interface ColumnTypeChangeStore {
   getBoard(boardId: string): Promise<ChangeBoardData | null>;
   getWorkspaceMemberRole(workspaceId: string, uid: string): Promise<WorkspaceRole | null>;
@@ -123,7 +135,8 @@ export interface ColumnTypeChangeStore {
     scope: ColumnScope,
     columnId: string,
     decide: (current: ColumnDef | null, board: ChangeBoardData) => ColumnDef,
-    snapshotPatch?: { snapshotId: string; patch: Partial<SnapshotMeta> },
+    snapshotPatch: { snapshotId: string; patch: Partial<SnapshotMeta> } | undefined,
+    write: ColumnWrite,
   ): Promise<void>;
   /** At most 400 field-path writes (`values.<columnId>`); items that no longer exist are skipped. */
   writeValues(boardId: string, columnId: string, writes: readonly ValueWrite[]): Promise<void>;
@@ -134,6 +147,9 @@ export interface ColumnTypeChangeStore {
 // ---------------------------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------------------------
+
+/** Display name of a column type for the activity log ("Status"), the id when unknown. */
+const typeLabel = (type: string): string => columnRegistry.find(type)?.label ?? type;
 
 const hasValue = (value: unknown): boolean => value !== undefined && value !== null;
 
@@ -411,26 +427,33 @@ export async function changeColumnTypeLogic(
   }
 
   // Step 3: mark the column busy.
-  await store.updateColumn(boardId, scope, columnId, (current) => {
-    if (!current) throw new HttpsError('not-found', 'Column not found on this board.');
-    if (
-      current.migrating &&
-      current.migrating.snapshotId !== snapshotId &&
-      !isStale(current, now)
-    ) {
-      throw new HttpsError('failed-precondition', 'This column is being converted right now.');
-    }
-    if (current.migrating?.kind === 'revert') {
-      throw new HttpsError('failed-precondition', 'An undo is in progress on this column.');
-    }
-    if (current.type !== fromColumn.type) {
-      throw new HttpsError(
-        'failed-precondition',
-        'The column changed since this conversion started.',
-      );
-    }
-    return { ...current, migrating: { snapshotId, startedAt: now, kind: 'change' } };
-  });
+  await store.updateColumn(
+    boardId,
+    scope,
+    columnId,
+    (current) => {
+      if (!current) throw new HttpsError('not-found', 'Column not found on this board.');
+      if (
+        current.migrating &&
+        current.migrating.snapshotId !== snapshotId &&
+        !isStale(current, now)
+      ) {
+        throw new HttpsError('failed-precondition', 'This column is being converted right now.');
+      }
+      if (current.migrating?.kind === 'revert') {
+        throw new HttpsError('failed-precondition', 'An undo is in progress on this column.');
+      }
+      if (current.type !== fromColumn.type) {
+        throw new HttpsError(
+          'failed-precondition',
+          'The column changed since this conversion started.',
+        );
+      }
+      return { ...current, migrating: { snapshotId, startedAt: now, kind: 'change' } };
+    },
+    undefined,
+    { updatedBy: uid },
+  );
 
   // Step 4: convert.
   await writeInBatches(
@@ -464,6 +487,18 @@ export async function changeColumnTypeLogic(
       return JSON.parse(JSON.stringify(next)) as ColumnDef;
     },
     { snapshotId, patch: { status: 'applied', appliedAt: store.nowMs() } },
+    {
+      updatedBy: uid,
+      activity: {
+        kind: 'column_type_changed',
+        fields: {
+          columnId,
+          columnTitle: column.title,
+          columnType: toType,
+          data: { fromText: typeLabel(fromColumn.type), toText: typeLabel(toType) },
+        },
+      },
+    },
   );
 
   return result;
@@ -529,16 +564,23 @@ export async function revertColumnTypeLogic(
   const backup = new Map(entries.map((e) => [e.itemId, e.value]));
   const items = (await store.listItems(boardId)).filter((i) => inScope(i, scope));
 
-  await store.updateColumn(boardId, scope, columnId, (current) => {
-    if (!current) throw new HttpsError('not-found', 'Column not found on this board.');
-    if (current.migrating && current.migrating.snapshotId !== snapshotId) {
-      throw new HttpsError(
-        'failed-precondition',
-        'This column is being converted by another change.',
-      );
-    }
-    return { ...current, migrating: { snapshotId, startedAt: now, kind: 'revert' } };
-  });
+  await store.updateColumn(
+    boardId,
+    scope,
+    columnId,
+    (current) => {
+      if (!current) throw new HttpsError('not-found', 'Column not found on this board.');
+      if (current.migrating && current.migrating.snapshotId !== snapshotId) {
+        throw new HttpsError(
+          'failed-precondition',
+          'This column is being converted by another change.',
+        );
+      }
+      return { ...current, migrating: { snapshotId, startedAt: now, kind: 'revert' } };
+    },
+    undefined,
+    { updatedBy: uid },
+  );
 
   const writes: ValueWrite[] = [];
   let restored = 0;
@@ -580,6 +622,18 @@ export async function revertColumnTypeLogic(
       return JSON.parse(JSON.stringify(next)) as ColumnDef;
     },
     { snapshotId, patch: { status: 'reverted', revertedAt: store.nowMs() } },
+    {
+      updatedBy: uid,
+      activity: {
+        kind: 'column_type_reverted',
+        fields: {
+          columnId,
+          columnTitle: column.title,
+          columnType: from.type,
+          data: { fromText: typeLabel(snapshot.toType), toText: typeLabel(from.type) },
+        },
+      },
+    },
   );
 
   return { restored, removed, snapshotId, columnId };

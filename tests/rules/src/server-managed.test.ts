@@ -144,18 +144,24 @@ describe('clients cannot change serverManagedColumnIds', () => {
   it('denies every change, including by the board owner', async () => {
     for (const uid of [USERS.owner, USERS.admin, USERS.member]) {
       await assertFails(
-        updateDoc(boardRef(uid), { serverManagedColumnIds: [], updatedAt: serverTimestamp() }),
+        updateDoc(boardRef(uid), {
+          serverManagedColumnIds: [],
+          updatedAt: serverTimestamp(),
+          updatedBy: uid,
+        }),
       );
       await assertFails(
         updateDoc(boardRef(uid), {
           serverManagedColumnIds: ['files', 'timer', 'note'],
           updatedAt: serverTimestamp(),
+          updatedBy: uid,
         }),
       );
       await assertFails(
         updateDoc(boardRef(uid), {
           serverManagedColumnIds: deleteField(),
           updatedAt: serverTimestamp(),
+          updatedBy: uid,
         }),
       );
     }
@@ -167,6 +173,7 @@ describe('clients cannot change serverManagedColumnIds', () => {
         updateDoc(boardRef(USERS.owner, id), {
           serverManagedColumnIds: ['x'],
           updatedAt: serverTimestamp(),
+          updatedBy: USERS.owner,
         }),
       );
     }
@@ -174,7 +181,11 @@ describe('clients cannot change serverManagedColumnIds', () => {
 
   it('still denies changing derivedColumnIds (FW1) and lets editors change columns', async () => {
     await assertFails(
-      updateDoc(boardRef(USERS.owner), { derivedColumnIds: [], updatedAt: serverTimestamp() }),
+      updateDoc(boardRef(USERS.owner), {
+        derivedColumnIds: [],
+        updatedAt: serverTimestamp(),
+        updatedBy: USERS.owner,
+      }),
     );
     await assertSucceeds(
       updateDoc(boardRef(USERS.member), {
@@ -183,6 +194,7 @@ describe('clients cannot change serverManagedColumnIds', () => {
           { id: 'extra', type: 'files', title: 'More', position: 'a4', settings: {} },
         ],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
   });
@@ -342,21 +354,26 @@ describe('boards without serverManagedColumnIds', () => {
   it('can still be edited by an editor', async () => {
     for (const id of [FW1_BOARD, LEGACY_BOARD]) {
       await assertSucceeds(
-        updateDoc(boardRef(USERS.member, id), { name: 'Renamed', updatedAt: serverTimestamp() }),
+        updateDoc(boardRef(USERS.member, id), {
+          name: 'Renamed',
+          updatedAt: serverTimestamp(),
+          updatedBy: USERS.member,
+        }),
       );
     }
   });
 });
 
-describe('boards/{id}/activity is Functions-only', () => {
+describe('boards/{id}/activity is read-only for clients', () => {
   const activityRef = (uid: string, id = 'a1') =>
     doc(as(uid), 'boards', MANAGED_BOARD, 'activity', id);
 
-  it('denies every client read, including the board owner', async () => {
-    for (const uid of [USERS.owner, USERS.admin, USERS.member, USERS.viewer, USERS.outsider]) {
-      await assertFails(getDoc(activityRef(uid)));
-      await assertFails(getDocs(collection(as(uid), 'boards', MANAGED_BOARD, 'activity')));
+  it('lets board readers read it and refuses outsiders (full matrix: activity.test.ts)', async () => {
+    for (const uid of [USERS.owner, USERS.admin, USERS.member, USERS.viewer]) {
+      await assertSucceeds(getDoc(activityRef(uid)));
+      await assertSucceeds(getDocs(collection(as(uid), 'boards', MANAGED_BOARD, 'activity')));
     }
+    await assertFails(getDoc(activityRef(USERS.outsider)));
   });
 
   it('denies every client create, update and delete', async () => {

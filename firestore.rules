@@ -277,7 +277,7 @@ service cloud.firestore {
                                  'accessUids', 'position', 'icon', 'columns', 'subitemColumns',
                                  'groups', 'itemTerminology', 'state', 'deletedAt', 'createdAt',
                                  'createdBy', 'updatedAt', 'derivedColumnIds',
-                                 'serverManagedColumnIds', 'columnLocks'])
+                                 'serverManagedColumnIds', 'columnLocks', 'updatedBy'])
           && d.keys().hasAll(['workspaceId', 'folderId', 'name', 'description', 'kind', 'access',
                               'accessUids', 'position', 'icon', 'columns', 'subitemColumns',
                               'groups', 'itemTerminology', 'state', 'deletedAt', 'createdAt',
@@ -298,6 +298,7 @@ service cloud.firestore {
           && d.derivedColumnIds == []
           && d.serverManagedColumnIds == []
           && (!('columnLocks' in d) || d.columnLocks == [])
+          && (!('updatedBy' in d) || d.updatedBy == uid())
           && d.itemTerminology is string && d.itemTerminology.size() >= 1
           && d.state == 'active'
           && d.deletedAt == null
@@ -312,13 +313,16 @@ service cloud.firestore {
       // not even an owner can change them from a client; workspaceId, `icon`, `derivedColumnIds` and
       // `serverManagedColumnIds` (both maintained by the onBoardColumnsWritten function) and audit
       // fields are immutable for clients. `accessUids` must always be the key set of `access`.
+      // Every client update must also send `updatedBy == uid()` (P4 activity log): the board trigger
+      // attributes column and group changes to it.
       function validBoardUpdate() {
         let changed = request.resource.data.diff(resource.data).affectedKeys();
         let role = boardRole(resource.data);
         return role in ['owner', 'editor']
           && changed.hasOnly(['folderId', 'position', 'name', 'description', 'columns',
                               'subitemColumns', 'groups', 'itemTerminology', 'state', 'deletedAt',
-                              'columnLocks', 'updatedAt'])
+                              'columnLocks', 'updatedAt', 'updatedBy'])
+          && request.resource.data.get('updatedBy', null) == uid()
           && (!changed.hasAny(['state', 'deletedAt', 'columnLocks']) || role == 'owner')
           && (!changed.hasAny(['columnLocks'])
               || (request.resource.data.get('columnLocks', null) is list
@@ -356,12 +360,15 @@ service cloud.firestore {
       allow delete: if false;
 
       // -------------------------------------------------------------------
-      // boards/{boardId}/activity/{eventId}: append-only audit log, written and read only by Cloud
-      // Functions (architecture section 5.6). Clients get nothing, not even for board owners; stated
-      // explicitly so a later change to the default deny can't open it by accident.
+      // boards/{boardId}/activity/{eventId}: append-only audit log (architecture section 5.6),
+      // written only by Cloud Functions. Everyone who can read the board reads all of its activity
+      // (owner, editor, viewer by their effective role), so private boards stay private through
+      // `canReadBoard`. Clients never write, not even board owners; stated explicitly so a later
+      // change to the default deny can't open it by accident.
       // -------------------------------------------------------------------
       match /activity/{eventId} {
-        allow read, write: if false;
+        allow read: if signedIn() && canReadBoard(boardId);
+        allow write: if false;
       }
 
       // -------------------------------------------------------------------

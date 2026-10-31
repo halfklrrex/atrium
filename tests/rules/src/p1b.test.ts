@@ -231,6 +231,7 @@ describe('board structure: columns and groups', () => {
           columns: [...(snap.data()?.columns ?? []), column],
           groups: [...(snap.data()?.groups ?? []), group],
           updatedAt: serverTimestamp(),
+          updatedBy: USERS.member,
         });
       }),
     );
@@ -247,6 +248,7 @@ describe('board structure: columns and groups', () => {
       updateDoc(doc(as(USERS.member), 'boards', 'wide'), {
         columns: [{ ...column, width: 220 }],
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
   });
@@ -254,10 +256,14 @@ describe('board structure: columns and groups', () => {
   it('denies structure changes by viewers and outsiders', async () => {
     for (const uid of [USERS.viewer, USERS.outsider]) {
       await assertFails(
-        updateDoc(boardRef(uid), { columns: [column], updatedAt: serverTimestamp() }),
+        updateDoc(boardRef(uid), {
+          columns: [column],
+          updatedAt: serverTimestamp(),
+          updatedBy: uid,
+        }),
       );
       await assertFails(
-        updateDoc(boardRef(uid), { groups: [group], updatedAt: serverTimestamp() }),
+        updateDoc(boardRef(uid), { groups: [group], updatedAt: serverTimestamp(), updatedBy: uid }),
       );
     }
   });
@@ -268,6 +274,7 @@ describe('board structure: columns and groups', () => {
         state: 'deleted',
         deletedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
       }),
     );
   });

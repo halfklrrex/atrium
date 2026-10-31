@@ -12,6 +12,7 @@ import {
   type WorkspaceRole,
 } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { actorOf, activityDoc, type MemberProfile, type NewActivity } from './activity';
 
 export interface SharingBoard {
   workspaceId: string;
@@ -23,13 +24,26 @@ export interface SharingBoard {
 /**
  * The slice of a Firestore transaction the board sharing callables need, so who may do what can be
  * unit tested with an in-memory fake. Contract: reads happen before the first write, and
- * `writeSharing` sets `kind`, `access`, `accessUids` (the key set of `access`) and `updatedAt` together.
+ * `writeSharing` sets `kind`, `access`, `accessUids` (the key set of `access`), `updatedAt` and
+ * `updatedBy` together. The activity entries (P4) are written in the same transaction, after the
+ * member profiles they name were read (so the profile read comes before `writeSharing`).
  */
 export interface BoardSharingTx {
   getBoard(boardId: string): Promise<SharingBoard | null>;
   /** `workspaces/{id}.roles`, or null when the workspace does not exist. */
   getWorkspaceRoles(workspaceId: string): Promise<Record<string, WorkspaceRole> | null>;
-  writeSharing(boardId: string, next: { kind: BoardKind; access: Record<string, BoardRole> }): void;
+  writeSharing(
+    boardId: string,
+    next: { kind: BoardKind; access: Record<string, BoardRole> },
+    updatedBy: string,
+  ): void;
+  /** Display names and photos of the workspace members that have a member document. */
+  getMemberProfiles(
+    workspaceId: string,
+    uids: readonly string[],
+  ): Promise<Map<string, MemberProfile>>;
+  /** Creates the activity entries of this change (P4). */
+  appendActivity(boardId: string, docs: readonly NewActivity[]): void;
 }
 
 const denied = (message: string, reason?: string) =>
@@ -107,7 +121,18 @@ export async function setBoardAccessInTransaction(
   if (board.kind !== 'main' && liveOwners(next, roles).length === 0) {
     throw refused(LAST_OWNER_MESSAGE, 'last_owner');
   }
-  tx.writeSharing(req.boardId, { kind: board.kind, access: next });
+  const profiles = await tx.getMemberProfiles(board.workspaceId, [actorUid, req.uid]);
+  tx.writeSharing(req.boardId, { kind: board.kind, access: next }, actorUid);
+  tx.appendActivity(req.boardId, [
+    activityDoc(actorOf(actorUid, profiles.get(actorUid)), 'board_access_changed', {
+      data: {
+        targetUid: req.uid,
+        targetName: profiles.get(req.uid)?.name || 'Someone',
+        fromRole: board.access[req.uid] ?? null,
+        toRole: req.role,
+      },
+    }),
+  ]);
   return result(board.kind, next);
 }
 
@@ -123,7 +148,13 @@ export async function setBoardKindInTransaction(
 
   const access = { ...board.access };
   if (req.kind !== 'main') access[actorUid] = 'owner';
-  tx.writeSharing(req.boardId, { kind: req.kind, access });
+  const profiles = await tx.getMemberProfiles(board.workspaceId, [actorUid]);
+  tx.writeSharing(req.boardId, { kind: req.kind, access }, actorUid);
+  tx.appendActivity(req.boardId, [
+    activityDoc(actorOf(actorUid, profiles.get(actorUid)), 'board_kind_changed', {
+      data: { fromKind: board.kind, toKind: req.kind },
+    }),
+  ]);
   return result(req.kind, access);
 }
 
@@ -142,6 +173,12 @@ export async function leaveBoardInTransaction(
   const next = { ...board.access };
   delete next[actorUid];
   if (liveOwners(next, roles).length === 0) throw refused(LAST_OWNER_MESSAGE, 'last_owner');
-  tx.writeSharing(req.boardId, { kind: board.kind, access: next });
+  const profiles = await tx.getMemberProfiles(board.workspaceId, [actorUid]);
+  tx.writeSharing(req.boardId, { kind: board.kind, access: next }, actorUid);
+  tx.appendActivity(req.boardId, [
+    activityDoc(actorOf(actorUid, profiles.get(actorUid)), 'board_left', {
+      data: { fromRole: board.access[actorUid] ?? null },
+    }),
+  ]);
   return result(board.kind, next);
 }

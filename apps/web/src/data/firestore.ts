@@ -50,7 +50,7 @@ import {
   type Query,
 } from 'firebase/firestore';
 import { newSlugId } from '../lib/ids';
-import { db } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { newBoardSeedItems } from './seed-items';
 import { withoutServerColumnFields } from './server-column-fields';
 import type {
@@ -114,6 +114,16 @@ const COLLECTIONS = {
   recents: 'recents',
   notifications: 'notifications',
 } as const;
+
+/**
+ * The signed-in user's uid for the `updatedBy` stamp every board update carries (rules require it
+ * to equal the caller; the activity log attributes board changes to it).
+ */
+export function requireUid(): string {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to continue.');
+  return uid;
+}
 
 export const refs = {
   user: (uid: string): DocumentReference<UserDoc> =>
@@ -509,6 +519,7 @@ export const writes = {
     await updateDoc(doc(db, COLLECTIONS.boards, boardId), {
       ...patch,
       updatedAt: serverTimestamp(),
+      updatedBy: requireUid(),
     });
   },
 
@@ -518,6 +529,7 @@ export const writes = {
       state,
       deletedAt: state === 'deleted' ? serverTimestamp() : null,
       updatedAt: serverTimestamp(),
+      updatedBy: requireUid(),
     });
   },
 
@@ -526,6 +538,7 @@ export const writes = {
     await updateDoc(doc(db, COLLECTIONS.boards, boardId), {
       columnLocks: locked ? arrayUnion(columnId) : arrayRemove(columnId),
       updatedAt: serverTimestamp(),
+      updatedBy: requireUid(),
     });
   },
 
