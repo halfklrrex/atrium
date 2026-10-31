@@ -5,13 +5,10 @@
  */
 import {
   columnRegistry,
-  matchesFilter,
-  sortItems,
   type BoardFilterState,
   type CalendarSettings,
   type DateValue,
   type GroupDef,
-  type StatusSettings,
   type TimelineValue,
 } from '@atrium/shared';
 import type { ItemDoc } from '../../data';
@@ -27,25 +24,34 @@ import {
   weekDays,
   type FirstDayOfWeek,
 } from '../../lib/date-grid';
-import { comparePositions } from '../../lib/positions';
-import { cardLabel } from '../board-kanban/kanban-model';
-import { itemMatchesSearch, type ColumnView } from '../board-table/table-model';
+import type { ColumnView } from '../board-table/table-model';
+import {
+  buildLegend,
+  itemColor,
+  itemSpan,
+  resolveColorColumn,
+  selectItems,
+  textToneFor,
+  type DatePatches,
+  type LegendEntry,
+} from '../board-date-views/date-view-model';
+
+// The shared pieces keep their old home for the Calendar's own imports and tests.
+export {
+  itemSpan,
+  resolveColorColumn,
+  statusColumns,
+  textToneFor,
+  valueForDay,
+  type DaySpan,
+  type LegendEntry,
+} from '../board-date-views/date-view-model';
 
 /** Column types that can place an item on the calendar. */
 export const CALENDAR_COLUMN_TYPES = ['date', 'timeline'] as const;
 
-/** The days an item covers: one day for a date column, from..to for a timeline column. */
-export interface DaySpan {
-  from: string;
-  to: string;
-  /** `HH:MM` of a date value that has a time. */
-  time: string | null;
-  /** True for a timeline value (it can span several days). */
-  isRange: boolean;
-}
-
 /** An item dropped on a new day whose write has not landed yet: the column's new value. */
-export type CalendarPatches = Readonly<Record<string, unknown>>;
+export type CalendarPatches = DatePatches;
 
 export interface CalendarSegment {
   /** Unique per week row: `<itemId>@<weekIndex>`. */
@@ -81,12 +87,6 @@ export interface CalendarWeek {
   laneCount: number;
 }
 
-export interface LegendEntry {
-  key: string;
-  name: string;
-  color: string;
-}
-
 export interface CalendarModel {
   weeks: CalendarWeek[];
   title: string;
@@ -107,52 +107,6 @@ export function resolveCalendarColumn(
     usable.find((c) => c.def.type === 'timeline') ??
     null
   );
-}
-
-/** The status columns a calendar can colour by. */
-export const statusColumns = (columns: readonly ColumnView[]): ColumnView[] =>
-  columns.filter((c) => c.def.type === 'status');
-
-/** The status column that colours the items, when the saved one still exists. */
-export function resolveColorColumn(
-  columns: readonly ColumnView[],
-  colorBy: string | null,
-): ColumnView | null {
-  return statusColumns(columns).find((c) => c.def.id === colorBy) ?? null;
-}
-
-/** The days an item covers in `column`, or `null` when it has no (valid) value there. */
-export function itemSpan(item: ItemDoc, column: ColumnView, override?: unknown): DaySpan | null {
-  const raw = override !== undefined ? override : item.values[column.def.id];
-  if (raw === null || raw === undefined) return null;
-  const parsed = columnRegistry.parseValue(column.def.type, raw);
-  if (!parsed.success) return null;
-  if (column.def.type === 'timeline') {
-    const value = parsed.data as TimelineValue;
-    return { from: value.from, to: value.to, time: null, isRange: true };
-  }
-  const value = parsed.data as DateValue;
-  return {
-    from: value.date,
-    to: value.date,
-    time: value.time?.slice(0, 5) ?? null,
-    isRange: false,
-  };
-}
-
-const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
-
-/** Black or white text, whichever reads better on `hex` (WCAG relative luminance). */
-export function textToneFor(hex: string | null): 'dark' | 'light' {
-  if (!hex || !HEX.test(hex)) return 'dark';
-  const full = hex.length === 4 ? `#${[1, 2, 3].map((i) => hex[i]! + hex[i]!).join('')}` : hex;
-  const channel = (offset: number) => {
-    const c = parseInt(full.slice(offset, offset + 2), 16) / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  };
-  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-  // White text reaches 4.5:1 up to about this luminance.
-  return luminance > 0.18 ? 'dark' : 'light';
 }
 
 export interface BuildCalendarInput {
@@ -200,37 +154,18 @@ export function shiftAnchor(anchor: string, mode: CalendarSettings['mode'], by: 
 
 export function buildCalendar(input: BuildCalendarInput): CalendarModel {
   const { column, columns, groups, filterState, search, patches, settings, anchor } = input;
-  const defs = columns.map((c) => ({
-    ...c.def,
-    settings: (c.settings as Record<string, unknown>) ?? c.def.settings,
-  }));
   const colorColumn = resolveColorColumn(columns, settings.colorBy);
   const groupColor = new Map(groups.map((g) => [g.id, g.color]));
-  const needle = search.trim();
 
   // Items that pass search and filters, in the view's order (positions, or its sort).
-  let shown = input.items.filter((item) => {
-    if (item.parentItemId !== null && item.parentItemId !== undefined) return false;
-    if (needle && !itemMatchesSearch(item, columns, needle)) return false;
-    return (
-      !filterState ||
-      matchesFilter(item, filterState.filterGroup, null, filterState.personIds, defs)
-    );
-  });
-  shown = [...shown].sort(comparePositions);
-  if (filterState && filterState.sortConditions.length > 0) {
-    shown = sortItems(shown, filterState.sortConditions, defs) as ItemDoc[];
-  }
+  const shown = selectItems({ items: input.items, columns, filterState, search });
 
   const placed = shown.flatMap((item, order) => {
     const span = itemSpan(item, column, patches?.[item.id]);
     return span ? [{ item, span, order }] : [];
   });
 
-  const colorOf = (item: ItemDoc): string | null => {
-    if (colorColumn) return cardLabel(item, colorColumn)?.color ?? null;
-    return groupColor.get(item.groupId) ?? null;
-  };
+  const colorOf = (item: ItemDoc): string | null => itemColor(item, colorColumn, groupColor);
 
   const visible = new Set<string>();
   const weeks: CalendarWeek[] = visibleWeeks(
@@ -292,12 +227,7 @@ export function buildCalendar(input: BuildCalendarInput): CalendarModel {
     return { days, segments, perDay, laneCount: laneEnds.length };
   });
 
-  const legend: LegendEntry[] = colorColumn
-    ? (colorColumn.settings as StatusSettings).labels
-        .filter((l) => l.label.trim() !== '')
-        .sort((a, b) => a.index - b.index)
-        .map((l) => ({ key: l.id, name: l.label, color: l.color }))
-    : [...groups].sort(comparePositions).map((g) => ({ key: g.id, name: g.title, color: g.color }));
+  const legend = buildLegend(colorColumn, groups);
 
   const visibleIds = placed.filter((p) => visible.has(p.item.id)).map((p) => p.item.id);
   return {
@@ -354,11 +284,6 @@ export function planMove(
   const value = parsed.data as DateValue;
   const date = addDays(value.date, shift);
   return { value: { ...value, date }, from: date, to: date };
-}
-
-/** The value a new item gets for a day: a date, or a one-day timeline. */
-export function valueForDay(column: ColumnView, day: string): DateValue | TimelineValue {
-  return column.def.type === 'timeline' ? { from: day, to: day } : { date: day };
 }
 
 /** Stable dnd id of a day cell. */
