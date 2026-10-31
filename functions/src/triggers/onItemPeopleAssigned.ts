@@ -2,13 +2,18 @@ import { FIRESTORE_DATABASE_ID } from '@atrium/shared';
 import * as logger from 'firebase-functions/logger';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { db } from '../lib/admin';
+import { adminItemIndexWriter } from '../lib/admin-item-index';
 import { adminNotificationStore } from '../lib/admin-notifications';
+import { syncItemIndexFields, withSharedBoardRead } from '../lib/item-index';
 import { notifyDescriptionMentions, notifyPeopleAssigned } from '../lib/notifications';
 
 /**
- * Item-write notifications. The name is older than the job: it covers `assigned` (someone was added
- * to a People column, also on create) and `mention` (a new @ chip in the description). Both helpers
- * return without reading anything unless `values` or `description` changed.
+ * Item-write side effects. The name is older than the job (keeping it avoids a delete and recreate
+ * on deploy). It first maintains the item's server-side index fields (`assigneeUids`, `nameTokens`,
+ * never `updatedAt` / `updatedBy`), then sends `assigned` notifications (someone was added to a
+ * People column, also on create) and `mention` notifications (a new @ chip in the description).
+ * Every step returns without reading anything unless its inputs changed, and the index and the
+ * assigned notifications share one read of the board.
  */
 export const onItemPeopleAssigned = onDocumentWritten(
   {
@@ -29,7 +34,13 @@ export const onItemPeopleAssigned = onDocumentWritten(
       ...(before?.exists ? { before: before.data() ?? {} } : {}),
       after: after.data() ?? {},
     };
-    const store = adminNotificationStore(db());
+    const firestore = db();
+    const store = withSharedBoardRead(adminNotificationStore(firestore));
+    const indexed = await syncItemIndexFields(
+      { getBoard: (boardId) => store.getBoard(boardId), ...adminItemIndexWriter(firestore) },
+      { ...change, updateTime: after.updateTime },
+    );
+    if (indexed) logger.info(`Indexed item ${event.params.boardId}/${event.params.itemId}`);
     const assigned = await notifyPeopleAssigned(store, change);
     if (assigned > 0) {
       logger.info(`Assigned notifications for ${event.params.itemId}`, { created: assigned });

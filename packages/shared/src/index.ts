@@ -18,6 +18,7 @@ export * from './schemas/membership';
 export * from './schemas/board-sharing';
 export * from './columns';
 export * from './derived-ids';
+export * from './item-index';
 export * from './firebase-env';
 export * from './formula';
 export * as formula from './formula';

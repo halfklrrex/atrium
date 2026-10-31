@@ -36,6 +36,10 @@ export const itemSchema = z.object({
   seq: z.number().int().min(1).optional(),
   /** Per-board creation number (subitems have their own sequence); server-assigned. */
   boardSeq: z.number().int().min(1).optional(),
+  /** Uids assigned in a People column; server-maintained index (`onItemPeopleAssigned`), never client-written. */
+  assigneeUids: z.array(uidSchema).optional(),
+  /** Search tokens of `name`; server-maintained index, never client-written. */
+  nameTokens: z.array(z.string()).optional(),
   /** Rich-text description; absent or `null` when empty. */
   description: itemDescriptionSchema.nullable().optional(),
   /** Description images by fileId; Functions-only (finalizeDescriptionImage), never client-written. */
@@ -47,4 +51,4 @@ export const itemSchema = z.object({
 });
 export type Item = z.infer<typeof itemSchema>;
 /** Client item writes never carry the server-assigned numbers (rules refuse them). */
-export type ItemWrite = Omit<WriteDoc<Item>, 'seq' | 'boardSeq' | 'descriptionImages'>;
+export type ItemWrite = Omit<WriteDoc<Item>, 'seq' | 'boardSeq' | 'descriptionImages' | 'assigneeUids' | 'nameTokens'>;
