@@ -197,11 +197,21 @@ describe('Mirror column settings', () => {
     expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
   });
 
-  it('with no Connect boards column, says so and disables the rest', () => {
+  it('with no Connect boards column, explains what to do instead of showing empty controls', () => {
     renderEditor({}, { columns: [view('mirror-1', 'mirror', 'Mirror')] });
     expect(screen.getByText('Add a Connect boards column first')).toBeInTheDocument();
-    expect(screen.getByLabelText('Connect boards column')).toBeDisabled();
-    expect(screen.getByLabelText('Show as')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    expect(screen.queryByLabelText('Connect boards column')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Show as')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
+
+  it('with a Connect boards column that has no boards yet, says to choose boards first', () => {
+    const empty = view('rel-1', 'board_relation', 'Linked tasks', { boardIds: [] });
+    renderEditor(
+      { relationColumnId: 'rel-1' },
+      { columns: [empty, view('mirror-1', 'mirror', 'Mirror')] },
+    );
+    expect(screen.getByText(/not connected to any board yet/)).toBeInTheDocument();
   });
 });

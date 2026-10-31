@@ -838,15 +838,30 @@ function MirrorSettingsEditor({
     });
   };
 
+  if (noRelation) {
+    return (
+      <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+        <p className={popups.muted}>Add a Connect boards column first</p>
+        <p className={popups.muted}>
+          A Mirror column shows values from the items connected through a Connect boards column.
+          Add one to this board, connect it to a board, then come back here to choose what to show.
+        </p>
+        <div className={popups.footer}>
+          <button type="button" className={popups.linkButton} onClick={onCancel}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
-      {noRelation ? <p className={popups.muted}>Add a Connect boards column first</p> : null}
       <label className={popups.field}>
         <span className={popups.fieldLabel}>Connect boards column</span>
         <select
           className={popups.input}
           aria-label="Connect boards column"
-          disabled={noRelation}
           value={relationColumnId}
           onChange={(event) => pickRelation(event.target.value)}
         >
@@ -859,7 +874,11 @@ function MirrorSettingsEditor({
         </select>
       </label>
       {relationColumnId && linkedBoards.length === 0 ? (
-        <p className={popups.muted}>This column has no readable connected boards</p>
+        <p className={popups.muted}>
+          {((relation?.settings as BoardRelationSettings | undefined)?.boardIds ?? []).length === 0
+            ? 'This Connect boards column is not connected to any board yet. Choose boards in its settings first.'
+            : 'This column has no readable connected boards'}
+        </p>
       ) : null}
       {linkedBoards.map((board) => {
         const targets = (columnsByBoard[board.id] ?? []).filter(isMirrorTarget);
@@ -869,7 +888,6 @@ function MirrorSettingsEditor({
             <select
               className={popups.input}
               aria-label={`Column from ${board.name}`}
-              disabled={noRelation}
               value={targetColumnIds[board.id] ?? ''}
               onChange={(event) => pickTarget(board.id, event.target.value)}
             >
@@ -888,7 +906,6 @@ function MirrorSettingsEditor({
         <select
           className={popups.input}
           aria-label="Show as"
-          disabled={noRelation}
           value={candidate.aggregation}
           onChange={(event) => setAggregation(event.target.value as MirrorSettings['aggregation'])}
         >
@@ -911,7 +928,7 @@ function MirrorSettingsEditor({
         <button
           type="button"
           className={popups.linkButton}
-          disabled={noRelation || !parsed.success}
+          disabled={!parsed.success}
           onClick={() => parsed.success && onSave(parsed.data)}
         >
           Apply
