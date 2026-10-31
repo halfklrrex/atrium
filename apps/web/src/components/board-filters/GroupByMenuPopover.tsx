@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { BoardDoc } from '../../data';
 import { Popover } from '../Popover';
 import styles from './board-filters.module.css';
-import { useBoardFilter } from './filter-store';
+import { isOrderable, useBoardFilter } from './filter-store';
 
 export function GroupByMenuPopover({ board }: { board?: BoardDoc | null }) {
   const [open, setOpen] = useState(false);
@@ -59,7 +59,7 @@ export function GroupByMenuPopover({ board }: { board?: BoardDoc | null }) {
             {activeGroupId === null ? <Icon icon={Check} size={16} /> : null}
           </button>
 
-          {columns.map((c) => {
+          {columns.filter(isOrderable).map((c) => {
             const isSelected = activeGroupId === c.id;
             return (
               <button

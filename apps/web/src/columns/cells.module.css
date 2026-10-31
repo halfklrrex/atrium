@@ -157,6 +157,21 @@
   white-space: nowrap;
 }
 
+.mirrorChip {
+  min-width: 0;
+  max-width: 100%;
+  height: var(--atrium-table-pill-height);
+  padding: 0 var(--space-8);
+  overflow: hidden;
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-status-empty);
+  color: var(--atrium-table-on-fill);
+  font: var(--atrium-table-pill-font);
+  line-height: var(--atrium-table-pill-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .more {
   flex: none;
   color: var(--atrium-table-muted-text);

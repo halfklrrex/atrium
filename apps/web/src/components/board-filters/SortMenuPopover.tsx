@@ -6,7 +6,7 @@ import type { ColumnDef, SortCondition } from '@atrium/shared';
 import type { BoardDoc } from '../../data';
 import { Popover } from '../Popover';
 import styles from './board-filters.module.css';
-import { useBoardFilter } from './filter-store';
+import { isOrderable, useBoardFilter } from './filter-store';
 
 type DropdownOption = { value: string; label: string };
 
@@ -28,7 +28,7 @@ export function SortMenuPopover({ board }: { board?: BoardDoc | null }) {
   const colOptions = useMemo(
     () => [
       { value: 'name', label: 'Item name' },
-      ...columns.map((c) => ({ value: c.id, label: c.title })),
+      ...columns.filter(isOrderable).map((c) => ({ value: c.id, label: c.title })),
     ],
     [columns],
   );

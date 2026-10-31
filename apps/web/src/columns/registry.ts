@@ -17,6 +17,7 @@ import { lastUpdatedUi } from './last-updated';
 import { linkUi } from './link';
 import { locationUi } from './location';
 import { longTextUi } from './long-text';
+import { mirrorUi } from './mirror';
 import { numbersUi } from './numbers';
 import { peopleUi } from './people';
 import { phoneUi } from './phone';
@@ -77,6 +78,7 @@ export function registerColumnUi(ui: AnyColumnUi): void {
   formulaUi,
   dependencyUi,
   boardRelationUi,
+  mirrorUi,
 ].forEach(registerColumnUi);
 
 export function getColumnUi(type: string): AnyColumnUi | undefined {
@@ -117,4 +119,5 @@ export const ADD_COLUMN_ORDER = [
   'formula',
   'dependency',
   'board_relation',
+  'mirror',
 ] as const;
