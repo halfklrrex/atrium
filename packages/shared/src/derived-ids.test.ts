@@ -170,3 +170,47 @@ describe('nextColumnIdLists', () => {
     });
   });
 });
+
+describe('type change marks', () => {
+  it('a migrating-only or lastTypeChange-only update never rewrites the lists', () => {
+    const base = {
+      columns: [col('d', 'test_derived'), col('t', 'text')],
+      subitemColumns: [],
+      derivedColumnIds: ['d'],
+      serverManagedColumnIds: [],
+    };
+    expect(nextColumnIdLists(base)).toBeNull();
+    const migrating = {
+      ...base,
+      columns: [
+        col('d', 'test_derived'),
+        { ...col('t', 'text'), migrating: { snapshotId: 's1', startedAt: 1, kind: 'change' } },
+      ],
+    };
+    expect(nextColumnIdLists(migrating)).toBeNull();
+    const changed = {
+      ...base,
+      columns: [
+        col('d', 'test_derived'),
+        {
+          ...col('t', 'text'),
+          lastTypeChange: { snapshotId: 's1', fromType: 'numbers', expiresAt: 5 },
+        },
+      ],
+    };
+    expect(nextColumnIdLists(changed)).toBeNull();
+  });
+
+  it('finishing a change to a derived type updates the list', () => {
+    const board = {
+      columns: [col('t', 'test_derived')],
+      subitemColumns: [],
+      derivedColumnIds: [],
+      serverManagedColumnIds: [],
+    };
+    expect(nextColumnIdLists(board)).toEqual({
+      derivedColumnIds: ['t'],
+      serverManagedColumnIds: [],
+    });
+  });
+});

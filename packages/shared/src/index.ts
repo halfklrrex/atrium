@@ -13,6 +13,7 @@ export * from './schemas/view';
 export * from './schemas/files-upload';
 export * from './schemas/description-images';
 export * from './schemas/column-actions';
+export * from './schemas/column-type-change';
 export * from './schemas/membership';
 export * from './columns';
 export * from './derived-ids';
