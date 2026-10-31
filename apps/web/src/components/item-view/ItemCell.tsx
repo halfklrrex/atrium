@@ -5,10 +5,12 @@ import { getColumnUi, type CellContext } from '../../columns/registry';
 import type { ItemDoc } from '../../data';
 import {
   COLUMN_LOCKED_TOOLTIP,
+  COLUMN_MIGRATING_TOOLTIP,
   SERVER_MANAGED_TOOLTIP,
   canEditColumn,
   derivedCellValue,
 } from '../board-table/derived';
+import { CellSpinner } from '../board-table/CellSpinner';
 import { tableActions, type TableCtx } from '../board-table/table-actions';
 import type { ColumnView } from '../board-table/table-model';
 import styles from './ItemView.module.css';
@@ -40,12 +42,15 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
   const serverManaged = columnRegistry.isServerManaged(column.def.type);
   const effectiveRole = ctx.boardRole ?? 'owner';
   const lockedForUser = !canEditColumn(effectiveRole, ctx.board, columnId);
-  const canEdit = canEditBoard && !derived && !serverManaged && !lockedForUser;
-  const readOnlyTooltip = serverManaged
-    ? SERVER_MANAGED_TOOLTIP
-    : lockedForUser
-      ? COLUMN_LOCKED_TOOLTIP
-      : undefined;
+  const migrating = !!column.def.migrating;
+  const canEdit = canEditBoard && !derived && !serverManaged && !lockedForUser && !migrating;
+  const readOnlyTooltip = migrating
+    ? COLUMN_MIGRATING_TOOLTIP
+    : serverManaged
+      ? SERVER_MANAGED_TOOLTIP
+      : lockedForUser
+        ? COLUMN_LOCKED_TOOLTIP
+        : undefined;
 
   const value = useMemo(() => {
     if (derived) return derivedCellValue(ctx.boardId, ctx.columns, column.def, item);
@@ -128,6 +133,7 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
         />
       )}
       {showEditor && ui.editor === 'popover' ? <Editor {...editorProps} /> : null}
+      {migrating ? <CellSpinner /> : null}
     </div>
   );
 }

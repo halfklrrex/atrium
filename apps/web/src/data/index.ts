@@ -6,6 +6,7 @@ export * from './notifications';
 export { plainRefs, queries, refs, writes } from './firestore';
 export * from './item-writes';
 export type { NewItemInput } from './seed-items';
+export * from './server-column-fields';
 export * from './structure-writes';
 export * from './updates';
 export * from './views';

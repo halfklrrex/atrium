@@ -14,10 +14,12 @@ import { getColumnUi, type CellContext } from '../../columns/registry';
 import type { ItemDoc } from '../../data';
 import {
   COLUMN_LOCKED_TOOLTIP,
+  COLUMN_MIGRATING_TOOLTIP,
   SERVER_MANAGED_TOOLTIP,
   canEditColumn,
   derivedCellValue,
 } from './derived';
+import { CellSpinner } from './CellSpinner';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import type { ColumnView } from './table-model';
@@ -61,12 +63,16 @@ export const TableCell = memo(function TableCell({
   const effectiveRole =
     ctx.boardRole ?? (env.canManage !== undefined ? (env.canManage ? 'owner' : 'editor') : 'owner');
   const lockedForUser = !canEditColumn(effectiveRole, ctx.board, columnId);
-  const canEdit = env.canEdit && !derived && !serverManaged && !lockedForUser;
-  const readOnlyTooltip = serverManaged
-    ? SERVER_MANAGED_TOOLTIP
-    : lockedForUser
-      ? COLUMN_LOCKED_TOOLTIP
-      : undefined;
+  // A column whose type is being changed is read-only until the Cloud Function finishes.
+  const migrating = !!column.def.migrating;
+  const canEdit = env.canEdit && !derived && !serverManaged && !lockedForUser && !migrating;
+  const readOnlyTooltip = migrating
+    ? COLUMN_MIGRATING_TOOLTIP
+    : serverManaged
+      ? SERVER_MANAGED_TOOLTIP
+      : lockedForUser
+        ? COLUMN_LOCKED_TOOLTIP
+        : undefined;
 
   const value = useMemo(() => {
     if (derived) return derivedCellValue(ctx.boardId, ctx.columns, column.def, item);
@@ -156,6 +162,7 @@ export const TableCell = memo(function TableCell({
           itemId={itemId}
         />
       ) : null}
+      {migrating ? <CellSpinner /> : null}
     </div>
   );
 });

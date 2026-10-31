@@ -518,7 +518,13 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       if (
         !column ||
         !ui ||
-        isColumnReadOnlyForUser(column.def.type, boardLocks, column.def.id, boardRole)
+        isColumnReadOnlyForUser(
+          column.def.type,
+          boardLocks,
+          column.def.id,
+          boardRole,
+          !!column.def.migrating,
+        )
       )
         return;
       if (ui.editor === 'toggle') {
@@ -542,7 +548,13 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       const clearing = scopeColumns.find((c) => c.def.id === active.columnId);
       if (
         clearing &&
-        isColumnReadOnlyForUser(clearing.def.type, boardLocks, clearing.def.id, boardRole)
+        isColumnReadOnlyForUser(
+          clearing.def.type,
+          boardLocks,
+          clearing.def.id,
+          boardRole,
+          !!clearing.def.migrating,
+        )
       )
         return;
       void tableActions.setCell(

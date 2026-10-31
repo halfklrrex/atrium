@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
+import type * as AdminModule from '../../../functions/src/lib/admin';
+import type * as LogicModule from '../../../functions/src/lib/column-type-change';
 
 /**
  * End to end against the Firestore emulator: the real Admin SDK adapter of `changeColumnType` and
@@ -8,8 +10,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
  * `pnpm test:rules`, which provides FIRESTORE_EMULATOR_HOST.
  */
 
-type Logic = typeof import('../../../functions/src/lib/column-type-change');
-type Admin = typeof import('../../../functions/src/lib/admin');
+type Logic = typeof LogicModule;
+type Admin = typeof AdminModule;
 
 let logic: Logic;
 let admin: Admin;

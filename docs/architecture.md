@@ -146,6 +146,7 @@ Loading a board means one listener on `items where state == 'active'`, which is 
 - `boards/{boardId}/items/{itemId}/updates/{updateId}`: rich-text updates, replies via `parentUpdateId` (P1)
 - `boards/{boardId}/views/{viewId}`: `name, type (table|kanban|calendar|timeline), position, ownerId|null (null = shared view, a uid = personal), settings {filter, hiddenColumnIds, kanban?, calendar?, timeline?}, createdAt/By, updatedAt/By` (P3). `main` is the fixed Main table view, created lazily on its first save. `ownerId` and `type` never change ("make personal/shared" writes a copy and deletes the original). The client lists views with two queries (`ownerId == null` and `ownerId == uid`) because the rules engine refuses `ownerId in [null, uid]`. Details: `docs/specs/P3-saved-views.md`.
 - `boards/{boardId}/activity/{id}`: append-only, written only by Functions (P1/P4). Rules deny every client read and write, explicitly (FW2)
+- `boards/{boardId}/columnSnapshots/{snapshotId}` (+ `chunks/{n}`): the backup of a column type change (old column def and every old value), Functions-only (`changeColumnType`, `revertColumnType`, the daily purge); rules deny every client read and write. Expires after 30 days. Details: `docs/specs/P2-change-column-type.md`
 - `boards/{boardId}/automations/{id}` (P5) · `dashboards/{id}` (P6) · `docs/{id}` (P7)
 - `users/{uid}/notifications/{id}` (P4) · workspace `invites` and `members`: see 5.2a (P4a)
 

@@ -336,6 +336,31 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `board-column-menu-${theme}`, PARK_IN_HEADER);
     });
 
+    // Change column type: the submenu of the column header menu, and the confirm dialog. Nothing is
+    // converted: the dialog is closed again, so the shared seed is left as it was found.
+    test('board: change column type submenu', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}`);
+      await boardReady(page);
+      await page.getByRole('columnheader', { name: 'Area' }).first().hover();
+      await page.getByRole('button', { name: 'Options for Area' }).first().click();
+      await page.getByRole('menuitem', { name: 'Change column type' }).hover();
+      await expect(page.getByRole('menuitem', { name: 'Text', exact: true })).toBeVisible();
+      await shoot(page, `board-change-type-submenu-${theme}`, PARK_IN_HEADER);
+    });
+
+    test('board: change column type dialog', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}`);
+      await boardReady(page);
+      await page.getByRole('columnheader', { name: 'Area' }).first().hover();
+      await page.getByRole('button', { name: 'Options for Area' }).first().click();
+      await page.getByRole('menuitem', { name: 'Change column type' }).hover();
+      await page.getByRole('menuitem', { name: 'Text', exact: true }).click();
+      await expect(page.getByTestId('change-type-counts')).toBeVisible();
+      await shoot(page, `board-change-type-dialog-${theme}`, PARK_IN_HEADER);
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      await expect(page.getByTestId('change-type-counts')).toHaveCount(0);
+    });
+
     test('board: scrolled to the last columns', async ({ page }) => {
       await page.goto(`/boards/${IDS.roadmap}`);
       await boardReady(page);
