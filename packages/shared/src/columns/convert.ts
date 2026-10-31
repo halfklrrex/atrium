@@ -3,6 +3,7 @@ import type { BoardView } from '../schemas/view';
 import { getFormulaReferences } from '../formula';
 import { isChecked, type CheckboxValue } from './checkbox';
 import { isoDateSchema, isoTimeSchema } from './date';
+import { parseHour } from './hour';
 import { columnRegistry } from './index';
 import { findStatusLabel, type StatusLabel } from './status';
 
@@ -66,7 +67,24 @@ const PARSED_TARGET_TYPES = new Set([
   'status',
   'dropdown',
   'tags',
+  'hour',
+  'world_clock',
+  'location',
+  'country',
 ]);
+
+/**
+ * What a derived or server-managed column (its values only the server writes) can be turned into,
+ * as a one-off snapshot of what it shows. Never a derived or server-managed type. Types missing
+ * here (`files`, `button`) only make sense as text.
+ */
+const MANAGED_SOURCE_TARGETS: Readonly<Record<string, ReadonlySet<string>>> = {
+  files: new Set(['text', 'long_text']),
+  button: new Set(['text', 'long_text']),
+  time_tracking: new Set(['text', 'long_text', 'numbers']),
+  last_updated: new Set(['text', 'long_text', 'date']),
+  creation_log: new Set(['text', 'long_text', 'date']),
+};
 
 export interface TypeChangeSupport {
   /** False when the change is refused (the type is not offered, or the server would refuse it). */
@@ -92,9 +110,13 @@ export function columnTypeChangeSupport(fromType: string, toType: string): TypeC
   const sourceManaged =
     columnRegistry.isDerived(fromType) || columnRegistry.isServerManaged(fromType);
   if (sourceManaged) {
-    return toType === 'text'
+    const targets = MANAGED_SOURCE_TARGETS[fromType] ?? PARSED_TARGET_TYPES;
+    return targets.has(toType)
       ? { allowed: true, ownerOnly: true }
-      : { allowed: false, reason: 'A calculated column can only become a text column.' };
+      : {
+          allowed: false,
+          reason: 'A calculated column can only become a type that can hold what it shows.',
+        };
   }
   if (columnRegistry.isDerived(toType)) return { allowed: true, warning: CLEARED_WARNING };
   if (OPAQUE_SOURCE_TYPES.has(fromType) || (fromType === 'people' && toType !== 'text')) {
@@ -243,6 +265,50 @@ function parseLinkText(text: string): { url: string; text?: string } | null {
     return { url: `https://${t}`, ...(label ? { text: label } : {}) };
   }
   return null;
+}
+
+/** `lat, lng` (optionally in brackets or separated by a semicolon) as a location, or `null`. */
+function parseLocationText(text: string): { lat: number; lng: number; address?: string } | null {
+  const match = /^\(?\s*([+-]?\d{1,3}(?:\.\d+)?)\s*[,;]\s*([+-]?\d{1,3}(?:\.\d+)?)\s*\)?$/.exec(
+    text.trim(),
+  );
+  if (!match) return null;
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 ? { lat, lng } : null;
+}
+
+let regionNames: Intl.DisplayNames | null | undefined;
+let countryByName: Map<string, string> | undefined;
+
+/** A country from its two-letter code or its English name, or `null`. */
+function parseCountryText(text: string): { countryCode: string; countryName: string } | null {
+  if (regionNames === undefined) {
+    try {
+      regionNames = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'none' });
+    } catch {
+      regionNames = null;
+    }
+  }
+  if (!regionNames) return null;
+  if (!countryByName) {
+    countryByName = new Map();
+    for (let a = 65; a <= 90; a += 1) {
+      for (let b = 65; b <= 90; b += 1) {
+        const code = String.fromCharCode(a, b);
+        const name = regionNames.of(code);
+        if (name && name !== code) countryByName.set(name.toLowerCase(), code);
+      }
+    }
+  }
+  const t = text.trim();
+  if (/^[A-Za-z]{2}$/.test(t)) {
+    const code = t.toUpperCase();
+    const name = regionNames.of(code);
+    return name && name !== code ? { countryCode: code, countryName: name } : null;
+  }
+  const code = countryByName.get(t.toLowerCase());
+  return code ? { countryCode: code, countryName: regionNames.of(code)! } : null;
 }
 
 const splitLabels = (text: string): string[] =>
@@ -413,9 +479,27 @@ export function createValueConverter(
       const date = (parsed as { date: string }).date;
       return { from: date, to: date };
     }
+    if (toType === 'numbers' && from.type === 'time_tracking') {
+      return (parsed as { duration: number }).duration; // total seconds
+    }
+    if (toType === 'date' && (from.type === 'last_updated' || from.type === 'creation_log')) {
+      const stamp = parsed as { updated_at?: string; created_at?: string };
+      const found = parseDateText(stamp.updated_at ?? stamp.created_at ?? '');
+      return found ? { date: found.date } : null;
+    }
     const text = textOf(parsed);
     if (text === null) return null;
     switch (toType) {
+      case 'hour':
+        return parseHour(text);
+      case 'world_clock': {
+        const zone = text.replace(/\s*\([^)]*\)\s*$/, '');
+        return { timezone: zone };
+      }
+      case 'location':
+        return parseLocationText(text);
+      case 'country':
+        return parseCountryText(text);
       case 'text':
         return text;
       case 'long_text':
