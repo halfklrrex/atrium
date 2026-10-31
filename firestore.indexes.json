@@ -18,6 +18,22 @@
     },
     {
       "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assigneeUids", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "nameTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "items",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         { "fieldPath": "state", "order": "ASCENDING" },

@@ -51,4 +51,7 @@ export const itemSchema = z.object({
 });
 export type Item = z.infer<typeof itemSchema>;
 /** Client item writes never carry the server-assigned numbers (rules refuse them). */
-export type ItemWrite = Omit<WriteDoc<Item>, 'seq' | 'boardSeq' | 'descriptionImages' | 'assigneeUids' | 'nameTokens'>;
+export type ItemWrite = Omit<
+  WriteDoc<Item>,
+  'seq' | 'boardSeq' | 'descriptionImages' | 'assigneeUids' | 'nameTokens'
+>;
