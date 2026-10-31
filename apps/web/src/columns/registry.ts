@@ -1,3 +1,4 @@
+import { columnRegistry } from '@atrium/shared';
 import { autoNumberUi } from './auto-number';
 import { boardRelationUi } from './board-relation';
 import { buttonUi } from './button';
@@ -85,8 +86,7 @@ export function getColumnUi(type: string): AnyColumnUi | undefined {
   return uis.get(type);
 }
 
-/** Types offered by the "+" add-column picker, in monday's order. */
-export const ADD_COLUMN_ORDER = [
+const ADD_COLUMN_TYPES = [
   'status',
   'text',
   'people',
@@ -121,3 +121,8 @@ export const ADD_COLUMN_ORDER = [
   'board_relation',
   'mirror',
 ] as const;
+
+/** Types offered by the add-column picker, the "Add column to the right" menu and "Change column type", sorted alphabetically by display label. */
+export const ADD_COLUMN_ORDER: readonly (typeof ADD_COLUMN_TYPES)[number][] = [...ADD_COLUMN_TYPES].sort((a, b) =>
+  columnRegistry.get(a).label.localeCompare(columnRegistry.get(b).label, 'en', { sensitivity: 'base' }),
+);
