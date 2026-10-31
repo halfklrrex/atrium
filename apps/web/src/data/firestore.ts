@@ -415,6 +415,7 @@ export const writes = {
         folderId: null,
         position: board.position,
         updatedAt: serverTimestamp(),
+        updatedBy: requireUid(),
       });
     }
     for (const folder of moved.folders) {
