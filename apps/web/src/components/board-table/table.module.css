@@ -1178,3 +1178,10 @@
     transition: none;
   }
 }
+
+/* Long column-type submenus (about 33 entries) scroll inside the viewport instead of running off it. */
+.submenuScroll {
+  composes: atrium-scroll from global;
+  max-height: calc(100dvh - var(--space-64));
+  overflow-y: auto;
+}
