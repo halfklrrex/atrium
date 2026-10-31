@@ -8,7 +8,10 @@ import {
   diffDays,
   fullDateLabel,
   inclusiveSpan,
+  isoWeekNumber,
   isWeekend,
+  monthEnd,
+  monthStart,
   monthGrid,
   monthTitle,
   rangeTitle,
@@ -155,5 +158,22 @@ describe('titles', () => {
     expect(rangeTitle('2026-12-28', '2027-01-03')).toBe('Dec 28, 2026 – Jan 3, 2027');
     expect(fullDateLabel('2026-10-26')).toBe('Monday, October 26, 2026');
     expect(shortDateLabel('2026-10-03')).toBe('Oct 3');
+  });
+});
+
+describe('ISO weeks and months', () => {
+  it('numbers ISO weeks across year ends', () => {
+    expect(isoWeekNumber('2026-10-24')).toBe(43);
+    expect(isoWeekNumber('2026-01-01')).toBe(1); // a Thursday
+    expect(isoWeekNumber('2027-01-01')).toBe(53); // still 2026's last week
+    expect(isoWeekNumber('2024-12-30')).toBe(1); // Monday of 2025's week 1
+    expect(isoWeekNumber('2020-12-31')).toBe(53);
+  });
+
+  it('finds the first and last day of a month, leap years included', () => {
+    expect(monthStart('2026-10-24')).toBe('2026-10-01');
+    expect(monthEnd('2026-10-24')).toBe('2026-10-31');
+    expect(monthEnd('2024-02-10')).toBe('2024-02-29');
+    expect(monthEnd('2026-02-01')).toBe('2026-02-28');
   });
 });

@@ -1,0 +1,45 @@
+/*
+ * Timeline view tokens (P3). monday's public help-centre screenshots are the reference (see
+ * docs/specs/P3-calendar-timeline-views.md, "monday reference"): a lane per group on a day axis,
+ * a bold summary line over a thin line in the group colour, a blue today line and today pill.
+ * Colours build on the Calendar tokens and Vibe variables, so dark and black themes inherit.
+ */
+
+:root {
+  /* ---- Geometry ---- */
+  --atrium-timeline-unit: 1px; /* a unitless count (days, rows) times this is a length */
+  --atrium-timeline-pane-width: 220px; /* the lane-name pane */
+  --atrium-timeline-pane-collapsed: 40px; /* what is left of it when hidden */
+  --atrium-timeline-header-row: 28px; /* each of the two axis header rows */
+  --atrium-timeline-row-height: 32px; /* a summary row or an item row */
+  --atrium-timeline-bar-height: 24px;
+  --atrium-timeline-bar-min: 12px;
+  --atrium-timeline-handle-width: 8px; /* the grab zone at each end of a bar */
+  --atrium-timeline-summary-line: 4px; /* the thin line of a group summary */
+  --atrium-timeline-today-line: 2px;
+  --atrium-timeline-settings-width: 280px; /* the right-hand settings panel */
+  --atrium-timeline-dot: 10px;
+
+  /* ---- Typography ---- */
+  --atrium-timeline-header-font: 400 13px / 20px var(--font-family);
+  --atrium-timeline-lane-font: 500 14px / 20px var(--font-family);
+  --atrium-timeline-bar-font: 400 13px / 24px var(--font-family);
+  --atrium-timeline-summary-font: 700 13px / 20px var(--font-family);
+
+  /* ---- Colours ---- */
+  --atrium-timeline-line: var(--atrium-calendar-grid-line);
+  --atrium-timeline-bg: var(--primary-background-color);
+  --atrium-timeline-weekend: var(--primary-background-hover-color);
+  --atrium-timeline-header-text: var(--secondary-text-color);
+  --atrium-timeline-today: var(--primary-color);
+  --atrium-timeline-today-text: var(--atrium-white);
+  --atrium-timeline-bar-default: var(--atrium-calendar-pill-default);
+  --atrium-timeline-bar-text-dark: var(--atrium-calendar-pill-text-dark);
+  --atrium-timeline-bar-text-light: var(--atrium-calendar-pill-text-light);
+  --atrium-timeline-tooltip-bg: var(--inverted-color-background);
+  --atrium-timeline-tooltip-text: var(--text-color-on-inverted);
+
+  /* ---- Shape and motion ---- */
+  --atrium-timeline-bar-radius: var(--border-radius-medium);
+  --atrium-timeline-motion: 120ms;
+}

@@ -1,4 +1,4 @@
-import { canEditBoard, columnRegistry, resolveBoardRole } from '@atrium/shared';
+import { canEditBoard, resolveBoardRole } from '@atrium/shared';
 import {
   DndContext,
   KeyboardSensor,

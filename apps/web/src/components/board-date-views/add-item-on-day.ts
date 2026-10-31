@@ -39,9 +39,7 @@ export async function addItemOnDay(input: AddItemOnDayInput): Promise<void> {
   if (!groupId) return;
   const id = await tableActions.addItem(ctx, {
     groupId,
-    position: positionAfterAll(
-      input.items.filter((i) => i.groupId === groupId && !i.parentItemId),
-    ),
+    position: positionAfterAll(input.items.filter((i) => i.groupId === groupId && !i.parentItemId)),
     values: { [column.def.id]: value },
   });
   if (id) openItemFull(boardId, id);

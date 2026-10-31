@@ -1,0 +1,558 @@
+.root {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-width: 0;
+  padding-block-end: var(--space-16);
+}
+
+.scroll {
+  composes: atrium-scroll atrium-scroll-table from global;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding-inline-start: var(--atrium-calendar-gutter);
+  overflow: auto;
+  outline: 0;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding: var(--space-48) var(--space-16);
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+.hint {
+  margin: 0;
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+/* ---- Toolbar extras ---- */
+
+.divider {
+  flex: none;
+  align-self: center;
+  width: var(--border-width);
+  height: var(--atrium-calendar-divider-height);
+  margin-inline: var(--space-4);
+  background: var(--layout-border-color);
+}
+
+.zoomSelect,
+.select {
+  box-sizing: border-box;
+  height: var(--atrium-control-height);
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-calendar-day-font);
+}
+
+.zoomSelect {
+  width: var(--atrium-calendar-select-width);
+}
+
+.select {
+  width: 100%;
+}
+
+.zoomSelect:focus-visible,
+.select:focus-visible {
+  border-color: var(--primary-color);
+  outline: 0;
+}
+
+/* ---- The grid: one scroller, a sticky pane and a sticky axis ---- */
+
+.content {
+  --tl-pane-width: var(--atrium-timeline-pane-width);
+  --tl-w: calc(var(--tl-day-width) * var(--atrium-timeline-unit));
+
+  position: relative;
+  box-sizing: border-box;
+  width: calc(var(--tl-pane-width) + var(--tl-axis-days) * var(--tl-w));
+  min-width: 100%;
+  background: var(--atrium-timeline-bg);
+}
+
+.contentPaneHidden {
+  --tl-pane-width: var(--atrium-timeline-pane-collapsed);
+}
+
+.headerRow {
+  position: sticky;
+  z-index: calc(var(--atrium-z-sticky) + 1);
+  top: 0;
+  display: flex;
+  border-bottom: var(--border-width) var(--border-style) var(--atrium-timeline-line);
+  background: var(--atrium-timeline-bg);
+}
+
+.corner {
+  position: sticky;
+  z-index: calc(var(--atrium-z-sticky) + 1);
+  inset-inline-start: 0;
+  display: flex;
+  flex: none;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: var(--tl-pane-width);
+  padding-inline: var(--space-4);
+  border-inline-end: var(--border-width) var(--border-style) var(--atrium-timeline-line);
+  background: var(--atrium-timeline-bg);
+}
+
+.axisHeader {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+}
+
+.axisRow {
+  display: flex;
+  height: var(--atrium-timeline-header-row);
+}
+
+.axisTop,
+.axisCell {
+  display: flex;
+  flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  width: calc(var(--tl-span) * var(--tl-w));
+  overflow: hidden;
+  border-inline-start: var(--border-width) var(--border-style) var(--atrium-timeline-line);
+  color: var(--atrium-timeline-header-text);
+  font: var(--atrium-timeline-header-font);
+}
+
+.axisTop {
+  color: var(--primary-text-color);
+  font-weight: var(--font-weight-bold);
+}
+
+.axisTopLabel {
+  position: sticky;
+  inset-inline-start: var(--tl-pane-width);
+  padding-inline: var(--space-8);
+  white-space: nowrap;
+}
+
+.axisCell {
+  justify-content: center;
+}
+
+.axisCellWeekend {
+  background: var(--atrium-timeline-weekend);
+}
+
+.axisLabel {
+  padding-inline: var(--space-4);
+  border-radius: var(--border-radius-big);
+  white-space: nowrap;
+}
+
+.axisToday {
+  background: var(--atrium-timeline-today);
+  color: var(--atrium-timeline-today-text);
+}
+
+.body {
+  position: relative;
+}
+
+/* The day lines, the weekend shading and the today line sit under the pane and the bars. */
+.gridLayer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--tl-pane-width);
+  width: calc(var(--tl-axis-days) * var(--tl-w));
+  pointer-events: none;
+}
+
+.gridDays {
+  background-image: linear-gradient(
+    to right,
+    var(--atrium-timeline-line) var(--border-width),
+    transparent 0
+  );
+  background-size: var(--tl-w) 100%;
+}
+
+.gridWeeks {
+  background-image: linear-gradient(
+    to right,
+    var(--atrium-timeline-line) var(--border-width),
+    transparent 0
+  );
+  background-size: calc(7 * var(--tl-w)) 100%;
+}
+
+.gridWeekends {
+  background-image:
+    linear-gradient(to right, var(--atrium-timeline-line) var(--border-width), transparent 0),
+    linear-gradient(
+      to right,
+      transparent 0 calc(5 * var(--tl-w)),
+      var(--atrium-timeline-weekend) 0 calc(7 * var(--tl-w))
+    );
+  background-position:
+    0 0,
+    calc(-1 * var(--tl-weekend-shift) * var(--tl-w)) 0;
+  background-size:
+    var(--tl-w) 100%,
+    calc(7 * var(--tl-w)) 100%;
+}
+
+.todayLine {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(
+    var(--tl-pane-width) + (var(--tl-today-idx) + 0.5) * var(--tl-w) -
+      var(--atrium-timeline-today-line) / 2
+  );
+  width: var(--atrium-timeline-today-line);
+  background: var(--atrium-timeline-today);
+  pointer-events: none;
+}
+
+/* ---- Lanes ---- */
+
+.lane {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  height: calc(var(--tl-rows) * var(--atrium-timeline-row-height));
+  border-bottom: var(--border-width) var(--border-style) var(--atrium-timeline-line);
+}
+
+.laneName {
+  position: sticky;
+  z-index: var(--atrium-z-sticky);
+  inset-inline-start: 0;
+  display: flex;
+  flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  width: var(--tl-pane-width);
+  border-inline-end: var(--border-width) var(--border-style) var(--atrium-timeline-line);
+  background: var(--atrium-timeline-bg);
+}
+
+.laneButton {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-timeline-lane-font);
+  text-align: start;
+  cursor: pointer;
+}
+
+.laneButton:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.laneButton:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(-1 * var(--border-width));
+}
+
+.laneChevron {
+  flex: none;
+  transition: transform var(--atrium-timeline-motion);
+}
+
+.laneChevronOff {
+  transform: rotate(-90deg);
+}
+
+.laneDot {
+  flex: none;
+  width: var(--atrium-timeline-dot);
+  height: var(--atrium-timeline-dot);
+  border-radius: var(--border-radius-big);
+}
+
+.laneTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track {
+  position: relative;
+  flex: none;
+  width: calc(var(--tl-axis-days) * var(--tl-w));
+}
+
+/* ---- Group summary ---- */
+
+.summary {
+  position: absolute;
+  top: 0;
+  inset-inline-start: calc(var(--tl-start) * var(--tl-w));
+  width: calc(var(--tl-span) * var(--tl-w));
+  height: var(--atrium-timeline-row-height);
+}
+
+.summaryLabel {
+  position: absolute;
+  top: var(--space-4);
+  inset-inline-start: 0;
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  color: var(--primary-text-color);
+  font: var(--atrium-timeline-summary-font);
+  white-space: nowrap;
+}
+
+.summarySep {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--border-radius-big);
+  background: var(--secondary-text-color);
+}
+
+.summaryLine {
+  position: absolute;
+  inset-inline: 0;
+  bottom: var(--space-4);
+  height: var(--atrium-timeline-summary-line);
+  border-radius: var(--border-radius-big);
+  background: var(--tl-bar-color, var(--atrium-timeline-bar-default));
+}
+
+/* ---- Bars ---- */
+
+.bar {
+  --tl-bar-color: var(--atrium-timeline-bar-default);
+
+  position: absolute;
+  z-index: var(--atrium-z-raised);
+  top: calc(
+    var(--tl-row) * var(--atrium-timeline-row-height) +
+      (var(--atrium-timeline-row-height) - var(--atrium-timeline-bar-height)) / 2
+  );
+  inset-inline-start: calc(var(--tl-start) * var(--tl-w));
+  box-sizing: border-box;
+  width: max(calc(var(--tl-span) * var(--tl-w)), var(--atrium-timeline-bar-min));
+  height: var(--atrium-timeline-bar-height);
+  font: var(--atrium-timeline-bar-font);
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.barEditable {
+  cursor: grab;
+}
+
+.barFill {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding-inline: var(--space-8);
+  overflow: hidden;
+  border-radius: var(--atrium-timeline-bar-radius);
+  background: var(--tl-bar-color);
+}
+
+.barDark .barFill {
+  color: var(--atrium-timeline-bar-text-dark);
+}
+
+.barLight .barFill {
+  color: var(--atrium-timeline-bar-text-light);
+}
+
+.barText {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A bar narrower than its name is a small square, with the name after it. */
+.barLabel {
+  position: absolute;
+  top: 0;
+  inset-inline-start: calc(100% + var(--space-4));
+  color: var(--primary-text-color);
+}
+
+.barContinuesBefore .barFill {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.barContinuesAfter .barFill {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.bar:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: var(--border-width);
+}
+
+.barDragging {
+  z-index: calc(var(--atrium-z-raised) + 1);
+  opacity: 0.85;
+  cursor: grabbing;
+}
+
+.barDragging .barFill {
+  box-shadow: var(--box-shadow-small);
+}
+
+.handle {
+  position: absolute;
+  inset-block: 0;
+  width: var(--atrium-timeline-handle-width);
+  cursor: ew-resize;
+}
+
+.handleStart {
+  inset-inline-start: 0;
+}
+
+.handleEnd {
+  inset-inline-end: 0;
+}
+
+.tooltip {
+  position: absolute;
+  z-index: var(--atrium-z-chrome);
+  bottom: calc(100% + var(--space-4));
+  inset-inline-start: 0;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-timeline-tooltip-bg);
+  color: var(--atrium-timeline-tooltip-text);
+  font: var(--atrium-timeline-header-font);
+  pointer-events: none;
+}
+
+/* ---- Settings side panel ---- */
+
+.settings {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: var(--atrium-timeline-settings-width);
+  max-width: 100%;
+  overflow: auto;
+  border-inline-start: var(--border-width) var(--border-style) var(--atrium-timeline-line);
+  background: var(--primary-background-color);
+}
+
+.settingsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-16);
+  border-bottom: var(--border-width) var(--border-style) var(--atrium-timeline-line);
+}
+
+.settingsTitle {
+  color: var(--primary-text-color);
+  font: var(--atrium-calendar-title-font);
+}
+
+.settingsSection {
+  border-bottom: var(--border-width) var(--border-style) var(--atrium-timeline-line);
+}
+
+.settingsSectionHead {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-12) var(--space-16);
+  border: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-timeline-lane-font);
+  text-align: start;
+  cursor: pointer;
+}
+
+.settingsSectionHead:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(-1 * var(--border-width));
+}
+
+.settingsSectionBody {
+  padding: 0 var(--space-16) var(--space-16);
+}
+
+.settingsLabel {
+  display: block;
+  margin-block-end: var(--space-4);
+  color: var(--secondary-text-color);
+  font: var(--atrium-calendar-day-font);
+}
+
+.settingsToggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (width <= 768px) {
+  .scroll {
+    padding-inline-start: 0;
+  }
+
+  .settings {
+    position: absolute;
+    z-index: var(--atrium-z-chrome);
+    inset-block: 0;
+    inset-inline-end: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .laneChevron {
+    transition: none;
+  }
+}
