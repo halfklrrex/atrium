@@ -392,7 +392,9 @@
   width: 100%;
   height: 100%;
   padding-inline: var(--space-8);
-  overflow: hidden;
+
+  /* clip, not hidden: hidden would make the fill the scroll container and stop the name from sticking. */
+  overflow: clip;
   border-radius: var(--atrium-timeline-bar-radius);
   background: var(--tl-bar-color);
 }
@@ -405,8 +407,13 @@
   color: var(--atrium-timeline-bar-text-light);
 }
 
+/* The name sticks to the visible left edge, just past the group-name pane while the bar starts off-screen (no layout animation). */
 .barText {
+  position: sticky;
+  inset-inline-start: calc(var(--tl-pane-width) + var(--space-8));
   display: block;
+  width: fit-content;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
