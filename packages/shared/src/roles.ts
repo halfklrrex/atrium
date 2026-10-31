@@ -43,6 +43,22 @@ export function boardRoleFromWorkspaceRole(
   }
 }
 
+const BOARD_ROLE_RANK: Record<BoardRole, number> = { viewer: 0, editor: 1, owner: 2 };
+
+/**
+ * The highest board role a workspace member may hold: `min(role implied by the workspace role,
+ * requested)`. A workspace viewer never exceeds viewer, a member never exceeds editor. `null` when the
+ * user is not a workspace member. The rules assume this cap holds for every explicit `access` entry.
+ */
+export function capBoardRole(
+  workspaceRole: WorkspaceRole | null | undefined,
+  requested: BoardRole,
+): BoardRole | null {
+  const ceiling = boardRoleFromWorkspaceRole(workspaceRole);
+  if (!ceiling) return null;
+  return BOARD_ROLE_RANK[requested] <= BOARD_ROLE_RANK[ceiling] ? requested : ceiling;
+}
+
 export interface BoardAccessInput {
   kind: BoardKind;
   access: Readonly<Record<string, BoardRole>>;
