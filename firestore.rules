@@ -478,8 +478,11 @@ service cloud.firestore {
           return d.ownerId == null ? canEditBoard(boardId) : (d.ownerId == uid() && canReadBoard(boardId));
         }
 
+        // `resource == null` is a get() of a view that does not exist yet (the app reads `main` inside
+        // a transaction to decide between create and update); without it that read is denied and the
+        // first "Save to this view" on Main table fails. It exposes nothing: there is no data.
         allow read: if signedIn() && canReadBoard(boardId)
-          && (resource.data.ownerId == null || resource.data.ownerId == uid());
+          && (resource == null || resource.data.ownerId == null || resource.data.ownerId == uid());
         // A list must pin ownerId: two queries, `ownerId == null` (shared) and `ownerId == uid` (own).
         // An `in [null, uid]` query is refused by the rules engine.
 

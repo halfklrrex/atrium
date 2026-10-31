@@ -10,6 +10,7 @@ import {
   getDoc,
   getDocs,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -291,6 +292,88 @@ describe('board views: updating', () => {
       ),
     );
   });
+});
+
+describe('board views: saving settings (regression: "Save to this view" failed)', () => {
+  const bump = (uid: string, patch: Record<string, unknown>) => ({
+    ...patch,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid,
+  });
+
+  const typed = {
+    kanban: { columnId: null, cardColumnIds: null, collapsedLaneIds: [], showEmptyLanes: true },
+    calendar: {
+      columnId: null,
+      mode: 'month',
+      colorBy: null,
+      showWeekends: true,
+      firstDayOfWeek: 'monday',
+    },
+    timeline: {
+      columnId: null,
+      zoom: 'weeks',
+      colorBy: null,
+      collapsedGroupIds: [],
+      showGroupSummary: true,
+      showToday: true,
+      showWeekends: true,
+      showLegend: true,
+    },
+  } as const;
+
+  it('reads a missing main view (a signed-in reader sees "not found", not permission-denied)', async () => {
+    const snap = await assertSucceeds(getDoc(doc(as(USERS.member), viewPath('main'))));
+    if (snap.exists()) throw new Error('main should not exist yet');
+    await assertSucceeds(getDoc(doc(as(USERS.viewer), viewPath('main'))));
+    await assertFails(getDoc(doc(as(USERS.outsider), viewPath('main'))));
+    await assertFails(getDoc(doc(anon(), viewPath('main'))));
+  });
+
+  it('saves hidden columns on main the first time, the way the app does (transaction)', async () => {
+    const db = as(USERS.member);
+    const ref = doc(db, viewPath('main'));
+    const settings = { ...emptySettings(), hiddenColumnIds: ['notes'] };
+    await assertSucceeds(
+      runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (snap.exists()) throw new Error('unexpected');
+        tx.set(ref, newView(USERS.member, { name: 'Main table', position: 'a0', settings }));
+      }),
+    );
+    // ...and again once it exists.
+    await assertSucceeds(
+      runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) throw new Error('unexpected');
+        tx.update(ref, bump(USERS.member, { settings: { ...settings, hiddenColumnIds: [] } }));
+      }),
+    );
+  });
+
+  it('keeps refusing a viewer a shared main, and the outsider everything', async () => {
+    const ref = doc(as(USERS.viewer), viewPath('main'));
+    await assertFails(setDoc(ref, newView(USERS.viewer, { name: 'Main table', position: 'a0' })));
+  });
+
+  it.each(['kanban', 'calendar', 'timeline'] as const)(
+    'saves %s settings on a shared and on a personal view',
+    async (kind) => {
+      await seedView('s1', null, { type: kind });
+      await seedView('p1', USERS.viewer, { type: kind });
+      const settings = {
+        ...emptySettings(),
+        hiddenColumnIds: ['a'],
+        [kind]: typed[kind],
+      };
+      await assertSucceeds(
+        updateDoc(doc(as(USERS.member), viewPath('s1')), bump(USERS.member, { settings })),
+      );
+      await assertSucceeds(
+        updateDoc(doc(as(USERS.viewer), viewPath('p1')), bump(USERS.viewer, { settings })),
+      );
+    },
+  );
 });
 
 describe('board views: deleting', () => {
