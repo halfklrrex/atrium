@@ -15,6 +15,14 @@ import type { BootstrapTx } from './bootstrap';
 import type { FileStorageBucket, FileStorageTx, StorageFileMetadata } from './file-storage';
 import type { DescriptionImageTx } from './description-images';
 import type { ColumnActionsTx } from './column-actions';
+import {
+  DELETE_VALUE,
+  type ChangeBoardData,
+  type ColumnTypeChangeStore,
+  type SnapshotEntry,
+  type SnapshotMeta,
+} from './column-type-change';
+import { HttpsError } from 'firebase-functions/v2/https';
 
 if (getApps().length === 0) initializeApp();
 
@@ -231,5 +239,134 @@ export function adminColumnActionsTx(firestore: Firestore, tx: Transaction): Col
     },
     nowMs: () => Date.now(),
     newSessionId: () => randomUUID(),
+  };
+}
+
+/** Plain JSON copy: Firestore rejects `undefined` anywhere in a document. */
+const jsonClean = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+/** Admin Firestore adapter for `changeColumnType` / `revertColumnType` (see column-type-change.ts). */
+export function adminColumnTypeChangeStore(firestore: Firestore): ColumnTypeChangeStore {
+  const boardRef = (boardId: string) => firestore.collection('boards').doc(boardId);
+  const snapRef = (boardId: string, snapshotId: string) =>
+    boardRef(boardId).collection('columnSnapshots').doc(snapshotId);
+  const chunksCol = (boardId: string, snapshotId: string) =>
+    snapRef(boardId, snapshotId).collection('chunks');
+  const toBoardData = (data: FirebaseFirestore.DocumentData): ChangeBoardData => ({
+    kind: data.kind,
+    workspaceId: data.workspaceId,
+    access: data.access ?? {},
+    columns: data.columns ?? [],
+    subitemColumns: data.subitemColumns ?? [],
+    columnLocks: data.columnLocks ?? [],
+  });
+
+  return {
+    async getBoard(boardId) {
+      const snap = await boardRef(boardId).get();
+      return snap.exists ? toBoardData(snap.data() ?? {}) : null;
+    },
+    async getWorkspaceMemberRole(workspaceId, uid) {
+      const snap = await firestore.collection('workspaces').doc(workspaceId).get();
+      if (!snap.exists) return null;
+      const roles = snap.get('roles') as Record<string, WorkspaceRole> | undefined;
+      return roles?.[uid] ?? null;
+    },
+    async getMemberNames(workspaceId) {
+      const snap = await firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('members')
+        .get();
+      const names: Record<string, string> = {};
+      for (const doc of snap.docs) {
+        const name: unknown = doc.get('displayName');
+        if (typeof name === 'string' && name.trim()) names[doc.id] = name;
+      }
+      return names;
+    },
+    async listItems(boardId) {
+      const snap = await boardRef(boardId)
+        .collection('items')
+        .orderBy(FieldPath.documentId())
+        .get();
+      return snap.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          parentItemId: (data.parentItemId as string | null | undefined) ?? null,
+          values: (data.values as Record<string, unknown> | undefined) ?? {},
+          meta: {
+            createdAt: data.createdAt,
+            createdBy: data.createdBy,
+            updatedAt: data.updatedAt,
+            updatedBy: data.updatedBy,
+            groupId: data.groupId,
+            seq: data.seq,
+            boardSeq: data.boardSeq,
+          },
+        };
+      });
+    },
+    async getSnapshot(boardId, snapshotId) {
+      const snap = await snapRef(boardId, snapshotId).get();
+      return snap.exists ? (snap.data() as SnapshotMeta) : null;
+    },
+    async setSnapshot(boardId, snapshotId, meta) {
+      await snapRef(boardId, snapshotId).set(jsonClean(meta));
+    },
+    async deleteSnapshotChunks(boardId, snapshotId) {
+      const snap = await chunksCol(boardId, snapshotId).get();
+      for (let i = 0; i < snap.docs.length; i += 400) {
+        const batch = firestore.batch();
+        for (const doc of snap.docs.slice(i, i + 400)) batch.delete(doc.ref);
+        await batch.commit();
+      }
+    },
+    async writeSnapshotChunk(boardId, snapshotId, index, entries) {
+      await chunksCol(boardId, snapshotId)
+        .doc(String(index).padStart(6, '0'))
+        .set(jsonClean({ index, entries }));
+    },
+    async readSnapshotChunks(boardId, snapshotId) {
+      const snap = await chunksCol(boardId, snapshotId).orderBy('index').get();
+      return snap.docs.map((doc) => (doc.get('entries') ?? []) as SnapshotEntry[]);
+    },
+    async updateColumn(boardId, scope, columnId, decide, snapshotPatch) {
+      await firestore.runTransaction(async (tx) => {
+        const ref = boardRef(boardId);
+        const snap = await tx.get(ref);
+        if (!snap.exists) throw new HttpsError('not-found', 'Board not found.');
+        const board = toBoardData(snap.data() ?? {});
+        const list = scope === 'columns' ? board.columns : board.subitemColumns;
+        const current = list.find((c) => c.id === columnId) ?? null;
+        const next = decide(current, board);
+        if (next === current) return;
+        tx.update(ref, {
+          [scope]: list.map((c) => (c.id === columnId ? next : c)),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        if (snapshotPatch) {
+          tx.update(snapRef(boardId, snapshotPatch.snapshotId), jsonClean(snapshotPatch.patch));
+        }
+      });
+    },
+    async writeValues(boardId, columnId, writes) {
+      if (writes.length === 0) return;
+      const refs = writes.map((w) => boardRef(boardId).collection('items').doc(w.itemId));
+      const snaps = await firestore.getAll(...refs);
+      const batch = firestore.batch();
+      writes.forEach((write, i) => {
+        if (!snaps[i]?.exists) return;
+        batch.update(
+          refs[i]!,
+          new FieldPath('values', columnId),
+          write.value === DELETE_VALUE ? FieldValue.delete() : write.value,
+        );
+      });
+      await batch.commit();
+    },
+    nowMs: () => Date.now(),
+    newId: () => randomUUID().replace(/-/g, '').slice(0, 24),
   };
 }

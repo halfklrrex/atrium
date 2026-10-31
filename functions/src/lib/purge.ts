@@ -42,3 +42,23 @@ export async function purgeTrashLogic(
     itemsPurged: deletedItems.length,
   };
 }
+
+/** Storage for the column-type-change snapshots purge (`boards/{id}/columnSnapshots/{snapshotId}`). */
+export interface ColumnSnapshotPurgeStore {
+  /** Snapshots whose `expiresAt` (epoch milliseconds) is at or before `nowMs`. */
+  findExpiredSnapshots(nowMs: number): Promise<readonly { boardId: string; snapshotId: string }[]>;
+  /** Deletes the snapshot document and its chunks. */
+  deleteSnapshot(boardId: string, snapshotId: string): Promise<void>;
+}
+
+/** Deletes expired column snapshots (30 days after the type change). Returns how many it removed. */
+export async function purgeExpiredColumnSnapshots(
+  store: ColumnSnapshotPurgeStore,
+  nowMs = Date.now(),
+): Promise<number> {
+  const expired = await store.findExpiredSnapshots(nowMs);
+  for (const snapshot of expired) {
+    await store.deleteSnapshot(snapshot.boardId, snapshot.snapshotId);
+  }
+  return expired.length;
+}

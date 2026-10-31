@@ -1,7 +1,13 @@
 import * as logger from 'firebase-functions/logger';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db } from '../lib/admin';
-import { getThirtyDayCutoff, purgeTrashLogic, type PurgeTrashStore } from '../lib/purge';
+import {
+  getThirtyDayCutoff,
+  purgeExpiredColumnSnapshots,
+  purgeTrashLogic,
+  type ColumnSnapshotPurgeStore,
+  type PurgeTrashStore,
+} from '../lib/purge';
 
 /**
  * Creates an admin Firestore adapter for the purge logic.
@@ -69,6 +75,28 @@ export function adminPurgeStore(): PurgeTrashStore {
   };
 }
 
+/** Admin Firestore adapter for the expired column snapshots purge. */
+export function adminColumnSnapshotPurgeStore(): ColumnSnapshotPurgeStore {
+  const firestore = db();
+  return {
+    async findExpiredSnapshots(nowMs) {
+      const snap = await firestore
+        .collectionGroup('columnSnapshots')
+        .where('expiresAt', '<=', nowMs)
+        .get();
+      return snap.docs.flatMap((d) => {
+        const boardId = d.ref.parent.parent?.id;
+        return boardId ? [{ boardId, snapshotId: d.id }] : [];
+      });
+    },
+    async deleteSnapshot(boardId, snapshotId) {
+      await firestore.recursiveDelete(
+        firestore.collection('boards').doc(boardId).collection('columnSnapshots').doc(snapshotId),
+      );
+    },
+  };
+}
+
 /**
  * Scheduled Cloud Function running daily at 02:00 UTC to purge soft-deleted records older than 30 days.
  */
@@ -82,6 +110,8 @@ export const purgeTrash = onSchedule(
   async () => {
     const cutoff = getThirtyDayCutoff();
     const result = await purgeTrashLogic(adminPurgeStore(), cutoff);
+    const snapshotsPurged = await purgeExpiredColumnSnapshots(adminColumnSnapshotPurgeStore());
+    logger.info(`Purged ${snapshotsPurged} expired column snapshots.`, { snapshotsPurged });
     logger.info(
       `Purge completed: ${result.boardsPurged} boards and ${result.itemsPurged} items purged.`,
       result,

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getThirtyDayCutoff, purgeTrashLogic, THIRTY_DAYS_MS, type PurgeTrashStore } from './purge';
+import {
+  getThirtyDayCutoff,
+  purgeExpiredColumnSnapshots,
+  purgeTrashLogic,
+  THIRTY_DAYS_MS,
+  type PurgeTrashStore,
+} from './purge';
 
 describe('purgeTrashLogic', () => {
   it('computes 30-day cutoff properly', () => {
@@ -59,5 +65,42 @@ describe('purgeTrashLogic', () => {
     expect(result.itemsPurged).toBe(0);
     expect(calledPurgeBoard).toBe(false);
     expect(calledDeleteItems).toBe(false);
+  });
+});
+
+describe('purgeExpiredColumnSnapshots', () => {
+  it('deletes exactly the snapshots the store reports as expired', async () => {
+    const deleted: string[] = [];
+    const seenNow: number[] = [];
+    const count = await purgeExpiredColumnSnapshots(
+      {
+        findExpiredSnapshots: async (nowMs) => {
+          seenNow.push(nowMs);
+          return [
+            { boardId: 'b1', snapshotId: 's1' },
+            { boardId: 'b2', snapshotId: 's2' },
+          ];
+        },
+        deleteSnapshot: async (boardId, snapshotId) => {
+          deleted.push(`${boardId}/${snapshotId}`);
+        },
+      },
+      123,
+    );
+    expect(count).toBe(2);
+    expect(seenNow).toEqual([123]);
+    expect(deleted).toEqual(['b1/s1', 'b2/s2']);
+  });
+
+  it('does nothing when no snapshot has expired', async () => {
+    let deletes = 0;
+    const count = await purgeExpiredColumnSnapshots({
+      findExpiredSnapshots: async () => [],
+      deleteSnapshot: async () => {
+        deletes += 1;
+      },
+    });
+    expect(count).toBe(0);
+    expect(deletes).toBe(0);
   });
 });
