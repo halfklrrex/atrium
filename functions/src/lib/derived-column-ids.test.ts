@@ -160,6 +160,18 @@ describe('syncColumnIdLists', () => {
     expect((await syncColumnIdLists(mem.store, 'b1', removed)).written).toEqual(lists([], []));
   });
 
+  it('lists the production derived types, including mirror', async () => {
+    const board: BoardColumnsData = {
+      columns: [col('m', 'mirror'), col('f', 'formula'), col('t', 'text'), col('b', 'button')],
+      derivedColumnIds: [],
+      serverManagedColumnIds: [],
+    };
+    const mem = memoryStore(board);
+    expect((await syncColumnIdLists(mem.store, 'b1', board)).written).toEqual(
+      lists(['f', 'm'], ['b']),
+    );
+  });
+
   it('counts sub-item columns too', async () => {
     const board: BoardColumnsData = {
       columns: [col('t', 'text')],

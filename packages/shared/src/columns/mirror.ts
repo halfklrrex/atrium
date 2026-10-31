@@ -1,4 +1,3 @@
-// TODO(derived): client writes will be rejected when ColumnType gets derived: true.
 import { z } from 'zod';
 import { boardRelationValueSchema } from './board-relation';
 import { dateValueSchema } from './date';
@@ -255,6 +254,9 @@ export function computeMirror(
 export const mirrorColumn = defineColumnType<MirrorSettings, MirrorValue>({
   type: 'mirror',
   label: 'Mirror',
+  // Computed in the web cell from the linked items (read asynchronously); nothing is stored.
+  derived: true,
+  compute: () => null,
   settingsSchema: mirrorSettingsSchema,
   valueSchema: mirrorValueSchema,
   summaries: ['count', 'count_filled', 'count_empty', 'percent_filled'],
