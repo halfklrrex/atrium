@@ -1,7 +1,12 @@
-import type { BoardRelationSettings, BoardRelationValue, LinkedItemRef } from '@atrium/shared';
+import type {
+  BoardRelationSettings,
+  BoardRelationValue,
+  ColumnDef,
+  LinkedItemRef,
+} from '@atrium/shared';
 import { Connect } from '@vibe/icons';
 import classNames from 'classnames';
-import { documentId, getDocs, query, where } from 'firebase/firestore';
+import { documentId, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
 import { queries, refs } from '../data/firestore';
@@ -13,11 +18,58 @@ const VISIBLE_PILLS = 2;
 const CHUNK_SIZE = 30;
 export const UNAVAILABLE_ITEM_LABEL = 'Unavailable item';
 
+/** What the session cache keeps of a linked item: its name and values (Mirror columns read the values). */
+export interface LinkedItemData {
+  name: string;
+  /** `active` or `archived` (deleted and unreadable items are cached as `null`). */
+  state: string;
+  values: Record<string, unknown>;
+}
+
 /**
- * Session cache per linked board: `boardId -> (itemId -> itemName | null)`.
+ * Session cache per linked board: `boardId -> (itemId -> item | null)`.
  * `null` indicates that the item does not exist, was deleted, or cannot be read by the user.
  */
-const sessionCache = new Map<string, Map<string, string | null>>();
+const sessionCache = new Map<string, Map<string, LinkedItemData | null>>();
+/** When each cached item was read (`boardId:itemId -> ms`), so a Mirror cell can refresh stale ones. */
+const fetchedAt = new Map<string, number>();
+
+/** The cached linked item: `undefined` while unknown, `null` when unreadable, deleted or missing. */
+export function getCachedLinkedItem(
+  boardId: string,
+  itemId: string,
+): LinkedItemData | null | undefined {
+  return sessionCache.get(boardId)?.get(itemId);
+}
+
+function dataToLinkedItem(data: {
+  name?: unknown;
+  state?: unknown;
+  values?: unknown;
+}): LinkedItemData | null {
+  if (data.state === 'deleted' || typeof data.name !== 'string') return null;
+  const values =
+    typeof data.values === 'object' && data.values !== null
+      ? (data.values as Record<string, unknown>)
+      : {};
+  return { name: data.name, state: typeof data.state === 'string' ? data.state : 'active', values };
+}
+
+function stamp(boardId: string, itemId: string): void {
+  fetchedAt.set(`${boardId}:${itemId}`, Date.now());
+}
+
+function isFresh(boardId: string, itemId: string, maxAgeMs: number): boolean {
+  if (!sessionCache.get(boardId)?.has(itemId)) return false;
+  if (maxAgeMs === Infinity) return true;
+  const at = fetchedAt.get(`${boardId}:${itemId}`);
+  return at !== undefined && Date.now() - at <= maxAgeMs;
+}
+
+/** Re-render subscribers when the cache changes (cells use this to pick up fetched items). */
+export function useLinkedItemCacheVersion(): number {
+  return useSyncExternalStore(subscribeCache, getCacheVersion, getCacheVersion);
+}
 const cacheListeners = new Set<() => void>();
 let cacheVersion = 0;
 
@@ -39,7 +91,7 @@ function notifyCacheListeners(): void {
   }
 }
 
-function getOrCreateBoardCache(boardId: string): Map<string, string | null> {
+function getOrCreateBoardCache(boardId: string): Map<string, LinkedItemData | null> {
   let boardCache = sessionCache.get(boardId);
   if (!boardCache) {
     boardCache = new Map();
@@ -50,6 +102,8 @@ function getOrCreateBoardCache(boardId: string): Map<string, string | null> {
 
 interface PendingBatch {
   ids: Set<string>;
+  /** Oldest cached copy this batch may leave in place; older ones are read again. */
+  maxAgeMs: number;
   promise: Promise<void>;
   resolve: () => void;
 }
@@ -63,12 +117,18 @@ const inFlightPromisesByBoard = new Map<string, Set<Promise<void>>>();
  */
 export function primeBoardRelationCache(
   boardId: string,
-  items: ReadonlyMap<string, string | null> | Record<string, string | null>,
+  items:
+    | ReadonlyMap<string, string | LinkedItemData | null>
+    | Record<string, string | LinkedItemData | null>,
 ): void {
   const boardCache = getOrCreateBoardCache(boardId);
   const entries = items instanceof Map ? items.entries() : Object.entries(items);
-  for (const [itemId, name] of entries) {
-    boardCache.set(itemId, name);
+  for (const [itemId, item] of entries) {
+    boardCache.set(
+      itemId,
+      typeof item === 'string' ? { name: item, state: 'active', values: {} } : item,
+    );
+    stamp(boardId, itemId);
   }
   notifyCacheListeners();
 }
@@ -78,6 +138,8 @@ export function primeBoardRelationCache(
  */
 export function clearBoardRelationCacheForTests(): void {
   sessionCache.clear();
+  fetchedAt.clear();
+  boardColumnsCache.clear();
   pendingByBoard.clear();
   inFlightIdsByBoard.clear();
   inFlightPromisesByBoard.clear();
@@ -96,7 +158,9 @@ async function flushPendingBoard(boardId: string): Promise<void> {
     inFlightIdsByBoard.set(boardId, inFlightIds);
   }
 
-  const idsToFetch = [...pending.ids].filter((id) => !boardCache.has(id) && !inFlightIds.has(id));
+  const idsToFetch = [...pending.ids].filter(
+    (id) => !isFresh(boardId, id, pending.maxAgeMs) && !inFlightIds.has(id),
+  );
   for (const id of idsToFetch) {
     inFlightIds.add(id);
   }
@@ -120,20 +184,23 @@ async function flushPendingBoard(boardId: string): Promise<void> {
           const snap = await getDocs(query(refs.items(boardId), where(documentId(), 'in', chunk)));
           const found = new Set<string>();
           for (const docSnap of snap.docs) {
-            const data = docSnap.data() as { name?: unknown; state?: unknown };
-            if (data.state !== 'deleted' && typeof data.name === 'string') {
-              boardCache.set(docSnap.id, data.name);
+            const item = dataToLinkedItem(docSnap.data() as Record<string, unknown>);
+            if (item) {
+              boardCache.set(docSnap.id, item);
+              stamp(boardId, docSnap.id);
               found.add(docSnap.id);
             }
           }
           for (const id of chunk) {
             if (!found.has(id)) {
               boardCache.set(id, null);
+              stamp(boardId, id);
             }
           }
         } catch {
           for (const id of chunk) {
             boardCache.set(id, null);
+            stamp(boardId, id);
           }
         }
       }),
@@ -151,16 +218,18 @@ async function flushPendingBoard(boardId: string): Promise<void> {
 }
 
 /**
- * Coalesces and batches item-name reads for `boardId` across cells rendering in the same tick.
- * Issues one `getDocs` per chunk of up to 30 item IDs and caches results for the session.
+ * Coalesces and batches linked-item reads (name and values) for `boardId` across cells rendering in
+ * the same tick. Issues one `getDocs` per chunk of up to 30 item IDs and caches results for the
+ * session. `maxAgeMs` (default: never) makes cached copies older than that be read again; the
+ * Mirror cell uses it so a remounted cell picks up edits made on the linked board.
  */
 export async function fetchLinkedItemNames(
   boardId: string,
   itemIds: readonly string[],
+  maxAgeMs: number = Infinity,
 ): Promise<void> {
-  const boardCache = sessionCache.get(boardId);
   const inFlightIds = inFlightIdsByBoard.get(boardId);
-  const needed = itemIds.filter((id) => !boardCache?.has(id) && !inFlightIds?.has(id));
+  const needed = itemIds.filter((id) => !isFresh(boardId, id, maxAgeMs) && !inFlightIds?.has(id));
 
   const waits: Promise<void>[] = [];
   const existingPromises = inFlightPromisesByBoard.get(boardId);
@@ -175,12 +244,13 @@ export async function fetchLinkedItemNames(
       const promise = new Promise<void>((res) => {
         resolve = res;
       });
-      pending = { ids: new Set(), promise, resolve };
+      pending = { ids: new Set(), maxAgeMs, promise, resolve };
       pendingByBoard.set(boardId, pending);
       queueMicrotask(() => {
         void flushPendingBoard(boardId);
       });
     }
+    pending.maxAgeMs = Math.min(pending.maxAgeMs, maxAgeMs);
     for (const id of needed) {
       pending.ids.add(id);
     }
@@ -190,6 +260,24 @@ export async function fetchLinkedItemNames(
   if (waits.length > 0) {
     await Promise.all(waits);
   }
+}
+
+/**
+ * Column definitions of a board, read once per session (`null` when the board is missing or the
+ * user cannot read it). Mirror columns need the target column's type and settings to render values.
+ */
+const boardColumnsCache = new Map<string, Promise<ColumnDef[] | null>>();
+
+export function fetchBoardColumns(boardId: string): Promise<ColumnDef[] | null> {
+  let promise = boardColumnsCache.get(boardId);
+  if (!promise) {
+    promise = getDoc(refs.board(boardId)).then(
+      (snap) => (snap.exists() ? (snap.data().columns as ColumnDef[]) : null),
+      () => null,
+    );
+    boardColumnsCache.set(boardId, promise);
+  }
+  return promise;
 }
 
 function BoardRelationCell({ value }: CellProps<BoardRelationValue, BoardRelationSettings>) {
@@ -221,7 +309,7 @@ function BoardRelationCell({ value }: CellProps<BoardRelationValue, BoardRelatio
     return [
       {
         key: `${ref.boardId}:${ref.itemId}`,
-        name: boardCache.get(ref.itemId) ?? UNAVAILABLE_ITEM_LABEL,
+        name: boardCache.get(ref.itemId)?.name ?? UNAVAILABLE_ITEM_LABEL,
       },
     ];
   });
@@ -280,10 +368,11 @@ function BoardRelationEditor({
           try {
             const snap = await getDocs(queries.activeItems(boardId));
             for (const docSnap of snap.docs) {
-              const data = docSnap.data() as { name?: unknown; state?: unknown };
-              if (data.state !== 'deleted' && typeof data.name === 'string') {
-                boardCache.set(docSnap.id, data.name);
-                allItems.push({ boardId, itemId: docSnap.id, name: data.name });
+              const item = dataToLinkedItem(docSnap.data() as Record<string, unknown>);
+              if (item) {
+                boardCache.set(docSnap.id, item);
+                stamp(boardId, docSnap.id);
+                allItems.push({ boardId, itemId: docSnap.id, name: item.name });
               }
             }
           } catch {
@@ -354,7 +443,7 @@ function BoardRelationEditor({
   const resolveName = (ref: LinkedItemRef): string => {
     const boardCache = sessionCache.get(ref.boardId);
     if (boardCache?.has(ref.itemId)) {
-      return boardCache.get(ref.itemId) ?? UNAVAILABLE_ITEM_LABEL;
+      return boardCache.get(ref.itemId)?.name ?? UNAVAILABLE_ITEM_LABEL;
     }
     const found = candidates.find((c) => c.boardId === ref.boardId && c.itemId === ref.itemId);
     return found?.name ?? UNAVAILABLE_ITEM_LABEL;

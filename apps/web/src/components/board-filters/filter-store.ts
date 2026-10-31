@@ -8,6 +8,7 @@ import {
   defaultTimelineViewSettings,
   defaultViewSettings,
   type BoardFilterState,
+  type ColumnDef,
   type CalendarSettings,
   type KanbanSettings,
   type TimelineViewSettings,
@@ -16,6 +17,12 @@ import {
   type SortCondition,
   type ViewSettings,
 } from '@atrium/shared';
+
+/**
+ * Columns the sort, filter and group-by menus offer. A Mirror column is computed in its cell and
+ * stored nowhere, so the table cannot order or filter by it (v1).
+ */
+export const isOrderable = (column: ColumnDef): boolean => column.type !== 'mirror';
 
 /** The per-type settings a view can carry, by view type (a table has none). */
 export interface TypeSettingsMap {

@@ -1,12 +1,16 @@
 import {
+  columnRegistry,
+  mirrorSettingsSchema,
   validateFormulaSettings,
   type BoardRelationSettings,
   type ButtonSettings,
   type DependencySettings,
   type DropdownSettings,
   type FilesSettings,
+  type ColumnDef,
   type FormulaSettings,
   type HourSettings,
+  type MirrorSettings,
   type NumbersSettings,
   type StatusSettings,
   type TimeTrackingSettings,
@@ -15,7 +19,8 @@ import {
   type WorldClockSettings,
 } from '@atrium/shared';
 import classNames from 'classnames';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchBoardColumns } from '../../columns/board-relation';
 import { DropdownLabelEditor, StatusLabelEditor } from '../../columns/LabelEditors';
 import popups from '../../columns/popups.module.css';
 import { useBoards } from '../../data';
@@ -708,6 +713,214 @@ function BoardRelationSettingsEditor({
   );
 }
 
+const MIRROR_AGGREGATION_LABELS: Record<MirrorSettings['aggregation'], string> = {
+  none: 'None (show values)',
+  count: 'Count',
+  count_filled: 'Count filled',
+  count_empty: 'Count empty',
+  percent_filled: 'Percent filled',
+  sum: 'Sum',
+  average: 'Average',
+  min: 'Min',
+  max: 'Max',
+  earliest: 'Earliest',
+  latest: 'Latest',
+};
+
+const NUMERIC_TARGETS = new Set(['numbers', 'progress']);
+const DATE_TARGETS = new Set(['date', 'timeline', 'week']);
+
+/** Column types a Mirror cannot show: no chains, nothing stored (derived) or no value (button). */
+function isMirrorTarget(def: ColumnDef): boolean {
+  if (def.type === 'mirror' || def.type === 'board_relation' || def.type === 'button') return false;
+  return columnRegistry.has(def.type) && !columnRegistry.isDerived(def.type);
+}
+
+/** The aggregations that make sense for the chosen target column types. */
+function aggregationsFor(targetTypes: readonly string[]): MirrorSettings['aggregation'][] {
+  const offered: MirrorSettings['aggregation'][] = [
+    'none',
+    'count',
+    'count_filled',
+    'count_empty',
+    'percent_filled',
+  ];
+  if (targetTypes.some((t) => NUMERIC_TARGETS.has(t))) {
+    offered.push('sum', 'average', 'min', 'max');
+  }
+  if (targetTypes.some((t) => DATE_TARGETS.has(t))) offered.push('earliest', 'latest');
+  return offered;
+}
+
+/** Connect boards column, the column to show from each connected board, and how to show it. */
+function MirrorSettingsEditor({
+  settings,
+  onSave,
+  onCancel,
+}: {
+  settings: MirrorSettings;
+  onSave: (settings: MirrorSettings) => void;
+  onCancel: () => void;
+}) {
+  const env = useTableEnv();
+  const liveBoards = useBoards(env.workspaceBoards ? undefined : env.workspaceId, env.uid || null);
+  const boards = env.workspaceBoards ?? liveBoards.data;
+
+  const relationColumns = useMemo(
+    () => env.columns.filter((c) => c.def.type === 'board_relation'),
+    [env.columns],
+  );
+  const initialRelation = relationColumns.some((c) => c.def.id === settings.relationColumnId)
+    ? settings.relationColumnId
+    : '';
+  const [relationColumnId, setRelationColumnId] = useState(initialRelation);
+  const [targetColumnIds, setTargetColumnIds] = useState<Record<string, string>>(
+    settings.targetColumnIds ?? {},
+  );
+  const [aggregation, setAggregation] = useState<MirrorSettings['aggregation']>(
+    settings.aggregation ?? 'none',
+  );
+  const [columnsByBoard, setColumnsByBoard] = useState<Record<string, ColumnDef[] | null>>({});
+
+  const relation = relationColumns.find((c) => c.def.id === relationColumnId);
+  // Only boards the user can read are offered; an unreadable board has no values to show.
+  const linkedBoards = useMemo(() => {
+    const ids = (relation?.settings as BoardRelationSettings | undefined)?.boardIds ?? [];
+    return ids.flatMap((id) => {
+      const board = boards.find((b) => b.id === id);
+      return board ? [board] : [];
+    });
+  }, [relation, boards]);
+
+  useEffect(() => {
+    let cancelled = false;
+    for (const board of linkedBoards) {
+      void fetchBoardColumns(board.id).then((columns) => {
+        if (!cancelled) setColumnsByBoard((prev) => ({ ...prev, [board.id]: columns }));
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedBoards]);
+
+  const targetTypes = linkedBoards.flatMap((board) => {
+    const id = targetColumnIds[board.id];
+    const def = id ? columnsByBoard[board.id]?.find((c) => c.id === id) : undefined;
+    return def ? [def.type] : [];
+  });
+  const offered = aggregationsFor(targetTypes);
+
+  const candidate = {
+    relationColumnId,
+    targetColumnIds: Object.fromEntries(
+      Object.entries(targetColumnIds).filter(([boardId]) =>
+        linkedBoards.some((b) => b.id === boardId),
+      ),
+    ),
+    aggregation: offered.includes(aggregation) ? aggregation : 'none',
+  };
+  const parsed = mirrorSettingsSchema.safeParse(candidate);
+  const error = parsed.success ? null : (parsed.error.issues[0]?.message ?? 'Invalid settings');
+  const noRelation = relationColumns.length === 0;
+
+  const pickRelation = (id: string) => {
+    setRelationColumnId(id);
+    setTargetColumnIds({});
+    setAggregation('none');
+  };
+  const pickTarget = (boardId: string, columnId: string) => {
+    setTargetColumnIds((prev) => {
+      const next = { ...prev };
+      if (columnId) next[boardId] = columnId;
+      else delete next[boardId];
+      return next;
+    });
+  };
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      {noRelation ? <p className={popups.muted}>Add a Connect boards column first</p> : null}
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Connect boards column</span>
+        <select
+          className={popups.input}
+          aria-label="Connect boards column"
+          disabled={noRelation}
+          value={relationColumnId}
+          onChange={(event) => pickRelation(event.target.value)}
+        >
+          <option value="">Choose a column</option>
+          {relationColumns.map((c) => (
+            <option key={c.def.id} value={c.def.id}>
+              {c.def.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      {relationColumnId && linkedBoards.length === 0 ? (
+        <p className={popups.muted}>This column has no readable connected boards</p>
+      ) : null}
+      {linkedBoards.map((board) => {
+        const targets = (columnsByBoard[board.id] ?? []).filter(isMirrorTarget);
+        return (
+          <label key={board.id} className={popups.field}>
+            <span className={popups.fieldLabel}>Show from {board.name}</span>
+            <select
+              className={popups.input}
+              aria-label={`Column from ${board.name}`}
+              disabled={noRelation}
+              value={targetColumnIds[board.id] ?? ''}
+              onChange={(event) => pickTarget(board.id, event.target.value)}
+            >
+              <option value="">Choose a column</option>
+              {targets.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        );
+      })}
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Show as</span>
+        <select
+          className={popups.input}
+          aria-label="Show as"
+          disabled={noRelation}
+          value={candidate.aggregation}
+          onChange={(event) => setAggregation(event.target.value as MirrorSettings['aggregation'])}
+        >
+          {offered.map((value) => (
+            <option key={value} value={value}>
+              {MIRROR_AGGREGATION_LABELS[value]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {error ? (
+        <p className={popups.muted} role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={popups.linkButton}
+          disabled={noRelation || !parsed.success}
+          onClick={() => parsed.success && onSave(parsed.data)}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The settings popover of one column, opened from its header menu. */
 export function ColumnSettingsPopup({
   column,
@@ -803,6 +1016,12 @@ export function ColumnSettingsPopup({
       ) : column.def.type === 'board_relation' ? (
         <BoardRelationSettingsEditor
           settings={column.settings as BoardRelationSettings}
+          onSave={save}
+          onCancel={close}
+        />
+      ) : column.def.type === 'mirror' ? (
+        <MirrorSettingsEditor
+          settings={column.settings as MirrorSettings}
           onSave={save}
           onCancel={close}
         />

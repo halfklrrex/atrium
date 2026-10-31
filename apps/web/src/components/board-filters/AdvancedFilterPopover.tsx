@@ -8,7 +8,7 @@ import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../d
 import type { BoardDoc } from '../../data/model';
 import { Popover } from '../Popover';
 import styles from './board-filters.module.css';
-import { useBoardFilter } from './filter-store';
+import { isOrderable, useBoardFilter } from './filter-store';
 
 const EMPTY_COLUMNS: readonly ColumnDef[] = [];
 
@@ -185,7 +185,7 @@ function FilterConditionRow({
   const colOptions = useMemo(
     () => [
       { value: 'name', label: 'Item name' },
-      ...columns.map((c) => ({ value: c.id, label: c.title })),
+      ...columns.filter(isOrderable).map((c) => ({ value: c.id, label: c.title })),
     ],
     [columns],
   );

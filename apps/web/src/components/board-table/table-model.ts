@@ -32,6 +32,7 @@ export const SETTINGS_TYPES: ReadonlySet<string> = new Set([
   'formula',
   'dependency',
   'board_relation',
+  'mirror',
 ]);
 
 /** Groups with more rows than this render only the rows near the viewport. */
