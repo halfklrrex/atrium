@@ -7,7 +7,7 @@ import {
 } from '@atrium/shared';
 import { Play, Time } from '@vibe/icons';
 import classNames from 'classnames';
-import { useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { UNKNOWN_MEMBER_NAME, useUserLookup } from '../data/members-store';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
 import { showToast } from '../components/toast-store';
@@ -26,13 +26,25 @@ export function formatSessionTimestamp(ms: number): string {
   });
 }
 
+/** Current time that re-renders every second while `active` (a running session), else the shared ticker value. */
+function useLiveNow(active: boolean, sharedNow: number): number {
+  const [liveNow, setLiveNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return undefined;
+    setLiveNow(Date.now());
+    const id = setInterval(() => setLiveNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return active ? Math.max(liveNow, sharedNow) : sharedNow;
+}
+
 function TimeTrackingCell({
   value,
   settings,
   column,
   ctx,
 }: CellProps<TimeTrackingValue, TimeTrackingSettings>) {
-  const nowMs = useSharedTicker();
+  const sharedNow = useSharedTicker();
   const cellRef = useRef<HTMLDivElement>(null);
   const [activePopup, setActivePopup] = useState<'note' | 'history' | null>(null);
   const [popupAnchor, setPopupAnchor] = useState<HTMLElement | null>(null);
@@ -42,6 +54,7 @@ function TimeTrackingCell({
 
   const effectiveValue: TimeTrackingValue = value ?? { duration: 0, running: false };
   const running = effectiveValue.running;
+  const nowMs = useLiveNow(running, sharedNow);
   const totalSeconds = computeTotalSeconds(effectiveValue, nowMs);
   const durationText = formatDuration(totalSeconds);
 
