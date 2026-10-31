@@ -57,6 +57,7 @@ describe('design tokens', () => {
       '--tl-pane-width',
       '--tl-bar-color',
       '--tl-weekend-shift',
+      '--tl-today-idx',
     ]);
     const missing = [...references.keys()].filter(
       (name) => !known.has(name) && !local.has(name) && !inline.has(name),

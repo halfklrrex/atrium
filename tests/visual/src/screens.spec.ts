@@ -6,6 +6,7 @@ import {
   homeReady,
   calendarReady,
   kanbanReady,
+  timelineReady,
   shoot,
   test,
 } from './fixtures';
@@ -15,8 +16,10 @@ import {
   IDS,
   CALENDAR_VIEW,
   KANBAN_VIEW,
+  TIMELINE_VIEW,
   addCalendarView,
   addKanbanView,
+  addTimelineView,
   addView,
   clearRecents,
   readFullViewDescription,
@@ -24,6 +27,7 @@ import {
   createEmptyWorkspace,
   removeCalendarView,
   removeKanbanView,
+  removeTimelineView,
   removeView,
   seedNotifications,
 } from './seed';
@@ -186,6 +190,18 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-calendar-week-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeCalendarView();
+      }
+    });
+
+    test('board: Timeline view', async ({ page }) => {
+      await addTimelineView();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${TIMELINE_VIEW}`);
+        // Fourteen of the roadmap's items have a date (nine in October, five in November).
+        await timelineReady(page, 14);
+        await shoot(page, `board-timeline-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeTimelineView();
       }
     });
 

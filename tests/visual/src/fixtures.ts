@@ -113,6 +113,13 @@ export async function calendarReady(page: Page, title: string, pills: number): P
   await expect(page.locator('[data-item]')).toHaveCount(pills);
 }
 
+/** The seeded roadmap as a Timeline view: lanes per group on the axis around the frozen day. */
+export async function timelineReady(page: Page, bars: number): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('group', { name: 'Timeline' })).toBeVisible();
+  await expect(page.locator('[data-item]')).toHaveCount(bars);
+}
+
 /** Home with all four seeded boards and both workspaces rendered (snapshots arrive separately). */
 export async function homeReady(page: Page): Promise<void> {
   await appReady(page);

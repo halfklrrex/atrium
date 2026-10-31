@@ -705,8 +705,8 @@ test('re-running keeps the item numbers the function assigned', async () => {
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
   const { docs, summary } = build();
   const views = docs.filter((d) => /^boards\/showcase-main\/views\/[^/]+$/.test(d.path));
-  assert.equal(summary.views, 3);
-  assert.equal(views.length, 3);
+  assert.equal(summary.views, 4);
+  assert.equal(views.length, 4);
   const view = views.find((v) => v.data.name === 'Due this week').data;
   assert.equal(view.name, 'Due this week');
   assert.equal(view.type, 'table');
@@ -754,6 +754,27 @@ test('the main board has a shared Calendar "Due dates": placed by the Due date c
     (d) => /^boards\/showcase-main\/items\/[^/]+$/.test(d.path) && d.data.values?.[column.id],
   );
   assert.ok(items.length >= 15, `${items.length} dated items`);
+});
+
+test('the main board has a shared Timeline "Roadmap": lanes by group, placed by the Timeline column, coloured by Status', () => {
+  const { docs } = build();
+  const view = docs.find(
+    (d) => d.path === 'boards/showcase-main/views/showcase-roadmap-timeline',
+  ).data;
+  assert.equal(view.type, 'timeline');
+  assert.equal(view.ownerId, null);
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const column = board.columns.find((c) => c.id === view.settings.timeline.columnId);
+  assert.equal(column.type, 'timeline');
+  const color = board.columns.find((c) => c.id === view.settings.timeline.colorBy);
+  assert.equal(color.type, 'status');
+  // Several groups have timeline values, so the view shows several lanes.
+  const items = docs.filter(
+    (d) => /^boards\/showcase-main\/items\/[^/]+$/.test(d.path) && d.data.values?.[column.id],
+  );
+  assert.ok(items.length >= 15, `${items.length} items with a timeline`);
+  assert.ok(new Set(items.map((d) => d.data.groupId)).size >= 3);
+  for (const { data } of items) assert.ok(data.values[column.id].from <= data.values[column.id].to);
 });
 
 test('a view that left the content is pruned on the next run', async () => {
