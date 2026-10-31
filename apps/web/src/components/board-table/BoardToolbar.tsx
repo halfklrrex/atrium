@@ -23,8 +23,15 @@ export interface BoardToolbarProps {
   board?: BoardDoc;
   items?: ItemDoc[];
   userLookup?: (uid: string) => string | undefined;
-  /** `'kanban'` leaves out New item, Hide and Group by (monday's Kanban toolbar has none of them). */
-  variant?: 'table' | 'kanban';
+  /**
+   * `'kanban'` leaves out New item, Hide and Group by (monday's Kanban toolbar has none of them).
+   * `'calendar'` has a plain New item button, and no Hide or Group by.
+   */
+  variant?: 'table' | 'kanban' | 'calendar';
+  /** Whether "New item" is enabled in the calendar variant (the table reads its own environment). */
+  canAddItem?: boolean;
+  /** Extra controls after the board tools (the calendar's period navigation). */
+  after?: ReactNode;
   /** Right-aligned extras (the Kanban status bar and settings gear). */
   trailing?: ReactNode;
   onNewItem?: () => void;
@@ -38,12 +45,15 @@ export function BoardToolbar({
   items,
   userLookup,
   variant = 'table',
+  canAddItem = false,
+  after,
   trailing,
   onNewItem,
   onNewGroup,
   onDev,
 }: BoardToolbarProps) {
-  const kanban = variant === 'kanban';
+  const calendar = variant === 'calendar';
+  const tableOnly = variant === 'table';
   // Outside the table (the Kanban view) there is no table environment, and no New item button.
   const canEdit = useContext(TableEnvContext)?.canEdit ?? false;
   const searchOpen = useTableStore((s) => s.searchOpen);
@@ -58,7 +68,12 @@ export function BoardToolbar({
 
   return (
     <div className={styles.toolbar} role="toolbar" aria-label="Board tools">
-      {kanban ? null : (
+      {calendar ? (
+        <Button size="small" disabled={!canAddItem} onClick={onNewItem}>
+          New item
+        </Button>
+      ) : null}
+      {tableOnly ? (
         <SplitButton
           size="small"
           disabled={!canEdit}
@@ -72,7 +87,7 @@ export function BoardToolbar({
         >
           New item
         </SplitButton>
-      )}
+      ) : null}
 
       {searchOpen ? (
         <div className={styles.searchBox}>
@@ -121,7 +136,7 @@ export function BoardToolbar({
         <SortMenuPopover board={board} />
       </span>
 
-      {kanban ? null : (
+      {tableOnly ? (
         <>
           {/* Hide: which columns this view shows */}
           <span className={styles.toolWrap}>
@@ -133,9 +148,11 @@ export function BoardToolbar({
             <GroupByMenuPopover board={board} />
           </span>
         </>
-      )}
+      ) : null}
 
       <ViewSaveBar />
+
+      {after}
 
       {trailing ? <div className={styles.toolbarTrailing}>{trailing}</div> : null}
 

@@ -1480,6 +1480,38 @@ export function buildShowcase({
   });
   summary.views += 1;
 
+  // ---- A shared Calendar "Due dates": items placed by the Due date column, coloured by Status ----
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-due-calendar`,
+    data: boardViewSchema.parse({
+      name: 'Due dates',
+      type: 'calendar',
+      position: 'a3',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        calendar: {
+          columnId: 'due',
+          mode: 'month',
+          colorBy: 'status',
+          showWeekends: true,
+          firstDayOfWeek: 'monday',
+        },
+      },
+      createdAt: ago(3 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
+
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
   const sideBoardColumns = columns

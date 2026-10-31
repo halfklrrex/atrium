@@ -1,4 +1,9 @@
-import { defaultKanbanSettings, defaultViewSettings, type ViewSettings } from '@atrium/shared';
+import {
+  defaultCalendarSettings,
+  defaultKanbanSettings,
+  defaultViewSettings,
+  type ViewSettings,
+} from '@atrium/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   currentViewState,
@@ -160,5 +165,40 @@ describe('kanban view state', () => {
     store().syncView('b1', 'main', null);
     expect(currentViewState('b1').kanban).toBeNull();
     expect(settingsFromState(currentViewState('b1')).kanban).toBeUndefined();
+  });
+});
+
+describe('calendar and timeline view state', () => {
+  const calendarSettings = (): ViewSettings => ({
+    ...defaultViewSettings(),
+    calendar: { ...defaultCalendarSettings(), columnId: 'due' },
+  });
+
+  it('starts from the saved calendar settings and stays clean', () => {
+    store().syncView('b1', 'c', calendarSettings());
+    expect(currentViewState('b1').calendar?.columnId).toBe('due');
+    expect(isViewDirty(store().views[viewKey('b1', 'c')])).toBe(false);
+  });
+
+  it('counts calendar and timeline changes as unsaved and discards them', () => {
+    store().syncView('b1', 'c', calendarSettings());
+    store().setTypeSettings('b1', 'calendar', { mode: 'week' });
+    expect(isViewDirty(store().views[viewKey('b1', 'c')])).toBe(true);
+    store().discardChanges('b1');
+    expect(currentViewState('b1').calendar?.mode).toBe('month');
+    store().syncView('b1', 't', null);
+    store().setTypeSettings('b1', 'timeline', { zoom: 'days' });
+    expect(isViewDirty(store().views[viewKey('b1', 't')])).toBe(true);
+    expect(currentViewState('b1').timeline?.showLegend).toBe(true);
+  });
+
+  it('saves each type with the rest and never leaks it into another view', () => {
+    store().syncView('b1', 'c', calendarSettings());
+    store().setTypeSettings('b1', 'calendar', { showWeekends: false });
+    const saved = settingsFromState(currentViewState('b1'), calendarSettings());
+    expect(saved.calendar?.showWeekends).toBe(false);
+    expect(saved.kanban).toBeUndefined();
+    store().syncView('b1', 'main', null);
+    expect(settingsFromState(currentViewState('b1')).calendar).toBeUndefined();
   });
 });

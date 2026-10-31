@@ -334,7 +334,7 @@ function roadmapItems(): { id: string; item: ItemWrite }[] {
       if (n % 2 === 0) values.spec = { url: 'https://example.com/spec', text: `PR #${100 + n}` };
       if (n % 4 !== 3) {
         const day = String(3 + ((n * 5) % 24)).padStart(2, '0');
-        values.date = { date: `2026-${n % 3 === 0 ? '10' : '11'}-${day}` };
+        values.date = { date: `2026-${n % 3 === 2 ? '11' : '10'}-${day}` };
       }
       if (n % 3 !== 2) values.person = { personsAndTeams: [{ id: AVERY.uid, kind: 'person' }] };
       out.push({
@@ -619,6 +619,53 @@ export async function removeKanbanView(): Promise<void> {
     .doc(IDS.roadmap)
     .collection('views')
     .doc(KANBAN_VIEW)
+    .delete();
+}
+
+/** Id of the shared Calendar view the Calendar screens add to the roadmap board (and remove again). */
+export const CALENDAR_VIEW = 'view-due-calendar';
+
+/** A shared Calendar view on the roadmap board: items placed by the Date column, coloured by group. */
+export async function addCalendarView(mode: 'month' | 'week' = 'month'): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(CALENDAR_VIEW)
+    .set({
+      name: 'Calendar',
+      type: 'calendar',
+      position: 'a1',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        calendar: {
+          columnId: 'date',
+          mode,
+          colorBy: null,
+          showWeekends: true,
+          firstDayOfWeek: 'monday',
+        },
+      },
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeCalendarView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(CALENDAR_VIEW)
     .delete();
 }
 

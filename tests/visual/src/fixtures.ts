@@ -105,6 +105,14 @@ export async function kanbanReady(page: Page): Promise<void> {
   await expect(page.locator('[data-card]')).toHaveCount(18);
 }
 
+/** The seeded roadmap as a Calendar view: the month (or week) of the frozen day, with its dated items. */
+export async function calendarReady(page: Page, title: string, pills: number): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('heading', { name: title, level: 2 })).toBeVisible();
+  await expect(page.getByRole('grid', { name: title })).toBeVisible();
+  await expect(page.locator('[data-item]')).toHaveCount(pills);
+}
+
 /** Home with all four seeded boards and both workspaces rendered (snapshots arrive separately). */
 export async function homeReady(page: Page): Promise<void> {
   await appReady(page);

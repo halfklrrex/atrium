@@ -661,8 +661,8 @@ test('re-running keeps the item numbers the function assigned', async () => {
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
   const { docs, summary } = build();
   const views = docs.filter((d) => /^boards\/showcase-main\/views\/[^/]+$/.test(d.path));
-  assert.equal(summary.views, 2);
-  assert.equal(views.length, 2);
+  assert.equal(summary.views, 3);
+  assert.equal(views.length, 3);
   const view = views.find((v) => v.data.name === 'Due this week').data;
   assert.equal(view.name, 'Due this week');
   assert.equal(view.type, 'table');
@@ -693,6 +693,23 @@ test('the main board has a shared Kanban "Status board": lanes from Status, thre
       id,
     );
   }
+});
+
+test('the main board has a shared Calendar "Due dates": placed by the Due date column, coloured by Status', () => {
+  const { docs } = build();
+  const view = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-due-calendar').data;
+  assert.equal(view.type, 'calendar');
+  assert.equal(view.ownerId, null);
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const column = board.columns.find((c) => c.id === view.settings.calendar.columnId);
+  assert.equal(column.type, 'date');
+  const color = board.columns.find((c) => c.id === view.settings.calendar.colorBy);
+  assert.equal(color.type, 'status');
+  // Enough dated items to fill the month on screen.
+  const items = docs.filter(
+    (d) => /^boards\/showcase-main\/items\/[^/]+$/.test(d.path) && d.data.values?.[column.id],
+  );
+  assert.ok(items.length >= 15, `${items.length} dated items`);
 });
 
 test('a view that left the content is pruned on the next run', async () => {

@@ -1,0 +1,46 @@
+/*
+ * Calendar view tokens (P3). monday's public help-centre screenshots are the reference (see
+ * docs/specs/P3-calendar-timeline-views.md, "monday reference"): thin grid lines, the day number
+ * top right with today's in the primary text colour, one-line rounded pills. Dark and black themes
+ * inherit through the Vibe variables these build on.
+ */
+
+:root {
+  /* ---- Geometry ---- */
+  --atrium-calendar-gutter: var(--atrium-board-gutter);
+  --atrium-calendar-weekday-height: 32px;
+  --atrium-calendar-day-header: 28px; /* room for the day number above the first pill row */
+  --atrium-calendar-pill-height: 20px;
+  --atrium-calendar-pill-gap: 4px;
+  --atrium-calendar-more-height: 20px;
+  --atrium-calendar-cell-min-height: 96px; /* month cell */
+  --atrium-calendar-week-min-height: 320px; /* week mode row */
+  --atrium-calendar-inset: var(--space-4); /* pill inset from the cell edges */
+  --atrium-calendar-dot: 10px; /* legend dot */
+  --atrium-calendar-divider-height: 20px;
+  --atrium-calendar-popup-width: 240px;
+  --atrium-calendar-select-width: 96px;
+
+  /* ---- Typography ---- */
+  --atrium-calendar-weekday-font: 400 14px / 21px var(--font-family);
+  --atrium-calendar-day-font: 400 14px / 20px var(--font-family);
+  --atrium-calendar-pill-font: 400 13px / 20px var(--font-family);
+  --atrium-calendar-title-font: 500 18px / 24px var(--font-family);
+
+  /* ---- Colours ---- */
+  --atrium-calendar-grid-line: var(--layout-border-color);
+  --atrium-calendar-cell-bg: var(--primary-background-color);
+  --atrium-calendar-cell-hover: var(--primary-background-hover-color);
+  --atrium-calendar-day-text: var(--secondary-text-color);
+  --atrium-calendar-today-text: var(--primary-color);
+  --atrium-calendar-pill-default: var(--allgrey-background-color); /* items without a colour */
+  --atrium-calendar-pill-text-dark: #323338; /* monday ink: the fill decides the text, not the theme */
+  --atrium-calendar-pill-text-light: var(--atrium-white);
+  --atrium-calendar-drop: var(--primary-selected-color);
+  --atrium-calendar-drop-line: var(--primary-color);
+  --atrium-calendar-more-text: var(--secondary-text-color);
+
+  /* ---- Shape and motion ---- */
+  --atrium-calendar-pill-radius: var(--border-radius-medium);
+  --atrium-calendar-motion: 120ms;
+}

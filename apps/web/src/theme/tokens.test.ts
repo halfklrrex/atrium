@@ -37,7 +37,17 @@ describe('design tokens', () => {
       used(css).forEach((name) => references.set(name, [...(references.get(name) ?? []), file]));
     }
     // Per-element custom properties that components set inline from data (group colour, tree depth...).
-    const inline = new Set(['--group-color', '--depth', '--progress', '--status-color']);
+    const inline = new Set([
+      '--group-color',
+      '--depth',
+      '--progress',
+      '--status-color',
+      // Calendar view: columns per week row, and a pill's span, lane and colour.
+      '--calendar-columns',
+      '--calendar-span',
+      '--calendar-lane',
+      '--calendar-pill-color',
+    ]);
     const missing = [...references.keys()].filter(
       (name) => !known.has(name) && !local.has(name) && !inline.has(name),
     );

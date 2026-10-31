@@ -47,10 +47,9 @@ import styles from './ViewTabs.module.css';
 /** Wait for the tab menu to close (and give focus back) before the rename input takes it. */
 const RENAME_DELAY_MS = 150;
 
-const VIEW_ICONS = { table: Table, kanban: Board } as const;
+const VIEW_ICONS = { table: Table, kanban: Board, calendar: Calendar, timeline: Timeline } as const;
 
 const SOON_VIEWS = [
-  { title: 'Calendar', icon: Calendar },
   { title: 'Timeline', icon: Timeline },
   { title: 'Gantt', icon: Gantt },
   { title: 'Chart', icon: Chart },
@@ -310,6 +309,11 @@ export function ViewTabs() {
             title="Kanban"
             icon={Board}
             onClick={() => void viewActions.add(actions, 'kanban')}
+          />
+          <MenuItem
+            title="Calendar"
+            icon={Calendar}
+            onClick={() => void viewActions.add(actions, 'calendar')}
           />
           {SOON_VIEWS.map((soon) => (
             <MenuItem

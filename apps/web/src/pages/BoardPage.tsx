@@ -5,6 +5,7 @@ import { Link, Navigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { boardActions } from '../components/boards/board-actions';
 import { BoardHeader } from '../components/boards/BoardHeader';
+import { CalendarView } from '../components/board-calendar/CalendarView';
 import { KanbanBoard } from '../components/board-kanban/KanbanBoard';
 import { BoardTable } from '../components/board-table/BoardTable';
 import { BoardViewsProvider } from '../components/board-views/BoardViewsProvider';
@@ -118,6 +119,26 @@ export function BoardPage() {
 function ViewBody({ board }: { board: BoardDoc }) {
   const ctx = useBoardViewsContext();
   if (!ctx?.ready) return null;
-  if (ctx.view.type === 'kanban') return <KanbanBoard board={board} />;
-  return <BoardTable board={board} />;
+  const type = ctx.view.type;
+  switch (type) {
+    case 'table':
+      return <BoardTable board={board} />;
+    case 'kanban':
+      return <KanbanBoard board={board} />;
+    case 'calendar':
+      return <CalendarView board={board} />;
+    case 'timeline':
+      // The Timeline view lands in its own PR; its views can't be created until then.
+      return (
+        <div className={styles.center}>
+          <Text type="text1" color="secondary">
+            The Timeline view is coming soon.
+          </Text>
+        </div>
+      );
+    default: {
+      const unhandled: never = type;
+      return unhandled;
+    }
+  }
 }
