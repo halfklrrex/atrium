@@ -13,7 +13,7 @@
     "dev": "pnpm --filter @atrium/functions build && concurrently -k -n emulators,functions,web -c blue,magenta,green \"pnpm emulators\" \"pnpm --filter @atrium/functions dev\" \"node scripts/web-dev.mjs\"",
     "emulators": "node scripts/emulators.mjs",
     "build": "pnpm -r build",
-    "test": "pnpm -r --if-present test && node --test \"scripts/*.test.mjs\" && node --import tsx --test \"scripts/showcase/*.test.mjs\" \"scripts/migrations/*.test.mjs\"",
+    "test": "pnpm -r --if-present test && node --test \"scripts/*.test.mjs\" && node --import tsx --test \"scripts/showcase/*.test.mjs\" \"scripts/migrations/*.test.mjs\" \"scripts/mcp/*.test.mjs\"",
     "test:rules": "node scripts/test-rules.mjs",
     "test:visual": "pnpm --filter @atrium/visual-tests test:visual",
     "test:visual:update": "pnpm --filter @atrium/visual-tests test:visual:update",
@@ -24,22 +24,26 @@
     "licenses:check": "node scripts/third-party-notices.mjs --check",
     "format": "prettier --write .",
     "showcase": "tsx scripts/showcase/seed-showcase.mjs",
+    "mcp": "tsx scripts/mcp/atrium-mcp.mjs",
     "e2e:membership": "tsx scripts/e2e-membership.mjs"
   },
   "devDependencies": {
     "@atrium/shared": "workspace:*",
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "concurrently": "^10.0.6",
     "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.0",
     "firebase-tools": "^15.34.1",
+    "fractional-indexing": "^4.0.0",
     "globals": "^17.0.0",
     "prettier": "^3.9.10",
     "stylelint": "^17.16.0",
     "stylelint-config-standard": "^40.0.0",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.72.0"
+    "typescript-eslint": "^8.72.0",
+    "zod": "^4.6.7"
   }
 }
