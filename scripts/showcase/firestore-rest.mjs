@@ -12,6 +12,29 @@ import { FIRESTORE_DATABASE_ID } from '@atrium/shared';
 
 const SERVER_ERRORS = new Set([429, 500, 502, 503, 504]);
 
+const SIMPLE_SEGMENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** A dotted field path (`values.abc-1`) as an `updateMask` wants it: odd segments in backticks. */
+export function maskPath(dotted) {
+  return dotted
+    .split('.')
+    .map((segment) =>
+      SIMPLE_SEGMENT.test(segment) ? segment : `\`${segment.replace(/[\\`]/g, '\\$&')}\``,
+    )
+    .join('.');
+}
+
+/** Puts `encoded` at the dotted path of a REST `fields` object, creating the maps on the way. */
+function setNestedField(fields, dotted, encoded) {
+  const segments = dotted.split('.');
+  let level = fields;
+  for (const segment of segments.slice(0, -1)) {
+    level[segment] ??= { mapValue: { fields: {} } };
+    level = level[segment].mapValue.fields;
+  }
+  level[segments.at(-1)] = encoded;
+}
+
 /** JS value -> Firestore REST `Value`. Anything with `toMillis()` (or a Date) becomes a timestamp. */
 export function encodeValue(value) {
   if (value === null) return { nullValue: null };
@@ -188,6 +211,28 @@ export function createFirestoreRest({
       return docs;
     },
 
+    /**
+     * Documents of a top-level collection whose fields equal the given values (AND), decoded, with
+     * ids and `updateTime`. `where` is `{ field: value }`; equality only (no composite index).
+     */
+    async runQuery(collectionId, where = {}) {
+      const filters = Object.entries(where).map(([field, value]) => ({
+        fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: encodeValue(value) },
+      }));
+      const structuredQuery = {
+        from: [{ collectionId }],
+        ...(filters.length > 0 ? { where: { compositeFilter: { op: 'AND', filters } } } : {}),
+      };
+      const rows = (await request('POST', `${base}:runQuery`, { structuredQuery })) ?? [];
+      return rows
+        .filter((row) => row.document)
+        .map((row) => ({
+          id: row.document.name.split('/').at(-1),
+          data: decodeFields(row.document.fields ?? {}),
+          updateTime: row.document.updateTime,
+        }));
+    },
+
     async listCollectionIds(docPath) {
       const ids = [];
       let pageToken = '';
@@ -216,6 +261,31 @@ export function createFirestoreRest({
       const body = {
         writes: writes.map((w) => {
           if (w.op === 'delete') return { delete: `${root}/${w.path}` };
+          if (w.op === 'update') {
+            // Field-path update of an existing document: `set` is `{ 'values.col': value }`,
+            // `remove` lists dotted paths to delete, `increment` is `{ field: n }`.
+            const fields = {};
+            const fieldPaths = [];
+            for (const [path, value] of Object.entries(w.set ?? {})) {
+              setNestedField(fields, path, encodeValue(value));
+              fieldPaths.push(maskPath(path));
+            }
+            for (const path of w.remove ?? []) fieldPaths.push(maskPath(path));
+            const increments = Object.entries(w.increment ?? {});
+            return {
+              update: { name: `${root}/${w.path}`, fields },
+              updateMask: { fieldPaths },
+              ...(increments.length > 0
+                ? {
+                    updateTransforms: increments.map(([field, by]) => ({
+                      fieldPath: maskPath(field),
+                      increment: { integerValue: String(by) },
+                    })),
+                  }
+                : {}),
+              currentDocument: w.precondition ?? { exists: true },
+            };
+          }
           if (w.op === 'patch') {
             return {
               update: { name: `${root}/${w.path}`, fields: encodeFields(w.data) },
