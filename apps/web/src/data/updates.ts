@@ -60,7 +60,9 @@ export interface CreateUpdateParams {
   authorName?: string;
   authorPhotoUrl?: string | null;
   content: string;
-  /** Uids picked from the @ list whose "@Name" is still in `content`. */
+  /** The rich-text document (ProseMirror JSON); `content` is its plain-text mirror. */
+  contentDoc?: Record<string, unknown>;
+  /** Uids of the mentions: from the @ picker, or the mention chips of `contentDoc`. */
   mentions?: readonly string[];
 }
 
@@ -72,7 +74,9 @@ export interface CreateReplyParams {
   authorName?: string;
   authorPhotoUrl?: string | null;
   content: string;
-  /** Uids picked from the @ list whose "@Name" is still in `content`. */
+  /** The rich-text document (ProseMirror JSON); `content` is its plain-text mirror. */
+  contentDoc?: Record<string, unknown>;
+  /** Uids of the mentions: from the @ picker, or the mention chips of `contentDoc`. */
   mentions?: readonly string[];
 }
 
@@ -110,6 +114,7 @@ export interface DeleteReplyParams {
 export async function createUpdate(params: CreateUpdateParams): Promise<string> {
   const parsed = createItemUpdateInputSchema.parse({
     content: params.content,
+    ...(params.contentDoc ? { contentDoc: params.contentDoc } : {}),
     ...(params.mentions?.length ? { mentions: [...params.mentions] } : {}),
   });
   const collectionRef = refs.updates(params.boardId, params.itemId);
@@ -124,6 +129,7 @@ export async function createUpdate(params: CreateUpdateParams): Promise<string> 
     ...(params.authorName ? { authorName: params.authorName } : {}),
     ...(params.authorPhotoUrl !== undefined ? { authorPhotoUrl: params.authorPhotoUrl } : {}),
     content: parsed.content,
+    ...(parsed.contentDoc ? { contentDoc: parsed.contentDoc } : {}),
     ...(parsed.mentions?.length ? { mentions: parsed.mentions } : {}),
     likes: [],
     repliesCount: 0,
@@ -150,6 +156,7 @@ export async function toggleLikeUpdate(params: ToggleLikeParams): Promise<void> 
 export async function createReply(params: CreateReplyParams): Promise<string> {
   const parsed = createUpdateReplyInputSchema.parse({
     content: params.content,
+    ...(params.contentDoc ? { contentDoc: params.contentDoc } : {}),
     ...(params.mentions?.length ? { mentions: [...params.mentions] } : {}),
   });
   const collectionRef = refs.replies(params.boardId, params.itemId, params.updateId);
@@ -162,6 +169,7 @@ export async function createReply(params: CreateReplyParams): Promise<string> {
     ...(params.authorName ? { authorName: params.authorName } : {}),
     ...(params.authorPhotoUrl !== undefined ? { authorPhotoUrl: params.authorPhotoUrl } : {}),
     content: parsed.content,
+    ...(parsed.contentDoc ? { contentDoc: parsed.contentDoc } : {}),
     ...(parsed.mentions?.length ? { mentions: parsed.mentions } : {}),
     likes: [],
     createdAt: serverTimestamp(),

@@ -1,14 +1,15 @@
-import { Button, Icon, IconButton, Loader } from '@vibe/core';
+import { Icon, IconButton, Loader } from '@vibe/core';
 import { Delete, ThumbsUp } from '@vibe/icons';
 import classNames from 'classnames';
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { createReply, deleteReply, toggleLikeReply, useUpdateReplies } from '../../data/updates';
 import { formatRelativeShort } from '../../lib/format';
 import { UserAvatar } from '../UserAvatar';
 import { MentionedText } from './MentionedText';
-import { MentionTextarea } from './MentionTextarea';
-import { mentionIdsInText, type PickedMention } from './mentions';
+import { LazyUpdateComposer } from './LazyUpdateComposer';
+import { RichText } from './RichText';
+import type { UpdateBody } from './update-doc';
 import styles from './UpdateReplies.module.css';
 
 interface UpdateRepliesProps {
@@ -31,9 +32,8 @@ export function UpdateReplies({
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const { data: replies, loading } = useUpdateReplies(boardId, itemId, updateId);
-  const [content, setContent] = useState('');
-  const [picked, setPicked] = useState<PickedMention[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  // The editor is only created once the reply box is opened, so a long thread has no stray editors.
+  const [composerOpen, setComposerOpen] = useState(autoFocusComposer);
 
   useEffect(() => {
     if (!focusReplyId || !replies.some((r) => r.id === focusReplyId)) return;
@@ -42,35 +42,19 @@ export function UpdateReplies({
       ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
   }, [focusReplyId, replies]);
 
-  const handleSubmit = async () => {
-    const trimmed = content.trim();
-    if (!trimmed || !uid || submitting) return;
-    setSubmitting(true);
-    try {
-      await createReply({
-        boardId,
-        itemId,
-        updateId,
-        authorId: uid,
-        authorName: user?.displayName ?? user?.email ?? undefined,
-        authorPhotoUrl: user?.photoURL ?? null,
-        content: trimmed,
-        mentions: mentionIdsInText(trimmed, picked),
-      });
-      setContent('');
-      setPicked([]);
-    } catch (error) {
-      console.error('Failed to post reply', error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      void handleSubmit();
-    }
+  const handleSubmit = async (body: UpdateBody) => {
+    if (!uid) return;
+    await createReply({
+      boardId,
+      itemId,
+      updateId,
+      authorId: uid,
+      authorName: user?.displayName ?? user?.email ?? undefined,
+      authorPhotoUrl: user?.photoURL ?? null,
+      content: body.content,
+      contentDoc: body.contentDoc,
+      mentions: body.mentions,
+    });
   };
 
   return (
@@ -111,7 +95,11 @@ export function UpdateReplies({
                       </span>
                     </div>
                     <div className={styles.replyContent}>
-                      <MentionedText text={reply.content} mentions={reply.mentions} />
+                      {reply.contentDoc ? (
+                        <RichText doc={reply.contentDoc} />
+                      ) : (
+                        <MentionedText text={reply.content} mentions={reply.mentions} />
+                      )}
                     </div>
                   </div>
 
@@ -165,29 +153,23 @@ export function UpdateReplies({
             <UserAvatar uid={uid} size="medium" />
           </div>
           <div className={styles.composerInputWrap}>
-            <MentionTextarea
-              boardId={boardId}
-              className={styles.replyInput}
-              rows={1}
-              placeholder="Write a reply and mention others with @"
-              value={content}
-              autoFocus={autoFocusComposer}
-              onValueChange={setContent}
-              onMention={(m) => setPicked((prev) => [...prev, m])}
-              onKeyDown={handleKeyDown}
-            />
-            {content.trim() && (
-              <div>
-                <Button
-                  size="medium"
-                  kind="primary"
-                  disabled={submitting}
-                  loading={submitting}
-                  onClick={() => void handleSubmit()}
-                >
-                  Reply
-                </Button>
-              </div>
+            {composerOpen ? (
+              <LazyUpdateComposer
+                boardId={boardId}
+                variant="reply"
+                placeholder="Write a reply and mention others with @"
+                autoFocus
+                submitLabel="Reply"
+                onSubmit={handleSubmit}
+              />
+            ) : (
+              <button
+                type="button"
+                className={styles.replyPlaceholder}
+                onClick={() => setComposerOpen(true)}
+              >
+                Write a reply and mention others with @
+              </button>
             )}
           </div>
         </div>

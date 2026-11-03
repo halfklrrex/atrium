@@ -1,0 +1,250 @@
+/* The update / reply composer: one bordered box. Collapsed = placeholder only; open = toolbar, editor, footer. */
+.composerBox {
+  background: var(--primary-background-color);
+  border: var(--border-width) solid var(--layout-border-color);
+  border-radius: var(--border-radius-8);
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease;
+  overflow: hidden;
+}
+
+.composerBoxFocused {
+  border-color: var(--primary-color);
+  box-shadow: inset 0 0 0 var(--border-width) var(--primary-color);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--atrium-editor-tool-gap);
+  padding: var(--space-4) var(--space-8) 0;
+  background: var(--primary-background-color);
+}
+
+.toolButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--atrium-editor-tool-size);
+  height: var(--atrium-editor-tool-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-4);
+  background: transparent;
+  color: var(--secondary-text-color);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.toolButton svg {
+  width: var(--atrium-editor-tool-icon);
+  height: var(--atrium-editor-tool-icon);
+}
+
+.toolButton:hover {
+  background: var(--primary-background-hover-color);
+  color: var(--primary-text-color);
+}
+
+.toolButton[aria-expanded='true'] {
+  background: var(--primary-background-hover-color);
+}
+
+.toolActive {
+  background: var(--primary-selected-color);
+  color: var(--primary-color);
+}
+
+.colorTool {
+  display: inline-flex;
+}
+
+.separator {
+  align-self: stretch;
+  width: var(--border-width);
+  margin: var(--space-4);
+  background: var(--layout-border-color);
+}
+
+.linkPopup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: calc(var(--space-32) * 8);
+  padding: var(--space-12);
+}
+
+.linkActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+.content {
+  max-height: 40vh;
+  overflow-y: auto;
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-update-body-font);
+}
+
+.content :global(.ProseMirror) {
+  box-sizing: border-box;
+  min-height: var(--atrium-composer-collapsed-height);
+  padding: var(--space-12) var(--space-16);
+  outline: none;
+  overflow-wrap: break-word;
+}
+
+.contentExpanded :global(.ProseMirror) {
+  min-height: var(--atrium-composer-expanded-height);
+}
+
+.reply .content {
+  font: var(--atrium-reply-body-font);
+}
+
+.reply .content :global(.ProseMirror) {
+  min-height: var(--space-40);
+  padding: var(--space-8) var(--space-16);
+}
+
+.content :global(.ProseMirror) > * + * {
+  margin-top: var(--space-8);
+}
+
+.content :global(.ProseMirror p) {
+  margin: 0;
+}
+
+.content :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--secondary-text-color);
+  pointer-events: none;
+}
+
+.content :global(.ProseMirror ul),
+.content :global(.ProseMirror ol) {
+  margin: 0;
+  padding-inline-start: var(--space-24);
+}
+
+.content :global(.ProseMirror ul) {
+  list-style: disc;
+}
+
+.content :global(.ProseMirror ol) {
+  list-style: decimal;
+}
+
+.content :global(.ProseMirror li p) {
+  margin: 0;
+}
+
+.content :global(.ProseMirror li + li) {
+  margin-top: var(--space-4);
+}
+
+.content :global(.ProseMirror ul[data-type='taskList']) {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.content :global(.ProseMirror ul[data-type='taskList'] li) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+.content :global(.ProseMirror ul[data-type='taskList'] li > label) {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: var(--atrium-doc-line-height);
+  margin: 0;
+  padding: 0;
+}
+
+.content :global(.ProseMirror ul[data-type='taskList'] li > label input[type='checkbox']) {
+  width: var(--atrium-doc-checkbox-size);
+  height: var(--atrium-doc-checkbox-size);
+  margin: 0;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+.content :global(.ProseMirror ul[data-type='taskList'] li > div) {
+  flex: 1;
+  min-width: 0;
+}
+
+.content :global(.ProseMirror ul[data-type='taskList'] li[data-checked='true'] > div) {
+  color: var(--secondary-text-color);
+  text-decoration: line-through;
+}
+
+.content :global(.ProseMirror code) {
+  padding: 0 var(--space-4);
+  border-radius: var(--border-radius-4);
+  background: var(--allgrey-background-color);
+  font: var(--atrium-doc-code-font);
+}
+
+/* An @mention chip: the same primary-colour treatment as "@Name" in a posted update. */
+.content :global(.ProseMirror span[data-type='mention']) {
+  color: var(--primary-color);
+  font-weight: var(--font-weight-bold);
+}
+
+.content :global(.ProseMirror a) {
+  color: var(--link-color);
+  text-decoration: underline;
+}
+
+.content :global(.ProseMirror blockquote) {
+  margin-inline: 0;
+  padding-inline-start: var(--space-12);
+  border-inline-start: var(--space-4) solid var(--layout-border-color);
+  color: var(--secondary-text-color);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+  background: var(--primary-background-color);
+}
+
+.hints {
+  font: var(--atrium-meta-font);
+  color: var(--secondary-text-color);
+}
+
+/* What shows while the editor chunk loads (and what a reply shows until it is opened). */
+.fallback {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--atrium-composer-collapsed-height);
+  padding: var(--space-12) var(--space-16);
+  border: 0;
+  background: var(--primary-background-color);
+  color: var(--secondary-text-color);
+  font: var(--atrium-update-body-font);
+  text-align: start;
+  cursor: text;
+}
+
+.reply .fallback {
+  min-height: var(--space-40);
+  padding: var(--space-8) var(--space-16);
+  font: var(--atrium-reply-body-font);
+}

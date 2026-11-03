@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import type { Editor } from '@tiptap/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BoardDoc, ItemUpdateDoc, MemberDoc, WorkspaceDoc } from '../../data/model';
 import { resetMembersStore, useMembersStore } from '../../data/members-store';
 import { makeBoard, makeWorkspace, ts } from '../../test/fixtures';
@@ -44,6 +45,11 @@ const member = (id: string, displayName: string): MemberDoc => ({
 let mockBoard: BoardDoc;
 let mockWorkspace: WorkspaceDoc;
 
+// The editor chunk is lazy; load it once up front so no test waits on the first transform.
+beforeAll(async () => {
+  await import('./UpdateComposer');
+}, 60_000);
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockUpdates = [];
@@ -72,60 +78,94 @@ beforeEach(() => {
 
 afterEach(() => resetMembersStore());
 
+/** The TipTap editor behind the (first) composer on screen. */
+const editorOf = (): Editor => {
+  const dom = document.querySelector('.ProseMirror') as (HTMLElement & { editor: Editor }) | null;
+  if (!dom) throw new Error('no editor');
+  return dom.editor;
+};
+const typeInto = (editor: Editor, value: string) =>
+  act(() => {
+    editor.commands.focus();
+    editor.commands.insertContent(value);
+  });
+const chipsIn = (editor: Editor) => {
+  const found: Record<string, unknown>[] = [];
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === 'mention') found.push(node.attrs);
+  });
+  return found;
+};
+
 describe('@mentions in the update composer', () => {
-  const composer = () => screen.getByPlaceholderText('Write an update and mention others with @');
+  const mount = async () => {
+    render(<UpdatesFeed boardId="b1" itemId="i1" />);
+    await screen.findByRole('textbox', { name: 'Write an update and mention others with @' });
+  };
 
   it('opens a list of members who can read the board and filters it as you type', async () => {
-    render(<UpdatesFeed boardId="b1" itemId="i1" />);
-    await userEvent.type(composer(), 'Hi @');
+    await mount();
+    typeInto(editorOf(), 'Hi @');
     const list = await screen.findByRole('listbox', { name: 'People' });
-    // Not the author herself, and not the member who has no access.
+    // Like the description's list: everyone who can read the board, but not the member without access.
+    expect(list).toHaveTextContent('Avery Quinn');
     expect(list).toHaveTextContent('Jordan Lee');
     expect(list).toHaveTextContent('Sam Rivera');
-    expect(list).not.toHaveTextContent('Avery Quinn');
     expect(list).not.toHaveTextContent('Jules Former');
 
-    await userEvent.type(composer(), 'sam');
-    expect(screen.queryByRole('option', { name: /Jordan Lee/ })).not.toBeInTheDocument();
+    typeInto(editorOf(), 'sam');
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: /Jordan Lee/ })).not.toBeInTheDocument(),
+    );
     expect(screen.getByRole('option', { name: /Sam Rivera/ })).toBeInTheDocument();
   });
 
-  it('inserts "@Name " when picked and sends the uid with the update', async () => {
-    render(<UpdatesFeed boardId="b1" itemId="i1" />);
-    await userEvent.type(composer(), 'Hi @jor');
+  it('inserts a chip when picked and sends its uid with the update', async () => {
+    await mount();
+    typeInto(editorOf(), 'Hi @jor');
     await userEvent.click(await screen.findByRole('option', { name: /Jordan Lee/ }));
-    expect(composer()).toHaveValue('Hi @Jordan Lee ');
+    expect(chipsIn(editorOf())).toEqual([
+      expect.objectContaining({ id: 'u2', label: 'Jordan Lee' }),
+    ]);
+    expect(editorOf().getText()).toBe('Hi @Jordan Lee ');
     expect(screen.queryByRole('listbox', { name: 'People' })).not.toBeInTheDocument();
 
-    await userEvent.type(composer(), 'please look');
+    typeInto(editorOf(), 'please look');
     await userEvent.click(screen.getByRole('button', { name: 'Update' }));
     expect(mockCreateUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ content: 'Hi @Jordan Lee please look', mentions: ['u2'] }),
+      expect.objectContaining({
+        content: 'Hi @Jordan Lee please look',
+        mentions: ['u2'],
+        contentDoc: expect.objectContaining({ type: 'doc' }),
+      }),
     );
   });
 
   it('picks with the keyboard', async () => {
-    render(<UpdatesFeed boardId="b1" itemId="i1" />);
-    await userEvent.type(composer(), '@');
+    await mount();
+    typeInto(editorOf(), '@');
     await screen.findByRole('listbox', { name: 'People' });
-    await userEvent.keyboard('{ArrowDown}{Enter}');
-    expect(composer()).toHaveValue('@Sam Rivera ');
+    fireEvent.keyDown(editorOf().view.dom, { key: 'ArrowDown' });
+    fireEvent.keyDown(editorOf().view.dom, { key: 'Enter' });
+    expect(chipsIn(editorOf())).toEqual([expect.objectContaining({ id: 'u2' })]);
   });
 
-  it('drops the id when the @Name was deleted before sending', async () => {
-    render(<UpdatesFeed boardId="b1" itemId="i1" />);
-    await userEvent.type(composer(), '@jor');
+  it('drops the id when the chip was deleted before sending', async () => {
+    await mount();
+    typeInto(editorOf(), '@jor');
     await userEvent.click(await screen.findByRole('option', { name: /Jordan Lee/ }));
-    await userEvent.clear(composer());
-    await userEvent.type(composer(), 'never mind');
+    act(() => {
+      editorOf().commands.clearContent();
+    });
+    typeInto(editorOf(), 'never mind');
     await userEvent.click(screen.getByRole('button', { name: 'Update' }));
     const sent = mockCreateUpdate.mock.calls[0]?.[0] as { mentions?: string[] };
     expect(sent.mentions).toEqual([]);
   });
 
   it('does not open for an @ inside a word', async () => {
-    render(<UpdatesFeed boardId="b1" itemId="i1" />);
-    await userEvent.type(composer(), 'mail avery@');
+    await mount();
+    typeInto(editorOf(), 'mail avery@');
     expect(screen.queryByRole('listbox', { name: 'People' })).not.toBeInTheDocument();
   });
 
@@ -183,10 +223,15 @@ describe('opening an update from a notification', () => {
 describe('@mentions in the reply composer', () => {
   it('sends the picked uid with the reply', async () => {
     render(<UpdateReplies boardId="b1" itemId="i1" updateId="up1" />);
-    const input = screen.getByPlaceholderText('Write a reply and mention others with @');
-    await userEvent.type(input, '@sam');
+    // The editor only exists once the reply box is opened.
+    expect(document.querySelector('.ProseMirror')).toBeNull();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Write a reply and mention others with @' }),
+    );
+    await screen.findByRole('textbox', { name: 'Write a reply and mention others with @' });
+    typeInto(editorOf(), '@sam');
     await userEvent.click(await screen.findByRole('option', { name: /Sam Rivera/ }));
-    await userEvent.type(input, 'thanks');
+    typeInto(editorOf(), 'thanks');
     await userEvent.click(screen.getByRole('button', { name: 'Reply' }));
     expect(mockCreateReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: '@Sam Rivera thanks', mentions: ['u3'] }),
