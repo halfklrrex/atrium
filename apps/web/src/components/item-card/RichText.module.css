@@ -1,0 +1,78 @@
+/* A rich update or reply body. Inherits the font and colour of the card it sits in. */
+.root {
+  white-space: normal;
+}
+
+.root > * + * {
+  margin-top: var(--space-8);
+}
+
+.root p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.root ul,
+.root ol {
+  margin: 0;
+  padding-inline-start: var(--space-24);
+}
+
+.root ul {
+  list-style: disc;
+}
+
+.root ol {
+  list-style: decimal;
+}
+
+.root li + li {
+  margin-top: var(--space-4);
+}
+
+.root li > * + * {
+  margin-top: var(--space-4);
+}
+
+.root .taskList {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.taskItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+.taskItem input {
+  flex: none;
+  margin: 0;
+  width: var(--atrium-doc-checkbox-size);
+  height: var(--atrium-doc-checkbox-size);
+  accent-color: var(--primary-color);
+}
+
+.taskItem > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.root code {
+  padding: 0 var(--space-4);
+  border-radius: var(--border-radius-4);
+  background: var(--allgrey-background-color);
+  font: var(--atrium-doc-code-font);
+}
+
+.root a {
+  color: var(--link-color);
+  text-decoration: underline;
+}
+
+.root blockquote {
+  margin: 0;
+  padding-inline-start: var(--space-12);
+  border-inline-start: var(--space-4) solid var(--layout-border-color);
+  color: var(--secondary-text-color);
+}
