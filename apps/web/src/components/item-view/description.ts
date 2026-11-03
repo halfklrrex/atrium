@@ -52,6 +52,7 @@ export function docToText(doc: unknown): string {
       content?: unknown[];
     };
     if (typeof n.text === 'string') parts.push(n.text);
+    if (n.type === 'hardBreak') parts.push('\n');
     if (n.type === 'image' && n.attrs?.alt) parts.push(` ${String(n.attrs.alt)} `);
     if (n.type === 'emoji' && n.attrs?.name) parts.push(`:${String(n.attrs.name)}:`);
     if (n.type === 'mention' && n.attrs?.label) parts.push(`@${String(n.attrs.label)}`);

@@ -1,22 +1,15 @@
 import { Button, Icon, IconButton, Loader, Tooltip } from '@vibe/core';
-import {
-  Bold,
-  Bullets,
-  Comment,
-  Delete,
-  Italic,
-  ThumbsUp,
-  Update as UpdateIcon,
-} from '@vibe/icons';
+import { Comment, Delete, ThumbsUp, Update as UpdateIcon } from '@vibe/icons';
 import classNames from 'classnames';
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { createUpdate, deleteUpdate, toggleLikeUpdate, useItemUpdates } from '../../data/updates';
 import { formatRelativeShort } from '../../lib/format';
 import { UserAvatar } from '../UserAvatar';
 import { MentionedText } from './MentionedText';
-import { MentionTextarea } from './MentionTextarea';
-import { mentionIdsInText, type PickedMention } from './mentions';
+import { LazyUpdateComposer } from './LazyUpdateComposer';
+import { RichText } from './RichText';
+import type { UpdateBody } from './update-doc';
 import { UpdateReplies } from './UpdateReplies';
 import styles from './UpdatesFeed.module.css';
 
@@ -34,14 +27,7 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
   const uid = user?.uid ?? '';
   const { data: updates, loading } = useItemUpdates(boardId, itemId);
 
-  const [draft, setDraft] = useState('');
-  const [picked, setPicked] = useState<PickedMention[]>([]);
-  const [isFocused, setIsFocused] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({});
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  const expanded = isFocused || draft.length > 0;
 
   // A notification deep link: bring the update up (a reply's thread is opened further down).
   const focusedRef = useRef<string | null>(null);
@@ -54,10 +40,6 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
       ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
   }, [focusUpdateId, updates]);
 
-  const handleComposerBlur = (e: FocusEvent<HTMLDivElement>) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) setIsFocused(false);
-  };
-
   const toggleReplies = (updateId: string) => {
     setExpandedReplies((prev) => ({
       ...prev,
@@ -65,136 +47,31 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
     }));
   };
 
-  const handlePostUpdate = async () => {
-    const trimmed = draft.trim();
-    if (!trimmed || !uid || submitting) return;
-    setSubmitting(true);
-    try {
-      await createUpdate({
-        boardId,
-        itemId,
-        authorId: uid,
-        authorName: user?.displayName ?? user?.email ?? undefined,
-        authorPhotoUrl: user?.photoURL ?? null,
-        content: trimmed,
-        mentions: mentionIdsInText(trimmed, picked),
-      });
-      setDraft('');
-      setPicked([]);
-    } catch (error) {
-      console.error('Failed to post update', error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      void handlePostUpdate();
-    }
-  };
-
-  const insertFormatting = (prefix: string, suffix: string = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = draft;
-    const selected = text.slice(start, end);
-    const replacement = `${prefix}${selected || 'text'}${suffix}`;
-
-    const newDraft = text.slice(0, start) + replacement + text.slice(end);
-    setDraft(newDraft);
-
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        start + prefix.length,
-        start + prefix.length + (selected.length || 4),
-      );
-    }, 0);
+  const handlePostUpdate = async (body: UpdateBody) => {
+    if (!uid) return;
+    await createUpdate({
+      boardId,
+      itemId,
+      authorId: uid,
+      authorName: user?.displayName ?? user?.email ?? undefined,
+      authorPhotoUrl: user?.photoURL ?? null,
+      content: body.content,
+      contentDoc: body.contentDoc,
+      mentions: body.mentions,
+    });
   };
 
   return (
     <div className={styles.feedContainer} aria-label="Updates feed">
       {/* Composer */}
       {uid && (
-        <div
-          className={classNames(
-            styles.composerBox,
-            expanded && styles.composerBoxExpanded,
-            isFocused && styles.composerBoxFocused,
-          )}
-          onFocus={() => setIsFocused(true)}
-          onBlur={handleComposerBlur}
-        >
-          {expanded && (
-            <div className={styles.composerToolbar} role="toolbar" aria-label="Text formatting">
-              <Tooltip content="Bold">
-                <button
-                  type="button"
-                  className={styles.toolButton}
-                  onClick={() => insertFormatting('**', '**')}
-                  aria-label="Format bold"
-                >
-                  <Icon icon={Bold} size={16} />
-                </button>
-              </Tooltip>
-              <Tooltip content="Italic">
-                <button
-                  type="button"
-                  className={styles.toolButton}
-                  onClick={() => insertFormatting('*', '*')}
-                  aria-label="Format italic"
-                >
-                  <Icon icon={Italic} size={16} />
-                </button>
-              </Tooltip>
-              <Tooltip content="Bulleted list">
-                <button
-                  type="button"
-                  className={styles.toolButton}
-                  onClick={() => insertFormatting('\n- ')}
-                  aria-label="Format list"
-                >
-                  <Icon icon={Bullets} size={16} />
-                </button>
-              </Tooltip>
-            </div>
-          )}
-
-          <MentionTextarea
-            boardId={boardId}
-            inputRef={textareaRef}
-            className={classNames(
-              styles.composerTextarea,
-              expanded && styles.composerTextareaExpanded,
-            )}
-            placeholder="Write an update and mention others with @"
-            value={draft}
-            onValueChange={setDraft}
-            onMention={(m) => setPicked((prev) => [...prev, m])}
-            onKeyDown={handleKeyDown}
-            rows={expanded ? 3 : 1}
-          />
-
-          {expanded && (
-            <div className={styles.composerFooter}>
-              <span className={styles.composerHints}>Ctrl+Enter to post</span>
-              <Button
-                kind="primary"
-                size="small"
-                disabled={!draft.trim() || submitting}
-                loading={submitting}
-                onClick={() => void handlePostUpdate()}
-              >
-                Update
-              </Button>
-            </div>
-          )}
-        </div>
+        <LazyUpdateComposer
+          boardId={boardId}
+          variant="update"
+          placeholder="Write an update and mention others with @"
+          submitLabel="Update"
+          onSubmit={handlePostUpdate}
+        />
       )}
 
       {/* Feed list */}
@@ -267,7 +144,11 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
                 </header>
 
                 <div className={styles.updateContent}>
-                  <MentionedText text={update.content} mentions={update.mentions} />
+                  {update.contentDoc ? (
+                    <RichText doc={update.contentDoc} />
+                  ) : (
+                    <MentionedText text={update.content} mentions={update.mentions} />
+                  )}
                 </div>
 
                 {update.likes.length > 0 && (
