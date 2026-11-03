@@ -578,6 +578,11 @@ export const writes = {
     await deleteDoc(doc(db, COLLECTIONS.users, uid, COLLECTIONS.favorites, boardId));
   },
 
+  /** Reorder a favourite: writes `position` only (rules allow nothing else on an update). */
+  async moveFavorite(uid: string, boardId: string, position: string): Promise<void> {
+    await updateDoc(doc(db, COLLECTIONS.users, uid, COLLECTIONS.favorites, boardId), { position });
+  },
+
   /** Record a visit; one document per board, so re-visits just refresh `visitedAt`. */
   async touchRecent(uid: string, board: Pick<BoardDoc, 'id' | 'workspaceId'>): Promise<void> {
     await setDoc(doc(db, COLLECTIONS.users, uid, COLLECTIONS.recents, board.id), {
