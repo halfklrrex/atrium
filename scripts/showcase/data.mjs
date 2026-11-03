@@ -231,7 +231,15 @@ const COLUMNS = [
     id: 'button',
     type: 'button',
     title: 'Action',
-    settings: { label: 'Approve', color: '#579bfc' },
+    settings: {
+      label: 'Mark as shipped',
+      color: '#579bfc',
+      // Runs in order, all or nothing: status to Done, then the (here unchanged) name template.
+      actions: [
+        { type: 'set_value', columnId: 'status', value: { index: STATUS.done } },
+        { type: 'rename_item', template: '{name}' },
+      ],
+    },
   },
   {
     id: 'time_tracking',
