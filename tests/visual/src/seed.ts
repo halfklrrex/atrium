@@ -982,6 +982,7 @@ export async function clearActivity(): Promise<void> {
   await firestore.recursiveDelete(
     firestore.collection('boards').doc(IDS.roadmap).collection('activity'),
   );
+}
 
 /** Id of the button column the button settings screens add to the roadmap board (and remove again). */
 export const ACTION_BUTTON_COLUMN = 'ship-button';
