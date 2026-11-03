@@ -204,6 +204,7 @@ export function adminColumnActionsTx(firestore: Firestore, tx: Transaction): Col
         access: snap.get('access') ?? {},
         columns: snap.get('columns') ?? [],
         columnLocks: snap.get('columnLocks') ?? [],
+        groups: snap.get('groups') ?? [],
       };
     },
     async getWorkspaceMemberRole(workspaceId, uid) {
@@ -232,6 +233,19 @@ export function adminColumnActionsTx(firestore: Firestore, tx: Transaction): Col
         'updatedBy',
         updatedBy,
       );
+    },
+    updateItem(boardId, itemId, patch, updatedBy, serverTimestamp) {
+      const args: unknown[] = [];
+      for (const [key, value] of Object.entries(patch)) {
+        const isCell = key.startsWith('values.');
+        args.push(
+          isCell ? new FieldPath('values', key.slice('values.'.length)) : key,
+          isCell && value === null ? FieldValue.delete() : value,
+        );
+      }
+      args.push('updatedAt', serverTimestamp, 'updatedBy', updatedBy);
+      const [first, second, ...rest] = args as [string | FieldPath, unknown, ...unknown[]];
+      tx.update(itemRef(boardId, itemId), first, second, ...rest);
     },
     async getMemberProfile(workspaceId, uid) {
       return (await getMemberProfilesTx(firestore, tx, workspaceId, [uid])).get(uid) ?? null;

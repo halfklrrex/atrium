@@ -16,6 +16,7 @@ interface TestStore {
   workspaceRoles: Record<string, WorkspaceRole>;
   item?: ItemData | null;
   updatedValues?: { columnId: string; value: unknown; updatedBy: string };
+  itemUpdates: Array<{ patch: Record<string, unknown>; updatedBy: string }>;
   appendedActivities: Array<{ boardId: string; activity: NewActivity }>;
   currentTimeMs: number;
   generatedSessionId: string;
@@ -34,6 +35,9 @@ function createFakeTx(store: TestStore): ColumnActionsTx {
     },
     updateItemValues(_boardId, _itemId, columnId, value, updatedBy) {
       store.updatedValues = { columnId, value, updatedBy };
+    },
+    updateItem(_boardId, _itemId, patch, updatedBy) {
+      store.itemUpdates.push({ patch, updatedBy });
     },
     async getMemberProfile(_wsId, uid) {
       return uid === 'u_member' ? { name: 'Avery Quinn', photoURL: null } : null;
@@ -77,6 +81,7 @@ describe('column-actions', () => {
         workspaceRoles: { u_member: 'member' },
         item: { ...baseItem },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_123',
       };
@@ -138,6 +143,7 @@ describe('column-actions', () => {
           },
         },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_new',
       };
@@ -175,6 +181,7 @@ describe('column-actions', () => {
           },
         },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_fail',
       };
@@ -199,6 +206,7 @@ describe('column-actions', () => {
         board: null,
         workspaceRoles: {},
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_x',
       };
@@ -246,6 +254,7 @@ describe('column-actions', () => {
           },
         },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000050000,
         generatedSessionId: 'sess_new',
       };
@@ -285,6 +294,7 @@ describe('column-actions', () => {
           },
         },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_overflow',
       };
@@ -311,6 +321,7 @@ describe('column-actions', () => {
           },
         },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_corrupt',
       };
@@ -337,6 +348,7 @@ describe('column-actions', () => {
         workspaceRoles: {},
         item: baseItem,
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_removed',
       };
@@ -362,6 +374,7 @@ describe('column-actions', () => {
         workspaceRoles: { u_owner: 'owner' },
         item: baseItem,
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_priv',
       };
@@ -383,6 +396,7 @@ describe('column-actions', () => {
         workspaceRoles: { u_member: 'member' },
         item: { ...baseItem, state: 'archived' },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_x',
       };
@@ -442,6 +456,7 @@ describe('column-actions', () => {
           },
         },
         appendedActivities: [],
+        itemUpdates: [],
         // Stopped 120 seconds later
         currentTimeMs: 1700000120000,
         generatedSessionId: 'sess_none',
@@ -492,6 +507,7 @@ describe('column-actions', () => {
           },
         },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000050000,
         generatedSessionId: 'sess_none',
       };
@@ -524,6 +540,7 @@ describe('column-actions', () => {
           },
         },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_none',
       };
@@ -547,6 +564,7 @@ describe('column-actions', () => {
         workspaceRoles: { u_member: 'member' },
         item: { ...baseItem, name: 'Ship v1.0' },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_none',
       };
@@ -563,7 +581,9 @@ describe('column-actions', () => {
         success: true,
         activityId: 'act_1',
         timestamp: 1700000000000,
+        applied: [],
       });
+      expect(store.itemUpdates).toEqual([]);
 
       expect(store.appendedActivities).toHaveLength(1);
       expect(store.appendedActivities[0]).toEqual({
@@ -592,6 +612,7 @@ describe('column-actions', () => {
         workspaceRoles: { u_viewer: 'viewer' },
         item: baseItem,
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1,
         generatedSessionId: 's',
       };
@@ -616,6 +637,7 @@ describe('column-actions', () => {
         workspaceRoles: { u_member: 'member' },
         item: { ...baseItem, name: 'Task without color' },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_none',
       };
@@ -639,6 +661,7 @@ describe('column-actions', () => {
         workspaceRoles: { u_member: 'member' },
         item: baseItem,
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_none',
       };
@@ -679,6 +702,7 @@ describe('column-actions', () => {
         workspaceRoles: { u_member: 'member', u_owner: 'owner' },
         item: { ...baseItem },
         appendedActivities: [],
+        itemUpdates: [],
         currentTimeMs: 1700000000000,
         generatedSessionId: 'sess_lock',
       };
@@ -754,6 +778,137 @@ describe('column-actions', () => {
         'SERVER_TIMESTAMP',
       );
       expect(clickRes.success).toBe(true);
+    });
+  });
+
+  describe('clickButtonInTransaction actions', () => {
+    const actionsBoard = (actions: unknown[], extra: Partial<BoardData> = {}): BoardData =>
+      ({
+        ...baseBoard,
+        columns: [
+          { id: 'col_btn', type: 'button', settings: { label: 'Ship', color: '#579bfc', actions } },
+          { id: 'col_text', type: 'text', settings: {} },
+          { id: 'col_other', type: 'text', settings: {} },
+        ],
+        groups: [{ id: 'g_done' }, { id: 'g_todo' }],
+        ...extra,
+      }) as BoardData;
+
+    const makeStore = (board: BoardData, item: ItemData = baseItem): TestStore => ({
+      board,
+      workspaceRoles: { u_member: 'member', u_owner: 'owner', u_viewer: 'viewer' },
+      item,
+      appendedActivities: [],
+      itemUpdates: [],
+      currentTimeMs: Date.UTC(2026, 10, 3, 12),
+      generatedSessionId: 's',
+    });
+    const req = { boardId: 'b_1', itemId: 'item_1', columnId: 'col_btn' };
+    const click = (store: TestStore, uid = 'u_member') =>
+      clickButtonInTransaction(createFakeTx(store), uid, req, 'TS');
+
+    it('applies every action type in one patch with the clicking user', async () => {
+      const store = makeStore(
+        actionsBoard([
+          { type: 'set_value', columnId: 'col_text', value: 'Shipped' },
+          { type: 'rename_item', template: '{name} ({date})' },
+          { type: 'move_to_group', groupId: 'g_done' },
+          { type: 'archive_item' },
+        ]),
+      );
+      const result = await click(store);
+      expect(store.itemUpdates).toEqual([
+        {
+          updatedBy: 'u_member',
+          patch: {
+            'values.col_text': 'Shipped',
+            name: 'Build landing page (2026-11-03)',
+            groupId: 'g_done',
+            state: 'archived',
+          },
+        },
+      ]);
+      expect(result.applied.map((a) => a.type)).toEqual([
+        'set_value',
+        'rename_item',
+        'move_to_group',
+        'archive_item',
+      ]);
+      expect(store.appendedActivities[0]?.activity.data.actions).toEqual([
+        'set_value',
+        'rename_item',
+        'move_to_group',
+        'archive_item',
+      ]);
+    });
+
+    it('runs in order, the last write to a column wins, null clears, unknown tokens stay', async () => {
+      const store = makeStore(
+        actionsBoard([
+          { type: 'set_value', columnId: 'col_text', value: 'one' },
+          { type: 'set_value', columnId: 'col_text', value: 'two' },
+          { type: 'set_value', columnId: 'col_other', value: null },
+          { type: 'rename_item', template: '{name}!' },
+          { type: 'rename_item', template: '{name} {x}' },
+        ]),
+      );
+      await click(store);
+      expect(store.itemUpdates[0]?.patch).toEqual({
+        'values.col_text': 'two',
+        'values.col_other': null,
+        name: 'Build landing page! {x}',
+      });
+    });
+
+    it('is all or nothing: a bad second action writes and logs nothing', async () => {
+      const store = makeStore(
+        actionsBoard([
+          { type: 'set_value', columnId: 'col_text', value: 'x' },
+          { type: 'move_to_group', groupId: 'g_gone' },
+        ]),
+      );
+      await expect(click(store)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        message: 'Action 2 (Move to group): the group no longer exists',
+      });
+      expect(store.itemUpdates).toEqual([]);
+      expect(store.appendedActivities).toEqual([]);
+    });
+
+    it('refuses invalid values, button, missing and a rename that ends empty', async () => {
+      for (const action of [
+        { type: 'set_value', columnId: 'col_text', value: 42 },
+        { type: 'set_value', columnId: 'col_btn', value: {} },
+        { type: 'set_value', columnId: 'col_gone', value: 'x' },
+        { type: 'rename_item', template: '   ' },
+      ]) {
+        const store = makeStore(actionsBoard([action]));
+        await expect(click(store)).rejects.toMatchObject({ code: 'failed-precondition' });
+        expect(store.itemUpdates).toEqual([]);
+      }
+    });
+
+    it('refuses an editor on a locked target column and allows an owner', async () => {
+      const board = actionsBoard([{ type: 'set_value', columnId: 'col_text', value: 'x' }], {
+        columnLocks: ['col_text'],
+      });
+      const store = makeStore(board);
+      await expect(click(store, 'u_member')).rejects.toMatchObject({
+        code: 'failed-precondition',
+      });
+      expect(store.itemUpdates).toEqual([]);
+      await click(store, 'u_owner');
+      expect(store.itemUpdates).toHaveLength(1);
+    });
+
+    it('refuses a viewer and an archived item', async () => {
+      const board = actionsBoard([{ type: 'archive_item' }]);
+      const viewer = makeStore(board);
+      await expect(click(viewer, 'u_viewer')).rejects.toMatchObject({ code: 'permission-denied' });
+      const archived = makeStore(board, { ...baseItem, state: 'archived' });
+      await expect(click(archived)).rejects.toMatchObject({ code: 'failed-precondition' });
+      expect(viewer.itemUpdates).toEqual([]);
+      expect(archived.itemUpdates).toEqual([]);
     });
   });
 });
