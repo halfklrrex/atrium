@@ -62,11 +62,47 @@ Add a button column to the showcase board (`scripts/showcase/data.mjs`): "Mark a
 
 ## Out of scope
 
-Conditions, delays, running on a schedule, creating items, URL or webhook actions, undo of a click, per-button permissions beyond column locks, `notify` (slice B), and triggering from anything but a click (all P5).
+Conditions, delays, running on a schedule, creating items, URL or webhook actions, undo of a click, per-button permissions beyond column locks, `notify` (slice B, below), and triggering from anything but a click (all P5).
 
 ## Checks
 
 `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:rules`, `pnpm build`; the baselines workflow for the visual screens.
+
+## Slice B: the `notify` action (addendum 2026-11-03, Ophelia)
+
+Branch `claude/button-notify`. Needs a new notification kind, a preference key and a rules change (hot spots: `packages/shared`, `firestore.rules`, `tests/rules`), so it is its own PR and only opens when no other open PR touches those files.
+
+### Behaviour
+
+- A new action `{ type: 'notify', uids: string[] (1 to 10), message: string (0 to 140, optional) }`. In the settings editor the people picker lists the workspace members (reuse the People column's member picker); the message is a short text field. It counts toward the 5-action limit. Order matters like any other action, but notifications are only sent after the transaction commits, and only if every action succeeded.
+- On click, each listed person (except the clicker) gets one notification of the new kind **`button`**: "<actor> clicked <button label> on <item>" with the optional message as the snippet. Recipients must be current members who can read the board (the same filter `deliverNotifications` applies to mentions: a uid that cannot read the board notifies nobody). The clicker never notifies themselves.
+- Id: `button-${activityId}-${uid}` (the click's activity entry id is the event id, so a retried call overwrites instead of duplicating).
+- Repeat guard: the callable refuses a click when the same user clicked the same button on the same item less than 2 seconds ago (`already-exists`, no writes), so a double click cannot spam people.
+
+### Shared
+
+- `notificationKindSchema` gains `'button'`. `notificationPrefsSchema` and `NotificationPrefs` gain `button: z.boolean().default(true)`. `buttonActionSchema` gains the `notify` member; `validateButtonActions` checks 1 to 10 unique uids, each a workspace member when the member list is available (the settings-time check in the web app may skip it), and the message length. `BUTTON_ACTION_LABELS` gets "Notify people".
+- Existing prefs documents have only three keys and must stay valid: the new key is optional on read (missing means on).
+
+### Rules
+
+- `validNotificationPrefs` allows an optional fourth key `button` (`hasOnly` the four keys, `hasAll` the original three, `button` a bool when present). Nothing else changes: notifications themselves are written only by Functions.
+- Rules tests: the old three-key prefs still pass, a four-key prefs passes, an unknown key or a non-bool `button` is refused.
+
+### Functions
+
+- `KIND_PRIORITY` gets `button` (below `assigned`, so a person who is also mentioned keeps the stronger kind). `clickButtonInTransaction` returns the notify targets; the callable delivers them after the commit with `deliverNotifications` (best effort: a delivery failure is logged and does not fail the click, because the item changes were already applied) and records `data.notified` (a count) on the `button_clicked` activity entry.
+- Tests with the fakes: recipients filtered by board access and prefs; the clicker excluded; one notification per person; nothing sent when an earlier action fails; the 2-second repeat guard; a retried call does not duplicate.
+
+### Web
+
+- Bell panel: `NotificationCard.tsx` renders the `button` kind ("<actor> clicked <label>" plus the message; clicking opens the item); `notification-filter.ts` keeps `all` and `unread` working (no new tab). `NotificationSettingsDialog.tsx` gets a "Button clicks" toggle.
+- Settings editor: the "Add action" menu gets "Notify people" with the member picker and the message field, with errors in the usual inline style.
+- Tests for the card, the toggle and the editor row. Visual: only if the notifications panel baseline changes (seed one `button` notification there).
+
+### Out of scope
+
+Email or push for button notifications (P4 email and web push), notifying whoever is currently in a People column, mention syntax in the message.
 
 ## PR split
 
