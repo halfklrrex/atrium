@@ -99,3 +99,5 @@ interface UpdateReply {
 - Unit tests for update/reply schemas and mutations.
 - Component tests for `ItemCardDrawer` and `UpdatesFeed`.
 - Rules tests for update creation, likes, and reply permissions.
+
+> Rich text in updates and replies (`contentDoc`, formatting toolbar, mentions from the document): see `docs/specs/P1d-update-composer-rich-text.md`.
