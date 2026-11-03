@@ -412,6 +412,19 @@
   color: var(--atrium-nav-text-active);
 }
 
+.favoriteRow {
+  min-width: 0;
+}
+
+.favoriteActive {
+  color: var(--atrium-nav-text-active);
+}
+
+.favoriteRow:has(.favoriteActive) {
+  background: var(--atrium-nav-selected-bg);
+  color: var(--atrium-nav-text-active);
+}
+
 .dropTarget {
   background: var(--atrium-nav-selected-bg);
   outline: var(--atrium-focus-ring);
