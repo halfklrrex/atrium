@@ -1,7 +1,10 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ActivityDoc, ActivityState } from '../../data/activity';
 import type { ItemDoc, ItemUpdateDoc } from '../../data/model';
+import { makeActivity } from '../../test/activity';
+import { makeBoard } from '../../test/fixtures';
 import { ItemCardDrawer } from './ItemCardDrawer';
 import { useItemCardStore } from './item-card-store';
 
@@ -59,6 +62,61 @@ vi.mock('../../auth/auth-context', () => ({
   useAuth: () => ({ user: { uid: 'u1', displayName: 'Ada Lovelace' } }),
 }));
 
+let mockActivity: Partial<ActivityState> = {};
+let mockActivityBoardId: string | undefined;
+const mockActivityEntries = (): ActivityDoc[] => [
+  makeActivity('a1', {
+    kind: 'value_changed',
+    columnId: 'status',
+    columnTitle: 'Status',
+    columnType: 'status',
+    data: {
+      fromText: 'Building',
+      toText: 'Done',
+      fromValue: { index: 0 },
+      toValue: { index: 1 },
+    },
+  }),
+  makeActivity('a2', { kind: 'item_created', itemName: 'Design onboarding flow' }),
+];
+
+vi.mock('../../data/activity', () => ({
+  useItemActivity: (boardId?: string) => {
+    mockActivityBoardId = boardId;
+    return {
+      data: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      retry: vi.fn(),
+      ...mockActivity,
+    };
+  },
+}));
+vi.mock('../../data/hooks', () => ({
+  useBoard: () => ({
+    data: makeBoard({
+      id: 'b1',
+      columns: [
+        {
+          id: 'status',
+          type: 'status',
+          title: 'Status',
+          position: 'a0',
+          settings: {
+            labels: [
+              { id: 'building', index: 0, label: 'Building', color: '#fdab3d' },
+              { id: 'done', index: 1, label: 'Done', color: '#00c875', isDone: true },
+            ],
+          },
+        },
+      ],
+    }),
+    loading: false,
+    error: null,
+  }),
+}));
 vi.mock('../../data/updates', () => ({
   useItem: (_bId?: string, itemId?: string) => ({
     data: itemId === 'i1' ? mockItem : { ...mockItem, id: itemId, name: `Item ${itemId}` },
@@ -81,6 +139,8 @@ vi.mock('../../data/updates', () => ({
 
 describe('ItemCardDrawer', () => {
   beforeEach(() => {
+    mockActivity = {};
+    mockActivityBoardId = undefined;
     useItemCardStore.getState().closeItemCard();
     useItemCardStore.getState().setItemIds([]);
   });
@@ -127,15 +187,32 @@ describe('ItemCardDrawer', () => {
     expect(useItemCardStore.getState().activeItemId).toBe('i2');
   });
 
-  it('switches to Activity Log tab when clicked', async () => {
+  it('shows the item history in the Activity Log tab, and only once it is opened', async () => {
+    mockActivity = { data: mockActivityEntries() };
     useItemCardStore.getState().openItemCard('b1', 'i1');
     render(<ItemCardDrawer />);
+    // The Updates tab is first and does not listen to the history.
+    expect(mockActivityBoardId).toBeUndefined();
 
-    const activityTab = screen.getByRole('tab', { name: /Activity Log/i });
-    await userEvent.click(activityTab);
+    await userEvent.click(screen.getByRole('tab', { name: /Activity Log/i }));
 
-    expect(screen.getByText(/Item created/i)).toBeInTheDocument();
-    expect(screen.getByText(/Initial specs completed!/i)).toBeInTheDocument();
+    expect(mockActivityBoardId).toBe('b1');
+    const list = screen.getByRole('list', { name: 'Item activity' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(list).getByText('Status')).toBeInTheDocument();
+    // The column still exists with the same type, so both values are drawn with its status cell.
+    expect(within(list).getByText('Building')).toBeInTheDocument();
+    expect(within(list).getByText('Done')).toBeInTheDocument();
+    expect(within(list).getByText('Created')).toBeInTheDocument();
+    // Updates stay in the Updates tab.
+    expect(screen.queryByText(/Initial specs completed!/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the empty state in the Activity Log tab', async () => {
+    useItemCardStore.getState().openItemCard('b1', 'i1');
+    render(<ItemCardDrawer />);
+    await userEvent.click(screen.getByRole('tab', { name: /Activity Log/i }));
+    expect(screen.getByText('No activity yet')).toBeInTheDocument();
   });
 
   it('is a non-modal panel: no backdrop, the page behind stays clickable', async () => {

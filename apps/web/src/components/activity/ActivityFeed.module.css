@@ -1,0 +1,22 @@
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.center {
+  display: grid;
+  place-items: center;
+  padding-block: var(--space-32);
+}
+
+/* The empty state sits lower than the first row would. */
+.empty {
+  padding-block-start: var(--space-32);
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-16);
+}

@@ -93,36 +93,3 @@
   overflow-y: auto;
   background: var(--primary-background-color);
 }
-
-.activityLog {
-  padding: var(--space-16);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-}
-
-.activityEntry {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-12);
-  padding: var(--space-12);
-  background: var(--primary-background-color);
-  border-radius: var(--border-radius-8);
-  border: 1px solid var(--layout-border-color);
-}
-
-.activityMeta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.activityText {
-  font: var(--font-text2-normal);
-  color: var(--primary-text-color);
-}
-
-.activityTime {
-  font: var(--font-text2-normal);
-  color: var(--secondary-text-color);
-}

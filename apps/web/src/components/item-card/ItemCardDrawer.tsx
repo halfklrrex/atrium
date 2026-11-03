@@ -7,10 +7,12 @@ import {
   NavigationChevronRight,
   Update,
 } from '@vibe/icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
+import { useItemActivity } from '../../data/activity';
+import { useBoard } from '../../data/hooks';
 import { updateItemName, useItem, useItemUpdates } from '../../data/updates';
-import { formatUpdated } from '../../lib/format';
+import { ActivityFeed } from '../activity/ActivityFeed';
 import { InlineEdit } from '../InlineEdit';
 import { showComingSoon } from '../toast-store';
 import { UserAvatar } from '../UserAvatar';
@@ -35,6 +37,16 @@ export function ItemCardDrawer() {
     activeItemId ?? undefined,
   );
   const { data: updates } = useItemUpdates(activeBoardId ?? undefined, activeItemId ?? undefined);
+  const { data: board } = useBoard(activeBoardId ?? undefined);
+  const activityColumns = useMemo(
+    () => (board ? [...board.columns, ...board.subitemColumns] : []),
+    [board],
+  );
+  // Listen to the history only while its tab is showing.
+  const activity = useItemActivity(
+    activeTab === TAB_ACTIVITY ? (activeBoardId ?? undefined) : undefined,
+    activeItemId ?? undefined,
+  );
 
   // Close on Escape key
   useEffect(() => {
@@ -175,41 +187,12 @@ export function ItemCardDrawer() {
           )}
 
           {activeTab === TAB_ACTIVITY && (
-            <div className={styles.activityLog}>
-              <div className={styles.activityEntry}>
-                {item?.createdBy && <UserAvatar uid={item.createdBy} size="small" />}
-                <div className={styles.activityMeta}>
-                  <span className={styles.activityText}>
-                    <strong>Item created</strong> by{' '}
-                    {item?.createdBy === uid ? 'you' : 'a team member'}
-                  </span>
-                  <span className={styles.activityTime}>
-                    {item?.createdAt ? formatUpdated(item.createdAt) : 'Recently'}
-                  </span>
-                </div>
-              </div>
-
-              {updates.map((update) => (
-                <div key={update.id} className={styles.activityEntry}>
-                  <UserAvatar
-                    uid={update.authorId}
-                    name={update.authorName}
-                    photoURL={update.authorPhotoUrl}
-                    size="small"
-                  />
-                  <div className={styles.activityMeta}>
-                    <span className={styles.activityText}>
-                      <strong>Update posted:</strong> &quot;
-                      {update.content.length > 60
-                        ? `${update.content.slice(0, 60)}...`
-                        : update.content}
-                      &quot;
-                    </span>
-                    <span className={styles.activityTime}>{formatUpdated(update.createdAt)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ActivityFeed
+              state={activity}
+              columns={activityColumns}
+              emptyBody="Changes to this item will show up here as they happen."
+              label="Item activity"
+            />
           )}
         </div>
       </aside>
