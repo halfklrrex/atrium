@@ -24,6 +24,7 @@ import {
   addTimelineView,
   addChartView,
   addView,
+  clearActivity,
   clearRecents,
   readFullViewDescription,
   resetFullViewDescription,
@@ -33,6 +34,7 @@ import {
   removeTimelineView,
   removeChartView,
   removeView,
+  seedActivity,
   seedNotifications,
 } from './seed';
 
@@ -364,6 +366,47 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole('radiogroup')).toBeVisible();
       await shoot(page, `board-share-dialog-${theme}`, PARK_IN_HEADER);
+    });
+
+    // P4: the item card's Activity Log tab and the board's Activity log panel, seeded with fixed entries.
+    test('board: item card Activity Log tab', async ({ page }) => {
+      await seedActivity();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}`);
+        await boardReady(page);
+        await page
+          .getByRole('button', { name: /^Updates for Firebase project and emulators/ })
+          .click();
+        const card = page.getByRole('dialog', { name: 'Item card' });
+        await card.getByRole('tab', { name: 'Activity Log' }).click();
+        const list = card.getByRole('list', { name: 'Item activity' });
+        await expect(list.getByRole('listitem')).toHaveCount(5);
+        await expect(list.getByText('Created')).toBeVisible();
+        await shoot(page, `item-card-activity-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await clearActivity();
+      }
+    });
+
+    test('board: Activity log panel', async ({ page }) => {
+      await seedActivity();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}`);
+        await boardReady(page);
+        await page
+          .getByRole('main')
+          .getByRole('button', { name: 'Options for Product roadmap' })
+          .click();
+        await page.getByRole('menuitem', { name: 'Activity log' }).click();
+        const panel = page.getByRole('complementary', { name: 'Activity log' });
+        await expect(panel.getByRole('listitem')).toHaveCount(7);
+        await expect(
+          panel.getByText('Avery Atrium renamed the group Visuals to VF · Visual fidelity'),
+        ).toBeVisible();
+        await shoot(page, `board-activity-panel-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await clearActivity();
+      }
     });
 
     test('board: column header menu over the table', async ({ page }) => {

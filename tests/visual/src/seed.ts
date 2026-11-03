@@ -836,3 +836,150 @@ export async function seedNotifications(): Promise<void> {
   });
   await batch.commit();
 }
+
+/** The item whose history the item card's Activity Log tab screen shows. */
+export const ACTIVITY_ITEM = 'roadmap-item-00';
+
+const ACTIVITY_ITEM_NAME = 'Firebase project and emulators';
+
+/**
+ * Activity entries as the Functions write them (fixed ids and times): edits of one item (status,
+ * person, date, group), its creation, and board-level changes. Remove them with `clearActivity`.
+ */
+export async function seedActivity(): Promise<void> {
+  const firestore = adminDb();
+  const activity = firestore.collection('boards').doc(IDS.roadmap).collection('activity');
+  const jordan = { actorId: 'visual-jordan', actorName: 'Jordan Lee' };
+  const avery = { actorId: AVERY.uid, actorName: AVERY.displayName };
+  const base = {
+    actorPhotoUrl: null,
+    itemId: null,
+    itemName: null,
+    parentItemId: null,
+    columnId: null,
+    columnTitle: null,
+    columnType: null,
+    groupId: null,
+    groupTitle: null,
+    data: {},
+  };
+  const item = { itemId: ACTIVITY_ITEM, itemName: ACTIVITY_ITEM_NAME };
+  const entries: [string, number, Record<string, unknown>][] = [
+    [
+      'status',
+      20 * 60_000,
+      {
+        ...avery,
+        ...item,
+        kind: 'value_changed',
+        columnId: 'status',
+        columnTitle: 'Status',
+        columnType: 'status',
+        data: {
+          fromText: 'Building',
+          toText: 'Done',
+          fromValue: { index: 0 },
+          toValue: { index: 1 },
+        },
+      },
+    ],
+    [
+      'person',
+      3 * HOUR,
+      {
+        ...jordan,
+        ...item,
+        kind: 'value_changed',
+        columnId: 'person',
+        columnTitle: 'Person',
+        columnType: 'people',
+        data: {
+          fromText: '',
+          toText: AVERY.displayName,
+          toValue: { personsAndTeams: [{ id: AVERY.uid, kind: 'person' }] },
+        },
+      },
+    ],
+    [
+      'date',
+      5 * HOUR,
+      {
+        ...jordan,
+        ...item,
+        kind: 'value_changed',
+        columnId: 'date',
+        columnTitle: 'Date',
+        columnType: 'date',
+        data: {
+          fromText: 'Oct 20, 2026',
+          toText: 'Oct 27, 2026',
+          fromValue: { date: '2026-10-20' },
+          toValue: { date: '2026-10-27' },
+        },
+      },
+    ],
+    [
+      'group',
+      DAY,
+      {
+        ...avery,
+        ...item,
+        kind: 'item_moved',
+        groupId: 'roadmap-p0',
+        groupTitle: 'P0 · Foundations',
+        data: { fromGroupId: 'roadmap-p1', fromGroupTitle: 'P1 · Core boards' },
+      },
+    ],
+    [
+      'group-rename',
+      DAY + 2 * HOUR,
+      {
+        ...avery,
+        kind: 'group_renamed',
+        groupId: 'roadmap-vf',
+        groupTitle: 'VF · Visual fidelity',
+        data: { fromText: 'Visuals', toText: 'VF · Visual fidelity' },
+      },
+    ],
+    [
+      'column-added',
+      2 * DAY,
+      {
+        ...jordan,
+        kind: 'column_added',
+        columnId: 'budget',
+        columnTitle: 'Budget',
+        columnType: 'numbers',
+      },
+    ],
+    [
+      'created',
+      10 * DAY,
+      {
+        ...avery,
+        ...item,
+        kind: 'item_created',
+        groupId: 'roadmap-p0',
+        groupTitle: 'P0 · Foundations',
+      },
+    ],
+  ];
+  const batch = firestore.batch();
+  for (const [id, age, fields] of entries) {
+    batch.set(activity.doc(id), {
+      ...base,
+      ...fields,
+      createdAt: ago(age),
+      expiresAt: Timestamp.fromMillis(NOW - age + 90 * DAY),
+    });
+  }
+  await batch.commit();
+}
+
+/** Removes what `seedActivity` wrote, so other screens never see it. */
+export async function clearActivity(): Promise<void> {
+  const firestore = adminDb();
+  await firestore.recursiveDelete(
+    firestore.collection('boards').doc(IDS.roadmap).collection('activity'),
+  );
+}
