@@ -47,12 +47,16 @@ function ButtonCell({ settings, column, ctx }: CellProps<ButtonValue, ButtonSett
     if (busy || !canAct || !ctx.boardId || !ctx.itemId) return;
     setBusy(true);
     try {
-      await columnActionCalls.clickButton({
+      const result = await columnActionCalls.clickButton({
         boardId: ctx.boardId,
         itemId: ctx.itemId,
         columnId: column.id,
       });
-      showToast(`"${label}" triggered.`, { type: 'positive' });
+      const ran = result.applied.length;
+      showToast(
+        ran > 0 ? `Done: ${ran} ${ran === 1 ? 'action' : 'actions'} ran` : `"${label}" triggered.`,
+        { type: 'positive' },
+      );
     } catch (err) {
       showToast(describeCallableError(err, 'Could not trigger button.'), { type: 'negative' });
     } finally {

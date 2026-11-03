@@ -1,4 +1,4 @@
-import type { ColumnDef } from '@atrium/shared';
+import type { ClickButtonResult, ColumnDef } from '@atrium/shared';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,7 +48,7 @@ describe('Button column UI', () => {
       const { rerender } = render(
         <buttonUi.Cell
           value={null}
-          settings={{ label: 'Deploy', color: '#579bfc' }}
+          settings={{ label: 'Deploy', color: '#579bfc', actions: [] }}
           column={column}
           ctx={baseCtx}
           onChange={vi.fn()}
@@ -63,7 +63,7 @@ describe('Button column UI', () => {
       rerender(
         <buttonUi.Cell
           value={null}
-          settings={{ label: 'Notify', color: '#ffcb00' }}
+          settings={{ label: 'Notify', color: '#ffcb00', actions: [] }}
           column={column}
           ctx={baseCtx}
           onChange={vi.fn()}
@@ -76,7 +76,7 @@ describe('Button column UI', () => {
     });
 
     it('calls clickButton, shows loading state while pending, shows positive toast on success, and never calls onChange', async () => {
-      let resolveClick!: (value: { success: true; activityId: string; timestamp: number }) => void;
+      let resolveClick!: (value: ClickButtonResult) => void;
       const clickSpy = vi.spyOn(columnActionCalls, 'clickButton').mockImplementation(
         () =>
           new Promise((resolve) => {
@@ -90,7 +90,7 @@ describe('Button column UI', () => {
       render(
         <buttonUi.Cell
           value={null}
-          settings={{ label: 'Approve', color: '#00c875' }}
+          settings={{ label: 'Approve', color: '#00c875', actions: [] }}
           column={column}
           ctx={baseCtx}
           onChange={onChange}
@@ -112,7 +112,7 @@ describe('Button column UI', () => {
         expect(screen.getByRole('alert', { name: 'loading' })).toBeInTheDocument();
       });
 
-      resolveClick({ success: true, activityId: 'act-1', timestamp: 1700000000000 });
+      resolveClick({ success: true, activityId: 'act-1', timestamp: 1700000000000, applied: [] });
 
       await waitFor(() => {
         expect(screen.queryByRole('alert', { name: 'loading' })).not.toBeInTheDocument();
@@ -127,6 +127,33 @@ describe('Button column UI', () => {
       expect(onChange).not.toHaveBeenCalled();
     });
 
+    it('reports how many actions ran and shows the server message when they are refused', async () => {
+      const spy = vi.spyOn(columnActionCalls, 'clickButton').mockResolvedValueOnce({
+        success: true,
+        activityId: 'act-1',
+        timestamp: 1700000000000,
+        applied: [{ type: 'set_value' }, { type: 'rename_item' }],
+      });
+      const user = userEvent.setup();
+      render(
+        <buttonUi.Cell
+          value={null}
+          settings={{ label: 'Ship', color: '#00c875', actions: [] }}
+          column={column}
+          ctx={baseCtx}
+          onChange={vi.fn()}
+        />,
+      );
+      await user.click(screen.getByRole('button', { name: 'Ship' }));
+      await waitFor(() => expect(spy).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(useToastStore.getState().toasts[0]).toMatchObject({
+          text: 'Done: 2 actions ran',
+          type: 'positive',
+        }),
+      );
+    });
+
     it('shows a friendly negative toast when clickButton rejects', async () => {
       vi.spyOn(columnActionCalls, 'clickButton').mockRejectedValue({
         code: 'functions/permission-denied',
@@ -139,7 +166,7 @@ describe('Button column UI', () => {
       render(
         <buttonUi.Cell
           value={null}
-          settings={{ label: 'Approve', color: '#579bfc' }}
+          settings={{ label: 'Approve', color: '#579bfc', actions: [] }}
           column={column}
           ctx={baseCtx}
           onChange={onChange}

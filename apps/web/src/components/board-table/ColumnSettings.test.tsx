@@ -176,7 +176,7 @@ describe('ColumnSettingsPopup', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(tableActions.updateColumn).toHaveBeenCalledWith(mockCtx, 'col-button', {
-      settings: { label: 'Approve', color: '#9d50dd' },
+      settings: { label: 'Approve', color: '#9d50dd', actions: [] },
     });
   });
 
