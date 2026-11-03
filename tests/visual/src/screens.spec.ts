@@ -482,6 +482,31 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.getByTestId('change-type-counts')).toHaveCount(0);
     });
 
+    // Description & default value panel. The text and the default are typed but never saved: the
+    // panel is cancelled, so the shared seed is left as it was found.
+    test('board: column description and default value', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}`);
+      await boardReady(page);
+      const header = page.getByRole('columnheader', { name: 'Budget' }).first();
+      await header.scrollIntoViewIfNeeded();
+      await header.hover();
+      await page.getByRole('button', { name: 'Options for Budget' }).first().click();
+      const entry = page.getByRole('menuitem', { name: 'Description & default value' });
+      await entry.hover();
+      await entry.click({ delay: 100 });
+      const panel = page.getByRole('dialog', { name: 'Budget description and default value' });
+      await expect(panel).toBeVisible();
+      await panel.getByRole('textbox', { name: 'Description' }).fill('Planned spend in dollars.');
+      await panel.getByTestId('default-value-box').click();
+      const input = panel.getByRole('textbox', { name: 'Budget' });
+      await input.fill('500');
+      await input.press('Enter');
+      await expect(panel.getByTestId('default-value-box')).toContainText('500');
+      await shoot(page, `board-column-details-${theme}`, PARK_IN_HEADER);
+      await panel.getByRole('button', { name: 'Cancel' }).click();
+      await expect(panel).toHaveCount(0);
+    });
+
     test('board: scrolled to the last columns', async ({ page }) => {
       await page.goto(`/boards/${IDS.roadmap}`);
       await boardReady(page);
