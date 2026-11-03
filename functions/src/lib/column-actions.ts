@@ -284,11 +284,11 @@ export async function clickButtonInTransaction(
   }
 
   const patch = buildActionsPatch(settings.actions, item, nowMs);
+  // Firestore transactions need every read before the first write: read the profile first.
+  const actor = actorOf(uid, await tx.getMemberProfile(board.workspaceId, uid));
   if (Object.keys(patch).length > 0) {
     tx.updateItem(req.boardId, req.itemId, patch, uid, serverTimestamp);
   }
-
-  const actor = actorOf(uid, await tx.getMemberProfile(board.workspaceId, uid));
   const activityId = await tx.appendActivity(
     req.boardId,
     activityDoc(actor, 'button_clicked', {
