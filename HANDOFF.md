@@ -32,7 +32,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **Live since 2026-10-30/31:** P4 notifications, P4b board sharing (Share dialog, board kinds, leave board), Calendar, Timeline and Chart views, Mirror column, change a column's type, My Work, global search (Ctrl/Cmd+B or K), required columns and defaults, the item index, and the activity-log backend (PR #58).
 - **Merged but local-only:** the Atrium MCP connector (OPS3, PR #60). The owner registers it per machine (`docs/mcp-connector.md`) and tries it on a throwaway board. It has not been run against production.
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
-- **No open PRs** as of 2026-11-03. The Roadmap has no items with Actionable = Agents.
+- **No open PRs** as of 2026-11-03. Autonomous work queue while the owner is away: `docs/plans/2026-11-03-autonomous-batch.md`. Actionable = Agents items at that date: Description editor pass 2 (sign off) and Button column (the owner wants configurable multi-step actions). When filtering the Roadmap by Actionable, use the label id (Agents = 4), not the index.
 - **Next, in this order:**
   1. Activity web UI (Roadmap 3306251299): item "Activity" tab and a board-level log. PR split in `docs/specs/P4-activity-audit-log.md`.
   2. Bug-inbox feature requests (2026-11-01): rich text and Ctrl+B in the update composer (Roadmap 3327934712), and reordering favourite boards (3327933132). Both need a short spec first.
