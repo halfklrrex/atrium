@@ -1,0 +1,72 @@
+/* Description and default value panel of one column (column menu, "Description & default value"). */
+
+.defaultBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: var(--atrium-control-height);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-popup-bg);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.defaultBox:hover {
+  border-color: var(--primary-text-color);
+}
+
+.defaultBoxEditing {
+  overflow: visible;
+  border-color: var(--primary-color);
+}
+
+.defaultBox > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.defaultHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-8);
+  color: var(--placeholder-color);
+  font: var(--font-text2-normal);
+  pointer-events: none;
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  height: calc(var(--atrium-control-height) * 2);
+  padding: var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-popup-bg);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  resize: none;
+}
+
+.textarea:hover {
+  border-color: var(--primary-text-color);
+}
+
+.textarea:focus {
+  border-color: var(--primary-color);
+  outline: 0;
+}
+
+.counter {
+  align-self: flex-end;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.error {
+  margin: 0;
+  color: var(--negative-color);
+  font: var(--font-text3-normal);
+}

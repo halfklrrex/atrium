@@ -11,6 +11,7 @@ import {
   derivedCellValue,
 } from '../board-table/derived';
 import { CellSpinner } from '../board-table/CellSpinner';
+import { REQUIRED_HINT, isRequiredEmpty } from '../board-table/required';
 import { tableActions, type TableCtx } from '../board-table/table-actions';
 import type { ColumnView } from '../board-table/table-model';
 import styles from './ItemView.module.css';
@@ -133,6 +134,11 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
         />
       )}
       {showEditor && ui.editor === 'popover' ? <Editor {...editorProps} /> : null}
+      {!showEditor && isRequiredEmpty(column.def, raw) ? (
+        <span className={styles.requiredHint} data-testid={`required-hint-${itemId}:${columnId}`}>
+          {REQUIRED_HINT}
+        </span>
+      ) : null}
       {migrating ? <CellSpinner /> : null}
     </div>
   );

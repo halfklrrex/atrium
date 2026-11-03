@@ -1,4 +1,10 @@
-import { canEditBoard, isSubitem, resolveBoardRole } from '@atrium/shared';
+import {
+  canEditBoard,
+  isSubitem,
+  resolveBoardRole,
+  validateRequiredColumns,
+  columnRegistry,
+} from '@atrium/shared';
 import { IconButton, Loader, Menu, MenuButton, MenuItem, Tooltip } from '@vibe/core';
 import {
   Archive,
@@ -71,6 +77,14 @@ export function ItemView({ board, itemId }: ItemViewProps) {
     () => buildColumnViews(board.subitemColumns ?? []),
     [board.subitemColumns],
   );
+  // Soft "Required" rule: only counts columns a person fills in; nothing is blocked.
+  const missingRequired = useMemo(() => {
+    if (!item) return 0;
+    const fillable = board.columns.filter(
+      (c) => !columnRegistry.isDerived(c.type) && !columnRegistry.isServerManaged(c.type),
+    );
+    return validateRequiredColumns(fillable, item.values).missingColumns.length;
+  }, [item, board.columns]);
   const itemsRef = useRef(items);
   const groupsRef = useRef(board.groups);
   useEffect(() => {
@@ -311,6 +325,13 @@ export function ItemView({ board, itemId }: ItemViewProps) {
               maxLength={500}
               onCommit={(name) => void tableActions.renameItem(ctx, item.id, name)}
             />
+          ) : null}
+          {item && missingRequired > 0 ? (
+            <p className={styles.requiredSummary} data-testid="required-summary">
+              {missingRequired === 1
+                ? '1 required field is empty'
+                : `${missingRequired} required fields are empty`}
+            </p>
           ) : null}
         </header>
         {body}

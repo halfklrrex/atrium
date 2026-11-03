@@ -232,6 +232,29 @@
   border-color: var(--primary-color);
 }
 
+.cell > .requiredHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-8);
+  color: var(--placeholder-color);
+  font: var(--font-text2-normal);
+  pointer-events: none;
+}
+
+.requiredMark {
+  flex: none;
+  color: var(--negative-color);
+  font-weight: var(--font-weight-bold);
+}
+
+.requiredSummary {
+  margin: 0;
+  font: var(--atrium-meta-font);
+  color: var(--secondary-text-color);
+}
+
 /* ---- Subitems ---- */
 .subitems {
   margin: 0;

@@ -49,7 +49,7 @@ function Where() {
   return <div data-testid="where">{useLocation().pathname}</div>;
 }
 
-function renderView(itemId = 'i2') {
+function renderView(itemId = 'i2', shownBoard = board) {
   return render(
     <MemoryRouter
       initialEntries={[
@@ -61,7 +61,7 @@ function renderView(itemId = 'i2') {
       <Routes>
         <Route
           path="/boards/:boardId/items/:itemId"
-          element={<ItemView board={board} itemId={itemId} />}
+          element={<ItemView board={shownBoard} itemId={itemId} />}
         />
         <Route path="*" element={null} />
       </Routes>
@@ -128,5 +128,29 @@ describe('ItemView', () => {
     renderView();
     await userEvent.click(screen.getAllByRole('button', { name: 'Close item' })[1]!);
     expect(screen.getByTestId('where').textContent).toBe('/boards/b1');
+  });
+
+  it('shows the required marker, hint, summary line and column description', () => {
+    const marked = {
+      ...board,
+      columns: [
+        { ...board.columns[0]!, required: true, description: 'Planned spend' },
+        { ...board.columns[1]!, required: true },
+      ],
+    };
+    // i1 has no cost: one empty required field. The derived column never counts.
+    renderView('i1', marked);
+    expect(screen.getByTestId('required-summary').textContent).toBe('1 required field is empty');
+    expect(screen.getByTestId('field-required-mark-cost')).toBeTruthy();
+    expect(screen.getByTestId('required-hint-i1:cost').textContent).toBe('Required');
+    expect(screen.queryByTestId('required-hint-i1:made')).toBeNull();
+    expect(screen.getByText('Cost').getAttribute('title')).toBe('Planned spend');
+  });
+
+  it('hides the summary when no required field is empty', () => {
+    const marked = { ...board, columns: [{ ...board.columns[0]!, required: true }] };
+    renderView('i2', marked);
+    expect(screen.queryByTestId('required-summary')).toBeNull();
+    expect(screen.queryByTestId('required-hint-i2:cost')).toBeNull();
   });
 });

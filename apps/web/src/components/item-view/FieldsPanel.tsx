@@ -25,7 +25,19 @@ export function FieldsPanel({ item, columns, ctx, canEdit }: FieldsPanelProps) {
           <div key={column.def.id} className={styles.field} role="group">
             <dt className={styles.fieldLabel}>
               {Icon ? <Icon aria-hidden="true" className={styles.fieldIcon} /> : null}
-              <span className={styles.fieldTitle}>{column.def.title}</span>
+              <span className={styles.fieldTitle} title={column.def.description || undefined}>
+                {column.def.title}
+              </span>
+              {column.def.required ? (
+                <span
+                  className={styles.requiredMark}
+                  data-testid={`field-required-mark-${column.def.id}`}
+                  aria-label="Required column"
+                  title="Required column"
+                >
+                  *
+                </span>
+              ) : null}
             </dt>
             <dd className={styles.fieldValue}>
               <ItemCell item={item} column={column} ctx={ctx} canEdit={canEdit} />

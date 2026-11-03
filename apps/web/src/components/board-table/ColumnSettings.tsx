@@ -1,6 +1,7 @@
 import {
   columnRegistry,
   mirrorSettingsSchema,
+  validateColumnDef,
   validateFormulaSettings,
   type BoardRelationSettings,
   type ButtonAction,
@@ -20,8 +21,9 @@ import {
   type WorldClockSettings,
 } from '@atrium/shared';
 import classNames from 'classnames';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchBoardColumns } from '../../columns/board-relation';
+import { getColumnUi, type CellContext } from '../../columns/registry';
 import { DropdownLabelEditor, StatusLabelEditor } from '../../columns/LabelEditors';
 import popups from '../../columns/popups.module.css';
 import { useBoards } from '../../data';
@@ -30,7 +32,9 @@ import { AnchoredPopup } from './AnchoredPopup';
 import { ButtonActionsEditor } from './ButtonActionsEditor';
 import { getButtonActionErrors } from './button-actions';
 import buttonStyles from './ButtonActionsEditor.module.css';
-import { tableActions } from './table-actions';
+import details from './ColumnDetails.module.css';
+import { isClientReadOnlyType } from './derived';
+import { COLUMN_DESCRIPTION_MAX, tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import type { ColumnView } from './table-model';
 import { useTableStore } from './table-store';
@@ -967,16 +971,208 @@ function MirrorSettingsEditor({
   );
 }
 
+/**
+ * Column types that take no default value in the editor: derived and server-managed ones, buttons
+ * and time tracking (`validateColumnDef` refuses them), plus the two types whose value is a list
+ * of item ids of one particular board or item.
+ */
+const NO_DEFAULT_EDITOR = new Set(['button', 'time_tracking', 'dependency', 'board_relation']);
+
+/** True when a default value can be set on a column of this type. */
+function supportsDefaultValue(type: string): boolean {
+  return !isClientReadOnlyType(type) && !NO_DEFAULT_EDITOR.has(type);
+}
+
+/** The column type's own cell and editor in a box, for picking the value new items start with. */
+function DefaultValueField({
+  column,
+  value,
+  onChange,
+}: {
+  column: ColumnView;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const env = useTableEnv();
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  useEffect(() => setAnchor(boxRef.current), []);
+  const ui = getColumnUi(column.def.type);
+  if (!ui) return null;
+
+  const parsed =
+    value === undefined || value === null
+      ? null
+      : columnRegistry.parseValue(column.def.type, value);
+  const shown = parsed && parsed.success ? parsed.data : null;
+  const cellContext: CellContext = {
+    highlight: '',
+    rowDone: false,
+    canEdit: true,
+    boardId: env.boardId,
+    canAct: true,
+    getItems: env.getItems,
+  };
+  const set = (next: unknown) => onChange(next === null ? undefined : next);
+  const Cell = ui.Cell;
+  const Editor = ui.Editor;
+  const showEditor = editing && !!Editor && (ui.editor === 'inline' || ui.editor === 'popover');
+
+  const open = () => {
+    if (ui.editor === 'toggle') set(ui.toggle?.(shown) ?? null);
+    else if (ui.editor === 'inline' || ui.editor === 'popover') setEditing(true);
+  };
+  const editorProps = {
+    value: shown,
+    settings: column.settings,
+    column: column.def,
+    ctx: cellContext,
+    anchor,
+    onChange: set,
+    onClose: () => setEditing(false),
+    saveSettings: () => undefined,
+  };
+
+  return (
+    <div
+      ref={boxRef}
+      role="group"
+      aria-label="Default value"
+      data-testid="default-value-box"
+      className={classNames(details.defaultBox, showEditor && details.defaultBoxEditing)}
+      onClick={(event) => {
+        // Clicks inside a popover editor reach us through the React tree, not through the box.
+        if (event.currentTarget.contains(event.target as Node)) open();
+      }}
+    >
+      {showEditor && Editor && ui.editor === 'inline' ? (
+        <Editor {...editorProps} />
+      ) : (
+        <Cell
+          value={shown}
+          settings={column.settings}
+          column={column.def}
+          ctx={cellContext}
+          onChange={set}
+        />
+      )}
+      {showEditor && Editor && ui.editor === 'popover' ? <Editor {...editorProps} /> : null}
+      {value === undefined && !showEditor ? (
+        <span className={details.defaultHint}>No default value</span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Description (max 500 characters) and default value of one column, saved with `updateColumn`. */
+function ColumnDetailsEditor({ column, onClose }: { column: ColumnView; onClose: () => void }) {
+  const env = useTableEnv();
+  const withDefault = supportsDefaultValue(column.def.type);
+  const [description, setDescription] = useState(column.def.description ?? '');
+  const [defaultValue, setDefaultValue] = useState<unknown>(column.def.defaultValue);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = () => {
+    const trimmed = description.trim();
+    const patch: Parameters<typeof tableActions.updateColumn>[2] = {};
+    if (trimmed !== (column.def.description ?? '')) patch.description = trimmed;
+    if (withDefault && defaultValue !== column.def.defaultValue) patch.defaultValue = defaultValue;
+    if (Object.keys(patch).length === 0) return onClose();
+    if (trimmed.length > COLUMN_DESCRIPTION_MAX) {
+      return setError(`The description can be at most ${COLUMN_DESCRIPTION_MAX} characters long.`);
+    }
+    const checked = validateColumnDef({ ...column.def, ...patch }, columnRegistry);
+    if (!checked.valid) return setError(checked.error);
+    void tableActions.updateColumn(env.ctx, column.def.id, patch);
+    onClose();
+  };
+
+  return (
+    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Description</span>
+        <textarea
+          className={details.textarea}
+          aria-label="Description"
+          value={description}
+          maxLength={COLUMN_DESCRIPTION_MAX}
+          placeholder="What goes in this column?"
+          autoFocus
+          onChange={(event) => {
+            setDescription(event.target.value);
+            setError(null);
+          }}
+        />
+        <span className={details.counter} data-testid="description-counter">
+          {description.length}/{COLUMN_DESCRIPTION_MAX}
+        </span>
+      </label>
+      {withDefault ? (
+        <div className={popups.field}>
+          <span className={popups.fieldLabel}>Default value</span>
+          <DefaultValueField
+            column={column}
+            value={defaultValue}
+            onChange={(next) => {
+              setDefaultValue(next);
+              setError(null);
+            }}
+          />
+          <button
+            type="button"
+            className={popups.linkButton}
+            disabled={defaultValue === undefined}
+            onClick={() => {
+              setDefaultValue(undefined);
+              setError(null);
+            }}
+          >
+            Clear default
+          </button>
+        </div>
+      ) : null}
+      {error ? (
+        <p className={details.error} role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className={popups.footer}>
+        <button type="button" className={popups.linkButton} onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className={popups.linkButton} onClick={save}>
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The settings popover of one column, opened from its header menu. */
 export function ColumnSettingsPopup({
   column,
   anchor,
+  panel,
 }: {
   column: ColumnView;
   anchor: HTMLElement | null;
+  panel?: 'details';
 }) {
   const env = useTableEnv();
   const close = () => useTableStore.getState().setSettingsFor(null);
+  if (panel === 'details') {
+    return (
+      <AnchoredPopup
+        anchor={anchor}
+        onClose={close}
+        label={`${column.def.title} description and default value`}
+        center
+      >
+        <ColumnDetailsEditor column={column} onClose={close} />
+      </AnchoredPopup>
+    );
+  }
   const save = (settings: unknown) => {
     void tableActions.updateColumn(env.ctx, column.def.id, {
       settings: settings as Record<string, unknown>,
