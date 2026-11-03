@@ -162,10 +162,20 @@ for (const theme of ['light', 'dark'] as const) {
       try {
         await page.goto(`/boards/${IDS.roadmap}/views/main`);
         await boardReady(page);
+        await page.getByRole('columnheader', { name: 'Ship' }).first().hover();
         await page.getByRole('button', { name: 'Options for Ship' }).first().click();
-        await page.getByRole('menuitem', { name: 'Settings' }).click();
+        // Vibe menu items only react once the pointer has settled on them.
+        const settings = page.getByRole('menuitem', { name: 'Settings' });
+        await settings.hover();
+        await settings.click({ delay: 100 });
         const panel = page.getByRole('dialog', { name: 'Ship settings' });
-        await expect(panel.getByRole('group', { name: /^Action 3:/ })).toBeVisible();
+        const third = panel.getByRole('group', { name: /^Action 3:/ });
+        await expect(third).toBeVisible();
+        // The popover scrolls inside the window height: show the end of the list, with action 3.
+        await third
+          .getByRole('radio', { name: /Done|P1/ })
+          .last()
+          .scrollIntoViewIfNeeded();
         await shoot(page, `board-button-actions-${theme}`);
       } finally {
         await removeActionButton();
