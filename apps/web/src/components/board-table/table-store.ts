@@ -27,7 +27,7 @@ interface TableState {
   /** Column header being renamed, in the header row of one group. */
   renamingColumn: { groupId: string; columnId: string } | null;
   /** Column whose settings popover is open, anchored on a group's header. */
-  settingsFor: { groupId: string; columnId: string } | null;
+  settingsFor: { groupId: string; columnId: string; panel?: 'details' } | null;
   search: string;
   searchOpen: boolean;
   /** Parent items whose subitem block is open (in memory only, per board). */

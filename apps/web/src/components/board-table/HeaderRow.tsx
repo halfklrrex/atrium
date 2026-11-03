@@ -17,6 +17,7 @@ import {
   Delete,
   Duplicate,
   Edit,
+  Info,
   Locked,
   Retry,
   Settings,
@@ -151,8 +152,10 @@ function HeaderCell({ column, group }: { column: ColumnView; group: GroupDef }) 
   const renaming = useTableStore(
     (s) => s.renamingColumn?.groupId === group.id && s.renamingColumn.columnId === columnId,
   );
-  const settingsOpen = useTableStore(
-    (s) => s.settingsFor?.groupId === group.id && s.settingsFor.columnId === columnId,
+  const settingsFor = useTableStore((s) =>
+    s.settingsFor?.groupId === group.id && s.settingsFor.columnId === columnId
+      ? s.settingsFor
+      : null,
   );
   const { filterState } = useBoardFilter(env.boardId);
   const sort =
@@ -212,7 +215,9 @@ function HeaderCell({ column, group }: { column: ColumnView; group: GroupDef }) 
             }
           }}
         >
-          <span className={styles.headerTitleText}>{column.def.title}</span>
+          <span className={styles.headerTitleText} title={column.def.description || undefined}>
+            {column.def.title}
+          </span>
           {column.def.required ? (
             <span
               className={styles.requiredMark}
@@ -239,7 +244,9 @@ function HeaderCell({ column, group }: { column: ColumnView; group: GroupDef }) 
       {env.canEdit ? (
         <ResizeHandle columnId={columnId} label={column.def.title} startWidth={column.width} />
       ) : null}
-      {settingsOpen ? <ColumnSettingsPopup column={column} anchor={element} /> : null}
+      {settingsFor ? (
+        <ColumnSettingsPopup column={column} anchor={element} panel={settingsFor.panel} />
+      ) : null}
     </div>
   );
 }
@@ -393,6 +400,15 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
                 title="Settings"
                 icon={Settings}
                 onClick={() => store.getState().setSettingsFor({ groupId: group.id, columnId })}
+              />
+            ) : null}
+            {column && env.canEdit ? (
+              <MenuItem
+                title="Description & default value"
+                icon={Info}
+                onClick={() =>
+                  store.getState().setSettingsFor({ groupId: group.id, columnId, panel: 'details' })
+                }
               />
             ) : null}
             {subitems ? null : (

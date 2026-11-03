@@ -118,6 +118,9 @@ async function attempt(task: () => Promise<unknown>, failure: string): Promise<b
   }
 }
 
+/** Longest column description (`columnDefSchema`). */
+export const COLUMN_DESCRIPTION_MAX = 500;
+
 /** Firestore rejects `undefined` anywhere in a document: round-trip through JSON to drop it. */
 const clean = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -645,7 +648,10 @@ export const tableActions = {
     ctx: TableCtx,
     columnId: string,
     patch: Partial<
-      Pick<ColumnDef, 'title' | 'settings' | 'width' | 'position' | 'required' | 'defaultValue'>
+      Pick<
+        ColumnDef,
+        'title' | 'settings' | 'width' | 'position' | 'required' | 'defaultValue' | 'description'
+      >
     >,
   ): Promise<void> {
     await attempt(
@@ -655,6 +661,14 @@ export const tableActions = {
           const current = columns.find((c) => c.id === columnId);
           if (!current) return null;
           const next: ColumnDef = clean({ ...current, ...patch });
+          if ((next.description?.length ?? 0) > COLUMN_DESCRIPTION_MAX) {
+            throw new Error(
+              `The description can be at most ${COLUMN_DESCRIPTION_MAX} characters long.`,
+            );
+          }
+          if (next.description !== undefined && next.description.trim() === '') {
+            delete next.description;
+          }
           // Required and default value are validated against the column's type and settings.
           if ('required' in patch || 'defaultValue' in patch || 'settings' in patch) {
             const checked = validateColumnDef(next, columnRegistry);

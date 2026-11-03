@@ -20,6 +20,7 @@ import {
   derivedCellValue,
 } from './derived';
 import { CellSpinner } from './CellSpinner';
+import { REQUIRED_HINT, isRequiredEmpty } from './required';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import type { ColumnView } from './table-model';
@@ -161,6 +162,11 @@ export const TableCell = memo(function TableCell({
           onChange={onChange}
           itemId={itemId}
         />
+      ) : null}
+      {!showEditor && isRequiredEmpty(column.def, raw) ? (
+        <span className={styles.requiredHint} data-testid={`required-hint-${itemId}:${columnId}`}>
+          {REQUIRED_HINT}
+        </span>
       ) : null}
       {migrating ? <CellSpinner /> : null}
     </div>
