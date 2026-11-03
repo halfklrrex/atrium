@@ -105,7 +105,7 @@
 .cell {
   position: relative;
   display: inline-flex;
-  min-width: var(--space-64);
+  min-width: var(--space-80);
   max-width: 100%;
   height: var(--space-24);
   overflow: hidden;
