@@ -26,6 +26,7 @@ import {
   addChartView,
   addView,
   clearActivity,
+  clearRichUpdate,
   clearRecents,
   readFullViewDescription,
   resetFullViewDescription,
@@ -38,6 +39,7 @@ import {
   removeView,
   seedActivity,
   seedNotifications,
+  seedRichUpdate,
 } from './seed';
 
 /** True when `target` is what a click at its centre would hit, i.e. nothing is painted over it. */
@@ -334,6 +336,43 @@ for (const theme of ['light', 'dark'] as const) {
         page.getByRole('dialog', { name: 'Description' }).locator('table'),
       ).toBeVisible();
       await shoot(page, `item-description-expanded-${theme}`);
+    });
+
+    // P1d: the update composer opened with some formatting typed (nothing is posted).
+    test('board: update composer open with formatting', async ({ page }) => {
+      await fullViewReady(page);
+      const composer = page.getByRole('textbox', {
+        name: 'Write an update and mention others with @',
+      });
+      await composer.click();
+      await expect(page.getByRole('toolbar', { name: 'Text formatting' })).toBeVisible();
+      await page.keyboard.type('Heads up: ');
+      await page.keyboard.press('Control+b');
+      await page.keyboard.type('the pipeline is live');
+      await page.keyboard.press('Control+b');
+      await page.keyboard.type(' for review');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type('- Check the preview deploys');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type('Sign off the rollback step');
+      await expect(composer.locator('ul > li')).toHaveCount(2);
+      await shoot(page, `item-update-composer-${theme}`);
+    });
+
+    // P1d: an update written in the rich composer, shown from its stored contentDoc.
+    test('board: update with rich text', async ({ page }) => {
+      await seedRichUpdate();
+      try {
+        await fullViewReady(page);
+        const update = page.getByRole('article', { name: 'Item update' }).first();
+        await expect(update.locator('strong')).toHaveText('all checks are green');
+        await expect(update.getByText('@Jordan Lee')).toBeVisible();
+        await expect(update.getByRole('link', { name: 'the spec' })).toBeVisible();
+        await expect(update.getByText('Add the rollback step')).toBeVisible();
+        await shoot(page, `item-update-rich-${theme}`);
+      } finally {
+        await clearRichUpdate();
+      }
     });
 
     test('board: status picker open', async ({ page }) => {
