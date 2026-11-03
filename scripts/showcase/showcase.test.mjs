@@ -14,6 +14,7 @@ import {
   itemSchema,
   itemUpdateSchema,
   notificationSchema,
+  validateButtonActions,
   recentSchema,
   updateReplySchema,
   workspaceMemberSchema,
@@ -94,6 +95,14 @@ test('every cell value validates against the column registry', () => {
       assert.ok(columnRegistry.parseValue(type, value).success, `${path}.${columnId}`);
     }
   }
+});
+
+test('the showcase button runs actions that are valid on the board', () => {
+  const { docs } = build();
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const button = board.columns.find((c) => c.type === 'button');
+  assert.ok(button.settings.actions.length >= 2);
+  assert.deepEqual(validateButtonActions(button.settings.actions, board, 'editor'), { ok: true });
 });
 
 test('the seed never writes item numbers or values for the derived Item ID and Number columns', () => {
