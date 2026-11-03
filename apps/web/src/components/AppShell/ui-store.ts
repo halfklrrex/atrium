@@ -32,6 +32,10 @@ interface UiState {
   /** Right-hand notifications panel (the bell inbox). */
   notificationsOpen: boolean;
   setNotificationsOpen: (open: boolean) => void;
+  /** The board whose Activity log side panel is open (one at a time), or `null`. */
+  activityPanelBoardId: string | null;
+  openActivityPanel: (boardId: string) => void;
+  closeActivityPanel: () => void;
   dialog: DialogState | null;
   openDialog: (dialog: DialogState) => void;
   closeDialog: () => void;
@@ -46,6 +50,9 @@ export const useUiStore = create<UiState>()(
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       notificationsOpen: false,
       setNotificationsOpen: (notificationsOpen) => set({ notificationsOpen }),
+      activityPanelBoardId: null,
+      openActivityPanel: (activityPanelBoardId) => set({ activityPanelBoardId }),
+      closeActivityPanel: () => set({ activityPanelBoardId: null }),
       dialog: null,
       openDialog: (dialog) => set({ dialog }),
       closeDialog: () => set({ dialog: null }),

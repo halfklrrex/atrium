@@ -1,0 +1,66 @@
+/* Slides in from the right under the top bar; transform only, so no layout work. */
+.panel {
+  position: fixed;
+  inset-block: var(--atrium-topbar-height) 0;
+  inset-inline-end: 0;
+  z-index: var(--atrium-z-panel);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--atrium-notifications-width), 100vw);
+  background: var(--primary-background-color);
+  box-shadow: var(--atrium-panel-shadow);
+  color: var(--primary-text-color);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform var(--atrium-motion-panel) var(--motion-timing-transition),
+    visibility 0s linear var(--atrium-motion-panel);
+}
+
+.open {
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-16) var(--space-16) var(--space-8);
+}
+
+.title {
+  margin: 0;
+  font: var(--atrium-panel-title-font);
+}
+
+.filters {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16) var(--space-12);
+  border-block-end: var(--border-width) solid var(--layout-border-color);
+}
+
+.filter {
+  flex: 1 1 var(--space-64);
+  min-width: 0;
+}
+
+.body {
+  composes: atrium-scroll from global;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
+  }
+}
