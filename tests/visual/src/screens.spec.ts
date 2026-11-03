@@ -56,6 +56,9 @@ const isOnTop = (target: Locator) =>
  * baselines with the "Update visual baselines" workflow and review the image diff in the PR.
  */
 
+/** The description's editor: the update composer also has a ProseMirror, and it carries an aria-label. */
+const descriptionEditor = (page: Page) => page.locator('.ProseMirror:not([aria-label])');
+
 /** Open the seeded full item view and wait for its description, subitems and update. */
 async function fullViewReady(page: Page) {
   await page.goto(`/boards/${IDS.roadmap}/items/${FULL_VIEW_ITEM}`);
@@ -273,7 +276,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     test('board: description slash menu open', async ({ page }) => {
       await fullViewReady(page);
-      const editor = page.locator('.ProseMirror');
+      const editor = descriptionEditor(page);
       await editor.getByText('Details live in the spec linked from this item.').click();
       await page.keyboard.press('Control+End');
       await page.keyboard.press('Enter');
@@ -294,7 +297,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     test('board: description mention list open', async ({ page }) => {
       await fullViewReady(page);
-      const editor = page.locator('.ProseMirror');
+      const editor = descriptionEditor(page);
       await expect(editor.locator('span[data-type="mention"]')).toBeVisible();
       await editor.getByText('Details live in the spec linked from this item.').click();
       await page.keyboard.press('Control+End');
@@ -314,7 +317,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     test('board: description colour popover open', async ({ page }) => {
       await fullViewReady(page);
-      await page.locator('.ProseMirror').getByText('blocked').dblclick();
+      await descriptionEditor(page).getByText('blocked').dblclick();
       await page.getByRole('button', { name: 'Text colour and highlight' }).click();
       await expect(page.getByRole('dialog', { name: 'Colours' })).toBeVisible();
       await shoot(page, `item-colour-popover-${theme}`);
