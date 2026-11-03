@@ -85,3 +85,35 @@ UI-level validation returning `{ valid: boolean, missingColumns: string[] }` by 
 ### 3.4 Applying Defaults: `applyDefaultColumnValues(columns, values)`
 
 Populates missing columns with deep copies using `structuredClone(col.defaultValue)` to prevent cross-row mutation. Pre-existing values on the item are strictly preserved.
+
+## 4. Addendum (2026-11-03, Ophelia): finishing the UI
+
+Sign-off review found that the shared helpers and tests match sections 2 and 3, but two pieces of UI are missing. Column locks are a separate item (`P2-column-locks.md`) and are not part of this addendum.
+
+### 4.1 Decisions
+
+1. **"Required" is a soft rule.** Items are created empty, so a hard block would make "+ Add item" unusable. An empty required cell shows a "Required" hint; nothing is blocked. If the owner wants a hard rule somewhere (for example when an item moves to a Done status), that is a later, separate decision. This default is reversible and costs no data change.
+2. **Checkbox and rating emptiness stays as implemented** (`{checked:false}` and rating `0` count as empty, so a required checkbox must be ticked). Document it in section 3.2 and keep the existing test.
+
+### 4.2 Default value editor
+
+In the column menu's settings (`apps/web/src/components/board-table/ColumnSettings.tsx`, and the header menu in `HeaderRow.tsx` where "Required column" lives), add a **Default value** row for every column type except derived, server-managed, `button` and `time_tracking` (`validateColumnDef` already refuses those; hide the row for them).
+
+- Reuse the column type's own `Editor`/`Cell` component for the value, as the Button action editor does (`ButtonActionsEditor.tsx`, `set_value`), inside a small popover or inline box with a "Clear default" action.
+- Save through the existing `updateColumn` patch (`defaultValue`, `table-actions.ts`), which re-runs `validateColumnDef`; show its error message when it refuses.
+- Applying defaults to new items already works (`newItemValues` in `derived.ts`), so a test must prove the new editor's value reaches `addItem`.
+
+### 4.3 Description field
+
+A **Description** textarea in the same settings (max 500 characters, counter shown) saved with `updateColumn`. Show it as a tooltip on the column header title and in the item card's field label when present. (`description` already exists on `ColumnDef`.)
+
+### 4.4 Required hint
+
+- Table cell: when the column is `required` and `isColumnValueEmpty`, the cell shows a subtle "Required" placeholder text in the empty state (token colours only, no red fill; do not change row height).
+- Item card field: the same hint, plus the required marker next to the label (the header already has one).
+- Derived and server-managed columns never show it. Nothing blocks saving.
+- `validateRequiredColumns` is used for the item card's "N required fields are empty" line near the title (hidden when 0).
+
+### 4.5 Tests and checks
+
+Web tests for each editor (default saved, invalid default refused with the message, cleared), the description limit, the hint shown and hidden, and defaults flowing into `addItem` and `addSubitem`. Visual screen: column settings with Default value and Description (light and dark). No shared, rules or Functions change is expected; if one is needed, stop and report it.
