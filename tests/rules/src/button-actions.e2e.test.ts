@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type * as ActivityModule from '../../../functions/src/lib/activity';
 import type * as AdminActivityModule from '../../../functions/src/lib/admin-activity';
 import type * as AdminModule from '../../../functions/src/lib/admin';
+import type { FieldValue as FieldValueType } from 'firebase-admin/firestore';
 import type * as ColumnActionsModule from '../../../functions/src/lib/column-actions';
 import { USERS, WS, boardDoc, createTestEnv, itemDoc, seedFixture } from './helpers';
 
@@ -21,7 +22,7 @@ let logic: typeof ActivityModule;
 let adapter: typeof AdminActivityModule;
 let admin: typeof AdminModule;
 let actions: typeof ColumnActionsModule;
-let FieldValue: typeof import('firebase-admin/firestore').FieldValue;
+let FieldValue: typeof FieldValueType;
 
 const BOARD = 'boardButtonActionsE2e';
 const buttonActions = [
@@ -101,7 +102,11 @@ describe('button actions against the emulator', () => {
   it('a click sets the status, renames and moves the item, and the changes are logged for the clicker', async () => {
     const before = await snap();
     const result = await click(USERS.member);
-    expect(result.applied.map((a) => a.type)).toEqual(['set_value', 'rename_item', 'move_to_group']);
+    expect(result.applied.map((a) => a.type)).toEqual([
+      'set_value',
+      'rename_item',
+      'move_to_group',
+    ]);
     const after = await snap();
 
     expect(after).toMatchObject({
