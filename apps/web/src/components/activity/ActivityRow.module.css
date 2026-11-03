@@ -1,0 +1,113 @@
+.row {
+  display: grid;
+  grid-template-columns: var(--space-32) auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-block-end: var(--border-width) solid var(--layout-border-color);
+  list-style: none;
+}
+
+.time {
+  padding-block-start: var(--space-4);
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+  white-space: nowrap;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.label {
+  color: var(--primary-text-color);
+  font: var(--font-text2-bold);
+}
+
+.itemName,
+.itemLink {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemLink {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--link-color);
+  cursor: pointer;
+}
+
+.itemLink:hover {
+  text-decoration: underline;
+}
+
+.itemLink:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.sentence {
+  margin: 0;
+  padding-block-start: var(--space-4);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  overflow-wrap: anywhere;
+}
+
+.note {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+  overflow-wrap: anywhere;
+}
+
+.change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.arrow {
+  flex: none;
+  color: var(--icon-color);
+}
+
+.text {
+  min-width: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+/* The table cells fill their box; give them one here so a status reads as a pill. */
+.cell {
+  position: relative;
+  display: inline-flex;
+  min-width: var(--space-64);
+  max-width: 100%;
+  height: var(--space-24);
+  overflow: hidden;
+  border-radius: var(--border-radius-small);
+}
