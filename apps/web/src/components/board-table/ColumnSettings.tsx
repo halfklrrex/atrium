@@ -3,6 +3,7 @@ import {
   mirrorSettingsSchema,
   validateFormulaSettings,
   type BoardRelationSettings,
+  type ButtonAction,
   type ButtonSettings,
   type DependencySettings,
   type DropdownSettings,
@@ -26,6 +27,9 @@ import popups from '../../columns/popups.module.css';
 import { useBoards } from '../../data';
 import { GROUP_COLORS } from '../../theme/palette';
 import { AnchoredPopup } from './AnchoredPopup';
+import { ButtonActionsEditor } from './ButtonActionsEditor';
+import { getButtonActionErrors } from './button-actions';
+import buttonStyles from './ButtonActionsEditor.module.css';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import type { ColumnView } from './table-model';
@@ -342,14 +346,26 @@ function ButtonSettingsEditor({
 }) {
   const [label, setLabel] = useState(settings.label ?? 'Click');
   const [color, setColor] = useState(settings.color ?? GROUP_COLORS[17]!.hex);
+  const [actions, setActions] = useState<ButtonAction[]>(settings.actions ?? []);
+  const env = useTableEnv();
+  const columns = env.allColumns ?? env.columns;
+  const errors = useMemo(
+    () => getButtonActionErrors(actions, columns, env.groups),
+    [actions, columns, env.groups],
+  );
+  const invalid = errors.some((e) => e !== null);
 
   const save = () => {
+    if (invalid) return;
     const cleanLabel = label.trim().slice(0, 50) || 'Click';
-    onSave({ label: cleanLabel, color });
+    onSave({ label: cleanLabel, color, actions });
   };
 
   return (
-    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+    <div
+      className={classNames(popups.body, buttonStyles.settingsBody)}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <label className={popups.field}>
         <span className={popups.fieldLabel}>Button label</span>
         <input
@@ -382,11 +398,24 @@ function ButtonSettingsEditor({
           })}
         </div>
       </div>
+      <ButtonActionsEditor
+        actions={actions}
+        errors={errors}
+        columns={columns}
+        groups={env.groups}
+        onChange={setActions}
+      />
       <div className={popups.footer}>
         <button type="button" className={popups.linkButton} onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" className={popups.linkButton} onClick={save}>
+        <button
+          type="button"
+          className={popups.linkButton}
+          disabled={invalid}
+          title={invalid ? 'Fix the actions marked in red first' : undefined}
+          onClick={save}
+        >
           Apply
         </button>
       </div>
