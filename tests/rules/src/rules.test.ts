@@ -7,6 +7,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -717,5 +718,170 @@ describe('updates and replies inherit board access', () => {
     await assertFails(
       setDoc(updateRef(uid, MAIN_BOARD, 'i1', 'bad-3'), newUpdate(uid, { content: '' })),
     );
+  });
+
+  describe('rich-text contentDoc', () => {
+    const richDoc = (text: string) => ({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+    });
+
+    // Seeds (rules off) a rich and a plain update and reply, all authored by the owner.
+    const seedRich = async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        const base = ['boards', MAIN_BOARD, 'items', 'i1', 'updates'] as const;
+        await setDoc(
+          doc(db, ...base, 'rich'),
+          updateDocData({ authorId: USERS.owner, content: 'old', contentDoc: richDoc('old') }),
+        );
+        await setDoc(doc(db, ...base, 'plain'), updateDocData({ authorId: USERS.owner }));
+        await setDoc(
+          doc(db, ...base, 'u1', 'replies', 'rich'),
+          replyDocData({ authorId: USERS.owner, content: 'old', contentDoc: richDoc('old') }),
+        );
+        await setDoc(
+          doc(db, ...base, 'u1', 'replies', 'plain'),
+          replyDocData({ authorId: USERS.owner }),
+        );
+      });
+    };
+
+    it('accepts an update or reply with a contentDoc, and still accepts plain ones', async () => {
+      const uid = USERS.member;
+      await assertSucceeds(
+        setDoc(
+          updateRef(uid, MAIN_BOARD, 'i1', 'rich-1'),
+          newUpdate(uid, { content: 'Hi', contentDoc: richDoc('Hi') }),
+        ),
+      );
+      await assertSucceeds(setDoc(updateRef(uid, MAIN_BOARD, 'i1', 'plain-1'), newUpdate(uid)));
+      await assertSucceeds(
+        setDoc(
+          replyRef(uid, MAIN_BOARD, 'i1', 'u1', 'rich-1'),
+          newReply(uid, { content: 'Hi', contentDoc: richDoc('Hi') }),
+        ),
+      );
+      await assertSucceeds(setDoc(replyRef(uid, MAIN_BOARD, 'i1', 'u1', 'plain-1'), newReply(uid)));
+    });
+
+    it('refuses a contentDoc that is not a map or whose type is not doc', async () => {
+      const uid = USERS.member;
+      for (const bad of ['text', ['a'], 5, null, { type: 'paragraph' }, { content: [] }]) {
+        await assertFails(
+          setDoc(
+            updateRef(uid, MAIN_BOARD, 'i1', 'bad-doc'),
+            newUpdate(uid, { content: 'Hi', contentDoc: bad }),
+          ),
+        );
+        await assertFails(
+          setDoc(
+            replyRef(uid, MAIN_BOARD, 'i1', 'u1', 'bad-doc'),
+            newReply(uid, { content: 'Hi', contentDoc: bad }),
+          ),
+        );
+      }
+    });
+
+    it('still refuses an empty content mirror and unknown extra keys', async () => {
+      const uid = USERS.member;
+      await assertFails(
+        setDoc(
+          updateRef(uid, MAIN_BOARD, 'i1', 'bad-mirror'),
+          newUpdate(uid, { content: '', contentDoc: richDoc('x') }),
+        ),
+      );
+      await assertFails(
+        setDoc(
+          updateRef(uid, MAIN_BOARD, 'i1', 'bad-key'),
+          newUpdate(uid, { content: 'Hi', contentDoc: richDoc('Hi'), contentHtml: '<b>Hi</b>' }),
+        ),
+      );
+      await assertFails(
+        setDoc(
+          replyRef(uid, MAIN_BOARD, 'i1', 'u1', 'bad-key'),
+          newReply(uid, { content: 'Hi', contentDoc: richDoc('Hi'), contentHtml: '<b>Hi</b>' }),
+        ),
+      );
+    });
+
+    it('lets the author or a board manager edit content and contentDoc together', async () => {
+      await seedRich();
+      const edit = { content: 'new', contentDoc: richDoc('new'), updatedAt: serverTimestamp() };
+      await assertSucceeds(updateDoc(updateRef(USERS.owner, MAIN_BOARD, 'i1', 'rich'), edit));
+      await assertSucceeds(updateDoc(updateRef(USERS.admin, MAIN_BOARD, 'i1', 'rich'), edit));
+      await assertSucceeds(updateDoc(replyRef(USERS.owner, MAIN_BOARD, 'i1', 'u1', 'rich'), edit));
+      await assertSucceeds(updateDoc(replyRef(USERS.admin, MAIN_BOARD, 'i1', 'u1', 'rich'), edit));
+      // A plain post can be upgraded to a rich one in the same write.
+      await assertSucceeds(updateDoc(updateRef(USERS.owner, MAIN_BOARD, 'i1', 'plain'), edit));
+    });
+
+    it('denies a non-author editor changing contentDoc', async () => {
+      await seedRich();
+      const edit = { content: 'new', contentDoc: richDoc('new'), updatedAt: serverTimestamp() };
+      await assertFails(updateDoc(updateRef(USERS.member, MAIN_BOARD, 'i1', 'rich'), edit));
+      await assertFails(updateDoc(replyRef(USERS.member, MAIN_BOARD, 'i1', 'u1', 'rich'), edit));
+      await assertFails(updateDoc(updateRef(USERS.viewer, MAIN_BOARD, 'i1', 'rich'), edit));
+    });
+
+    it('requires content and contentDoc to change together', async () => {
+      await seedRich();
+      const upd = updateRef(USERS.owner, MAIN_BOARD, 'i1', 'rich');
+      const rep = replyRef(USERS.owner, MAIN_BOARD, 'i1', 'u1', 'rich');
+      for (const ref of [upd, rep]) {
+        // content alone would leave a stale doc
+        await assertFails(updateDoc(ref, { content: 'drift', updatedAt: serverTimestamp() }));
+        // contentDoc alone would leave a stale mirror
+        await assertFails(
+          updateDoc(ref, { contentDoc: richDoc('drift'), updatedAt: serverTimestamp() }),
+        );
+      }
+      // contentDoc alone on a plain post (no mirror change) is refused too
+      await assertFails(
+        updateDoc(updateRef(USERS.owner, MAIN_BOARD, 'i1', 'plain'), {
+          contentDoc: richDoc('x'),
+          updatedAt: serverTimestamp(),
+        }),
+      );
+    });
+
+    it('allows dropping contentDoc while setting plain content, and refuses a malformed doc', async () => {
+      await seedRich();
+      await assertSucceeds(
+        updateDoc(updateRef(USERS.owner, MAIN_BOARD, 'i1', 'rich'), {
+          content: 'plain now',
+          contentDoc: deleteField(),
+          updatedAt: serverTimestamp(),
+        }),
+      );
+      await assertSucceeds(
+        updateDoc(replyRef(USERS.owner, MAIN_BOARD, 'i1', 'u1', 'rich'), {
+          content: 'plain now',
+          contentDoc: deleteField(),
+          updatedAt: serverTimestamp(),
+        }),
+      );
+      await assertFails(
+        updateDoc(updateRef(USERS.owner, MAIN_BOARD, 'i1', 'plain'), {
+          content: 'x',
+          contentDoc: { type: 'paragraph' },
+          updatedAt: serverTimestamp(),
+        }),
+      );
+      await assertFails(
+        updateDoc(updateRef(USERS.owner, MAIN_BOARD, 'i1', 'plain'), {
+          content: '',
+          contentDoc: richDoc('x'),
+          updatedAt: serverTimestamp(),
+        }),
+      );
+    });
+
+    it('lets any editor like a rich update without touching its content', async () => {
+      await seedRich();
+      await assertSucceeds(
+        updateDoc(updateRef(USERS.member, MAIN_BOARD, 'i1', 'rich'), { likes: [USERS.member] }),
+      );
+    });
   });
 });

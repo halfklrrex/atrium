@@ -629,14 +629,30 @@ service cloud.firestore {
               || (d.mentions is list && d.mentions.size() <= 20 && d.mentions.toSet().size() == d.mentions.size());
           }
 
+          // Optional rich-text `contentDoc` (ProseMirror JSON; `content` is its plain-text mirror).
+          // Rules cannot bound a map's size: the 1 MiB document limit and the shared schema are the guard.
+          function validContentDoc(d) {
+            return !('contentDoc' in d) || (d.contentDoc is map && d.contentDoc.get('type', null) == 'doc');
+          }
+
+          // A content edit moves `content` and `contentDoc` together (both or neither), so the mirror
+          // cannot drift; dropping `contentDoc` while setting plain `content` is allowed.
+          function validContentEdit(changed) {
+            return !changed.hasAny(['content', 'contentDoc'])
+              || (changed.hasAll(['content'])
+                  && (!('contentDoc' in resource.data) || changed.hasAll(['contentDoc']))
+                  && (!changed.hasAny(['contentDoc']) || validContentDoc(request.resource.data)));
+          }
+
           function validUpdateCreate(d) {
             return d.keys().hasOnly(['itemId', 'authorId', 'authorName', 'authorPhotoUrl',
                                      'content', 'likes', 'repliesCount', 'createdAt', 'updatedAt',
-                                     'mentions'])
+                                     'mentions', 'contentDoc'])
               && d.keys().hasAll(['itemId', 'authorId', 'content', 'likes', 'repliesCount',
                                   'createdAt', 'updatedAt'])
               && d.itemId == itemId
               && validMentions(d)
+              && validContentDoc(d)
               && d.authorId == uid()
               && (!('authorName' in d) || d.authorName is string)
               && (!('authorPhotoUrl' in d) || d.authorPhotoUrl == null || d.authorPhotoUrl is string)
@@ -648,8 +664,9 @@ service cloud.firestore {
 
           function validUpdateUpdate() {
             let changed = request.resource.data.diff(resource.data).affectedKeys();
-            return changed.hasOnly(['content', 'likes', 'repliesCount', 'updatedAt'])
-              && (!changed.hasAny(['content']) || resource.data.authorId == uid() || canManageBoard(boardId))
+            return changed.hasOnly(['content', 'contentDoc', 'likes', 'repliesCount', 'updatedAt'])
+              && (!changed.hasAny(['content', 'contentDoc']) || resource.data.authorId == uid() || canManageBoard(boardId))
+              && validContentEdit(changed)
               && (!changed.hasAny(['content']) || (request.resource.data.content is string && request.resource.data.content.size() >= 1 && request.resource.data.content.size() <= 50000))
               && (!changed.hasAny(['likes']) || validLikesUpdate())
               && (!changed.hasAny(['repliesCount']) || (
@@ -673,11 +690,13 @@ service cloud.firestore {
           match /replies/{replyId} {
             function validReplyCreate(d) {
               return d.keys().hasOnly(['updateId', 'authorId', 'authorName', 'authorPhotoUrl',
-                                       'content', 'likes', 'createdAt', 'updatedAt', 'mentions'])
+                                       'content', 'likes', 'createdAt', 'updatedAt', 'mentions',
+                                       'contentDoc'])
                 && d.keys().hasAll(['updateId', 'authorId', 'content', 'likes',
                                     'createdAt', 'updatedAt'])
                 && d.updateId == updateId
                 && validMentions(d)
+                && validContentDoc(d)
                 && d.authorId == uid()
                 && (!('authorName' in d) || d.authorName is string)
                 && (!('authorPhotoUrl' in d) || d.authorPhotoUrl == null || d.authorPhotoUrl is string)
@@ -688,8 +707,9 @@ service cloud.firestore {
 
             function validReplyUpdate() {
               let changed = request.resource.data.diff(resource.data).affectedKeys();
-              return changed.hasOnly(['content', 'likes', 'updatedAt'])
-                && (!changed.hasAny(['content']) || resource.data.authorId == uid() || canManageBoard(boardId))
+              return changed.hasOnly(['content', 'contentDoc', 'likes', 'updatedAt'])
+                && (!changed.hasAny(['content', 'contentDoc']) || resource.data.authorId == uid() || canManageBoard(boardId))
+                && validContentEdit(changed)
                 && (!changed.hasAny(['content']) || (request.resource.data.content is string && request.resource.data.content.size() >= 1 && request.resource.data.content.size() <= 50000))
                 && (!changed.hasAny(['likes']) || validLikesUpdate())
                 && (!changed.hasAny(['updatedAt']) || request.resource.data.updatedAt == request.time);
