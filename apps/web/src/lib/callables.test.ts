@@ -60,13 +60,13 @@ describe('server-managed column callables', () => {
       const res = await callClickButton(req);
 
       expect(mockHttpsCallable).toHaveBeenCalledWith(functions, 'clickButton');
+      expect(remote).toHaveBeenCalledWith(req);
       expect(res).toEqual({
         success: true,
         activityId: 'act-1',
         timestamp: 1700000000000,
         applied: [],
       });
-      expect(res).toEqual({ success: true, activityId: 'act-1', timestamp: 1700000000000 });
     });
 
     it('rejects invalid request before calling httpsCallable', async () => {
