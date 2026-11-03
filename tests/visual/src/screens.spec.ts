@@ -365,6 +365,7 @@ for (const theme of ['light', 'dark'] as const) {
       try {
         await fullViewReady(page);
         const update = page.getByRole('article', { name: 'Item update' }).first();
+        await update.scrollIntoViewIfNeeded();
         await expect(update.locator('strong')).toHaveText('all checks are green');
         await expect(update.getByText('@Jordan Lee')).toBeVisible();
         await expect(update.getByRole('link', { name: 'the spec' })).toBeVisible();
