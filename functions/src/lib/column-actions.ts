@@ -71,6 +71,17 @@ export interface ColumnActionsTx {
     updatedBy: string,
     serverTimestamp: unknown,
   ): void;
+  /**
+   * True when `uid` already clicked this button on this item at or after `sinceMs` (reads the
+   * activity log). Must run before the first write of the transaction.
+   */
+  hasRecentButtonClick(
+    boardId: string,
+    itemId: string,
+    columnId: string,
+    uid: string,
+    sinceMs: number,
+  ): Promise<boolean>;
   /** The workspace member's display name and photo, `null` when there is no member document. */
   getMemberProfile(workspaceId: string, uid: string): Promise<MemberProfile | null>;
   /** Creates the activity entry (P4) in the same transaction and returns its id. */
@@ -242,12 +253,30 @@ export async function stopTimeTrackingInTransaction(
   return { success: true, duration: parsedUpdated.duration, stoppedAt: nowMs };
 }
 
+/** A second click of the same button on the same item by the same user inside this window is refused. */
+export const BUTTON_REPEAT_GUARD_MS = 2000;
+
+/** One person a click notifies, with the message of the last `notify` action that listed them. */
+export interface ButtonNotifyTarget {
+  uid: string;
+  message: string;
+}
+
+/** What the callable delivers after the transaction commits (never inside it). */
+export interface ButtonNotifyPlan {
+  columnId: string;
+  buttonLabel: string;
+  /** The item's name after the actions ran. */
+  itemName: string;
+  targets: ButtonNotifyTarget[];
+}
+
 export async function clickButtonInTransaction(
   tx: ColumnActionsTx,
   uid: string,
   req: ClickButtonRequest,
   serverTimestamp: unknown,
-): Promise<ClickButtonResult> {
+): Promise<ClickButtonResult & { notify?: ButtonNotifyPlan }> {
   const board = await requireColumnEditAccess(tx, req.boardId, uid, req.columnId);
 
   const col = board.columns.find((c) => c.id === req.columnId);
@@ -284,7 +313,19 @@ export async function clickButtonInTransaction(
   }
 
   const patch = buildActionsPatch(settings.actions, item, nowMs);
-  // Firestore transactions need every read before the first write: read the profile first.
+  // Reads come before the first write: the repeat guard first, then the actor's profile.
+  if (
+    await tx.hasRecentButtonClick(
+      req.boardId,
+      req.itemId,
+      req.columnId,
+      uid,
+      nowMs - BUTTON_REPEAT_GUARD_MS,
+    )
+  ) {
+    throw new HttpsError('already-exists', 'You just clicked this button. Try again in a moment.');
+  }
+  const notify = buildNotifyPlan(settings.actions, req.columnId, settings.label, patch, item);
   const actor = actorOf(uid, await tx.getMemberProfile(board.workspaceId, uid));
   if (Object.keys(patch).length > 0) {
     tx.updateItem(req.boardId, req.itemId, patch, uid, serverTimestamp);
@@ -309,6 +350,32 @@ export async function clickButtonInTransaction(
     activityId,
     timestamp: nowMs,
     applied: settings.actions.map((a) => ({ type: a.type })),
+    ...(notify ? { notify } : {}),
+  };
+}
+
+/**
+ * The people the `notify` actions name, one entry each (a later action's message wins). Only a
+ * plan: the callable sends after the commit, so nothing is delivered if the transaction fails.
+ */
+function buildNotifyPlan(
+  actions: readonly ButtonAction[],
+  columnId: string,
+  buttonLabel: string,
+  patch: Record<string, unknown>,
+  item: ItemData,
+): ButtonNotifyPlan | null {
+  const targets = new Map<string, string>();
+  for (const action of actions) {
+    if (action.type !== 'notify') continue;
+    for (const uid of action.uids) targets.set(uid, action.message?.trim() ?? '');
+  }
+  if (targets.size === 0) return null;
+  return {
+    columnId,
+    buttonLabel,
+    itemName: typeof patch.name === 'string' ? patch.name : item.name,
+    targets: [...targets].map(([uid, message]) => ({ uid, message })),
   };
 }
 
@@ -346,6 +413,9 @@ function buildActionsPatch(
         break;
       case 'archive_item':
         patch.state = 'archived';
+        break;
+      case 'notify':
+        // Delivered after the commit (see buildNotifyPlan); nothing to write on the item.
         break;
     }
   }

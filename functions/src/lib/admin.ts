@@ -5,6 +5,7 @@ import {
   FieldPath,
   FieldValue,
   getFirestore,
+  Timestamp,
   type Firestore,
   type Transaction,
 } from 'firebase-admin/firestore';
@@ -246,6 +247,23 @@ export function adminColumnActionsTx(firestore: Firestore, tx: Transaction): Col
       args.push('updatedAt', serverTimestamp, 'updatedBy', updatedBy);
       const [first, second, ...rest] = args as [string | FieldPath, unknown, ...unknown[]];
       tx.update(itemRef(boardId, itemId), first, second, ...rest);
+    },
+    async hasRecentButtonClick(boardId, itemId, columnId, uid, sinceMs) {
+      // Uses the existing (actorId, createdAt) index; the rest is filtered here.
+      const snap = await tx.get(
+        boardRef(boardId)
+          .collection('activity')
+          .where('actorId', '==', uid)
+          .where('createdAt', '>=', Timestamp.fromMillis(sinceMs))
+          .orderBy('createdAt', 'desc')
+          .limit(20),
+      );
+      return snap.docs.some(
+        (d) =>
+          d.get('kind') === 'button_clicked' &&
+          d.get('itemId') === itemId &&
+          d.get('columnId') === columnId,
+      );
     },
     async getMemberProfile(workspaceId, uid) {
       return (await getMemberProfilesTx(firestore, tx, workspaceId, [uid])).get(uid) ?? null;
