@@ -6,7 +6,9 @@ Live checks only the owner can do, collected per feature while agents build ahea
 
 - **Activity log (#63):** open any board's options menu and choose **Activity log**; try the Person, Column and Date filters and click a row to open its item. Open an item card's **Activity Log** tab (it now shows real history, not the placeholder). Edit a cell, rename an item and move it to another group, then watch the entries appear. Defaults I chose (change them if you disagree): entries expire after 90 days, board viewers can read the log, description edits are not logged. Light and dark.
 - **Button actions (#65):** in a column's menu choose **Settings** on a Button column and add actions (set a column value, rename the item with `{name}` / `{date}`, move to a group, archive). Click the button on an item and check the result. The showcase board has a "Mark as shipped" button (Status = Done, rename). Known limit: **move to group** keeps the item's position key, so it can land anywhere in the target group, not at the end. A bad action refuses the whole click with a message and changes nothing.
-- **Column settings (pending, PR #66):** after it merges, check the column menu's **Description & default value** and the soft "Required" hint.
+- **Column settings (#66):** in a column's header menu choose **Description & default value**: set a description (shows as a tooltip on the column header and the item field label) and a default value for new items. Empty required cells show a "Required" hint and the item card counts empty required fields. Required is a soft rule (nothing blocked); say if you want a hard rule somewhere.
+- **Reorder favourites (#68):** in the sidebar's Favorites, drag a board up or down, or use the row menu (Move up / Move down). Check the drag feel and that a plain click still opens the board. The order is per person.
+- **Rich text in updates (backend, #69):** nothing visible yet; the composer follows in the next PR. The server now accepts a rich document next to the plain text of an update or reply.
 
 ## Already merged and waiting for a look (2026-10-31)
 
