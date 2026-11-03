@@ -53,6 +53,14 @@ export const clickButtonResultSchema = z
     success: z.literal(true),
     activityId: z.string().min(1),
     timestamp: z.number().int().positive(),
+    /** The actions that ran, in order (empty when the button has none). */
+    applied: z
+      .array(
+        z
+          .object({ type: z.enum(['set_value', 'rename_item', 'move_to_group', 'archive_item']) })
+          .strict(),
+      )
+      .default([]),
   })
   .strict();
 export type ClickButtonResult = z.infer<typeof clickButtonResultSchema>;

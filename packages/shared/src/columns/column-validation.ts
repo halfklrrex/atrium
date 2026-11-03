@@ -1,4 +1,7 @@
+import type { BoardRole } from '../roles';
 import type { ColumnDef, ColumnDefInput } from '../schemas/board';
+import { BUTTON_ACTION_LABELS, type ButtonAction } from './button';
+import { canEditColumn } from './column-locks';
 import { columnRegistry } from './index';
 import type { ColumnTypeRegistry } from './registry';
 
@@ -212,4 +215,65 @@ export function applyDefaultColumnValues(
   }
 
   return result;
+}
+
+export interface ButtonActionsBoard {
+  columns: ReadonlyArray<{
+    id: string;
+    type: string;
+    title?: string;
+    settings?: unknown;
+    migrating?: unknown;
+  }>;
+  groups: ReadonlyArray<{ id: string }>;
+  columnLocks?: readonly string[] | null;
+}
+
+/**
+ * Checks a button's actions against a board: target columns exist and are plain writable types
+ * (not derived, server-managed, button or migrating), values pass `registry.validateCell`, move
+ * targets exist and, when `role` is given, the role may edit each target column. Returns the
+ * first failure with its 0-based `index` and a message naming the action.
+ */
+export function validateButtonActions(
+  actions: readonly ButtonAction[],
+  board: ButtonActionsBoard,
+  role?: BoardRole | null,
+  registry: ColumnTypeRegistry = columnRegistry,
+): { ok: true } | { ok: false; index: number; message: string } {
+  for (const [index, action] of actions.entries()) {
+    const fail = (reason: string) => ({
+      ok: false as const,
+      index,
+      message: `Action ${index + 1} (${BUTTON_ACTION_LABELS[action.type]}): ${reason}`,
+    });
+    if (action.type === 'set_value') {
+      const col = board.columns.find((c) => c.id === action.columnId);
+      if (!col) return fail('the column no longer exists');
+      if (col.type === 'button') return fail('a button column cannot be set');
+      if (!registry.has(col.type)) return fail(`unknown column type "${col.type}"`);
+      if (registry.isDerived(col.type)) return fail('the column is calculated');
+      if (registry.isServerManaged(col.type)) return fail('the column is managed by Atrium');
+      if (col.migrating) return fail('the column is changing type');
+      if (role !== undefined && !canEditColumn(role, board, col.id)) {
+        return fail('the column is locked to board owners');
+      }
+      const checked = registry.validateCell(
+        {
+          id: col.id,
+          type: col.type,
+          title: col.title ?? col.id,
+          position: 'a0',
+          settings: (col.settings ?? {}) as Record<string, unknown>,
+        },
+        action.value,
+      );
+      if (!checked.ok) return fail(checked.message);
+    } else if (action.type === 'move_to_group') {
+      if (!board.groups.some((g) => g.id === action.groupId)) {
+        return fail('the group no longer exists');
+      }
+    }
+  }
+  return { ok: true };
 }
