@@ -213,6 +213,30 @@ describe('NotificationsPanel list', () => {
     expect(cards[1]).toHaveAttribute('data-unread', 'false');
   });
 
+  it('renders a button notification with the label and the message, and keeps it in All and Unread', async () => {
+    mockList = [
+      note('n7', {
+        kind: 'button',
+        actorName: 'Avery Quinn',
+        updateId: null,
+        columnId: 'btn',
+        buttonLabel: 'Ship it',
+        snippet: 'Please review',
+      }),
+    ];
+    mockUnreadIds = ['n7'];
+    renderPanel();
+    setOpen(true);
+    const card = screen.getAllByRole('listitem')[0]!;
+    expect(within(card).getByText('Avery Quinn')).toBeInTheDocument();
+    expect(within(card).getByText('Clicked "Ship it"')).toBeInTheDocument();
+    expect(within(card).getByText('Please review')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Unread' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    await userEvent.click(screen.getByRole('tab', { name: 'All' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
   it('filters by tab', async () => {
     renderPanel();
     setOpen(true);

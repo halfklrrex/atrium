@@ -69,7 +69,8 @@ function PeopleCell({ value }: CellProps<PeopleValue, PeopleSettings>) {
   );
 }
 
-function PersonRow({
+/** One selectable member row (avatar and name); also used by the button column's notify picker. */
+export function PersonRow({
   uid,
   selected,
   onToggle,

@@ -66,6 +66,7 @@ export function useNotificationPrefs(uid: string | undefined): {
       assigned: data?.notificationPrefs?.assigned ?? true,
       reply: data?.notificationPrefs?.reply ?? true,
       mention: data?.notificationPrefs?.mention ?? true,
+      button: data?.notificationPrefs?.button ?? true,
     }),
     [data],
   );
@@ -98,13 +99,14 @@ export const notificationWrites = {
     await deleteDoc(plainRefs.notification(uid, id));
   },
 
-  /** Saves the three switches on the user's own document. */
+  /** Saves the switches on the user's own document. */
   async setPrefs(uid: string, prefs: NotificationPrefs): Promise<void> {
     await updateDoc(plainRefs.user(uid), {
       notificationPrefs: {
         assigned: prefs.assigned,
         reply: prefs.reply,
         mention: prefs.mention,
+        button: prefs.button,
       },
     });
   },

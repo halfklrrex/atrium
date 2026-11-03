@@ -9,6 +9,20 @@ import type { ColumnView } from './table-model';
 import { useTableStore } from './table-store';
 
 vi.mock('../../lib/firebase', () => ({ db: {} }));
+vi.mock('../../data/members-store', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  const people = { u_blake: 'Blake Rowan', u_casey: 'Casey Lane' } as Record<string, string>;
+  return {
+    ...actual,
+    useWorkspaceMembers: () => ({
+      workspaceId: 'ws1',
+      loading: false,
+      members: Object.keys(people).map((id) => ({ id })),
+    }),
+    useUserLookup: () => (uid: string) =>
+      people[uid] ? { name: people[uid], email: null, photoURL: null } : undefined,
+  };
+});
 
 const mockCtx: TableCtx = { boardId: 'board-1', uid: 'user-1', columns: [] };
 
@@ -127,6 +141,43 @@ describe('Button actions editor', () => {
     );
     expect(screen.getAllByRole('group')).toHaveLength(4);
     expect(add).toBeEnabled();
+  });
+
+  it('adds a notify action: pick people, type a message, and save it', async () => {
+    const user = userEvent.setup();
+    renderButton([]);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Add action' }), 'notify');
+    const row = screen.getByRole('group', { name: 'Action 1: Notify people' });
+    expect(within(row).getByRole('alert')).toHaveTextContent('Choose 1 to 10 people');
+    expect(apply()).toBeDisabled();
+
+    await user.click(within(row).getByRole('option', { name: /Casey Lane/ }));
+    await user.type(within(row).getByRole('textbox'), 'Please review');
+    expect(within(row).queryByRole('alert')).not.toBeInTheDocument();
+    expect(within(row).getByRole('option', { name: /Casey Lane/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    fireEvent.click(apply());
+    const saved = vi.mocked(tableActions.updateColumn).mock.calls[0]![2].settings as {
+      actions: ButtonAction[];
+    };
+    expect(saved.actions).toEqual([
+      { type: 'notify', uids: ['u_casey'], message: 'Please review' },
+    ]);
+  });
+
+  it('unselects a person and omits an empty message', async () => {
+    const user = userEvent.setup();
+    renderButton([{ type: 'notify', uids: ['u_blake', 'u_casey'], message: 'Hi' }]);
+    const row = screen.getByRole('group', { name: 'Action 1: Notify people' });
+    await user.click(within(row).getByRole('option', { name: /Blake Rowan/ }));
+    await user.clear(within(row).getByRole('textbox'));
+    fireEvent.click(apply());
+    const saved = vi.mocked(tableActions.updateColumn).mock.calls[0]![2].settings as {
+      actions: ButtonAction[];
+    };
+    expect(saved.actions).toEqual([{ type: 'notify', uids: ['u_casey'] }]);
   });
 
   it('flags a deleted group and blocks saving', () => {

@@ -1,6 +1,6 @@
 import type { NotificationKind } from '@atrium/shared';
 import { Icon, IconButton, Menu, MenuButton, MenuItem } from '@vibe/core';
-import { Check, Delete, Mention, Person, Reply, Undo } from '@vibe/icons';
+import { Bolt, Check, Delete, Mention, Person, Reply, Undo } from '@vibe/icons';
 import classNames from 'classnames';
 import type { NotificationDoc } from '../../data/model';
 import { formatUpdated } from '../../lib/format';
@@ -13,6 +13,7 @@ const KIND_ICON: Record<NotificationKind, typeof Person> = {
   assigned: Person,
   reply: Reply,
   mention: Mention,
+  button: Bolt,
 };
 
 interface NotificationCardProps {

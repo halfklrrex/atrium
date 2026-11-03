@@ -114,13 +114,23 @@ describe('useUnreadNotifications', () => {
 describe('useNotificationPrefs', () => {
   it('treats missing preferences as all on', () => {
     const { result } = renderHook(() => useNotificationPrefs('u1'));
-    expect(result.current.prefs).toEqual({ assigned: true, reply: true, mention: true });
+    expect(result.current.prefs).toEqual({
+      assigned: true,
+      reply: true,
+      mention: true,
+      button: true,
+    });
   });
 
   it('reads what the user saved', () => {
     mockDocData = { notificationPrefs: { assigned: false, reply: true, mention: false } };
     const { result } = renderHook(() => useNotificationPrefs('u1'));
-    expect(result.current.prefs).toEqual({ assigned: false, reply: true, mention: false });
+    expect(result.current.prefs).toEqual({
+      assigned: false,
+      reply: true,
+      mention: false,
+      button: true,
+    });
   });
 });
 
@@ -159,11 +169,16 @@ describe('notificationWrites', () => {
     expect(mockDeleteDoc).toHaveBeenCalledWith({ path: 'users/u1/notifications/n9' });
   });
 
-  it('saves the three switches on the user document', async () => {
-    await notificationWrites.setPrefs('u1', { assigned: true, reply: false, mention: true });
+  it('saves the four switches on the user document', async () => {
+    await notificationWrites.setPrefs('u1', {
+      assigned: true,
+      reply: false,
+      mention: true,
+      button: false,
+    });
     expect(mockUpdateDoc).toHaveBeenCalledWith(
       { path: 'users/u1' },
-      { notificationPrefs: { assigned: true, reply: false, mention: true } },
+      { notificationPrefs: { assigned: true, reply: false, mention: true, button: false } },
     );
   });
 });
