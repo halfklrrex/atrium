@@ -75,6 +75,8 @@
 }
 
 .valueBoxCell {
+  /* Cells such as status fill their nearest positioned ancestor (the table cell). */
+  position: relative;
   flex: 1;
   min-width: 0;
   height: var(--atrium-control-height);
