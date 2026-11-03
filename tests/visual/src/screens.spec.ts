@@ -375,7 +375,7 @@ for (const theme of ['light', 'dark'] as const) {
         await page.goto(`/boards/${IDS.roadmap}`);
         await boardReady(page);
         await page
-          .getByRole('button', { name: /^Updates for Firebase project and emulators/ })
+          .getByRole('button', { name: 'Updates for Firebase project and emulators', exact: true })
           .click();
         const card = page.getByRole('dialog', { name: 'Item card' });
         await card.getByRole('tab', { name: 'Activity Log' }).click();
@@ -397,8 +397,14 @@ for (const theme of ['light', 'dark'] as const) {
           .getByRole('main')
           .getByRole('button', { name: 'Options for Product roadmap' })
           .click();
-        await page.getByRole('menuitem', { name: 'Activity log' }).click();
+        // Vibe menus swallow a click that arrives before the first hover has settled.
+        const entry = page.getByRole('menuitem', { name: 'Activity log' });
+        await entry.hover();
+        await entry.click({ delay: 100 });
         const panel = page.getByRole('complementary', { name: 'Activity log' });
+        // The options menu closes after the click; keep it out of the screenshot.
+        await page.keyboard.press('Escape');
+        await expect(page.getByRole('menu')).toHaveCount(0);
         await expect(panel.getByRole('listitem')).toHaveCount(7);
         await expect(
           panel.getByText('Avery Atrium renamed the group Visuals to VF · Visual fidelity'),
