@@ -836,3 +836,38 @@ export async function seedNotifications(): Promise<void> {
   });
   await batch.commit();
 }
+
+/** Id of the button column the button settings screens add to the roadmap board (and remove again). */
+export const ACTION_BUTTON_COLUMN = 'ship-button';
+
+/** A button column with three actions (set Status, rename, move), placed next to the first column. */
+export async function addActionButton(): Promise<void> {
+  const ref = adminDb().collection('boards').doc(IDS.roadmap);
+  await adminDb().runTransaction(async (tx) => {
+    const columns = ((await tx.get(ref)).get('columns') ?? []) as ColumnDef[];
+    const next = [
+      ...columns.filter((c) => c.id !== ACTION_BUTTON_COLUMN),
+      column(ACTION_BUTTON_COLUMN, 'button', 'Ship', 'a0V', {
+        label: 'Mark as shipped',
+        color: '#00c875',
+        actions: [
+          { type: 'set_value', columnId: 'status', value: { index: 1 } },
+          { type: 'rename_item', template: '{name} (shipped {date})' },
+          { type: 'move_to_group', groupId: 'roadmap-p1' },
+        ],
+      }),
+    ];
+    tx.update(ref, { columns: next, serverManagedColumnIds: [ACTION_BUTTON_COLUMN] });
+  });
+}
+
+export async function removeActionButton(): Promise<void> {
+  const ref = adminDb().collection('boards').doc(IDS.roadmap);
+  await adminDb().runTransaction(async (tx) => {
+    const columns = ((await tx.get(ref)).get('columns') ?? []) as ColumnDef[];
+    tx.update(ref, {
+      columns: columns.filter((c) => c.id !== ACTION_BUTTON_COLUMN),
+      serverManagedColumnIds: [],
+    });
+  });
+}
