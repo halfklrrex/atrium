@@ -1018,3 +1018,82 @@ export async function removeActionButton(): Promise<void> {
     });
   });
 }
+
+/** Id of the rich-text update `seedRichUpdate` adds to the full-view item. */
+const RICH_UPDATE = 'rich-visual-update';
+
+/**
+ * A second update on the full-view item, written the way the composer writes it: a ProseMirror
+ * `contentDoc` (bold, italic, code, a link, a text colour, a highlight, a mention chip, an emoji
+ * and a bullet list) plus its plain-text `content` mirror. Remove it with `clearRichUpdate`.
+ */
+export async function seedRichUpdate(): Promise<void> {
+  const text = (value: string, ...marks: Record<string, unknown>[]) => ({
+    type: 'text',
+    text: value,
+    ...(marks.length ? { marks } : {}),
+  });
+  const item = (value: string) => ({
+    type: 'listItem',
+    content: [{ type: 'paragraph', content: [text(value)] }],
+  });
+  const contentDoc = {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          text('Pipeline update: '),
+          text('all checks are green', { type: 'bold' }),
+          text(', thanks '),
+          { type: 'mention', attrs: { id: 'visual-jordan', label: 'Jordan Lee' } },
+          text(' '),
+          { type: 'emoji', attrs: { name: 'fire' } },
+        ],
+      },
+      {
+        type: 'paragraph',
+        content: [
+          text('Next up', { type: 'italic' }),
+          text(' is the '),
+          text('deploy', { type: 'code' }),
+          text(' job, see '),
+          text('the spec', { type: 'link', attrs: { href: 'https://example.com/spec' } }),
+          text(' for the '),
+          text('details', { type: 'textStyle', attrs: { color: 'red' } }),
+          text(' and '),
+          text('owners', { type: 'highlight', attrs: { color: 'yellow' } }),
+          text('.'),
+        ],
+      },
+      {
+        type: 'bulletList',
+        content: [item('Wire the preview deploys'), item('Add the rollback step')],
+      },
+    ],
+  };
+  await fullViewItemRef()
+    .collection('updates')
+    .doc(RICH_UPDATE)
+    .set({
+      itemId: FULL_VIEW_ITEM,
+      authorId: AVERY.uid,
+      authorName: AVERY.displayName,
+      authorPhotoUrl: null,
+      content:
+        'Pipeline update: all checks are green, thanks @Jordan Lee :fire:\n' +
+        'Next up is the deploy job, see the spec for the details and owners.\n' +
+        'Wire the preview deploys\nAdd the rollback step',
+      contentDoc,
+      mentions: ['visual-jordan'],
+      likes: [],
+      repliesCount: 0,
+      createdAt: ago(HOUR),
+      updatedAt: ago(HOUR),
+    });
+}
+
+/** Removes the update `seedRichUpdate` added, so other screens never see it. */
+export async function clearRichUpdate(): Promise<void> {
+  await fullViewItemRef().collection('updates').doc(RICH_UPDATE).delete();
+}
