@@ -236,6 +236,16 @@ describe('notifyPeopleAssigned', () => {
   });
 });
 
+const docMentioning = (...ids: string[]) => ({
+  type: 'doc',
+  content: [
+    {
+      type: 'paragraph',
+      content: ids.map((id) => ({ type: 'mention', attrs: { id, label: 'Someone' } })),
+    },
+  ],
+});
+
 describe('notifyReply', () => {
   const reply = (overrides: Record<string, unknown> = {}) => ({
     eventId: 'e1',
@@ -270,6 +280,16 @@ describe('notifyReply', () => {
     const store = new FakeStore();
     await expect(notifyReply(store, reply({ mentions: [BLAKE, CASEY] }))).resolves.toBe(2);
     expect(store.forUser(BLAKE).map((n) => n.kind)).toEqual(['mention']);
+    expect(store.forUser(CASEY).map((n) => n.kind)).toEqual(['mention']);
+  });
+
+  it('takes mentions from contentDoc, ignoring a disagreeing array', async () => {
+    const store = new FakeStore();
+    store.updateAuthor = AVERY;
+    await expect(
+      notifyReply(store, reply({ mentions: [BLAKE], contentDoc: docMentioning(CASEY) })),
+    ).resolves.toBe(1);
+    expect(store.forUser(BLAKE)).toEqual([]);
     expect(store.forUser(CASEY).map((n) => n.kind)).toEqual(['mention']);
   });
 
@@ -314,6 +334,27 @@ describe('notifyUpdateMentions', () => {
   it('notifies nobody for a forged mention of a non-member', async () => {
     const store = new FakeStore();
     await expect(notifyUpdateMentions(store, update({ mentions: [STRANGER] }))).resolves.toBe(0);
+  });
+
+  it('takes mentions from contentDoc: a uid only in the array is ignored, one only in the doc is notified', async () => {
+    const store = new FakeStore();
+    await expect(
+      notifyUpdateMentions(
+        store,
+        update({ mentions: [BLAKE], contentDoc: docMentioning(CASEY), content: 'Hi @Casey' }),
+      ),
+    ).resolves.toBe(1);
+    expect(store.forUser(BLAKE)).toEqual([]);
+    expect(store.forUser(CASEY)).toEqual([
+      expect.objectContaining({ kind: 'mention', snippet: 'Hi @Casey' }),
+    ]);
+  });
+
+  it('a contentDoc without mentions notifies nobody even if the array lists someone', async () => {
+    const store = new FakeStore();
+    await expect(
+      notifyUpdateMentions(store, update({ mentions: [BLAKE], contentDoc: docMentioning() })),
+    ).resolves.toBe(0);
   });
 
   it('does no reads when there are no mentions', async () => {

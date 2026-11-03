@@ -552,6 +552,24 @@ describe('recordUpdatePosted', () => {
     expect(doc.data.snippet).not.toContain('<');
   });
 
+  it('uses the plain content mirror for the snippet when the update has a contentDoc', async () => {
+    const store = new FakeStore();
+    await recordUpdatePosted(store, {
+      eventId: 'u3',
+      boardId: 'b1',
+      itemId: 'i1',
+      update: {
+        authorId: 'u2',
+        content: 'Hello @Blake Reed',
+        contentDoc: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Something else' }] }],
+        },
+      },
+    });
+    expect(store.docs.get('u3-0')!.data.snippet).toBe('Hello @Blake Reed');
+  });
+
   it('falls back to the update author fields when there is no member document', async () => {
     const store = new FakeStore();
     store.members.clear();

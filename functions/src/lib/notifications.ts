@@ -320,11 +320,22 @@ export interface PostedContent {
   authorName?: string;
   authorPhotoUrl?: string | null;
   content?: string;
+  /** The rich-text doc (ProseMirror JSON); `content` is its plain-text mirror. */
+  contentDoc?: unknown;
   mentions?: unknown;
 }
 
 const mentionIds = (mentions: unknown): string[] =>
   Array.isArray(mentions) ? mentions.filter((m): m is string => typeof m === 'string') : [];
+
+/**
+ * The ids a post mentions: from its `contentDoc` when it has one (the server trusts the saved doc,
+ * never the client-sent array), otherwise the `mentions` array.
+ */
+const postMentionIds = (post: PostedContent): string[] =>
+  post.contentDoc != null
+    ? mentionedUidsOf(post.contentDoc)
+    : mentionIds(post.mentions).slice(0, NOTIFICATION_LIMITS.mentions);
 
 const actorFallbackOf = (post: PostedContent): Partial<ActorProfile> => ({
   ...(post.authorName ? { name: post.authorName } : {}),
@@ -343,7 +354,7 @@ export async function notifyUpdateMentions(
   },
 ): Promise<number> {
   const { update } = event;
-  const mentions = mentionIds(update.mentions);
+  const mentions = postMentionIds(update);
   if (!update.authorId || mentions.length === 0) return 0;
   return await deliverNotifications(store, {
     eventId: event.eventId,
@@ -375,7 +386,7 @@ export async function notifyReply(
   const { reply } = event;
   if (!reply.authorId) return 0;
   const parentAuthorId = await store.getUpdateAuthorId(event.boardId, event.itemId, event.updateId);
-  const candidates: NotificationCandidate[] = mentionIds(reply.mentions).map((uid) => ({
+  const candidates: NotificationCandidate[] = postMentionIds(reply).map((uid) => ({
     uid,
     kind: 'mention' as const,
   }));
