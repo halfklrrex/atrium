@@ -77,6 +77,7 @@ Determines whether a cell value is considered empty for UI requirement checks:
 - Board relation: empty if `linkedItems` array is empty.
 - Status: empty if `index` and `label` are not set.
 - Empty object `{}` -> empty.
+- Checkbox: empty unless `checked` is true, and rating: empty when `0` (they have no separate "no value" state, so a required checkbox must be ticked and a required rating must be above 0).
 
 ### 3.3 Required Fields: `validateRequiredColumns(columns, values)`
 
