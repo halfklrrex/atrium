@@ -103,9 +103,10 @@ service cloud.firestore {
       // Which notification kinds the user wants (P4); a missing key or map means all on.
       function validNotificationPrefs(p) {
         return p is map
-          && p.keys().hasOnly(['assigned', 'reply', 'mention'])
+          && p.keys().hasOnly(['assigned', 'reply', 'mention', 'button'])
           && p.keys().hasAll(['assigned', 'reply', 'mention'])
-          && p.assigned is bool && p.reply is bool && p.mention is bool;
+          && p.assigned is bool && p.reply is bool && p.mention is bool
+          && (!('button' in p.keys()) || p.button is bool);
       }
 
       allow read: if signedIn() && uid() == userId;

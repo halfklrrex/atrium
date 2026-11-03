@@ -129,6 +129,26 @@ describe('users/{uid}.notificationPrefs', () => {
     );
   });
 
+  it('accepts the optional fourth key `button` (a bool) next to the original three', async () => {
+    await assertSucceeds(
+      updateDoc(ref(), {
+        notificationPrefs: { assigned: true, reply: true, mention: true, button: false },
+      }),
+    );
+  });
+
+  it('refuses a non-bool `button`, and `button` without the original three keys', async () => {
+    await assertFails(
+      updateDoc(ref(), {
+        notificationPrefs: { assigned: true, reply: true, mention: true, button: 'yes' },
+      }),
+    );
+    await assertFails(updateDoc(ref(), { notificationPrefs: { button: true } }));
+    await assertFails(
+      updateDoc(ref(), { notificationPrefs: { assigned: true, reply: true, button: true } }),
+    );
+  });
+
   it('refuses extra or missing keys, non-booleans and a non-map', async () => {
     await assertFails(
       updateDoc(ref(), {
