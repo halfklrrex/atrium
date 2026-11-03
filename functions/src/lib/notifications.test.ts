@@ -9,6 +9,7 @@ import {
   notificationId,
   notifyPeopleAssigned,
   notifyReply,
+  deliverButtonNotifications,
   notifyUpdateMentions,
   purgeExpiredNotifications,
   retentionCutoff,
@@ -536,5 +537,78 @@ describe('notifyDescriptionMentions', () => {
       notifyDescriptionMentions(store, change(undefined, after, { state: 'deleted' })),
     ).resolves.toBe(0);
     expect(store.creates).toBe(0);
+  });
+});
+
+describe('deliverButtonNotifications', () => {
+  const click = (overrides: Partial<Parameters<typeof deliverButtonNotifications>[1]> = {}) => ({
+    activityId: 'act1',
+    boardId: 'b1',
+    itemId: 'i1',
+    actorId: AVERY,
+    columnId: 'btn',
+    buttonLabel: 'Ship it',
+    itemName: 'Plan the trip',
+    targets: [
+      { uid: BLAKE, message: 'Take a look' },
+      { uid: CASEY, message: 'Take a look' },
+    ],
+    ...overrides,
+  });
+
+  it('creates one button notification per person with the label and message', async () => {
+    const store = new FakeStore();
+    expect(await deliverButtonNotifications(store, click())).toBe(2);
+    expect(store.docs.has(`${BLAKE}/button-act1-${BLAKE}`)).toBe(true);
+    expect(store.forUser(CASEY)[0]).toMatchObject({
+      kind: 'button',
+      actorId: AVERY,
+      actorName: 'Avery Quinn',
+      columnId: 'btn',
+      buttonLabel: 'Ship it',
+      itemId: 'i1',
+      itemName: 'Plan the trip',
+      snippet: 'Take a look',
+    });
+  });
+
+  it('never notifies the clicker, a non-reader or someone who switched button off', async () => {
+    const store = new FakeStore();
+    store.prefs.set(CASEY, { button: false });
+    const created = await deliverButtonNotifications(
+      store,
+      click({
+        targets: [
+          { uid: AVERY, message: '' },
+          { uid: STRANGER, message: '' },
+          { uid: CASEY, message: '' },
+          { uid: BLAKE, message: '' },
+        ],
+      }),
+    );
+    expect(created).toBe(1);
+    expect(store.forUser(BLAKE)).toHaveLength(1);
+    expect(store.forUser(AVERY)).toHaveLength(0);
+    expect(store.forUser(STRANGER)).toHaveLength(0);
+    expect(store.forUser(CASEY)).toHaveLength(0);
+  });
+
+  it('a prefs document with only the three old keys still notifies', async () => {
+    const store = new FakeStore();
+    store.prefs.set(BLAKE, { assigned: false, reply: true, mention: true });
+    expect(await deliverButtonNotifications(store, click())).toBe(2);
+  });
+
+  it('groups people by message and a retried call does not duplicate', async () => {
+    const store = new FakeStore();
+    const targets = [
+      { uid: BLAKE, message: 'one' },
+      { uid: CASEY, message: 'two' },
+    ];
+    expect(await deliverButtonNotifications(store, click({ targets }))).toBe(2);
+    expect(store.forUser(BLAKE)[0]?.snippet).toBe('one');
+    expect(store.forUser(CASEY)[0]?.snippet).toBe('two');
+    expect(await deliverButtonNotifications(store, click({ targets }))).toBe(0);
+    expect(store.creates).toBe(2);
   });
 });

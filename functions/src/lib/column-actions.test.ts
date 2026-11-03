@@ -18,6 +18,8 @@ interface TestStore {
   updatedValues?: { columnId: string; value: unknown; updatedBy: string };
   itemUpdates: Array<{ patch: Record<string, unknown>; updatedBy: string }>;
   appendedActivities: Array<{ boardId: string; activity: NewActivity }>;
+  /** Epoch ms of earlier clicks of col_btn on item_1 by u_member (the activity log). */
+  recentClicksMs?: number[];
   currentTimeMs: number;
   generatedSessionId: string;
 }
@@ -38,6 +40,9 @@ function createFakeTx(store: TestStore): ColumnActionsTx {
     },
     updateItem(_boardId, _itemId, patch, updatedBy) {
       store.itemUpdates.push({ patch, updatedBy });
+    },
+    async hasRecentButtonClick(_b, _i, _c, _uid, sinceMs) {
+      return (store.recentClicksMs ?? []).some((ms) => ms >= sinceMs);
     },
     async getMemberProfile(_wsId, uid) {
       return uid === 'u_member' ? { name: 'Avery Quinn', photoURL: null } : null;
@@ -909,6 +914,74 @@ describe('column-actions', () => {
       await expect(click(archived)).rejects.toMatchObject({ code: 'failed-precondition' });
       expect(viewer.itemUpdates).toEqual([]);
       expect(archived.itemUpdates).toEqual([]);
+    });
+
+    describe('notify', () => {
+      const notifyAction = {
+        type: 'notify',
+        uids: ['u_owner', 'u_viewer'],
+        message: ' Please look ',
+      };
+
+      it('returns the plan, never writes to the item for it, and records no count yet', async () => {
+        const store = makeStore(
+          actionsBoard([
+            { type: 'rename_item', template: 'Shipped {name}' },
+            notifyAction,
+            { type: 'notify', uids: ['u_viewer', 'u_member'] },
+          ]),
+        );
+        const result = await click(store);
+        expect(store.itemUpdates[0]?.patch).toEqual({ name: 'Shipped Build landing page' });
+        expect(result.notify).toEqual({
+          columnId: 'col_btn',
+          buttonLabel: 'Ship',
+          itemName: 'Shipped Build landing page',
+          // one entry per person, the later action's message wins
+          targets: [
+            { uid: 'u_owner', message: 'Please look' },
+            { uid: 'u_viewer', message: '' },
+            { uid: 'u_member', message: '' },
+          ],
+        });
+        expect(result.applied.map((a) => a.type)).toEqual(['rename_item', 'notify', 'notify']);
+        expect(store.appendedActivities[0]?.activity.data.actions).toEqual([
+          'rename_item',
+          'notify',
+          'notify',
+        ]);
+      });
+
+      it('a notify-only button writes nothing to the item', async () => {
+        const store = makeStore(actionsBoard([notifyAction]));
+        const result = await click(store);
+        expect(store.itemUpdates).toEqual([]);
+        expect(result.notify?.targets).toHaveLength(2);
+      });
+
+      it('has no plan without a notify action', async () => {
+        const store = makeStore(actionsBoard([{ type: 'archive_item' }]));
+        expect((await click(store)).notify).toBeUndefined();
+      });
+
+      it('plans nothing and writes nothing when a later action fails', async () => {
+        const store = makeStore(
+          actionsBoard([notifyAction, { type: 'move_to_group', groupId: 'missing' }]),
+        );
+        await expect(click(store)).rejects.toMatchObject({ code: 'failed-precondition' });
+        expect(store.itemUpdates).toEqual([]);
+        expect(store.appendedActivities).toEqual([]);
+      });
+
+      it('refuses a repeat click inside 2 seconds with already-exists and no writes', async () => {
+        const store = makeStore(actionsBoard([notifyAction, { type: 'archive_item' }]));
+        store.recentClicksMs = [store.currentTimeMs - 1500];
+        await expect(click(store)).rejects.toMatchObject({ code: 'already-exists' });
+        expect(store.itemUpdates).toEqual([]);
+        expect(store.appendedActivities).toEqual([]);
+        store.recentClicksMs = [store.currentTimeMs - 2500];
+        await expect(click(store)).resolves.toMatchObject({ success: true });
+      });
     });
   });
 });

@@ -63,7 +63,12 @@ export const makeSnippet = (content: string): string =>
   content.trim().slice(0, NOTIFICATION_LIMITS.snippet);
 
 /** A mention beats a reply beats an assignment when one person qualifies for several. */
-const KIND_PRIORITY: Record<NotificationKind, number> = { mention: 3, reply: 2, assigned: 1 };
+const KIND_PRIORITY: Record<NotificationKind, number> = {
+  mention: 4,
+  reply: 3,
+  assigned: 2,
+  button: 1,
+};
 
 export interface NotificationCandidate {
   uid: string;
@@ -87,6 +92,8 @@ export interface DeliveryEvent {
   updateId?: string | null;
   replyId?: string | null;
   snippet?: string;
+  /** Button clicks: the label shown on the card. */
+  buttonLabel?: string;
   candidates: ReadonlyArray<NotificationCandidate>;
 }
 
@@ -146,9 +153,53 @@ export async function deliverNotifications(
       replyId: event.replyId ?? null,
       columnId: recipient.columnId ?? null,
       snippet: event.snippet ?? '',
+      ...(event.buttonLabel !== undefined ? { buttonLabel: clip(event.buttonLabel, 50) } : {}),
     };
     const id = notificationId(recipient.kind, event.eventId, recipient.uid);
     if (await store.createNotification(recipient.uid, id, doc)) created += 1;
+  }
+  return created;
+}
+
+// -- Button clicks -------------------------------------------------------------------------------
+
+export interface ButtonClickDelivery {
+  /** The click's activity entry id: the event id, so a retried call overwrites nothing. */
+  activityId: string;
+  boardId: string;
+  itemId: string;
+  actorId: string;
+  columnId: string;
+  buttonLabel: string;
+  itemName: string;
+  targets: ReadonlyArray<{ uid: string; message: string }>;
+}
+
+/**
+ * `clickButton`, after the transaction committed: one `button` notification per person the
+ * `notify` actions named (board readers only, prefs respected, never the clicker). People are
+ * grouped by message because a delivery carries one snippet. Returns how many were created.
+ */
+export async function deliverButtonNotifications(
+  store: NotificationStore,
+  click: ButtonClickDelivery,
+): Promise<number> {
+  const byMessage = new Map<string, string[]>();
+  for (const { uid, message } of click.targets) {
+    byMessage.set(message, [...(byMessage.get(message) ?? []), uid]);
+  }
+  let created = 0;
+  for (const [message, uids] of byMessage) {
+    created += await deliverNotifications(store, {
+      eventId: click.activityId,
+      boardId: click.boardId,
+      itemId: click.itemId,
+      actorId: click.actorId,
+      itemName: click.itemName,
+      buttonLabel: click.buttonLabel,
+      snippet: makeSnippet(message),
+      candidates: uids.map((uid) => ({ uid, kind: 'button' as const, columnId: click.columnId })),
+    });
   }
   return created;
 }
