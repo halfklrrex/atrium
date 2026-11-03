@@ -60,6 +60,14 @@ export const boardActions = {
     await attempt(() => writes.addFavorite(uid, board, position), 'Could not update favorites.');
   },
 
+  /** Move a favourite to `position`; false (after a toast) when the write failed. */
+  moveFavorite(uid: string, boardId: string, position: string): Promise<boolean> {
+    return attempt(
+      () => writes.moveFavorite(uid, boardId, position),
+      'Could not reorder favorites.',
+    );
+  },
+
   /** Structure-only copy placed at the end of the same folder. */
   async duplicate(
     uid: string,
