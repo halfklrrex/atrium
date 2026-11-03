@@ -2,6 +2,7 @@ import {
   type BoardKind,
   type BoardRole,
   type ClickButtonRequest,
+  type ButtonAction,
   type ClickButtonResult,
   type StartTimeTrackingRequest,
   type StartTimeTrackingResult,
@@ -9,14 +10,17 @@ import {
   type StopTimeTrackingResult,
   type TimeTrackingValue,
   type WorkspaceRole,
+  BUTTON_RENAME_MAX_LENGTH,
   COLUMN_LOCKED_MESSAGE,
   buttonSettingsSchema,
   canEditBoard,
   canEditColumn,
+  renderRenameTemplate,
   resolveBoardRole,
   startTimer,
   stopTimer,
   timeTrackingValueSchema,
+  validateButtonActions,
 } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { actorOf, activityDoc, type MemberProfile, type NewActivity } from './activity';
@@ -25,7 +29,14 @@ export interface BoardData {
   kind: BoardKind;
   workspaceId: string;
   access: Record<string, BoardRole>;
-  columns: Array<{ id: string; type: string; settings?: unknown }>;
+  columns: Array<{
+    id: string;
+    type: string;
+    title?: string;
+    settings?: unknown;
+    migrating?: unknown;
+  }>;
+  groups?: Array<{ id: string }>;
   columnLocks?: string[];
 }
 
@@ -45,6 +56,18 @@ export interface ColumnActionsTx {
     itemId: string,
     columnId: string,
     value: unknown,
+    updatedBy: string,
+    serverTimestamp: unknown,
+  ): void;
+  /**
+   * Field-path patch of one item (`values.<colId>`, `name`, `groupId`, `state`): never the whole
+   * `values` map. The adapter adds `updatedAt` / `updatedBy`. A `null` under a `values.` key
+   * deletes the cell.
+   */
+  updateItem(
+    boardId: string,
+    itemId: string,
+    patch: Record<string, unknown>,
     updatedBy: string,
     serverTimestamp: unknown,
   ): void;
@@ -223,8 +246,7 @@ export async function clickButtonInTransaction(
   tx: ColumnActionsTx,
   uid: string,
   req: ClickButtonRequest,
-  /** Unused since the activity entry is stamped by the adapter; kept so the callable's call is unchanged. */
-  _serverTimestamp: unknown,
+  serverTimestamp: unknown,
 ): Promise<ClickButtonResult> {
   const board = await requireColumnEditAccess(tx, req.boardId, uid, req.columnId);
 
@@ -248,7 +270,23 @@ export async function clickButtonInTransaction(
   const settingsParsed = buttonSettingsSchema.safeParse(col.settings ?? {});
   const settings = settingsParsed.success
     ? settingsParsed.data
-    : { label: 'Click', color: '#579bfc' };
+    : { label: 'Click', color: '#579bfc', actions: [] };
+
+  const wsRole = await tx.getWorkspaceMemberRole(board.workspaceId, uid);
+  const role = resolveBoardRole(board, uid, wsRole);
+  const checked = validateButtonActions(
+    settings.actions,
+    { columns: board.columns, groups: board.groups ?? [], columnLocks: board.columnLocks },
+    role,
+  );
+  if (!checked.ok) {
+    throw new HttpsError('failed-precondition', checked.message);
+  }
+
+  const patch = buildActionsPatch(settings.actions, item, nowMs);
+  if (Object.keys(patch).length > 0) {
+    tx.updateItem(req.boardId, req.itemId, patch, uid, serverTimestamp);
+  }
 
   const actor = actorOf(uid, await tx.getMemberProfile(board.workspaceId, uid));
   const activityId = await tx.appendActivity(
@@ -259,9 +297,57 @@ export async function clickButtonInTransaction(
       columnId: req.columnId,
       columnTitle: settings.label,
       columnType: 'button',
-      data: settings.color ? { columnColor: settings.color } : {},
+      data: {
+        ...(settings.color ? { columnColor: settings.color } : {}),
+        ...(settings.actions.length > 0 ? { actions: settings.actions.map((a) => a.type) } : {}),
+      },
     }),
   );
 
-  return { success: true, activityId, timestamp: nowMs };
+  return {
+    success: true,
+    activityId,
+    timestamp: nowMs,
+    applied: settings.actions.map((a) => ({ type: a.type })),
+  };
+}
+
+/**
+ * Merges the actions, in order, into one field-path patch (later actions win on the same key).
+ * `move_to_group` only changes `groupId`: the item keeps its position key, which orders it in the
+ * target group (ties break on id) because `fractional-indexing` is a web-only dependency.
+ */
+function buildActionsPatch(
+  actions: readonly ButtonAction[],
+  item: ItemData,
+  nowMs: number,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  let name = item.name;
+  for (const [index, action] of actions.entries()) {
+    switch (action.type) {
+      case 'set_value':
+        patch[`values.${action.columnId}`] = action.value ?? null;
+        break;
+      case 'rename_item': {
+        const next = renderRenameTemplate(action.template, name, nowMs);
+        if (next.length < 1 || next.length > BUTTON_RENAME_MAX_LENGTH) {
+          throw new HttpsError(
+            'failed-precondition',
+            `Action ${index + 1} (Rename item): the new name must be 1 to ${BUTTON_RENAME_MAX_LENGTH} characters.`,
+          );
+        }
+        name = next;
+        patch.name = next;
+        break;
+      }
+      case 'move_to_group':
+        patch.groupId = action.groupId;
+        break;
+      case 'archive_item':
+        patch.state = 'archived';
+        break;
+    }
+  }
+  return patch;
 }
