@@ -1,0 +1,124 @@
+/* The button settings popover is wider than the other column settings (it holds the action list). */
+.settingsBody {
+  width: calc(var(--atrium-table-picker-width) * 1.4);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+}
+
+.rowError {
+  border-color: var(--negative-color);
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.rowTitle {
+  color: var(--primary-text-color);
+  font: var(--font-text2-bold);
+}
+
+.rowButtons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.helper {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.valueBox {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--atrium-control-height);
+  padding: 0;
+  overflow: hidden;
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-popup-bg);
+  cursor: pointer;
+}
+
+.valueBox:hover {
+  border-color: var(--primary-text-color);
+}
+
+.valueBoxCell {
+  flex: 1;
+  min-width: 0;
+  height: var(--atrium-control-height);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--atrium-control-height);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--atrium-table-radius);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  text-align: start;
+  cursor: pointer;
+}
+
+.group:hover,
+.group:focus-visible {
+  background: var(--primary-background-hover-color);
+}
+
+.groupOn {
+  background: var(--primary-selected-color);
+}
+
+.dot {
+  flex: none;
+  width: var(--space-12);
+  height: var(--space-12);
+  border-radius: var(--border-radius-small);
+}
+
+.addRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}

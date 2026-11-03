@@ -110,6 +110,7 @@ export function AnchoredPopup({
       ref={panelRef}
       role="dialog"
       aria-label={label}
+      data-popup-keep=""
       className={classNames(styles.popup, className)}
       style={style}
     >
