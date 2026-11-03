@@ -9,7 +9,7 @@ vi.mock('../../lib/firebase', () => ({ db: {} }));
 vi.mock('../../auth/auth-context', () => ({ useAuth: () => ({ user: { uid: 'u1' } }) }));
 vi.mock('../../data/notifications', () => ({
   useNotificationPrefs: () => ({
-    prefs: { assigned: true, reply: false, mention: true },
+    prefs: { assigned: true, reply: false, mention: true, button: true },
     loading: false,
   }),
   notificationWrites: { setPrefs: (...args: unknown[]) => mockSetPrefs(...args) },
@@ -26,12 +26,18 @@ describe('NotificationSettingsDialog', () => {
     expect(screen.getByRole('switch', { name: 'Assigned to me' })).toBeChecked();
     expect(screen.getByRole('switch', { name: 'Replies' })).not.toBeChecked();
     expect(screen.getByRole('switch', { name: 'Mentions' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Button clicks' })).toBeChecked();
   });
 
-  it('saves a change straight away, keeping the other two', async () => {
+  it('saves a change straight away, keeping the others', async () => {
     render(<NotificationSettingsDialog onClose={vi.fn()} />);
     await userEvent.click(screen.getByRole('switch', { name: 'Replies' }));
-    expect(mockSetPrefs).toHaveBeenCalledWith('u1', { assigned: true, reply: true, mention: true });
+    expect(mockSetPrefs).toHaveBeenCalledWith('u1', {
+      assigned: true,
+      reply: true,
+      mention: true,
+      button: true,
+    });
   });
 
   it('closes from Done', async () => {

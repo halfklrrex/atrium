@@ -8,7 +8,9 @@ import { IconButton } from '@vibe/core';
 import { Delete, DropdownChevronDown, DropdownChevronUp } from '@vibe/icons';
 import classNames from 'classnames';
 import { useState } from 'react';
+import { PersonRow } from '../../columns/people';
 import { getColumnUi } from '../../columns/registry';
+import { useWorkspaceMembers } from '../../data/members-store';
 import popups from '../../columns/popups.module.css';
 import type { CellContext } from '../../columns/types';
 import { tableActions } from './table-actions';
@@ -120,6 +122,67 @@ function ValueField({
         <span>Clear value</span>
       </label>
     </div>
+  );
+}
+
+/** The people a `notify` action tells: the workspace's members (the People picker's rows). */
+function NotifyFields({
+  action,
+  onChange,
+}: {
+  action: Extract<ButtonAction, { type: 'notify' }>;
+  onChange: (action: ButtonAction) => void;
+}) {
+  const { members } = useWorkspaceMembers();
+  const selected = new Set(action.uids);
+  const known = new Set(members.map((m) => m.id));
+  // Members, plus anyone already chosen who has since left (so they can be removed).
+  const candidates = [...members.map((m) => m.id), ...action.uids.filter((id) => !known.has(id))];
+  const full = action.uids.length >= BUTTON_LIMITS.maxNotifyUids;
+  const set = (uids: string[], message = action.message) =>
+    onChange({ type: 'notify', uids, ...(message ? { message } : {}) });
+
+  return (
+    <>
+      <div className={popups.field}>
+        <span className={popups.fieldLabel}>People</span>
+        <div
+          className={popups.list}
+          role="listbox"
+          aria-label="People to notify"
+          aria-multiselectable
+        >
+          {candidates.length === 0 ? (
+            <p className={popups.muted}>No one found</p>
+          ) : (
+            candidates.map((id) => (
+              <PersonRow
+                key={id}
+                uid={id}
+                selected={selected.has(id)}
+                onToggle={() => {
+                  if (selected.has(id)) set(action.uids.filter((u) => u !== id));
+                  else if (!full) set([...action.uids, id]);
+                }}
+              />
+            ))
+          )}
+        </div>
+        <span className={styles.helper}>
+          {action.uids.length} of {BUTTON_LIMITS.maxNotifyUids} chosen. You are never notified of
+          your own click.
+        </span>
+      </div>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Message (optional)</span>
+        <input
+          className={popups.input}
+          value={action.message ?? ''}
+          maxLength={BUTTON_LIMITS.maxNotifyMessage}
+          onChange={(event) => set(action.uids, event.target.value)}
+        />
+      </label>
+    </>
   );
 }
 
@@ -257,6 +320,8 @@ function ActionRow({
         </div>
       ) : null}
 
+      {action.type === 'notify' ? <NotifyFields action={action} onChange={onChange} /> : null}
+
       {action.type === 'archive_item' ? (
         <p className={styles.helper}>The item moves to the archive.</p>
       ) : null}
@@ -280,6 +345,8 @@ function newAction(type: ButtonAction['type'], groups: readonly GroupDef[]): But
       return { type, groupId: groups[0]?.id ?? '' };
     case 'archive_item':
       return { type };
+    case 'notify':
+      return { type, uids: [] };
   }
 }
 

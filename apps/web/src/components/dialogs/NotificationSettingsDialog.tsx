@@ -16,6 +16,7 @@ const KINDS: readonly { kind: NotificationKind; label: string; hint: string }[] 
   { kind: 'assigned', label: 'Assigned to me', hint: 'Someone adds you to a People column.' },
   { kind: 'reply', label: 'Replies', hint: 'Someone replies to an update you wrote.' },
   { kind: 'mention', label: 'Mentions', hint: 'Someone mentions you in an update or reply.' },
+  { kind: 'button', label: 'Button clicks', hint: 'Someone clicks a button that notifies you.' },
 ];
 
 /** "Notification settings": one switch per kind; each change is saved straight away. */

@@ -57,7 +57,9 @@ export const clickButtonResultSchema = z
     applied: z
       .array(
         z
-          .object({ type: z.enum(['set_value', 'rename_item', 'move_to_group', 'archive_item', 'notify']) })
+          .object({
+            type: z.enum(['set_value', 'rename_item', 'move_to_group', 'archive_item', 'notify']),
+          })
           .strict(),
       )
       .default([]),
