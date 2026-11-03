@@ -20,6 +20,7 @@ import {
   TIMELINE_VIEW,
   CHART_VIEW,
   addCalendarView,
+  addActionButton,
   addKanbanView,
   addTimelineView,
   addChartView,
@@ -30,6 +31,7 @@ import {
   resetFullViewDescription,
   createEmptyWorkspace,
   removeCalendarView,
+  removeActionButton,
   removeKanbanView,
   removeTimelineView,
   removeChartView,
@@ -153,6 +155,21 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(panel.getByText('Budget', { exact: true })).toBeVisible();
       await panel.getByText('Area', { exact: true }).click();
       await shoot(page, `board-hide-popover-${theme}`, PARK_IN_HEADER);
+    });
+
+    test('board: button column settings with three actions', async ({ page }) => {
+      await addActionButton();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/main`);
+        await boardReady(page);
+        await page.getByRole('button', { name: 'Options for Ship' }).first().click();
+        await page.getByRole('menuitem', { name: 'Settings' }).click();
+        const panel = page.getByRole('dialog', { name: 'Ship settings' });
+        await expect(panel.getByRole('group', { name: /^Action 3:/ })).toBeVisible();
+        await shoot(page, `board-button-actions-${theme}`);
+      } finally {
+        await removeActionButton();
+      }
     });
 
     test('board: Kanban view', async ({ page }) => {
