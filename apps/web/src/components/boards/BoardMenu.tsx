@@ -11,6 +11,7 @@ import {
   Locked,
   Move,
   Remove,
+  Time,
 } from '@vibe/icons';
 import { useMatch, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
@@ -25,6 +26,8 @@ interface BoardMenuProps {
   board: BoardDoc;
   /** Start inline rename in the surrounding UI (sidebar row or header). Hidden when omitted. */
   onRename?: () => void;
+  /** Opens the board's Activity log panel. The entry is hidden when omitted (only the header has the panel). */
+  onActivityLog?: () => void;
   size?: 'xxs' | 'xs' | 'small';
   className?: string;
   onMenuShow?: () => void;
@@ -35,6 +38,7 @@ interface BoardMenuProps {
 export function BoardMenu({
   board,
   onRename,
+  onActivityLog,
   size = 'xs',
   className,
   onMenuShow,
@@ -49,13 +53,17 @@ export function BoardMenu({
       onMenuShow={onMenuShow}
       onMenuHide={onMenuHide}
     >
-      <BoardMenuContent board={board} onRename={onRename} />
+      <BoardMenuContent board={board} onRename={onRename} onActivityLog={onActivityLog} />
     </MenuButton>
   );
 }
 
 /** Separate component so the data listeners only run while the menu is open. */
-function BoardMenuContent({ board, onRename }: Pick<BoardMenuProps, 'board' | 'onRename'>) {
+function BoardMenuContent({
+  board,
+  onRename,
+  onActivityLog,
+}: Pick<BoardMenuProps, 'board' | 'onRename' | 'onActivityLog'>) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const navigate = useNavigate();
@@ -112,7 +120,8 @@ function BoardMenuContent({ board, onRename }: Pick<BoardMenuProps, 'board' | 'o
           </Menu>
         </MenuItem>
       ) : null}
-      {isOwner ? <MenuDivider /> : null}
+      {onActivityLog || isOwner ? <MenuDivider /> : null}
+      {onActivityLog ? <MenuItem title="Activity log" icon={Time} onClick={onActivityLog} /> : null}
       {isOwner ? (
         <MenuItem
           title="Board permissions"

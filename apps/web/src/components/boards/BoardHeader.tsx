@@ -12,6 +12,7 @@ import { useUiStore } from '../AppShell/ui-store';
 import { showComingSoon } from '../toast-store';
 import { UserAvatar } from '../UserAvatar';
 import { ViewTabs } from '../board-views/ViewTabs';
+import { BoardActivityPanel } from '../activity/BoardActivityPanel';
 import { PresenceAvatars } from '../presence';
 import { boardActions } from './board-actions';
 import { BoardMenu } from './BoardMenu';
@@ -30,6 +31,7 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const openDialog = useUiStore((s) => s.openDialog);
+  const openActivityPanel = useUiStore((s) => s.openActivityPanel);
 
   const memberIds = board.accessUids;
   const kindLabel = BOARD_KIND_OPTIONS.find((o) => o.value === board.kind)?.label ?? board.kind;
@@ -137,12 +139,18 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
           >
             Invite / {sharedCount(board, workspace)}
           </Button>
-          <BoardMenu board={board} size="small" onRename={() => setRenaming(true)} />
+          <BoardMenu
+            board={board}
+            size="small"
+            onRename={() => setRenaming(true)}
+            onActivityLog={() => openActivityPanel(board.id)}
+          />
           <FavoriteStar board={board} />
         </div>
       </div>
 
       <ViewTabs />
+      <BoardActivityPanel board={board} />
     </header>
   );
 }
