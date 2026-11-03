@@ -27,14 +27,20 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **Actionable column** on the Roadmap: Yes (owner's move), Agents (owner answered, so it's back with us), No. Check the Agents items at the start of every session (`AGENTS.md`).
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
-## Open work (2026-10-31)
+## Open work (2026-11-03)
 
-- **Ava is on a break with no end date.** Ophelia works alone. Ava's stale `ag/*` branches are superseded by rebased copies on `main` and can be deleted. Her Roadmap items are now Agent = Claude.
-- **Ophelia, resume here:** P4b board sharing is being built by a Sonnet subagent (spec `docs/specs/P4b-board-sharing.md`, worktree `atrium-cl-wt\p4b-board-sharing`, branch `claude/p4b-board-sharing`). Review, push, run the baseline workflow, merge, then the live two-account check. After that: the Roadmap items with Actionable = Agents, the bug inbox, and the "Column settings & column permissions" item (probably ready to sign off).
-- **Owner review (Actionable = Yes):** notifications, Files, Button, Connect boards and Mirror, @mentions in descriptions, Calendar, Timeline, change a column's type, plus the older list (scrollbars, membership, saved views, the showcase).
-- **Next candidates (nothing claimed):** P3 My Work and global search, Gantt, Workload, Chart; P4 teams and profiles, activity log, email notifications, PWA and web push; P5 automations (design first). VF backlog: Members dialog fidelity, Kanban inline subitems, sticky bar names on the Timeline.
+- **Live since 2026-10-30/31:** P4 notifications, P4b board sharing (Share dialog, board kinds, leave board), Calendar, Timeline and Chart views, Mirror column, change a column's type, My Work, global search (Ctrl/Cmd+B or K), required columns and defaults, the item index, and the activity-log backend (PR #58).
+- **Merged but local-only:** the Atrium MCP connector (OPS3, PR #60). The owner registers it per machine (`docs/mcp-connector.md`) and tries it on a throwaway board. It has not been run against production.
+- **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
+- **No open PRs** as of 2026-11-03. The Roadmap has no items with Actionable = Agents.
+- **Next, in this order:**
+  1. Activity web UI (Roadmap 3306251299): item "Activity" tab and a board-level log. PR split in `docs/specs/P4-activity-audit-log.md`.
+  2. Bug-inbox feature requests (2026-11-01): rich text and Ctrl+B in the update composer (Roadmap 3327934712), and reordering favourite boards (3327933132). Both need a short spec first.
+  3. Column settings sign-off (3306293031) and the Button column first slice (3306219470, waiting on the owner's choice).
+  4. Bug sweep of the 🐞 Bugs group; most items already show Done.
+- **Owner to-dos:** live checks in `docs/plans/owner-check-list.md` (including the `updatedBy` rule), the Button decision, and trying the MCP connector. The legacy-activity migration script has not been run; dry run first and only with the owner's agreement.
 - **Owner decision pending:** flag emoji on Windows (needs a CDN picture fallback).
-- Details, gotchas and what to check live: `docs/handoff/2026-10-31-ophelia-ava-queue-and-p3.md`.
+- Details and gotchas: `docs/handoff/2026-10-31-ophelia-evening-activity-backend-merged.md` and `docs/handoff/2026-11-01-claude-atrium-mcp-connector.md`.
 
 ## Notes index
 
@@ -52,6 +58,8 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - [2026-10-27 · Ophelia · numeric item IDs, description editor passes 1 and 2](docs/handoff/2026-10-27-ophelia-ids-editor.md)
 - [2026-10-30 · Ophelia · P4 notifications backend, emoji fixes, web UI waiting](docs/handoff/2026-10-30-ophelia-p4-notifications-emoji.md)
 - [2026-10-31 · Ophelia · Ava's queue, @mentions, Calendar, Timeline, Mirror, change column type](docs/handoff/2026-10-31-ophelia-ava-queue-and-p3.md)
+- [2026-10-31 · Ophelia · activity backend and polish batch 2 merged](docs/handoff/2026-10-31-ophelia-evening-activity-backend-merged.md)
+- [2026-11-01 · Claude · Atrium MCP connector (OPS3)](docs/handoff/2026-11-01-claude-atrium-mcp-connector.md)
 - [2026-10-24 · Antigravity · Board filter, sort, search & group-by](docs/handoff/2026-10-24-antigravity-board-filters-sort.md)
 - [2026-10-25 · Antigravity · Files storage upload, rules & tests](docs/handoff/2026-10-25-antigravity-files-storage-upload.md)
 - [2026-10-25 · Antigravity · Server-side column actions](docs/handoff/2026-10-25-antigravity-server-column-actions.md)
