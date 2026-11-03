@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { slugIdSchema } from '../schemas/board';
-import { hexColorSchema, idSchema } from '../schemas/common';
+import { hexColorSchema, idSchema, uidSchema } from '../schemas/common';
 import { defineColumnType } from './registry';
 
-export const BUTTON_LIMITS = { maxActions: 5 } as const;
+export const BUTTON_LIMITS = { maxActions: 5, maxNotifyUids: 10, maxNotifyMessage: 140 } as const;
 
 /**
  * One step a button runs on its item. Plain data (`{ type, ...params }`) so P5 automations can
@@ -14,6 +14,13 @@ export const buttonActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('rename_item'), template: z.string().min(1).max(200) }).strict(),
   z.object({ type: z.literal('move_to_group'), groupId: slugIdSchema }).strict(),
   z.object({ type: z.literal('archive_item') }).strict(),
+  z
+    .object({
+      type: z.literal('notify'),
+      uids: z.array(uidSchema).min(1).max(BUTTON_LIMITS.maxNotifyUids),
+      message: z.string().max(BUTTON_LIMITS.maxNotifyMessage).optional(),
+    })
+    .strict(),
 ]);
 export type ButtonAction = z.infer<typeof buttonActionSchema>;
 
@@ -22,6 +29,7 @@ export const BUTTON_ACTION_LABELS: Record<ButtonAction['type'], string> = {
   rename_item: 'Rename item',
   move_to_group: 'Move to group',
   archive_item: 'Archive item',
+  notify: 'Notify people',
 };
 
 /** Longest item name a click may produce (the item name limit). */

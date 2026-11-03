@@ -1,6 +1,6 @@
 import type { BoardRole } from '../roles';
 import type { ColumnDef, ColumnDefInput } from '../schemas/board';
-import { BUTTON_ACTION_LABELS, type ButtonAction } from './button';
+import { BUTTON_ACTION_LABELS, BUTTON_LIMITS, type ButtonAction } from './button';
 import { canEditColumn } from './column-locks';
 import { columnRegistry } from './index';
 import type { ColumnTypeRegistry } from './registry';
@@ -227,6 +227,8 @@ export interface ButtonActionsBoard {
   }>;
   groups: ReadonlyArray<{ id: string }>;
   columnLocks?: readonly string[] | null;
+  /** Workspace member uids, when known: `notify` targets must be among them (the settings-time check skips it). */
+  memberUids?: readonly string[] | null;
 }
 
 /**
@@ -269,6 +271,18 @@ export function validateButtonActions(
         action.value,
       );
       if (!checked.ok) return fail(checked.message);
+    } else if (action.type === 'notify') {
+      if (action.uids.length < 1 || action.uids.length > BUTTON_LIMITS.maxNotifyUids) {
+        return fail(`choose 1 to ${BUTTON_LIMITS.maxNotifyUids} people`);
+      }
+      if (new Set(action.uids).size !== action.uids.length) return fail('a person is listed twice');
+      if ((action.message?.length ?? 0) > BUTTON_LIMITS.maxNotifyMessage) {
+        return fail(`the message is longer than ${BUTTON_LIMITS.maxNotifyMessage} characters`);
+      }
+      const members = board.memberUids;
+      if (members && action.uids.some((uid) => !members.includes(uid))) {
+        return fail('a chosen person is no longer a workspace member');
+      }
     } else if (action.type === 'move_to_group') {
       if (!board.groups.some((g) => g.id === action.groupId)) {
         return fail('the group no longer exists');

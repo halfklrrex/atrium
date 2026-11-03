@@ -73,6 +73,8 @@ export const activityDataSchema = z.object({
   columnColor: z.string().max(40).optional(),
   /** `button_clicked`: the types of the actions the click ran (max 5). */
   actions: z.array(z.string().max(40)).max(5).optional(),
+  /** `button_clicked`: how many people the click notified. */
+  notified: z.number().int().min(0).max(10).optional(),
 });
 export type ActivityData = z.infer<typeof activityDataSchema>;
 

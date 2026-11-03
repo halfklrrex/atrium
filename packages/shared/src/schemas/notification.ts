@@ -13,7 +13,7 @@ export const NOTIFICATION_LIMITS = {
   pageSize: 50,
 } as const;
 
-export const notificationKindSchema = z.enum(['assigned', 'reply', 'mention']);
+export const notificationKindSchema = z.enum(['assigned', 'reply', 'mention', 'button']);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 
 /**
@@ -35,9 +35,11 @@ export const notificationSchema = z.object({
   updateId: idSchema.nullable(),
   /** Set when the event is a reply. */
   replyId: idSchema.nullable(),
-  /** Assigned: the People column. */
+  /** Assigned: the People column. Button: the button column. */
   columnId: idSchema.nullable(),
-  /** First characters of the update or reply; '' for assigned. */
+  /** Button: the button's label when it was clicked. Absent on other kinds. */
+  buttonLabel: z.string().max(50).nullable().optional(),
+  /** First characters of the update or reply (button: the message); '' for assigned. */
   snippet: z.string().max(NOTIFICATION_LIMITS.snippet),
   createdAt: timestampSchema,
   readAt: timestampSchema.nullable(),
@@ -51,6 +53,8 @@ export const notificationPrefsSchema = z
     assigned: z.boolean().default(true),
     reply: z.boolean().default(true),
     mention: z.boolean().default(true),
+    /** Added later: prefs documents written before it have no `button` key, which means on. */
+    button: z.boolean().default(true),
   })
   .strict();
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;

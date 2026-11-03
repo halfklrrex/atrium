@@ -52,7 +52,15 @@ describe('notificationPrefsSchema', () => {
       assigned: true,
       reply: true,
       mention: true,
+      button: true,
     });
+  });
+
+  it('keeps old three-key prefs documents valid (button defaults to on)', () => {
+    expect(
+      notificationPrefsSchema.parse({ assigned: false, reply: true, mention: true }).button,
+    ).toBe(true);
+    expect(notificationPrefsSchema.safeParse({ button: 'no' }).success).toBe(false);
   });
 
   it('refuses non-booleans and extra keys', () => {

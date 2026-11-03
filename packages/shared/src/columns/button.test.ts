@@ -104,6 +104,20 @@ describe('button actions', () => {
     );
   });
 
+  it('validates the notify action: 1 to 10 uids, message up to 140', () => {
+    const ok = { type: 'notify', uids: ['u1'], message: 'x'.repeat(140) };
+    expect(buttonActionSchema.safeParse(ok).success).toBe(true);
+    expect(buttonActionSchema.safeParse({ type: 'notify', uids: ['u1'] }).success).toBe(true);
+    expect(buttonActionSchema.safeParse({ type: 'notify', uids: [] }).success).toBe(false);
+    const eleven = Array.from({ length: 11 }, (_, i) => `u${i}`);
+    expect(buttonActionSchema.safeParse({ type: 'notify', uids: eleven }).success).toBe(false);
+    expect(
+      buttonActionSchema.safeParse({ type: 'notify', uids: ['u1'], message: 'x'.repeat(141) })
+        .success,
+    ).toBe(false);
+    expect(buttonActionSchema.safeParse({ ...ok, extra: 1 }).success).toBe(false);
+  });
+
   it('limits a button to 5 actions and defaults to none', () => {
     expect(buttonSettingsSchema.parse({}).actions).toEqual([]);
     const six = Array.from({ length: BUTTON_LIMITS.maxActions + 1 }, () => ({
@@ -186,6 +200,20 @@ describe('button actions', () => {
         'editor',
       );
       expect(r).toMatchObject({ ok: false, index: 1 });
+    });
+
+    it('checks notify uids: unique, and members when the list is known', () => {
+      const notify = (uids: string[], memberUids?: string[]) =>
+        validateButtonActions([{ type: 'notify', uids }], {
+          ...board,
+          ...(memberUids ? { memberUids } : {}),
+        });
+      expect(notify(['a', 'b'])).toEqual({ ok: true });
+      expect(notify(['a', 'a'])).toMatchObject({ ok: false, index: 0 });
+      expect(notify(['a', 'b'], ['a', 'b', 'c'])).toEqual({ ok: true });
+      const r = notify(['a', 'z'], ['a', 'b']);
+      expect(r).toMatchObject({ ok: false, index: 0 });
+      if (!r.ok) expect(r.message).toContain('Notify people');
     });
 
     it('skips the lock check when no role is given (settings time)', () => {
