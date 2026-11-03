@@ -536,6 +536,8 @@ export async function recordUpdatePosted(
       authorName?: unknown;
       authorPhotoUrl?: unknown;
       content?: unknown;
+      /** The rich-text doc; the snippet comes from the plain `content` mirror, not from it. */
+      contentDoc?: unknown;
     };
   },
 ): Promise<number> {
