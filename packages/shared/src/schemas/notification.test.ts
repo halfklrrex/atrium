@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   NOTIFICATION_LIMITS,
+  UPDATE_CONTENT_DOC_MAX_BYTES,
   createItemUpdateInputSchema,
   createUpdateReplyInputSchema,
   itemUpdateSchema,
@@ -96,5 +97,63 @@ describe('mentions', () => {
     expect(updateReplySchema.safeParse({ ...doc, updateId: 'u1', mentions: ['u2'] }).success).toBe(
       true,
     );
+  });
+});
+
+describe('contentDoc on updates and replies (spec P1d)', () => {
+  const richDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
+  const stored = { authorId: 'u1', content: 'hi', likes: [], createdAt: ts, updatedAt: ts };
+  const update = { ...stored, itemId: 'i1', repliesCount: 0 };
+  const reply = { ...stored, updateId: 'u1' };
+
+  it('accepts a doc, keeps unknown keys, and still accepts plain posts', () => {
+    expect(itemUpdateSchema.safeParse({ ...update, contentDoc: richDoc }).success).toBe(true);
+    expect(updateReplySchema.safeParse({ ...reply, contentDoc: richDoc }).success).toBe(true);
+    expect(itemUpdateSchema.safeParse(update).success).toBe(true);
+    const parsed = createItemUpdateInputSchema.parse({
+      content: 'hi',
+      contentDoc: { ...richDoc, extra: 1 },
+    });
+    expect(parsed.contentDoc).toMatchObject({ extra: 1 });
+    expect(
+      createUpdateReplyInputSchema.safeParse({ content: 'hi', contentDoc: richDoc }).success,
+    ).toBe(true);
+  });
+
+  it('refuses a non-doc, a wrong type and an oversized content list', () => {
+    for (const contentDoc of ['x', null, { content: [] }, { type: 'paragraph' }]) {
+      expect(createItemUpdateInputSchema.safeParse({ content: 'hi', contentDoc }).success).toBe(
+        false,
+      );
+      expect(itemUpdateSchema.safeParse({ ...update, contentDoc }).success).toBe(false);
+      expect(updateReplySchema.safeParse({ ...reply, contentDoc }).success).toBe(false);
+    }
+    const tooMany = {
+      type: 'doc',
+      content: Array.from({ length: 501 }, () => ({ type: 'paragraph' })),
+    };
+    expect(
+      createItemUpdateInputSchema.safeParse({ content: 'hi', contentDoc: tooMany }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a doc over the size limit', () => {
+    const big = {
+      type: 'doc',
+      content: [{ type: 'paragraph', text: 'x'.repeat(UPDATE_CONTENT_DOC_MAX_BYTES) }],
+    };
+    expect(createItemUpdateInputSchema.safeParse({ content: 'hi', contentDoc: big }).success).toBe(
+      false,
+    );
+    expect(updateReplySchema.safeParse({ ...reply, contentDoc: big }).success).toBe(false);
+  });
+
+  it('requires a non-empty plain-text mirror when contentDoc is set', () => {
+    expect(
+      itemUpdateSchema.safeParse({ ...update, content: ' ', contentDoc: richDoc }).success,
+    ).toBe(false);
+    expect(
+      createUpdateReplyInputSchema.safeParse({ content: '   ', contentDoc: richDoc }).success,
+    ).toBe(false);
   });
 });
