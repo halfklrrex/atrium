@@ -23,7 +23,13 @@ import {
   validateButtonActions,
 } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { actorOf, activityDoc, type MemberProfile, type NewActivity } from './activity';
+import {
+  actorOf,
+  activityDoc,
+  type ActivityActor,
+  type MemberProfile,
+  type NewActivity,
+} from './activity';
 
 export interface BoardData {
   kind: BoardKind;
@@ -38,6 +44,8 @@ export interface BoardData {
   }>;
   groups?: Array<{ id: string }>;
   columnLocks?: string[];
+  /** Workspace member uids, when the caller knows them (the automation runner does). */
+  memberUids?: readonly string[];
 }
 
 export interface ItemData {
@@ -45,6 +53,9 @@ export interface ItemData {
   name: string;
   state: 'active' | 'archived' | 'deleted';
   values: Record<string, unknown>;
+  /** `automation:<id>` when an automation wrote the item last. */
+  updatedVia?: string | null;
+  automationDepth?: number | null;
 }
 
 export interface ColumnActionsTx {
@@ -291,9 +302,6 @@ export async function clickButtonInTransaction(
   if (!item) {
     throw new HttpsError('not-found', `Item "${req.itemId}" not found.`);
   }
-  if (item.state !== 'active') {
-    throw new HttpsError('failed-precondition', 'Cannot click button on non-active item.');
-  }
 
   const nowMs = tx.nowMs();
   const settingsParsed = buttonSettingsSchema.safeParse(col.settings ?? {});
@@ -303,36 +311,47 @@ export async function clickButtonInTransaction(
 
   const wsRole = await tx.getWorkspaceMemberRole(board.workspaceId, uid);
   const role = resolveBoardRole(board, uid, wsRole);
-  const checked = validateButtonActions(
-    settings.actions,
-    { columns: board.columns, groups: board.groups ?? [], columnLocks: board.columnLocks },
-    role,
+  let actor: ActivityActor | undefined;
+  const run = await runActionsInTransaction(
+    tx,
+    {
+      boardId: req.boardId,
+      item,
+      actions: settings.actions,
+      board,
+      role,
+      actorUid: uid,
+      nowMs,
+      notifyColumnId: req.columnId,
+      notifyLabel: settings.label,
+      // Reads come before the first write: the repeat guard first, then the actor's profile.
+      beforeWrite: async () => {
+        if (
+          await tx.hasRecentButtonClick(
+            req.boardId,
+            req.itemId,
+            req.columnId,
+            uid,
+            nowMs - BUTTON_REPEAT_GUARD_MS,
+          )
+        ) {
+          throw new HttpsError(
+            'already-exists',
+            'You just clicked this button. Try again in a moment.',
+          );
+        }
+        actor = actorOf(uid, await tx.getMemberProfile(board.workspaceId, uid));
+      },
+    },
+    serverTimestamp,
   );
-  if (!checked.ok) {
-    throw new HttpsError('failed-precondition', checked.message);
+  if ('skipped' in run) {
+    throw new HttpsError('failed-precondition', 'Cannot click button on non-active item.');
   }
-
-  const patch = buildActionsPatch(settings.actions, item, nowMs);
-  // Reads come before the first write: the repeat guard first, then the actor's profile.
-  if (
-    await tx.hasRecentButtonClick(
-      req.boardId,
-      req.itemId,
-      req.columnId,
-      uid,
-      nowMs - BUTTON_REPEAT_GUARD_MS,
-    )
-  ) {
-    throw new HttpsError('already-exists', 'You just clicked this button. Try again in a moment.');
-  }
-  const notify = buildNotifyPlan(settings.actions, req.columnId, settings.label, patch, item);
-  const actor = actorOf(uid, await tx.getMemberProfile(board.workspaceId, uid));
-  if (Object.keys(patch).length > 0) {
-    tx.updateItem(req.boardId, req.itemId, patch, uid, serverTimestamp);
-  }
+  const notify = run.notify;
   const activityId = await tx.appendActivity(
     req.boardId,
-    activityDoc(actor, 'button_clicked', {
+    activityDoc(actor ?? actorOf(uid), 'button_clicked', {
       itemId: req.itemId,
       itemName: item.name,
       columnId: req.columnId,
@@ -352,6 +371,75 @@ export async function clickButtonInTransaction(
     applied: settings.actions.map((a) => ({ type: a.type })),
     ...(notify ? { notify } : {}),
   };
+}
+
+/** Everything `runActionsInTransaction` needs; buttons and automations both build one. */
+export interface RunActionsContext {
+  boardId: string;
+  item: ItemData;
+  actions: readonly ButtonAction[];
+  board: BoardData;
+  /** The role the actions are checked against (the button clicker's, or the automation's `runAs`). */
+  role: BoardRole | null;
+  /** Written as `updatedBy`. */
+  actorUid: string;
+  nowMs: number;
+  /** Merged into the item patch (the automation sets `updatedVia` / `automationDepth`). */
+  extraItemFields?: Record<string, unknown>;
+  /** Column id and label the notify plan reports (the button's, or the automation's). */
+  notifyColumnId?: string;
+  notifyLabel?: string;
+  /**
+   * Runs after validation and patch building, before the write: for reads the caller needs ahead
+   * of the transaction's first write (a button's repeat guard). May throw to abort.
+   */
+  beforeWrite?: () => Promise<void>;
+}
+
+export type RunActionsResult =
+  | { applied: Array<ButtonAction['type']>; notify?: ButtonNotifyPlan }
+  | { skipped: 'item not active' };
+
+/**
+ * Validates the actions, builds one field-path patch, and applies it to the item. Shared by the
+ * button callable and the automation runner. Validation failures throw `failed-precondition`.
+ */
+export async function runActionsInTransaction(
+  tx: ColumnActionsTx,
+  ctx: RunActionsContext,
+  serverTimestamp: unknown,
+): Promise<RunActionsResult> {
+  const { item, board } = ctx;
+  if (item.state !== 'active') return { skipped: 'item not active' };
+
+  const checked = validateButtonActions(
+    ctx.actions,
+    {
+      columns: board.columns,
+      groups: board.groups ?? [],
+      columnLocks: board.columnLocks,
+      ...(board.memberUids ? { memberUids: board.memberUids } : {}),
+    },
+    ctx.role,
+  );
+  if (!checked.ok) {
+    throw new HttpsError('failed-precondition', checked.message);
+  }
+
+  const patch = buildActionsPatch(ctx.actions, item, ctx.nowMs);
+  const notify = buildNotifyPlan(
+    ctx.actions,
+    ctx.notifyColumnId ?? '',
+    ctx.notifyLabel ?? '',
+    patch,
+    item,
+  );
+  if (ctx.beforeWrite) await ctx.beforeWrite();
+  const fields = { ...patch, ...(ctx.extraItemFields ?? {}) };
+  if (Object.keys(fields).length > 0) {
+    tx.updateItem(ctx.boardId, item.id, fields, ctx.actorUid, serverTimestamp);
+  }
+  return { applied: ctx.actions.map((a) => a.type), ...(notify ? { notify } : {}) };
 }
 
 /**
