@@ -41,6 +41,12 @@ describe('notificationSchema', () => {
 
   it('rejects an unknown kind and an over-long snippet', () => {
     expect(notificationSchema.safeParse({ ...notification, kind: 'email' }).success).toBe(false);
+    for (const kind of ['automation', 'automation_disabled']) {
+      const doc = { ...notification, kind, recipeName: 'Archive done items' };
+      expect(notificationSchema.safeParse(doc).success).toBe(true);
+    }
+    const long = { ...notification, recipeName: 'x'.repeat(81) };
+    expect(notificationSchema.safeParse(long).success).toBe(false);
     const snippet = 'x'.repeat(NOTIFICATION_LIMITS.snippet + 1);
     expect(notificationSchema.safeParse({ ...notification, snippet }).success).toBe(false);
   });
@@ -53,6 +59,7 @@ describe('notificationPrefsSchema', () => {
       reply: true,
       mention: true,
       button: true,
+      automation: true,
     });
   });
 
@@ -61,6 +68,8 @@ describe('notificationPrefsSchema', () => {
       notificationPrefsSchema.parse({ assigned: false, reply: true, mention: true }).button,
     ).toBe(true);
     expect(notificationPrefsSchema.safeParse({ button: 'no' }).success).toBe(false);
+    expect(notificationPrefsSchema.parse({}).automation).toBe(true);
+    expect(notificationPrefsSchema.safeParse({ automation: 'no' }).success).toBe(false);
   });
 
   it('refuses non-booleans and extra keys', () => {

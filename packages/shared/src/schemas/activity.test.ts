@@ -27,6 +27,22 @@ const event = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+describe('automation activity data', () => {
+  it('accepts depth 0 to 3 and an automation id, refuses a deeper chain', () => {
+    const data = (d: Record<string, unknown>) => activityEventSchema.safeParse(event({ data: d }));
+    expect(data({ depth: 0, automationId: 'a1' }).success).toBe(true);
+    expect(data({ depth: 3 }).success).toBe(true);
+    expect(data({ depth: 4 }).success).toBe(false);
+    expect(data({ depth: 1.5 }).success).toBe(false);
+    const ran = event({
+      kind: 'automation_ran',
+      actorId: 'automation:a1',
+      data: { automationId: 'a1' },
+    });
+    expect(activityEventSchema.safeParse(ran).success).toBe(true);
+  });
+});
+
 describe('activityEventSchema', () => {
   it.each(ACTIVITY_KINDS)('accepts a %s entry', (kind) => {
     expect(activityEventSchema.safeParse(event({ kind })).success).toBe(true);

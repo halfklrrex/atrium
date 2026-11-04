@@ -149,6 +149,25 @@ describe('users/{uid}.notificationPrefs', () => {
     );
   });
 
+  it('accepts the optional `automation` key (a bool) and refuses a non-bool one', async () => {
+    await assertSucceeds(
+      updateDoc(ref(), {
+        notificationPrefs: {
+          assigned: true,
+          reply: true,
+          mention: true,
+          button: true,
+          automation: false,
+        },
+      }),
+    );
+    await assertFails(
+      updateDoc(ref(), {
+        notificationPrefs: { assigned: true, reply: true, mention: true, automation: 'no' },
+      }),
+    );
+  });
+
   it('refuses extra or missing keys, non-booleans and a non-map', async () => {
     await assertFails(
       updateDoc(ref(), {

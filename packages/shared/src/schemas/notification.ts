@@ -13,7 +13,14 @@ export const NOTIFICATION_LIMITS = {
   pageSize: 50,
 } as const;
 
-export const notificationKindSchema = z.enum(['assigned', 'reply', 'mention', 'button']);
+export const notificationKindSchema = z.enum([
+  'assigned',
+  'reply',
+  'mention',
+  'button',
+  'automation',
+  'automation_disabled',
+]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 
 /**
@@ -39,6 +46,8 @@ export const notificationSchema = z.object({
   columnId: idSchema.nullable(),
   /** Button: the button's label when it was clicked. Absent on other kinds. */
   buttonLabel: z.string().max(50).nullable().optional(),
+  /** Automation kinds: the recipe name. Absent on other kinds. */
+  recipeName: z.string().max(80).nullable().optional(),
   /** First characters of the update or reply (button: the message); '' for assigned. */
   snippet: z.string().max(NOTIFICATION_LIMITS.snippet),
   createdAt: timestampSchema,
@@ -55,6 +64,8 @@ export const notificationPrefsSchema = z
     mention: z.boolean().default(true),
     /** Added later: prefs documents written before it have no `button` key, which means on. */
     button: z.boolean().default(true),
+    /** Added later, also covers `automation_disabled`; missing means on. */
+    automation: z.boolean().default(true),
   })
   .strict();
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;

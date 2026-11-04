@@ -103,10 +103,11 @@ service cloud.firestore {
       // Which notification kinds the user wants (P4); a missing key or map means all on.
       function validNotificationPrefs(p) {
         return p is map
-          && p.keys().hasOnly(['assigned', 'reply', 'mention', 'button'])
+          && p.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation'])
           && p.keys().hasAll(['assigned', 'reply', 'mention'])
           && p.assigned is bool && p.reply is bool && p.mention is bool
-          && (!('button' in p.keys()) || p.button is bool);
+          && (!('button' in p.keys()) || p.button is bool)
+          && (!('automation' in p.keys()) || p.automation is bool);
       }
 
       allow read: if signedIn() && uid() == userId;
@@ -373,6 +374,62 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------------------
+      // boards/{boardId}/automations/{automationId} (P5a): recipes. Everyone who can read the board
+      // reads them; only board owners write, with a shape check like `columns`. Rules can't count
+      // documents, so the 20-per-board limit is enforced by `validateAutomation` in the UI and again
+      // by the runner (extra automations are ignored). Trigger, condition and action contents are
+      // validated by the same code, not here, so new trigger types need no rules change.
+      // `consecutiveFailures` is written only by Functions (circuit breaker): it is in neither field
+      // list. `runAs` is the creator on create; an owner who edits a recipe may keep it or take it
+      // over (`runAs == uid()`), never name a third person. `createdBy` and `createdAt` never change.
+      // -------------------------------------------------------------------
+      match /automations/{automationId} {
+        function validAutomationShape(d) {
+          return d.name is string && d.name.size() <= 80
+            && d.enabled is bool
+            && d.trigger is map && d.trigger.get('type', null) is string && d.trigger.type.size() <= 40
+            && d.conditions is list && d.conditions.size() <= 3
+            && d.actions is list && d.actions.size() >= 1 && d.actions.size() <= 5
+            && (d.disabledReason == null || (d.disabledReason is string && d.disabledReason.size() <= 200));
+        }
+
+        function validAutomationCreate(d) {
+          return d.keys().hasOnly(['name', 'enabled', 'trigger', 'conditions', 'actions', 'runAs',
+                                   'disabledReason', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+            && d.keys().hasAll(['name', 'enabled', 'trigger', 'conditions', 'actions', 'runAs',
+                                'disabledReason', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+            && validAutomationShape(d)
+            && d.runAs == uid()
+            && d.createdBy == uid() && d.updatedBy == uid()
+            && d.createdAt == request.time && d.updatedAt == request.time;
+        }
+
+        function validAutomationUpdate() {
+          let d = request.resource.data;
+          let changed = d.diff(resource.data).affectedKeys();
+          return changed.hasOnly(['name', 'enabled', 'trigger', 'conditions', 'actions', 'runAs',
+                                  'disabledReason', 'updatedBy', 'updatedAt'])
+            && validAutomationShape(d)
+            && (d.runAs == resource.data.runAs || d.runAs == uid())
+            && d.updatedBy == uid() && d.updatedAt == request.time;
+        }
+
+        allow read: if signedIn() && canReadBoard(boardId);
+        allow create: if signedIn() && canManageBoard(boardId) && validAutomationCreate(request.resource.data);
+        allow update: if signedIn() && canManageBoard(boardId) && validAutomationUpdate();
+        allow delete: if signedIn() && canManageBoard(boardId);
+      }
+
+      // -------------------------------------------------------------------
+      // boards/{boardId}/automationRuns/{runId}: the run history, written only by Cloud Functions
+      // (id `${automationId}-${eventId}`, 30-day TTL on `expiresAt`). Board owners read it.
+      // -------------------------------------------------------------------
+      match /automationRuns/{runId} {
+        allow read: if signedIn() && canManageBoard(boardId);
+        allow write: if false;
+      }
+
+      // -------------------------------------------------------------------
       // boards/{boardId}/columnSnapshots/{snapshotId} (+ /chunks/{n}): the backup of a column type
       // change (old column definition and every old value), written, read and purged only by Cloud
       // Functions (changeColumnType, revertColumnType, purgeTrash). Clients get nothing, not even board
@@ -390,8 +447,9 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------------------
-      // boards/{boardId}/counters/{counterId}: per-board item-number counters (`items`), written
-      // only by the onItemCreated function and the backfill script. Clients get nothing.
+      // boards/{boardId}/counters/{counterId}: per-board counters (`items`, written by the
+      // onItemCreated function and the backfill script; `automations`, the hourly automation run
+      // count, written by the automation runner). Clients get nothing.
       // -------------------------------------------------------------------
       match /counters/{counterId} {
         allow read, write: if false;
@@ -544,10 +602,21 @@ service cloud.firestore {
         // `hasOnly` / `changed.hasOnly` already refuse a client that creates, changes or removes them;
         // only the onItemCreated function (Admin SDK) writes them. validUpdatesCountBump can't touch
         // them either: it allows `updatesCount` alone.
+        // `updatedVia` / `automationDepth` (the automation loop marker) are Functions-only. A client
+        // may only clear them to null (a human edit does, so a later change isn't credited to an
+        // earlier automation) or leave an existing value alone; it can never set a value. On
+        // update the check applies only when the write touches them, so items an automation
+        // wrote stay editable by clients that don't know about the marker.
+        function automationMarkerNullOrAbsent(d) {
+          return d.get('updatedVia', null) == null && d.get('automationDepth', null) == null;
+        }
+
         function validItemCreate(d) {
           let board = boardData();
           return d.keys().hasOnly(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
-                                   'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'description'])
+                                   'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'description',
+                                   'updatedVia', 'automationDepth'])
+            && automationMarkerNullOrAbsent(d)
             && d.keys().hasAll(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
                                 'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
             && d.name is string && d.name.size() >= 1 && d.name.size() <= 500
@@ -576,7 +645,10 @@ service cloud.firestore {
           let board = boardData();
           // parentItemId is immutable: converting between item and subitem is not supported.
           return changed.hasOnly(['name', 'groupId', 'position', 'values', 'state',
-                                  'deletedAt', 'updatedAt', 'updatedBy', 'description'])
+                                  'deletedAt', 'updatedAt', 'updatedBy', 'description',
+                                  'updatedVia', 'automationDepth'])
+            && (!changed.hasAny(['updatedVia', 'automationDepth'])
+                || automationMarkerNullOrAbsent(request.resource.data))
             && (!changed.hasAny(['description']) || validDescription(request.resource.data.description))
             && request.resource.data.name is string && request.resource.data.name.size() >= 1
             && request.resource.data.name.size() <= 500

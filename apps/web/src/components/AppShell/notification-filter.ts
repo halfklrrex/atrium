@@ -57,7 +57,10 @@ export function actorsOf(list: readonly NotificationDoc[]): { id: string; name: 
 
 /** "Assigned you to an item", "Clicked "Label"", "Replied to your update", "Mentioned you in a reply", "Mentioned you in a description". */
 export function actionText(
-  n: Pick<NotificationDoc, 'kind' | 'replyId' | 'updateId'> & { buttonLabel?: string | null },
+  n: Pick<NotificationDoc, 'kind' | 'replyId' | 'updateId'> & {
+    buttonLabel?: string | null;
+    recipeName?: string | null;
+  },
 ): string {
   switch (n.kind) {
     case 'assigned':
@@ -69,5 +72,9 @@ export function actionText(
       return n.updateId ? 'Mentioned you in an update' : 'Mentioned you in a description';
     case 'button':
       return n.buttonLabel ? `Clicked "${n.buttonLabel}"` : 'Clicked a button';
+    case 'automation':
+      return n.recipeName ? `Ran automation "${n.recipeName}"` : 'Ran an automation';
+    case 'automation_disabled':
+      return n.recipeName ? `Turned off automation "${n.recipeName}"` : 'Turned off an automation';
   }
 }

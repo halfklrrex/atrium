@@ -44,6 +44,10 @@ export const itemSchema = z.object({
   description: itemDescriptionSchema.nullable().optional(),
   /** Description images by fileId; Functions-only (finalizeDescriptionImage), never client-written. */
   descriptionImages: descriptionImagesSchema.optional(),
+  /** `automation:<id>` while the last write was an automation's. Functions-only; clients may only clear it to null. */
+  updatedVia: z.string().max(140).nullable().optional(),
+  /** Depth of the automation chain behind the last write; Functions-only, clients may only clear it. */
+  automationDepth: z.number().int().min(0).max(3).nullable().optional(),
   createdAt: timestampSchema,
   createdBy: uidSchema,
   updatedAt: timestampSchema,
@@ -53,5 +57,11 @@ export type Item = z.infer<typeof itemSchema>;
 /** Client item writes never carry the server-assigned numbers (rules refuse them). */
 export type ItemWrite = Omit<
   WriteDoc<Item>,
-  'seq' | 'boardSeq' | 'descriptionImages' | 'assigneeUids' | 'nameTokens'
+  | 'seq'
+  | 'boardSeq'
+  | 'descriptionImages'
+  | 'assigneeUids'
+  | 'nameTokens'
+  | 'updatedVia'
+  | 'automationDepth'
 >;
