@@ -17,3 +17,5 @@ export * from './presence';
 export type { BoardPatch } from './firestore';
 export type { SnapshotState } from './useSnapshot';
 export * from './my-work';
+export * from './dashboards';
+export * from './dashboard-items';

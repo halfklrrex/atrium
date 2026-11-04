@@ -326,6 +326,89 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
+    // dashboards/{dashboardId} (P6): a page of widgets reading live from boards. Same access model
+    // as boards (`kind`, `access`, `accessUids`, `boardRole`). A dashboard stores no item data, and
+    // every widget reads each board under that board's own rules. Rules check only the outer shape;
+    // widget internals are validated by zod on the client (limits: DASHBOARD_LIMITS in
+    // packages/shared/src/schemas/dashboard.ts).
+    // ---------------------------------------------------------------------
+    match /dashboards/{dashboardId} {
+      function validDashboardLists(d) {
+        return d.widgets is list && d.widgets.size() <= 24
+          && d.boardIds is list && d.boardIds.size() <= 50;
+      }
+
+      function validDashboardCreate(d) {
+        return d.keys().hasOnly(['workspaceId', 'folderId', 'name', 'kind', 'access', 'accessUids',
+                                 'position', 'icon', 'boardIds', 'widgets', 'state', 'deletedAt',
+                                 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+          && d.keys().hasAll(['workspaceId', 'folderId', 'name', 'kind', 'access', 'accessUids',
+                              'position', 'icon', 'boardIds', 'widgets', 'state', 'deletedAt',
+                              'createdAt', 'createdBy', 'updatedAt'])
+          && d.workspaceId is string
+          && canCreateInWs(d.workspaceId)
+          && (d.folderId == null
+              || (d.folderId is string && folderExistsIn(d.workspaceId, d.folderId)))
+          && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+          && d.kind in ['main', 'private', 'shareable']
+          && d.access == {(uid()): 'owner'}
+          && d.accessUids == [uid()]
+          && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
+          && d.icon == null
+          && validDashboardLists(d)
+          && d.state == 'active'
+          && d.deletedAt == null
+          && d.createdBy == uid()
+          && d.createdAt == request.time
+          && d.updatedAt == request.time
+          && (!('updatedBy' in d) || d.updatedBy == uid());
+      }
+
+      // Owners and editors change the content (name, boards, widgets, icon) and move the dashboard
+      // (`folderId`, `position`). Lifecycle (`state`, `deletedAt`) and sharing (`kind`, `access`,
+      // `accessUids`) are owner-only. When sharing changes, `accessUids` must stay the key set of
+      // `access`, the map stays small and the caller stays an owner. `workspaceId` and the audit
+      // fields are immutable. Every update sends `updatedBy == uid()`.
+      function validDashboardUpdate() {
+        let d = request.resource.data;
+        let changed = d.diff(resource.data).affectedKeys();
+        let role = boardRole(resource.data);
+        return role in ['owner', 'editor']
+          && changed.hasOnly(['folderId', 'position', 'name', 'icon', 'boardIds', 'widgets', 'state',
+                              'deletedAt', 'kind', 'access', 'accessUids', 'updatedAt', 'updatedBy'])
+          && d.get('updatedBy', null) == uid()
+          && (!changed.hasAny(['state', 'deletedAt', 'kind', 'access', 'accessUids'])
+              || role == 'owner')
+          && d.accessUids is list
+          && d.accessUids.toSet() == d.access.keys().toSet()
+          && d.accessUids.size() == d.access.keys().size()
+          && (!changed.hasAny(['access', 'accessUids', 'kind'])
+              || (d.access.size() <= 100 && d.access.get(uid(), null) == 'owner'))
+          && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
+          && (!changed.hasAny(['folderId']) || d.folderId == null
+              || (d.folderId is string && folderExistsIn(resource.data.workspaceId, d.folderId)))
+          && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+          && (d.icon == null || (d.icon is string && d.icon.size() >= 1 && d.icon.size() <= 8))
+          && validDashboardLists(d)
+          && d.kind in ['main', 'private', 'shareable']
+          && d.state in ['active', 'deleted']
+          && (!changed.hasAny(['state', 'deletedAt'])
+              || (d.state == 'deleted' ? d.deletedAt == request.time : d.deletedAt == null))
+          && d.updatedAt == request.time;
+      }
+
+      allow get: if signedIn() && boardRole(resource.data) in ['owner', 'editor', 'viewer'];
+
+      // Same two listable shapes as boards (main kind, or the caller in `accessUids`).
+      allow list: if signedIn() && isWsMember(resource.data.workspaceId)
+        && (resource.data.kind == 'main' || uid() in resource.data.accessUids);
+      allow create: if signedIn() && validDashboardCreate(request.resource.data);
+      allow update: if signedIn() && validDashboardUpdate();
+      // Soft-deleted through `state`; purging is a server concern.
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
     // boards/{boardId}
     // ---------------------------------------------------------------------
     match /boards/{boardId} {
