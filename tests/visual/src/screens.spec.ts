@@ -660,7 +660,9 @@ for (const theme of ['light', 'dark'] as const) {
         await item.click({ delay: 100 });
         const dialog = page.getByRole('dialog', { name: 'Create board' });
         await expect(dialog).toBeVisible();
-        await dialog.getByRole('radio', { name: 'Template' }).check({ force: true });
+        // The Vibe radio's native input is visually hidden: click its visible label text instead.
+        await dialog.getByText('Template', { exact: true }).click();
+        await expect(dialog.getByRole('radio', { name: 'Template' })).toBeChecked();
         await expect(dialog.getByRole('radio', { name: /Weekly review/ })).toBeVisible();
         await dialog.getByRole('radio', { name: /Project tracker/ }).click();
         await shoot(page, `new-board-templates-${theme}`);
