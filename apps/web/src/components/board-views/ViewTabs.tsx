@@ -52,13 +52,11 @@ const VIEW_ICONS = {
   kanban: Board,
   calendar: Calendar,
   timeline: Timeline,
+  gantt: Gantt,
   chart: Chart,
 } as const;
 
-const SOON_VIEWS = [
-  { title: 'Gantt', icon: Gantt },
-  { title: 'Map', icon: Pin },
-] as const;
+const SOON_VIEWS = [{ title: 'Map', icon: Pin }] as const;
 
 /** Props Vibe's `TabList` hands to each child tab; passed on to the real `Tab`. */
 type VibeTabProps = Omit<ComponentProps<typeof Tab>, 'children' | 'icon' | 'className'>;
@@ -323,6 +321,11 @@ export function ViewTabs() {
             title="Timeline"
             icon={Timeline}
             onClick={() => void viewActions.add(actions, 'timeline')}
+          />
+          <MenuItem
+            title="Gantt"
+            icon={Gantt}
+            onClick={() => void viewActions.add(actions, 'gantt')}
           />
           <MenuItem
             title="Chart"

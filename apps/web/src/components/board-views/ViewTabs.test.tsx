@@ -154,7 +154,9 @@ describe('view tabs', () => {
     const chart = items.find((item) => item.textContent === 'Chart');
     expect(chart?.className).not.toMatch(/disabled/);
     const gantt = items.find((item) => item.textContent === 'Gantt');
-    expect(gantt?.className).toMatch(/disabled/);
+    expect(gantt?.className).not.toMatch(/disabled/);
+    const map = items.find((item) => item.textContent === 'Map');
+    expect(map?.className).toMatch(/disabled/);
     const table = items.find((item) => item.textContent === 'Table');
     expect(table?.className).not.toMatch(/disabled/);
   });

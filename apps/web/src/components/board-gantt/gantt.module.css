@@ -1,0 +1,52 @@
+/* The dependency layer: over the lanes, right of the group-name pane. Only the lines take the pointer. */
+.arrows {
+  position: absolute;
+  z-index: var(--atrium-z-raised);
+  top: 0;
+  inset-inline-start: var(--tl-pane-width);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.arrow {
+  --gantt-arrow-color: var(--atrium-gantt-arrow);
+}
+
+.arrowActive {
+  --gantt-arrow-color: var(--atrium-gantt-arrow-active);
+}
+
+/* After .arrowActive, so a violated arrow stays red while hovered. */
+.arrowViolated {
+  --gantt-arrow-color: var(--atrium-gantt-arrow-violation);
+}
+
+.arrowLine {
+  fill: none;
+  stroke: var(--gantt-arrow-color);
+  stroke-width: var(--atrium-gantt-arrow-width);
+  stroke-linejoin: round;
+}
+
+.arrowActive .arrowLine {
+  stroke-width: var(--atrium-gantt-arrow-width-active);
+}
+
+.arrowHead {
+  fill: var(--gantt-arrow-color);
+  stroke: none;
+}
+
+.arrowHit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: var(--atrium-gantt-arrow-hit-width);
+  pointer-events: stroke;
+}
+
+/* The two bars of a hovered arrow (marked from GanttArrows). */
+:global([data-item][data-linked='true']) {
+  outline: var(--atrium-gantt-arrow-width-active) var(--border-style)
+    var(--atrium-gantt-linked-outline);
+  outline-offset: var(--border-width);
+}

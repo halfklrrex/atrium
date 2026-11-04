@@ -13,7 +13,7 @@ import {
 } from '@atrium/shared';
 import { initializeApp, getApps, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { Timestamp, getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { adminBootstrapTx } from '../../../functions/src/lib/admin';
 import { bootstrapUserInTransaction, type Identity } from '../../../functions/src/lib/bootstrap';
 import { FROZEN_TIME, LOCALE, PROJECT_ID, TIMEZONE, useEmulatorEnv } from './env';
@@ -720,6 +720,110 @@ export async function removeTimelineView(): Promise<void> {
     .collection('views')
     .doc(TIMELINE_VIEW)
     .delete();
+}
+
+/** Id of the shared Gantt view the Gantt screens add to the roadmap board (and remove again). */
+export const GANTT_VIEW = 'view-roadmap-gantt';
+
+const GANTT_PLAN = 'gplan';
+const GANTT_DEPS = 'gdeps';
+
+/** Seven roadmap items with a plan (a Timeline value) and the items each one waits for. */
+const GANTT_PLANS: Record<string, { from: string; to: string; after: string[] }> = {
+  'roadmap-item-00': { from: '2026-10-12', to: '2026-10-16', after: [] },
+  'roadmap-item-01': { from: '2026-10-19', to: '2026-10-23', after: ['roadmap-item-00'] },
+  // Starts before roadmap-item-01 finishes: the arrow is drawn as a violation.
+  'roadmap-item-02': { from: '2026-10-22', to: '2026-10-28', after: ['roadmap-item-01'] },
+  'roadmap-item-03': { from: '2026-10-29', to: '2026-11-02', after: ['roadmap-item-02'] },
+  'roadmap-item-06': { from: '2026-10-20', to: '2026-10-27', after: ['roadmap-item-00'] },
+  'roadmap-item-07': { from: '2026-10-28', to: '2026-11-03', after: ['roadmap-item-06'] },
+  'roadmap-item-12': {
+    from: '2026-11-03',
+    to: '2026-11-09',
+    after: ['roadmap-item-03', 'roadmap-item-07'],
+  },
+};
+export const GANTT_BARS = Object.keys(GANTT_PLANS).length;
+
+/**
+ * A shared Gantt view on the roadmap board, with a temporary Timeline column and a Dependency
+ * column: a chain with one violated arrow, a second branch, and an item that waits for both.
+ * Pair with `removeGanttView`.
+ */
+export async function addGanttView(): Promise<void> {
+  const db = adminDb();
+  const board = db.collection('boards').doc(IDS.roadmap);
+  await db.runTransaction(async (tx) => {
+    const columns = ((await tx.get(board)).get('columns') ?? []) as ColumnDef[];
+    tx.update(board, {
+      columns: [
+        ...columns.filter((c) => c.id !== GANTT_PLAN && c.id !== GANTT_DEPS),
+        column(GANTT_PLAN, 'timeline', 'Plan', 'a8'),
+        column(GANTT_DEPS, 'dependency', 'Depends on', 'a9'),
+      ],
+    });
+  });
+  const batch = db.batch();
+  for (const [id, plan] of Object.entries(GANTT_PLANS)) {
+    batch.update(board.collection('items').doc(id), {
+      [`values.${GANTT_PLAN}`]: { from: plan.from, to: plan.to },
+      ...(plan.after.length ? { [`values.${GANTT_DEPS}`]: { item_ids: plan.after } } : {}),
+    });
+  }
+  batch.set(board.collection('views').doc(GANTT_VIEW), {
+    name: 'Gantt',
+    type: 'gantt',
+    position: 'a1',
+    ownerId: null,
+    settings: {
+      filter: {
+        personIds: [],
+        filterGroup: { conjunction: 'and', conditions: [] },
+        sortConditions: [],
+        groupByColumnId: null,
+      },
+      hiddenColumnIds: [],
+      gantt: {
+        columnId: GANTT_PLAN,
+        zoom: 'days',
+        colorBy: null,
+        collapsedGroupIds: [],
+        showGroupSummary: true,
+        showToday: true,
+        showWeekends: true,
+        showLegend: true,
+        dependencyColumnId: GANTT_DEPS,
+        baselineColumnId: null,
+        showBaseline: true,
+        showCriticalPath: false,
+      },
+    },
+    createdAt: ago(DAY),
+    createdBy: AVERY.uid,
+    updatedAt: ago(DAY),
+    updatedBy: AVERY.uid,
+  });
+  await batch.commit();
+}
+
+export async function removeGanttView(): Promise<void> {
+  const db = adminDb();
+  const board = db.collection('boards').doc(IDS.roadmap);
+  await db.runTransaction(async (tx) => {
+    const columns = ((await tx.get(board)).get('columns') ?? []) as ColumnDef[];
+    tx.update(board, {
+      columns: columns.filter((c) => c.id !== GANTT_PLAN && c.id !== GANTT_DEPS),
+    });
+  });
+  const batch = db.batch();
+  for (const id of Object.keys(GANTT_PLANS)) {
+    batch.update(board.collection('items').doc(id), {
+      [`values.${GANTT_PLAN}`]: FieldValue.delete(),
+      [`values.${GANTT_DEPS}`]: FieldValue.delete(),
+    });
+  }
+  batch.delete(board.collection('views').doc(GANTT_VIEW));
+  await batch.commit();
 }
 
 /** Id of the shared Chart view the Chart screens add to the roadmap board (and remove again). */

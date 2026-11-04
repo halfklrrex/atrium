@@ -7,6 +7,7 @@ import {
   calendarReady,
   kanbanReady,
   timelineReady,
+  ganttReady,
   chartReady,
   shoot,
   test,
@@ -18,11 +19,14 @@ import {
   CALENDAR_VIEW,
   KANBAN_VIEW,
   TIMELINE_VIEW,
+  GANTT_VIEW,
+  GANTT_BARS,
   CHART_VIEW,
   addCalendarView,
   addActionButton,
   addKanbanView,
   addTimelineView,
+  addGanttView,
   addChartView,
   addView,
   clearActivity,
@@ -35,6 +39,7 @@ import {
   removeActionButton,
   removeKanbanView,
   removeTimelineView,
+  removeGanttView,
   removeChartView,
   removeView,
   seedActivity,
@@ -243,6 +248,18 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-timeline-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeTimelineView();
+      }
+    });
+
+    test('board: Gantt view', async ({ page }) => {
+      await addGanttView();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${GANTT_VIEW}`);
+        // Seven planned items and seven arrows (one is violated).
+        await ganttReady(page, GANTT_BARS, 7);
+        await shoot(page, `board-gantt-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeGanttView();
       }
     });
 

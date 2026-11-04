@@ -120,6 +120,14 @@ export async function timelineReady(page: Page, bars: number): Promise<void> {
   await expect(page.locator('[data-item]')).toHaveCount(bars);
 }
 
+/** The seeded roadmap as a Gantt view: the bars, and one dependency arrow per prerequisite. */
+export async function ganttReady(page: Page, bars: number, arrows: number): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('group', { name: 'Gantt' })).toBeVisible();
+  await expect(page.locator('[data-item]')).toHaveCount(bars);
+  await expect(page.locator('[data-edge]')).toHaveCount(arrows);
+}
+
 /** The seeded roadmap as a Chart view: the title, the drawing and its screen-reader summary. */
 export async function chartReady(page: Page, title: string, marks: number): Promise<void> {
   await appReady(page);

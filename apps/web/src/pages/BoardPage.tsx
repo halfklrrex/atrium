@@ -7,6 +7,7 @@ import { boardActions } from '../components/boards/board-actions';
 import { BoardHeader } from '../components/boards/BoardHeader';
 import { CalendarView } from '../components/board-calendar/CalendarView';
 import { ChartView } from '../components/board-chart/ChartView';
+import { GanttView } from '../components/board-gantt/GanttView';
 import { TimelineView } from '../components/board-timeline/TimelineView';
 import { KanbanBoard } from '../components/board-kanban/KanbanBoard';
 import { BoardTable } from '../components/board-table/BoardTable';
@@ -131,6 +132,8 @@ function ViewBody({ board }: { board: BoardDoc }) {
       return <CalendarView board={board} />;
     case 'timeline':
       return <TimelineView board={board} />;
+    case 'gantt':
+      return <GanttView board={board} />;
     case 'chart':
       return <ChartView board={board} />;
     default: {

@@ -154,7 +154,7 @@ describe('board views: creating', () => {
     await bad({ name: '' });
     await bad({ name: 'x'.repeat(61) });
     await bad({ name: 5 });
-    await bad({ type: 'gantt' });
+    await bad({ type: 'map' });
     await bad({ position: '' });
     await bad({ position: 3 });
     await bad({ settings: 'nope' });
@@ -206,7 +206,7 @@ describe('board views: creating', () => {
     const m = USERS.member;
     const bad = (type: string, settings: Record<string, unknown>) =>
       assertFails(setDoc(doc(as(m), viewPath('bad')), newView(m, { type, settings })));
-    await bad('calendar', { ...emptySettings(), gantt: {} });
+    await bad('calendar', { ...emptySettings(), map: {} });
     await bad('calendar', { ...emptySettings(), calendar: 'month' });
     await bad('timeline', { ...emptySettings(), timeline: [] });
     await bad('chart', { ...emptySettings(), chart: 'bar' });

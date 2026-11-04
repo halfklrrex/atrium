@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  defaultGanttSettings,
+  ganttSettingsSchema,
   VIEW_LIMITS,
   boardViewSchema,
   CHART_GROUP_AXIS,
@@ -61,7 +63,7 @@ describe('board view schemas', () => {
   it('rejects empty and over-long names and unknown types', () => {
     expect(boardViewSchema.safeParse({ ...baseView(), name: '' }).success).toBe(false);
     expect(boardViewSchema.safeParse({ ...baseView(), name: 'x'.repeat(61) }).success).toBe(false);
-    expect(boardViewSchema.safeParse({ ...baseView(), type: 'gantt' }).success).toBe(false);
+    expect(boardViewSchema.safeParse({ ...baseView(), type: 'map' }).success).toBe(false);
   });
 
   it('enforces the size caps', () => {
@@ -227,5 +229,40 @@ describe('chart view settings', () => {
     expect(viewSettingsSchema.safeParse(ch({ xColumnId: '' })).success).toBe(false);
     expect(viewSettingsSchema.safeParse(ch({ showLegend: 'yes' })).success).toBe(false);
     expect(viewTypeSchema.safeParse('chart').success).toBe(true);
+  });
+});
+
+describe('gantt view settings', () => {
+  it('accepts a gantt view and its default settings', () => {
+    const settings = { ...defaultViewSettings(), gantt: defaultGanttSettings() };
+    expect(viewSettingsSchema.parse(settings).gantt).toEqual(defaultGanttSettings());
+    expect(
+      boardViewSchema.safeParse({
+        name: 'Gantt',
+        type: 'gantt',
+        position: 'a1',
+        ownerId: null,
+        settings,
+        createdAt: ts(),
+        createdBy: 'u1',
+        updatedAt: ts(),
+        updatedBy: 'u1',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('extends the timeline settings with dependency, baseline and critical path fields', () => {
+    expect(defaultGanttSettings()).toMatchObject({
+      zoom: 'weeks',
+      dependencyColumnId: null,
+      baselineColumnId: null,
+      showBaseline: true,
+      showCriticalPath: false,
+    });
+    expect(
+      ganttSettingsSchema.safeParse({ ...defaultGanttSettings(), zoom: 'years' }).success,
+    ).toBe(false);
+    const { showCriticalPath: _omitted, ...missing } = defaultGanttSettings();
+    expect(ganttSettingsSchema.safeParse(missing).success).toBe(false);
   });
 });
