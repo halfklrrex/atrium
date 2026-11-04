@@ -340,25 +340,31 @@ describe('the automation run counter', () => {
   });
 });
 
-describe('the automation marker on items (updatedVia, automationDepth)', () => {
+describe('the automation marker on items (updatedVia, automationDepth, automationRunId)', () => {
   const edit = (uid: string, fields: Record<string, unknown>) =>
     updateDoc(itemRef(uid), { name: 'Edited', ...stamp(uid), ...fields });
+  const marker = {
+    updatedVia: 'automation:a1',
+    automationDepth: 1,
+    automationRunId: 'a1-e1',
+  };
 
   it('keeps a normal edit working for the owner and the editor', async () => {
     await assertSucceeds(edit(USERS.owner, {}));
     await assertSucceeds(edit(USERS.member, {}));
   });
 
-  it('refuses a client that sets updatedVia or automationDepth on an update', async () => {
+  it('refuses a client that sets any marker field on an update, and even null', async () => {
     for (const uid of [USERS.owner, USERS.member]) {
-      await assertFails(edit(uid, { updatedVia: 'automation:a1' }));
-      await assertFails(edit(uid, { automationDepth: 1 }));
-      await assertFails(edit(uid, { updatedVia: 'automation:a1', automationDepth: 1 }));
-      await assertFails(edit(uid, { updatedVia: uid }));
+      for (const [key, value] of Object.entries(marker)) {
+        await assertFails(edit(uid, { [key]: value }));
+        await assertFails(edit(uid, { [key]: null }));
+      }
+      await assertFails(edit(uid, marker));
     }
   });
 
-  it('refuses a client that sets them on create', async () => {
+  it('refuses a client that sets any marker field on create, and even null', async () => {
     const created = (uid: string, fields: Record<string, unknown>) =>
       setDoc(
         doc(as(uid), 'boards', MAIN_BOARD, 'items', `n-${uid}`),
@@ -371,24 +377,23 @@ describe('the automation marker on items (updatedVia, automationDepth)', () => {
         }),
       );
     await assertSucceeds(created(USERS.member, {}));
-    await assertFails(created(USERS.owner, { updatedVia: 'automation:a1' }));
-    await assertFails(created(USERS.owner, { automationDepth: 2 }));
+    for (const [key, value] of Object.entries(marker)) {
+      await assertFails(created(USERS.owner, { [key]: value }));
+      await assertFails(created(USERS.owner, { [key]: null }));
+    }
   });
 
-  it('lets a human edit clear a marker the server set (to null), but never set one', async () => {
+  it('keeps items the server marked editable by a client that leaves the marker alone', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await updateDoc(doc(ctx.firestore(), 'boards', MAIN_BOARD, 'items', 'i1'), {
-        updatedVia: 'automation:a1',
-        automationDepth: 1,
-      });
+      await updateDoc(doc(ctx.firestore(), 'boards', MAIN_BOARD, 'items', 'i1'), marker);
     });
-    // An edit that doesn't touch the marker still works (the marker stays until cleared).
     await assertSucceeds(edit(USERS.member, {}));
-    await assertSucceeds(edit(USERS.member, { updatedVia: null, automationDepth: null }));
-    await assertFails(edit(USERS.member, { updatedVia: 'automation:a2' }));
+    await assertSucceeds(edit(USERS.owner, { values: { text: 'x' } }));
+    await assertFails(edit(USERS.member, { updatedVia: null }));
+    await assertFails(edit(USERS.member, { automationRunId: deleteField() }));
   });
 
-  it('refuses an editor-only marker write that touches nothing else', async () => {
+  it('refuses a viewer and a marker-only write', async () => {
     await assertFails(updateDoc(itemRef(USERS.member), { updatedVia: 'automation:a1' }));
     await assertFails(updateDoc(itemRef(USERS.viewer), { updatedVia: null }));
   });

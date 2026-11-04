@@ -44,10 +44,12 @@ export const itemSchema = z.object({
   description: itemDescriptionSchema.nullable().optional(),
   /** Description images by fileId; Functions-only (finalizeDescriptionImage), never client-written. */
   descriptionImages: descriptionImagesSchema.optional(),
-  /** `automation:<id>` while the last write was an automation's. Functions-only; clients may only clear it to null. */
+  /** `automation:<id>` while the last write was an automation's. Functions-only. */
   updatedVia: z.string().max(140).nullable().optional(),
-  /** Depth of the automation chain behind the last write; Functions-only, clients may only clear it. */
+  /** Depth of the automation chain behind the last write; Functions-only. */
   automationDepth: z.number().int().min(0).max(3).nullable().optional(),
+  /** Id of the automation run behind the last write (`<automationId>-<eventId>`); Functions-only. Activity treats a changed value as an automation write. */
+  automationRunId: z.string().max(300).nullable().optional(),
   createdAt: timestampSchema,
   createdBy: uidSchema,
   updatedAt: timestampSchema,
@@ -63,5 +65,6 @@ export type ItemWrite = Omit<
   | 'assigneeUids'
   | 'nameTokens'
   | 'updatedVia'
+  | 'automationRunId'
   | 'automationDepth'
 >;
