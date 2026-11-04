@@ -597,6 +597,7 @@ describe('automation loop marker', () => {
     ...edit({ name: 'Renamed' }, 'u1'),
     updatedVia,
     automationDepth,
+    automationRunId: 'run2',
   });
 
   it('attributes the write to the automation and stamps data.depth on every entry', () => {
@@ -608,6 +609,33 @@ describe('automation loop marker', () => {
     const plan = diffItemActivity(change, BOARD, profiles);
     expect(kinds(plan)).toEqual(['item_renamed', 'value_changed']);
     for (const p of plan) expect((p.fields.data as { depth?: number }).depth).toBe(2);
+  });
+
+  it('credits a later human edit with an unchanged run id and stale updatedVia to the human', () => {
+    const prev = {
+      ...base,
+      updatedVia: 'automation:abc',
+      automationDepth: 1,
+      automationRunId: 'run2',
+    };
+    const change = { before: prev, after: { ...prev, ...edit({ name: 'By hand' }) } };
+    expect(itemActorId(change)).toBe('u1');
+    const plan = diffItemActivity(change, BOARD, profiles);
+    expect(kinds(plan)).toEqual(['item_renamed']);
+    expect((plan[0]!.fields.data as { depth?: number }).depth).toBeUndefined();
+  });
+
+  it('treats a create with a run id as an automation write', () => {
+    const after = {
+      ...base,
+      updatedVia: 'automation:abc',
+      automationDepth: 1,
+      automationRunId: 'r1',
+    };
+    expect(itemActorId({ after })).toBe('automation:abc');
+    const plan = diffItemActivity({ after }, BOARD, profiles);
+    expect((plan[0]!.fields.data as { depth?: number }).depth).toBe(1);
+    expect(itemActorId({ after: { ...after, automationRunId: null } })).toBe('u1');
   });
 
   it('behaves as today when updatedVia is null or absent', () => {
