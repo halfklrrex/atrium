@@ -33,6 +33,7 @@ import { favoritePositionFor, moveId } from '../../lib/favorites-order';
 import { boardActions } from '../boards/board-actions';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { NoFavorites } from '../illustrations';
+import { dragClickGuard, guardedNavigate } from './dragClickGuard';
 import styles from './Sidebar.module.css';
 
 const prefersReducedMotion = () =>
@@ -102,10 +103,14 @@ export function Favorites({ onNavigate }: { onNavigate?: () => void }) {
     if (!ok) setOptimistic(null);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const reorder = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     void moveTo(String(active.id), visibleIds.indexOf(String(over.id)));
+  };
+  const handleDragEnd = (event: DragEndEvent) => {
+    dragClickGuard.end();
+    reorder(event);
   };
 
   return (
@@ -128,7 +133,9 @@ export function Favorites({ onNavigate }: { onNavigate?: () => void }) {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragStart={dragClickGuard.start}
             onDragEnd={handleDragEnd}
+            onDragCancel={dragClickGuard.end}
             accessibility={{
               announcements,
               screenReaderInstructions: {
@@ -203,7 +210,7 @@ function FavoriteRow({
           className={({ isActive }) =>
             classNames(styles.treeMain, isActive && styles.favoriteActive)
           }
-          onClick={onNavigate}
+          onClick={guardedNavigate(onNavigate)}
           draggable={false}
           {...attributes}
           {...listeners}

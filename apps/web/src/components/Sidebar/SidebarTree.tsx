@@ -38,6 +38,7 @@ import { BoardMenu } from '../boards/BoardMenu';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { InlineEdit } from '../InlineEdit';
 import { useUiStore } from '../AppShell/ui-store';
+import { dragClickGuard, guardedNavigate } from './dragClickGuard';
 import styles from './Sidebar.module.css';
 
 export interface SidebarTreeProps {
@@ -137,10 +138,19 @@ export function SidebarTree({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
-      onDragStart={(event) => setActiveKey(String(event.active.id))}
+      onDragStart={(event) => {
+        dragClickGuard.start();
+        setActiveKey(String(event.active.id));
+      }}
       onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-      onDragCancel={clearDrag}
+      onDragEnd={(event) => {
+        dragClickGuard.end();
+        handleDragEnd(event);
+      }}
+      onDragCancel={() => {
+        dragClickGuard.end();
+        clearDrag();
+      }}
     >
       <SortableContext items={rows.map((r) => r.key)} strategy={verticalListSortingStrategy}>
         <ul className={styles.tree} role="tree" aria-label="Boards and folders">
@@ -257,7 +267,7 @@ function BoardRowView({
         <NavLink
           to={`/boards/${board.id}`}
           className={styles.treeMain}
-          onClick={onNavigate}
+          onClick={guardedNavigate(onNavigate)}
           onDoubleClick={() => onRenamingChange(true)}
           draggable={false}
         >
