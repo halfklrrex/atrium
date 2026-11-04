@@ -8,6 +8,8 @@ export * from './item-writes';
 export type { NewItemInput } from './seed-items';
 export * from './server-column-fields';
 export * from './structure-writes';
+export * from './template-hooks';
+export * from './template-items';
 export * from './updates';
 export * from './views';
 export * from './view-writes';

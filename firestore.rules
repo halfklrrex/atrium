@@ -267,6 +267,61 @@ service cloud.firestore {
         allow read: if signedIn() && isWsAdmin(workspaceId);
         allow write: if false;
       }
+
+      // -------------------------------------------------------------------
+      // workspaces/{workspaceId}/templates/{templateId}: board templates saved by members. Anyone
+      // who can create boards may save one; the creator or an owner/admin may rename or delete it.
+      // Limits mirror TEMPLATE_LIMITS in packages/shared/src/schemas/template.ts.
+      // -------------------------------------------------------------------
+      match /templates/{templateId} {
+        function validTemplateStructure(s) {
+          return s is map
+            && s.keys().hasOnly(['columns', 'subitemColumns', 'groups', 'itemTerminology'])
+            && s.keys().hasAll(['columns', 'subitemColumns', 'groups', 'itemTerminology'])
+            && s.columns is list && s.columns.size() <= 60
+            && s.subitemColumns is list && s.subitemColumns.size() <= 60
+            && s.groups is list && s.groups.size() >= 1 && s.groups.size() <= 100
+            && s.itemTerminology is string && s.itemTerminology.size() >= 1
+            && s.itemTerminology.size() <= 40;
+        }
+
+        function validTemplateDetails(d) {
+          return d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+            && d.description is string && d.description.size() <= 300;
+        }
+
+        function validTemplateCreate(d) {
+          return d.keys().hasOnly(['name', 'description', 'structure', 'sampleItems', 'itemCount',
+                                   'createdBy', 'createdAt', 'updatedAt'])
+            && d.keys().hasAll(['name', 'description', 'structure', 'sampleItems', 'itemCount',
+                                'createdBy', 'createdAt', 'updatedAt'])
+            && validTemplateDetails(d)
+            && validTemplateStructure(d.structure)
+            && d.sampleItems is list && d.sampleItems.size() <= 50
+            && d.itemCount is int && d.itemCount == d.sampleItems.size()
+            && d.createdBy == uid()
+            && d.createdAt == request.time
+            && d.updatedAt == request.time;
+        }
+
+        allow read: if signedIn() && isWsMember(workspaceId);
+
+        allow create: if signedIn() && canCreateInWs(workspaceId)
+          && validTemplateCreate(request.resource.data);
+
+        // Rename / re-describe only; the structure and items never change after saving.
+        allow update: if signedIn()
+          && ((resource.data.createdBy == uid() && canCreateInWs(workspaceId))
+              || isWsAdmin(workspaceId))
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['name', 'description', 'updatedAt'])
+          && validTemplateDetails(request.resource.data)
+          && request.resource.data.updatedAt == request.time;
+
+        allow delete: if signedIn()
+          && ((resource.data.createdBy == uid() && canCreateInWs(workspaceId))
+              || isWsAdmin(workspaceId));
+      }
     }
 
     // ---------------------------------------------------------------------

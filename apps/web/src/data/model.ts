@@ -1,5 +1,6 @@
 import type {
   Board,
+  BoardTemplate,
   BoardView,
   Favorite,
   Folder,
@@ -20,6 +21,8 @@ export type WithId<T> = T & { id: string };
 export type WorkspaceDoc = WithId<Workspace>;
 export type FolderDoc = WithId<Folder>;
 export type BoardDoc = WithId<Board>;
+/** `workspaces/{id}/templates/{id}`: a saved board template. */
+export type TemplateDoc = WithId<BoardTemplate>;
 /** A saved view; `synthetic` marks the built-in `main` view that has not been saved yet. */
 export type BoardViewDoc = WithId<BoardView> & { synthetic?: boolean };
 export type ItemDoc = WithId<Item>;

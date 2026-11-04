@@ -7,9 +7,15 @@ import {
   createBoardInputSchema,
   createWorkspaceInputSchema,
   defaultBoardStructure,
+  saveTemplateInputSchema,
+  templateDetailsSchema,
+  templateFromBoard,
+  withoutServerColumnFields,
   duplicateBoardName,
   folderInputSchema,
   type Board,
+  type BoardStructure,
+  type BoardTemplate,
   type BoardView,
   type BoardKind,
   type CreateBoardInput,
@@ -22,6 +28,10 @@ import {
   type ItemUpdate,
   type Notification,
   type Recent,
+  type SaveTemplateInput,
+  type TemplateDetailsInput,
+  type TemplateSampleItem,
+  type TemplateStructure,
   type UpdateReply,
   type User,
   type UserProfileUpdate,
@@ -35,6 +45,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   limit,
   orderBy,
   query,
@@ -51,8 +62,8 @@ import {
 } from 'firebase/firestore';
 import { newSlugId } from '../lib/ids';
 import { auth, db } from '../lib/firebase';
-import { newBoardSeedItems } from './seed-items';
-import { withoutServerColumnFields } from './server-column-fields';
+import { newBoardSeedItems, type NewItemInput } from './seed-items';
+import { sampleItemsToInputs } from './template-items';
 import type {
   BoardDoc,
   BoardViewDoc,
@@ -64,6 +75,7 @@ import type {
   MemberDoc,
   NotificationDoc,
   RecentDoc,
+  TemplateDoc,
   UpdateReplyDoc,
   UserDoc,
   WithId,
@@ -98,6 +110,7 @@ const recentConverter = converter<Recent>();
 const notificationConverter = converter<Notification>();
 const memberConverter = converter<WorkspaceMember>();
 const inviteConverter = converter<WorkspaceInvite>();
+const templateConverter = converter<BoardTemplate>();
 
 const COLLECTIONS = {
   users: 'users',
@@ -105,6 +118,7 @@ const COLLECTIONS = {
   folders: 'folders',
   members: 'members',
   invites: 'invites',
+  templates: 'templates',
   boards: 'boards',
   items: 'items',
   views: 'views',
@@ -155,6 +169,12 @@ export const refs = {
   invites: (workspaceId: string): CollectionReference<InviteDoc> =>
     collection(db, COLLECTIONS.workspaces, workspaceId, COLLECTIONS.invites).withConverter(
       inviteConverter,
+    ),
+
+  /** Saved board templates of a workspace; any member reads (rules). */
+  templates: (workspaceId: string): CollectionReference<TemplateDoc> =>
+    collection(db, COLLECTIONS.workspaces, workspaceId, COLLECTIONS.templates).withConverter(
+      templateConverter,
     ),
 
   boards: (): CollectionReference<BoardDoc> =>
@@ -231,6 +251,11 @@ export const plainRefs = {
   notification: (uid: string, id: string): DocumentReference<DocumentData> =>
     doc(db, COLLECTIONS.users, uid, COLLECTIONS.notifications, id),
   board: (boardId: string): DocumentReference<DocumentData> => doc(db, COLLECTIONS.boards, boardId),
+  template: (workspaceId: string, templateId: string): DocumentReference<DocumentData> =>
+    doc(db, COLLECTIONS.workspaces, workspaceId, COLLECTIONS.templates, templateId),
+  /** A fresh template reference (the id is generated on the client). */
+  newTemplate: (workspaceId: string): DocumentReference<DocumentData> =>
+    doc(collection(db, COLLECTIONS.workspaces, workspaceId, COLLECTIONS.templates)),
   item: (boardId: string, itemId: string): DocumentReference<DocumentData> =>
     doc(db, COLLECTIONS.boards, boardId, COLLECTIONS.items, itemId),
   view: (boardId: string, viewId: string): DocumentReference<DocumentData> =>
@@ -438,9 +463,33 @@ export const writes = {
     input: CreateBoardInput,
     position: string,
   ): Promise<string> {
+    const structure = defaultBoardStructure(newSlugId);
+    return writes.createBoardFromStructure(
+      uid,
+      workspaceId,
+      input,
+      position,
+      structure,
+      newBoardSeedItems(structure),
+    );
+  },
+
+  /**
+   * Create a board from a structure (columns, groups, terminology) and optional sample items, with
+   * the caller as owner. `createBoard` (blank board) and `createBoardFromTemplate` both use it. The
+   * board is created with empty `derivedColumnIds` / `serverManagedColumnIds` (rules require it; the
+   * `onBoardColumnsWritten` Function fills them). Items go in a second write once the board exists.
+   */
+  async createBoardFromStructure(
+    uid: string,
+    workspaceId: string,
+    input: CreateBoardInput,
+    position: string,
+    structure: BoardStructure,
+    sampleItems: readonly NewItemInput[],
+  ): Promise<string> {
     const form = createBoardInputSchema.parse(input);
     const created = doc(collection(db, COLLECTIONS.boards));
-    const structure = defaultBoardStructure(newSlugId);
     await setDoc(created, {
       workspaceId,
       folderId: form.folderId,
@@ -464,9 +513,10 @@ export const writes = {
     // monday starts a new board with five sample items. They are a second write because the item
     // rules look the board up (`get()` sees the state before a batch, so a same-batch create fails).
     // If this write fails the board is still fine, just empty, so it is not worth failing the create.
+    if (sampleItems.length === 0) return created.id;
     try {
       const batch = writeBatch(db);
-      for (const item of newBoardSeedItems(structure)) {
+      for (const item of sampleItems) {
         batch.set(plainRefs.newItem(created.id), {
           name: item.name,
           groupId: item.groupId,
@@ -486,6 +536,83 @@ export const writes = {
       console.warn('Could not add the sample items to the new board', error);
     }
     return created.id;
+  },
+
+  /**
+   * Create a board from a built-in or saved template: its columns, groups and (when
+   * `includeSampleItems`) its sample items. Group and column ids are kept so sample items resolve.
+   */
+  async createBoardFromTemplate(
+    uid: string,
+    workspaceId: string,
+    input: CreateBoardInput,
+    position: string,
+    template: { structure: TemplateStructure; sampleItems: readonly TemplateSampleItem[] },
+    options: { includeSampleItems: boolean } = { includeSampleItems: true },
+  ): Promise<string> {
+    const structure: BoardStructure = {
+      columns: withoutServerColumnFields(structuredClone(template.structure.columns)),
+      subitemColumns: withoutServerColumnFields(structuredClone(template.structure.subitemColumns)),
+      groups: structuredClone(template.structure.groups),
+      itemTerminology: template.structure.itemTerminology,
+    };
+    const items = options.includeSampleItems
+      ? sampleItemsToInputs(structure, template.sampleItems)
+      : [];
+    return writes.createBoardFromStructure(uid, workspaceId, input, position, structure, items);
+  },
+
+  /**
+   * Save a board as a template of its workspace. With `includeItems` it reads the board's active
+   * top-level items (up to 50, group then position order). Returns the new template id.
+   */
+  async saveBoardAsTemplate(
+    uid: string,
+    board: BoardDoc,
+    input: SaveTemplateInput,
+  ): Promise<string> {
+    const form = saveTemplateInputSchema.parse(input);
+    const items = form.includeItems
+      ? (await getDocs(query(refs.items(board.id), where('state', '==', 'active')))).docs.map((d) =>
+          d.data(),
+        )
+      : [];
+    const content = templateFromBoard(board, items, { includeItems: form.includeItems });
+    // Firestore documents are capped at 1 MiB; leave headroom for the metadata.
+    if (JSON.stringify(content).length > 900_000) {
+      throw new Error('This board is too large to save as a template. Try without its items.');
+    }
+    const created = plainRefs.newTemplate(board.workspaceId);
+    await setDoc(created, {
+      name: form.name,
+      description: form.description,
+      structure: content.structure,
+      sampleItems: content.sampleItems,
+      itemCount: content.sampleItems.length,
+      createdBy: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return created.id;
+  },
+
+  /** Rename or re-describe a saved template (its creator or a workspace owner/admin; rules). */
+  async updateTemplate(
+    workspaceId: string,
+    templateId: string,
+    details: TemplateDetailsInput,
+  ): Promise<void> {
+    const form = templateDetailsSchema.parse(details);
+    await updateDoc(plainRefs.template(workspaceId, templateId), {
+      name: form.name,
+      description: form.description,
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  /** Delete a saved template (its creator or a workspace owner/admin; rules). */
+  async deleteTemplate(workspaceId: string, templateId: string): Promise<void> {
+    await deleteDoc(plainRefs.template(workspaceId, templateId));
   },
 
   /** Copy a board's structure (columns, groups, settings) - not its items - with the caller as owner. */

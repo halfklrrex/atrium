@@ -1,4 +1,7 @@
-import type { ColumnDef } from '@atrium/shared';
+import { withoutServerColumnFields, type ColumnDef } from '@atrium/shared';
+
+// Lives in the shared package so templates can strip the same fields; re-exported for the web.
+export { withoutServerColumnFields };
 
 /**
  * `migrating` and `lastTypeChange` on a column def are written only by the changeColumnType and
@@ -22,9 +25,4 @@ export function keepServerColumnFields(
       ...(stored?.lastTypeChange ? { lastTypeChange: stored.lastTypeChange } : {}),
     };
   });
-}
-
-/** Columns for a copy of a board: no server-only marks (the copy has no snapshots). */
-export function withoutServerColumnFields(columns: readonly ColumnDef[]): ColumnDef[] {
-  return keepServerColumnFields(columns, []);
 }
