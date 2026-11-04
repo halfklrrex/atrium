@@ -1,5 +1,7 @@
 # Plan: owner feedback of 2026-11-04 (pending implementation)
 
+> **Superseded (2026-11-04):** the open-PR limits in this plan were removed by the owner. See `AGENTS.md`.
+
 ## Context
 
 The owner went through the Roadmap on 2026-11-04. They signed off several items, sent back two new reports through the bug inbox, and handed the P5 product decisions to the lead. PR #74 (rich text in the update composer) and #75 (HANDOFF refresh) are merged and live. **Nothing in this plan is built yet; the next session starts here.**

@@ -62,19 +62,14 @@ The agents can't message each other. **Pull-request comments are the channel**: 
    Split the bugs sensibly between the agents: take ones in your own area, and leave a note if the other agent owns that code. Bug fixes follow the normal PR flow. Reply on the owner's update when the fix is live. If you can't access monday, ask the owner to paste the new bug-inbox updates for you.
 
 6. **Check Actionable = Agents.** On the Roadmap, find the items whose Actionable is **Agents**: the owner has answered or acted on them. Read the newest updates on each item in your area and act on them: sign the item off, fix what they found, or reply. Then set Actionable to No (handled) or Yes (you need something more from them).
-7. **Only then start new work**, within your open-PR limit, after checking what's in flight. Open bugs rank above new features unless the owner says otherwise.
+7. **Only then start new work**, after checking what's in flight. Open bugs rank above new features unless the owner says otherwise.
 
 **Ophelia (Claude Opus, as lead):** at the start of each session, she also checks every open PR from either agent for new commits or replies, re-reviews what changed, and merges what's ready.
 
 ## Multi-agent workflow (mandatory)
 
 1. **Claim before you start.** On the Roadmap item, set **Agent** (Claude / Ophelia or Antigravity / Ava), **Branch**, and Status = Planning or Building. Never start an item another agent has claimed. Don't take two items that change the same screen at once.
-   - **Work-in-progress limit** (owner decision, 2026-10-28). The limit is on open PRs, not on how much you build, because reviews are the bottleneck and parallel PRs on overlapping code create conflicts.
-     - **Ophelia:** at most **2 open PRs** at a time.
-     - **Ava:** at most **4 open PRs** at a time, and **only one open PR per overlapping area**: PRs that touch the same files or screen open one after another, the next after the previous one merges.
-     - **Hot-spot files** (rule 6) still have only one open PR touching them at a time, across both agents.
-     - **Branch work has no limit.** Keep building ahead on pushed branches, and open each PR when the rules above allow it.
-     - A PR with requested changes still counts until it's fixed and merged, and fixing requested changes comes before opening anything new.
+   - **No limit on open PRs** (owner decision, 2026-11-04; it replaces the 2026-10-28 limits). The pace is set by usage and the owner's availability. Keep PRs small and focused, rebase on `origin/main` before merging, and resolve conflicts then. A PR with requested changes is fixed before opening anything new.
    - **Check what's in flight first.** Before starting, look at the Roadmap's Building and Pending Merge items and the open PRs. If your work would touch the same screen, data layer or hot-spot files as something in flight, pick a different item or wait. When in doubt, ask the owner.
 2. **One branch per task, in your own working copy.**
    - Both copies live under the parent folder `D:\DevProjects\Atrium\`.
@@ -91,7 +86,7 @@ The agents can't message each other. **Pull-request comments are the channel**: 
 5. **Never deploy from a working copy.** GitHub Actions deploys `main` after each merge.
 6. **Shared hot-spot files** are `firestore.rules`, `tests/rules/**`, `packages/shared/**`, `pnpm-lock.yaml`, `apps/web/src/theme/tokens.css`, `firebase.json` and `tests/visual/__screenshots__/**`.
    - Keep changes to them minimal and land them in small PRs.
-   - If the other agent has an open PR touching the same file, wait for it to merge, then rebase.
+   - Merge PRs that touch the same hot-spot file in order. The later PR rebases and re-runs the checks (for the visual baselines: re-run the workflow, never hand-merge PNGs).
 7. **Local emulators.** Each working copy uses its own port block, set by `ATRIUM_PORT_OFFSET` in the repo-root `.env.local` (gitignored):
    - Claude's home copy: `0`
    - Claude's worktrees: `10`, `20` and so on

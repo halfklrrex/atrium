@@ -1,5 +1,7 @@
 # Plan: autonomous work batch while the owner is away (from 2026-11-03)
 
+> **Superseded (2026-11-04):** the open-PR limits in this plan were removed by the owner. See `AGENTS.md`.
+
 ## Context
 
 The owner will be unavailable for a while and wants Ophelia to keep building without guidance. The setup follows the 2026-10-31 build-ahead batch (`docs/plans/2026-10-31-build-ahead-batch.md`). That batch is finished: My Work, search, Chart, the activity backend and polish batch 2 are all live.

@@ -26,18 +26,19 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **Deploys:** automatic on merge to `main`. Eventarc and Cloud Scheduler are set up. **Merge only when the checks pass**; the repo has no branch protection (an owner decision).
 - **Bugs:** the owner posts them in the monday Roadmap's 🐞 Bugs → "Bug inbox" item. Check it at the start of every session (`AGENTS.md`).
 - **Actionable column** on the Roadmap: Yes (owner's move), Agents (owner answered, so it's back with us), No. Check the Agents items at the start of every session (`AGENTS.md`).
+- **No open-PR limits** (owner, 2026-11-04). Pace is set by usage and the owner's availability; hot-spot PRs merge in order and rebase.
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
 ## Open work (2026-11-04)
 
 - **Live since 2026-11-03** (autonomous batch while the owner was away): the Activity web UI (#63), button actions (#65) and the notify action (#72), column settings (#66), reorder favourite boards (#68), and the rich-text backend (#69, `contentDoc` on updates and replies). Earlier: P4 notifications, board sharing, Calendar, Timeline and Chart views, Mirror, change a column's type, My Work, global search.
-- **Plan pending implementation:** `docs/plans/2026-11-04-owner-feedback.md` (owner feedback of 2026-11-04: two bugs, the P5 decisions, ultrareview checkpoints). Next session starts there. #74 (rich text in the composer) is merged and live.
+- **Plan in progress:** `docs/plans/2026-11-04-feature-push.md` (P5 automations, Gantt and Workload, dashboards, forms and templates). The owner feedback plan (`2026-11-04-owner-feedback.md`) is done for its two bugs (#77, #78, live); its P5a and ultrareview parts continue in the push.
 - **P5 automations:** the design is merged as a proposal (`docs/specs/P5-automations-design.md`, #73). The owner delegated the six product questions; the decisions are recorded in section 11 of the spec (accepted 2026-11-04). P5a starts after sections A and B of the pending plan.
 - **Merged but local-only:** the Atrium MCP connector (OPS3, #60), not yet run against production.
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
 - **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Activity log, button actions, notify, column settings, favourites; notify needs two accounts), whether "Required" columns need a hard rule, and the flag emoji on Windows (needs a CDN picture fallback). The legacy-activity migration script has not been run; dry run first and only with the owner's agreement.
 - **Next, in this order:**
-  1. Build `docs/plans/2026-11-04-owner-feedback.md` in its order: A (favourite drag bug), B (readable text on fills), C (P5a), D (ultrareview checkpoints).
+  1. Follow `docs/plans/2026-11-04-feature-push.md`: flaky world clock tests, then the four tracks (A automations, B Gantt and Workload, C dashboards, D templates and forms).
   2. Flaky test: world clock tests in `packages/shared` (Roadmap 3328651015).
   3. Remaining Roadmap items that need no product decision. Anything that does goes on the item with Actionable = Yes and an exact question.
   4. Check the bug inbox and Actionable = Agents first (filter by label id, Agents = 4, not the index).
