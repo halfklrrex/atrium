@@ -2,6 +2,10 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Merged 2026-11-04
+
+- **Rich text in updates and replies (#74):** open an item card and write an update. Check the toolbar (bold, italic, underline, lists, links), Ctrl+B / I / U, @mentions (the person is notified) and replies, then reopen the item to confirm the formatting stays. Old plain-text updates still render. Light and dark.
+
 ## Merged 2026-11-03 (autonomous batch; I could not run the Chrome check, the extension was not connected)
 
 - **Activity log (#63):** open any board's options menu and choose **Activity log**; try the Person, Column and Date filters and click a row to open its item. Open an item card's **Activity Log** tab (it now shows real history, not the placeholder). Edit a cell, rename an item and move it to another group, then watch the entries appear. Defaults I chose (change them if you disagree): entries expire after 90 days, board viewers can read the log, description edits are not logged. Light and dark.
@@ -13,11 +17,8 @@ Live checks only the owner can do, collected per feature while agents build ahea
 
 ## Already merged and waiting for a look (2026-10-31)
 
-- **Board sharing (#46):** two accounts. Make a board Private, add the second account as Viewer, confirm read-only access, remove them. Leave board from the board menu.
-- **Saved views (#47):** hide a column and save to the view; save on Kanban, Calendar and Timeline views.
-- **Change column type (#48):** convert a Progress or Formula column on a test board, then Undo.
-- **Polish (#49):** the Time tracked total ticks each second; Add column list is alphabetical; multi-word @mention search in the description; Mirror settings empty state.
-- **Earlier:** two-account notifications and @mentions; drag and drop on Calendar and Timeline; Files upload and download; Mirror chips in light and dark.
+- **Earlier:** two-account notifications and @mentions; drag and drop on Calendar and Timeline.
+- Signed off on 2026-11-04 and removed: board sharing and roles (#46, the owner will review it later with an ultrareview), saved views, change column type, Files column, Mirror, description editor passes.
 
 ## Decisions waiting for the owner
 

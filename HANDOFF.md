@@ -31,13 +31,13 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 ## Open work (2026-11-04)
 
 - **Live since 2026-11-03** (autonomous batch while the owner was away): the Activity web UI (#63), button actions (#65) and the notify action (#72), column settings (#66), reorder favourite boards (#68), and the rich-text backend (#69, `contentDoc` on updates and replies). Earlier: P4 notifications, board sharing, Calendar, Timeline and Chart views, Mirror, change a column's type, My Work, global search.
-- **Open PR:** #74, rich text in the update composer and replies (web side of #69). Roadmap 3327934712 is Pending Merge. Review, run the checks and baselines if needed, then merge with rebase.
-- **P5 automations:** the design is merged as a proposal (`docs/specs/P5-automations-design.md`, #73). Roadmap "Automation engine design" (3306251672) is Planning with Actionable = Yes. **Do not start P5a** until the owner answers the six questions in section 11.
+- **Plan pending implementation:** `docs/plans/2026-11-04-owner-feedback.md` (owner feedback of 2026-11-04: two bugs, the P5 decisions, ultrareview checkpoints). Next session starts there. #74 (rich text in the composer) is merged and live.
+- **P5 automations:** the design is merged as a proposal (`docs/specs/P5-automations-design.md`, #73). The owner delegated the six product questions; the decisions are recorded in section 11 of the spec (accepted 2026-11-04). P5a starts after sections A and B of the pending plan.
 - **Merged but local-only:** the Atrium MCP connector (OPS3, #60), not yet run against production.
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
-- **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Activity log, button actions, notify, column settings, favourites; notify needs two accounts), the P5 questions, whether "Required" columns need a hard rule, and the flag emoji on Windows (needs a CDN picture fallback). The legacy-activity migration script has not been run; dry run first and only with the owner's agreement.
+- **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Activity log, button actions, notify, column settings, favourites; notify needs two accounts), whether "Required" columns need a hard rule, and the flag emoji on Windows (needs a CDN picture fallback). The legacy-activity migration script has not been run; dry run first and only with the owner's agreement.
 - **Next, in this order:**
-  1. Merge #74 once it is reviewed, then move 3327934712 to In review and add its owner check.
+  1. Build `docs/plans/2026-11-04-owner-feedback.md` in its order: A (favourite drag bug), B (readable text on fills), C (P5a), D (ultrareview checkpoints).
   2. Flaky test: world clock tests in `packages/shared` (Roadmap 3328651015).
   3. Remaining Roadmap items that need no product decision. Anything that does goes on the item with Actionable = Yes and an exact question.
   4. Check the bug inbox and Actionable = Agents first (filter by label id, Agents = 4, not the index).

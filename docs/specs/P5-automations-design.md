@@ -83,13 +83,15 @@ Writes made by an automation record `automation:<id>` as the **activity actor**,
 - **P5d Time-based triggers.**
 - **P5e Polish:** templates gallery entries, import/export of recipes, per-recipe notifications on failure.
 
-## 11. Questions for the owner
+## 11. Decisions (2026-11-04)
 
-1. **Who should a recipe run as?** Proposed: the person who created it, with their permissions (skipped and disabled if they lose access). The alternative is a shared "Automations" identity with board-level permissions.
-2. **Which recipes do you reach for first?** I proposed item created, status changed, moved to a group, assigned and button clicked. Tell me your top three so P5a covers them.
-3. **Limits.** Are 20 automations per board and 100 runs per hour enough for you and your family and friends?
-4. **Should an automation be allowed to create items and post updates?** Powerful but easy to misuse. I would add them in P5c behind the same limits.
-5. **How loud should automations be?** Should a failed run notify its creator, or only show in the history?
-6. **Notifications from automations** appear as coming from "Automations" with the recipe's name. OK, or should they show the creator?
+**Status: Accepted.** The owner delegated these product decisions to the lead ("you can make the most informed decisions"). They answer the six questions this section used to ask.
 
-Until these are answered I will not start P5a; the design above stays a proposal.
+1. **Runs as:** the person who created the recipe, with their permissions. If they lose access to the board, the run is skipped and the automation is disabled with a visible reason.
+2. **First recipes (P5a):** status changed to, item created, button clicked. Moved to group and assigned follow in P5b.
+3. **Limits:** 20 automations per board, 100 runs per hour per board, loop depth 3. They are constants in `functions/src/lib/automations/limits.ts` so they are easy to raise.
+4. **Create items and post updates:** yes, in P5c, behind the same limits.
+5. **Failures:** always in the run history. The creator gets one notification when the circuit breaker disables an automation, not one per failed run.
+6. **Notification label:** "Automations" plus the recipe name, with the creator named in the notification detail.
+
+P5a can start once the work in `docs/plans/2026-11-04-owner-feedback.md` (sections A and B) has merged.
