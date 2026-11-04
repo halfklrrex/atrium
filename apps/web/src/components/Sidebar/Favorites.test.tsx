@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FavoriteDoc } from '../../data';
 import { makeBoard, ts } from '../../test/fixtures';
 import { chooseMenuItem } from '../../test/menu';
@@ -48,6 +48,8 @@ function renderFavorites() {
 const labels = () => screen.getAllByRole('link').map((a) => a.textContent);
 
 describe('Favorites', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.favorites = [fav('a', 'a0'), fav('h', 'a1'), fav('b', 'a2'), fav('c', 'a3')];
@@ -108,6 +110,37 @@ describe('Favorites', () => {
     await user.click(screen.getByRole('link', { name: 'Bravo' }));
     expect(screen.getByTestId('where')).toHaveTextContent('/boards/b');
     expect(boardActions.moveFavorite).not.toHaveBeenCalled();
+  });
+
+  it('a drag does not navigate on release, and the next plain click does', async () => {
+    class TestPointerEvent extends MouseEvent {
+      isPrimary = true;
+    }
+    vi.stubGlobal('PointerEvent', TestPointerEvent);
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderFavorites();
+    const link = screen.getByRole('link', { name: 'Bravo' });
+    const pointer = (type: string, clientY: number, target: EventTarget = document) =>
+      act(() => {
+        target.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, button: 0, clientX: 10, clientY }),
+        );
+      });
+    pointer('pointerdown', 10, link);
+    pointer('pointermove', 30, link);
+    // Wait for the drag to activate, then release and let the browser's trailing click land.
+    await waitFor(() =>
+      expect(document.querySelector('[aria-live]')).toHaveTextContent(/Favorite Bravo/),
+    );
+    pointer('pointerup', 30, link);
+    // dnd-kit's own click blocker is removed after 50ms; a click arriving after that is
+    // what used to navigate.
+    await new Promise((r) => setTimeout(r, 80));
+    fireEvent.click(link);
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/$/);
+    await new Promise((r) => setTimeout(r, 200));
+    await user.click(link);
+    expect(screen.getByTestId('where')).toHaveTextContent('/boards/b');
   });
 
   it('lifts a row with Space, announces it by name, and Escape cancels without a write', async () => {
