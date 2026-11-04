@@ -657,21 +657,14 @@ service cloud.firestore {
         // `hasOnly` / `changed.hasOnly` already refuse a client that creates, changes or removes them;
         // only the onItemCreated function (Admin SDK) writes them. validUpdatesCountBump can't touch
         // them either: it allows `updatesCount` alone.
-        // `updatedVia` / `automationDepth` (the automation loop marker) are Functions-only. A client
-        // may only clear them to null (a human edit does, so a later change isn't credited to an
-        // earlier automation) or leave an existing value alone; it can never set a value. On
-        // update the check applies only when the write touches them, so items an automation
-        // wrote stay editable by clients that don't know about the marker.
-        function automationMarkerNullOrAbsent(d) {
-          return d.get('updatedVia', null) == null && d.get('automationDepth', null) == null;
-        }
-
+        // `updatedVia`, `automationDepth` and `automationRunId` (the automation loop marker) are
+        // Functions-only and in neither field list below, so a client can't create, set, change,
+        // clear (not even to null) or remove them. A client update that doesn't touch them keeps
+        // working on items an automation already wrote: only the affected keys are checked.
         function validItemCreate(d) {
           let board = boardData();
           return d.keys().hasOnly(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
-                                   'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'description',
-                                   'updatedVia', 'automationDepth'])
-            && automationMarkerNullOrAbsent(d)
+                                   'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'description'])
             && d.keys().hasAll(['name', 'groupId', 'position', 'parentItemId', 'values', 'state',
                                 'deletedAt', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
             && d.name is string && d.name.size() >= 1 && d.name.size() <= 500
@@ -700,10 +693,7 @@ service cloud.firestore {
           let board = boardData();
           // parentItemId is immutable: converting between item and subitem is not supported.
           return changed.hasOnly(['name', 'groupId', 'position', 'values', 'state',
-                                  'deletedAt', 'updatedAt', 'updatedBy', 'description',
-                                  'updatedVia', 'automationDepth'])
-            && (!changed.hasAny(['updatedVia', 'automationDepth'])
-                || automationMarkerNullOrAbsent(request.resource.data))
+                                  'deletedAt', 'updatedAt', 'updatedBy', 'description'])
             && (!changed.hasAny(['description']) || validDescription(request.resource.data.description))
             && request.resource.data.name is string && request.resource.data.name.size() >= 1
             && request.resource.data.name.size() <= 500

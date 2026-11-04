@@ -170,6 +170,8 @@ describe('item automation marker', () => {
     expect(ok({})).toBe(true);
     expect(ok({ updatedVia: null, automationDepth: null })).toBe(true);
     expect(ok({ updatedVia: 'automation:a1', automationDepth: 2 })).toBe(true);
+    expect(ok({ automationRunId: 'a1-e1' })).toBe(true);
+    expect(ok({ automationRunId: null })).toBe(true);
     expect(ok({ automationDepth: 4 })).toBe(false);
   });
 });
