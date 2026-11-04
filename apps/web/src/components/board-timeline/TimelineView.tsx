@@ -23,6 +23,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
 } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { useItems, useUserLookup, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
@@ -40,7 +41,7 @@ import { BoardToolbar } from '../board-table/BoardToolbar';
 import { isColumnReadOnlyForUser } from '../board-table/derived';
 import { openItemFull } from '../board-table/open-item';
 import { tableActions, type TableCtx } from '../board-table/table-actions';
-import { buildColumnViews } from '../board-table/table-model';
+import { buildColumnViews, type ColumnView } from '../board-table/table-model';
 import { useTableStore } from '../board-table/table-store';
 import { useDeepStable } from '../board-table/useDeepStable';
 import { useItemViewStore } from '../item-view/item-view-store';
@@ -83,12 +84,44 @@ const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** What a view drawn on top of the grid (the Gantt's arrows) gets to place its layer. */
+export interface TimelineOverlayArgs {
+  model: TimelineModel;
+  windows: ReturnType<typeof windowLanes>;
+  columns: readonly ColumnView[];
+}
+
+/** What a replacement settings panel gets. */
+export interface TimelinePanelArgs {
+  boardId: string;
+  timeColumns: readonly ColumnView[];
+  columns: readonly ColumnView[];
+  columnId: string | null;
+  settings: TimelineViewSettings;
+  onClose: () => void;
+}
+
 export interface TimelineViewProps {
   board: BoardDoc;
+  /**
+   * Which view this is. The Gantt is the Timeline plus dependency arrows, so it runs this same
+   * component with its own settings (a superset of the Timeline's) and its own labels.
+   */
+  kind?: 'timeline' | 'gantt';
+  /** A layer drawn over the lanes (the Gantt's dependency arrows). */
+  renderOverlay?: (args: TimelineOverlayArgs) => ReactNode;
+  /** A replacement for the Timeline settings panel (the Gantt adds its own options). */
+  renderSettings?: (args: TimelinePanelArgs) => ReactNode;
 }
 
 /** The Timeline view: toolbar with the zoom, a lane per group on a day axis, and the settings panel. */
-export function TimelineView({ board }: TimelineViewProps) {
+export function TimelineView({
+  board,
+  kind = 'timeline',
+  renderOverlay,
+  renderSettings,
+}: TimelineViewProps) {
+  const title = kind === 'gantt' ? 'Gantt' : 'Timeline';
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const { data: workspace } = useWorkspace(board.workspaceId);
@@ -116,7 +149,7 @@ export function TimelineView({ board }: TimelineViewProps) {
   const columnLocks = useDeepStable(board.columnLocks ?? []);
   const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
   const columns = useMemo(() => buildColumnViews(columnDefs), [columnDefs]);
-  const settings = useViewTypeSettings(boardId, 'timeline');
+  const settings = useViewTypeSettings(boardId, kind);
   const timeColumns = useMemo(
     () => columns.filter((c) => (TIMELINE_COLUMN_TYPES as readonly string[]).includes(c.def.type)),
     [columns],
@@ -220,7 +253,7 @@ export function TimelineView({ board }: TimelineViewProps) {
 
   // ---- Lanes: collapse one or all.
   const setCollapsed = (ids: string[]) =>
-    useFilterStore.getState().setTypeSettings(boardId, 'timeline', {
+    useFilterStore.getState().setTypeSettings(boardId, kind, {
       collapsedGroupIds: ids.slice(-TIMELINE_LIMITS.collapsedGroups),
     });
   const toggleLane = (groupId: string) => {
@@ -305,10 +338,10 @@ export function TimelineView({ board }: TimelineViewProps) {
       </Button>
       <select
         className={styles.zoomSelect}
-        aria-label="Timeline zoom"
+        aria-label={`${title} zoom`}
         value={zoom}
         onChange={(event) =>
-          useFilterStore.getState().setTypeSettings(boardId, 'timeline', {
+          useFilterStore.getState().setTypeSettings(boardId, kind, {
             zoom:
               event.target.value === 'days' || event.target.value === 'months'
                 ? event.target.value
@@ -329,7 +362,7 @@ export function TimelineView({ board }: TimelineViewProps) {
     <Button
       kind="tertiary"
       size="small"
-      aria-label="Timeline settings"
+      aria-label={`${title} settings`}
       aria-expanded={settingsOpen}
       onClick={() => useTimelineUi.getState().setSettingsOpen(uiKey, !settingsOpen)}
     >
@@ -343,7 +376,7 @@ export function TimelineView({ board }: TimelineViewProps) {
         board={board}
         items={items}
         userLookup={lookup}
-        variant="timeline"
+        variant={kind}
         canAddItem={canWrite}
         onNewItem={() => void addOnDay(today)}
         after={controls}
@@ -374,6 +407,8 @@ export function TimelineView({ board }: TimelineViewProps) {
                 allCollapsed={allCollapsed}
                 canWrite={canWrite}
                 isDateColumn={column.def.type !== 'timeline'}
+                title={title}
+                overlay={renderOverlay?.({ model, windows: laneWindows, columns })}
                 today={today}
                 preview={(bar, kind, k) => {
                   const plan = planDrag(bar, column, model.axis, kind, k);
@@ -394,16 +429,19 @@ export function TimelineView({ board }: TimelineViewProps) {
           ) : null}
           {ready && settings.showLegend ? <ColorLegend entries={model.legend} /> : null}
         </div>
-        {settingsOpen ? (
-          <TimelineSettingsPanel
-            boardId={boardId}
-            timeColumns={timeColumns}
-            columns={columns}
-            columnId={column?.def.id ?? null}
-            settings={settings}
-            onClose={() => useTimelineUi.getState().setSettingsOpen(uiKey, false)}
-          />
-        ) : null}
+        {settingsOpen
+          ? (() => {
+              const panel: TimelinePanelArgs = {
+                boardId,
+                timeColumns,
+                columns,
+                columnId: column?.def.id ?? null,
+                settings,
+                onClose: () => useTimelineUi.getState().setSettingsOpen(uiKey, false),
+              };
+              return renderSettings ? renderSettings(panel) : <TimelineSettingsPanel {...panel} />;
+            })()
+          : null}
       </div>
     </div>
   );
@@ -417,6 +455,8 @@ interface TimelineGridProps {
   allCollapsed: boolean;
   canWrite: boolean;
   isDateColumn: boolean;
+  title: string;
+  overlay?: ReactNode;
   today: string;
   preview: (bar: TimelineBar, kind: DragKind, k: number) => string;
   onToggleAll: () => void;
@@ -434,6 +474,8 @@ function TimelineGrid({
   allCollapsed,
   canWrite,
   isDateColumn,
+  title,
+  overlay,
   today,
   preview,
   onToggleAll,
@@ -457,7 +499,7 @@ function TimelineGrid({
       className={classNames(styles.content, paneHidden && styles.contentPaneHidden)}
       style={style}
       role="group"
-      aria-label="Timeline"
+      aria-label={title}
       data-zoom={zoom}
     >
       <div className={styles.headerRow}>
@@ -551,6 +593,7 @@ function TimelineGrid({
             onCommit={onCommit}
           />
         ))}
+        {overlay}
       </div>
     </div>
   );

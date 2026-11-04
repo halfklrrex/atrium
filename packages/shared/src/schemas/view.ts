@@ -43,7 +43,7 @@ export const sortConditionSchema: z.ZodType<SortCondition> = z.object({
   direction: z.enum(['asc', 'desc']),
 });
 
-export const viewTypeSchema = z.enum(['table', 'kanban', 'calendar', 'timeline', 'chart']);
+export const viewTypeSchema = z.enum(['table', 'kanban', 'calendar', 'timeline', 'gantt', 'chart']);
 export type ViewType = z.infer<typeof viewTypeSchema>;
 
 export const viewFilterSettingsSchema = z.object({
@@ -133,6 +133,27 @@ export function defaultTimelineViewSettings(): TimelineViewSettings {
   };
 }
 
+/** Settings of a Gantt view (`views/{id}.settings.gantt`): the Timeline's, plus dependencies and a baseline. */
+export const ganttSettingsSchema = timelineViewSettingsSchema.extend({
+  /** The Dependency column whose prerequisites are drawn as arrows; null = the first Dependency column. */
+  dependencyColumnId: columnIdSchema.nullable(),
+  /** A second Timeline or Date column drawn as a thin bar under each bar; null = none. */
+  baselineColumnId: columnIdSchema.nullable(),
+  showBaseline: z.boolean(),
+  showCriticalPath: z.boolean(),
+});
+export type GanttSettings = z.infer<typeof ganttSettingsSchema>;
+
+export function defaultGanttSettings(): GanttSettings {
+  return {
+    ...defaultTimelineViewSettings(),
+    dependencyColumnId: null,
+    baselineColumnId: null,
+    showBaseline: true,
+    showCriticalPath: false,
+  };
+}
+
 /** Axis key meaning "the board's groups". */
 export const CHART_GROUP_AXIS = '__group';
 
@@ -187,6 +208,8 @@ export const viewSettingsSchema = z.object({
   calendar: calendarSettingsSchema.optional(),
   /** Only Timeline views have these. */
   timeline: timelineViewSettingsSchema.optional(),
+  /** Only Gantt views have these. */
+  gantt: ganttSettingsSchema.optional(),
   /** Only Chart views have these. */
   chart: chartSettingsSchema.optional(),
 });

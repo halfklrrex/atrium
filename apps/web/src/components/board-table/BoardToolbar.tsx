@@ -28,7 +28,7 @@ export interface BoardToolbarProps {
    * `'calendar'` has a plain New item button, and no Hide or Group by.
    * `'chart'` has only Search, Person and Filter.
    */
-  variant?: 'table' | 'kanban' | 'calendar' | 'timeline' | 'chart';
+  variant?: 'table' | 'kanban' | 'calendar' | 'timeline' | 'gantt' | 'chart';
   /** Whether "New item" is enabled in the calendar variant (the table reads its own environment). */
   canAddItem?: boolean;
   /** Extra controls after the board tools (the calendar's period navigation). */
@@ -53,7 +53,7 @@ export function BoardToolbar({
   onNewGroup,
   onDev,
 }: BoardToolbarProps) {
-  const calendar = variant === 'calendar' || variant === 'timeline';
+  const calendar = variant === 'calendar' || variant === 'timeline' || variant === 'gantt';
   const tableOnly = variant === 'table';
   // Outside the table (the Kanban view) there is no table environment, and no New item button.
   const canEdit = useContext(TableEnvContext)?.canEdit ?? false;

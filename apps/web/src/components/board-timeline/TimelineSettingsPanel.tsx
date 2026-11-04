@@ -17,9 +17,12 @@ export interface TimelineSettingsPanelProps {
   columnId: string | null;
   settings: TimelineViewSettings;
   onClose: () => void;
+  /** The Gantt reuses this panel: its own settings key, and its extra sections after these. */
+  kind?: 'timeline' | 'gantt';
+  children?: ReactNode;
 }
 
-function Section({
+export function Section({
   title,
   children,
   defaultOpen = true,
@@ -61,9 +64,12 @@ export function TimelineSettingsPanel({
   columnId,
   settings,
   onClose,
+  kind = 'timeline',
+  children,
 }: TimelineSettingsPanelProps) {
+  const title = kind === 'gantt' ? 'Gantt' : 'Timeline';
   const set = (patch: Partial<TimelineViewSettings>) =>
-    useFilterStore.getState().setTypeSettings(boardId, 'timeline', patch);
+    useFilterStore.getState().setTypeSettings(boardId, kind, patch);
   const statuses = statusColumns(columns);
   // A saved colour column that is gone shows as "Group".
   const colorBy = statuses.some((c) => c.def.id === settings.colorBy) ? settings.colorBy : null;
@@ -79,20 +85,25 @@ export function TimelineSettingsPanel({
   ];
 
   return (
-    <aside className={styles.settings} aria-label="Timeline settings">
+    <aside className={styles.settings} aria-label={`${title} settings`}>
       <div className={styles.settingsHeader}>
-        <span className={styles.settingsTitle}>Timeline settings</span>
-        <Button kind="tertiary" size="small" aria-label="Close timeline settings" onClick={onClose}>
+        <span className={styles.settingsTitle}>{title} settings</span>
+        <Button
+          kind="tertiary"
+          size="small"
+          aria-label={`Close ${title.toLowerCase()} settings`}
+          onClick={onClose}
+        >
           Close
         </Button>
       </div>
 
       <Section title="Timeline column">
-        <label className={styles.settingsLabel} htmlFor="timeline-column">
+        <label className={styles.settingsLabel} htmlFor={`${kind}-column`}>
           Show items by
         </label>
         <select
-          id="timeline-column"
+          id={`${kind}-column`}
           className={styles.select}
           value={columnId ?? ''}
           disabled={timeColumns.length === 0}
@@ -107,11 +118,11 @@ export function TimelineSettingsPanel({
       </Section>
 
       <Section title="Colour by">
-        <label className={styles.settingsLabel} htmlFor="timeline-color">
+        <label className={styles.settingsLabel} htmlFor={`${kind}-color`}>
           Colour items by
         </label>
         <select
-          id="timeline-color"
+          id={`${kind}-color`}
           className={styles.select}
           value={colorBy ?? ''}
           onChange={(event) => set({ colorBy: event.target.value || null })}
@@ -138,6 +149,7 @@ export function TimelineSettingsPanel({
           ))}
         </ul>
       </Section>
+      {children}
     </aside>
   );
 }

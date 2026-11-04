@@ -1,6 +1,7 @@
 import {
   defaultCalendarSettings,
   defaultChartSettings,
+  defaultGanttSettings,
   defaultKanbanSettings,
   defaultTimelineViewSettings,
   defaultViewSettings,
@@ -33,6 +34,7 @@ const LABELS: Record<ViewType, string> = {
   kanban: 'Kanban',
   calendar: 'Calendar',
   timeline: 'Timeline',
+  gantt: 'Gantt',
   chart: 'Chart',
 };
 
@@ -48,6 +50,8 @@ function newViewSettings(type: ViewType): ViewSettings {
       return { ...base, calendar: defaultCalendarSettings() };
     case 'timeline':
       return { ...base, timeline: defaultTimelineViewSettings() };
+    case 'gantt':
+      return { ...base, gantt: defaultGanttSettings() };
     case 'chart':
       return { ...base, chart: defaultChartSettings() };
     default: {

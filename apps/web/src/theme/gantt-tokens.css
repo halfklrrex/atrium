@@ -1,0 +1,17 @@
+/*
+ * Gantt view tokens (P3). The Gantt is the Timeline plus dependency arrows, so it reuses the
+ * Timeline geometry and colours (timeline-tokens.css) and only adds what the arrows need.
+ */
+
+:root {
+  /* ---- Geometry ---- */
+  --atrium-gantt-arrow-width: 1.5px;
+  --atrium-gantt-arrow-width-active: 2.5px;
+  --atrium-gantt-arrow-hit-width: 10px; /* the invisible grab zone around a line, for hover */
+
+  /* ---- Colours ---- */
+  --atrium-gantt-arrow: var(--secondary-text-color);
+  --atrium-gantt-arrow-active: var(--primary-color);
+  --atrium-gantt-arrow-violation: var(--negative-color);
+  --atrium-gantt-linked-outline: var(--primary-color); /* the two bars of a hovered arrow */
+}
