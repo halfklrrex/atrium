@@ -4,6 +4,7 @@ import { ShareBoardDialog } from '../boards/ShareBoardDialog';
 import { NewBoardDialog } from './BoardDialogs';
 import { MembersDialog } from '../membership/MembersDialog';
 import { DeleteFolderDialog, FolderDialog } from './FolderDialogs';
+import { SaveAsTemplateDialog } from '../templates/SaveAsTemplateDialog';
 import { SearchDialog } from '../search/SearchDialog';
 import { NotificationSettingsDialog } from './NotificationSettingsDialog';
 import { NewWorkspaceDialog, WorkspaceSettingsDialog } from './WorkspaceDialogs';
@@ -28,6 +29,8 @@ export function DialogHost() {
           onClose={close}
         />
       );
+    case 'saveTemplate':
+      return <SaveAsTemplateDialog boardId={dialog.boardId} onClose={close} />;
     case 'folder':
       return (
         <FolderDialog

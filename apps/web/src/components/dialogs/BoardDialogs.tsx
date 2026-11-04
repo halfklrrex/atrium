@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { useBoards, writes } from '../../data';
 import { positionAfterAll } from '../../lib/positions';
+import { TemplateGallery } from '../templates/TemplateGallery';
+import type { TemplateChoice } from '../templates/template-choice';
 import { describeError } from '../boards/board-actions';
 import { BOARD_KIND_OPTIONS } from '../boards/kinds';
 import styles from './dialogs.module.css';
@@ -69,31 +71,54 @@ export function NewBoardDialog({
   const [kind, setKind] = useState<BoardKind>(initialKind);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startFrom, setStartFrom] = useState<'blank' | 'template'>('blank');
+  const [template, setTemplate] = useState<TemplateChoice | null>(null);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [includeSampleItems, setIncludeSampleItems] = useState(true);
 
   const parsed = createBoardInputSchema.safeParse({ name, kind, folderId });
 
   async function submit() {
     if (!user || !parsed.success || submitting) return;
+    if (startFrom === 'template' && !template) return;
     setSubmitting(true);
     setError(null);
     try {
       const siblings = boards.filter((b) => b.folderId === parsed.data.folderId);
-      const id = await writes.createBoard(
-        user.uid,
-        workspaceId,
-        parsed.data,
-        positionAfterAll(siblings),
-      );
+      const position = positionAfterAll(siblings);
+      const id =
+        startFrom === 'template' && template
+          ? await writes.createBoardFromTemplate(
+              user.uid,
+              workspaceId,
+              parsed.data,
+              position,
+              template,
+              { includeSampleItems },
+            )
+          : await writes.createBoard(user.uid, workspaceId, parsed.data, position);
       onClose();
       void navigate(`/boards/${id}`);
     } catch (e) {
-      setError(describeError(e, 'Could not create the board.'));
+      setError(
+        describeError(
+          e,
+          startFrom === 'template'
+            ? 'Could not create the board from the template.'
+            : 'Could not create the board.',
+        ),
+      );
       setSubmitting(false);
     }
   }
 
   return (
-    <Modal id="new-board-dialog" show size="small" onClose={onClose}>
+    <Modal
+      id="new-board-dialog"
+      show
+      size={startFrom === 'template' ? 'medium' : 'small'}
+      onClose={onClose}
+    >
       <ModalBasicLayout>
         <ModalHeader title="Create board" />
         <ModalContent>
@@ -109,13 +134,49 @@ export function NewBoardDialog({
               inputAriaLabel="Board name"
               onKeyDown={submitOnEnter(() => void submit())}
               value={name}
-              onChange={(value: string) => setName(value)}
+              onChange={(value: string) => {
+                setName(value);
+                setNameTouched(true);
+              }}
               placeholder="e.g. Roadmap, Home projects"
               maxLength={120}
               autoFocus
               size="medium"
             />
             <KindOptions value={kind} onChange={setKind} name="new-board-kind" />
+            <div role="radiogroup" aria-labelledby="new-board-start-label">
+              <span id="new-board-start-label" className={styles.fieldLabel}>
+                Start from
+              </span>
+              <div className={styles.inlineOptions}>
+                <RadioButton
+                  name="new-board-start"
+                  text="Blank board"
+                  value="blank"
+                  checked={startFrom === 'blank'}
+                  onSelect={() => setStartFrom('blank')}
+                />
+                <RadioButton
+                  name="new-board-start"
+                  text="Template"
+                  value="template"
+                  checked={startFrom === 'template'}
+                  onSelect={() => setStartFrom('template')}
+                />
+              </div>
+            </div>
+            {startFrom === 'template' ? (
+              <TemplateGallery
+                workspaceId={workspaceId}
+                selectedKey={template?.key ?? null}
+                onSelect={(choice) => {
+                  setTemplate(choice);
+                  if (choice && !nameTouched) setName(choice.name);
+                }}
+                includeSampleItems={includeSampleItems}
+                onIncludeSampleItemsChange={setIncludeSampleItems}
+              />
+            ) : null}
             {error ? (
               <p className={styles.error} role="alert">
                 {error}
@@ -129,7 +190,7 @@ export function NewBoardDialog({
         primaryButton={{
           text: 'Create board',
           onClick: () => void submit(),
-          disabled: !parsed.success || submitting,
+          disabled: !parsed.success || submitting || (startFrom === 'template' && !template),
           loading: submitting,
         }}
         secondaryButton={{ text: 'Cancel', onClick: onClose, disabled: submitting }}

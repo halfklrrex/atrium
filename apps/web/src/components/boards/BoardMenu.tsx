@@ -7,6 +7,7 @@ import {
   Duplicate,
   Edit,
   Favorite,
+  Gallery,
   ClassicFolder as Folder,
   Locked,
   Move,
@@ -100,6 +101,12 @@ function BoardMenuContent({
         icon={Duplicate}
         disabled={!workspace || workspace.roles[uid] === 'viewer'}
         onClick={() => void boardActions.duplicate(uid, board, boards)}
+      />
+      <MenuItem
+        title="Save as template"
+        icon={Gallery}
+        disabled={!workspace || workspace.roles[uid] === 'viewer'}
+        onClick={() => openDialog({ type: 'saveTemplate', boardId: board.id })}
       />
       {canEdit ? (
         <MenuItem title="Move to folder" icon={Move}>

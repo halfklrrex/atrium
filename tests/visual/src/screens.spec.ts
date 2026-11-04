@@ -42,6 +42,8 @@ import {
   removeGanttView,
   removeChartView,
   removeView,
+  removeSavedTemplate,
+  seedSavedTemplate,
   seedActivity,
   seedNotifications,
   seedRichUpdate,
@@ -645,6 +647,26 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole('textbox', { name: 'Board name' })).toBeFocused();
       await shoot(page, `create-board-dialog-${theme}`);
+    });
+
+    test('create board dialog, template gallery', async ({ page }) => {
+      await seedSavedTemplate();
+      try {
+        await page.goto('/');
+        await homeReady(page);
+        await page.getByRole('button', { name: 'Add to workspace' }).click();
+        const item = page.getByRole('menuitem', { name: 'Board', exact: true });
+        await item.hover();
+        await item.click({ delay: 100 });
+        const dialog = page.getByRole('dialog', { name: 'Create board' });
+        await expect(dialog).toBeVisible();
+        await dialog.getByRole('radio', { name: 'Template' }).check({ force: true });
+        await expect(dialog.getByRole('radio', { name: /Weekly review/ })).toBeVisible();
+        await dialog.getByRole('radio', { name: /Project tracker/ }).click();
+        await shoot(page, `new-board-templates-${theme}`);
+      } finally {
+        await removeSavedTemplate();
+      }
     });
 
     test('notifications panel open, empty', async ({ page }) => {
