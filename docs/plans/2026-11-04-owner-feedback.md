@@ -8,17 +8,17 @@ Follows the format of `2026-11-03-autonomous-batch.md`. Work loop (AGENTS.md / C
 
 ## What the owner sent back
 
-| Item | Owner said | Outcome |
-|---|---|---|
-| Connect boards & mirror (3306234642) | "Works correctly!" | Done |
-| Change a column's type (3309194280) | "All good!" | Done |
-| Saved & personal views (3306219723) | "Fixed!" | Done |
-| Description editor pass 3 (3311534270) | "Perfect" | Done |
-| Files column (3306293650) | Works; asks whether buttons can be configured | Yes, live in #65 and #72. Done |
-| Roles, permissions (3306251568) | Assume it works; review later with an ultrareview | Done. See section D |
-| Automation engine design (3306251672) | "You can make the most informed decisions" | Decisions in section C; Planning |
-| Bug inbox 664822847 | Dragging a favourite opens that board on release | Section A |
-| Bug inbox 664830810 (screenshot asset 291448967) | Text colour should adapt to the fill: black on red is illegible | Section B |
+| Item                                             | Owner said                                                      | Outcome                          |
+| ------------------------------------------------ | --------------------------------------------------------------- | -------------------------------- |
+| Connect boards & mirror (3306234642)             | "Works correctly!"                                              | Done                             |
+| Change a column's type (3309194280)              | "All good!"                                                     | Done                             |
+| Saved & personal views (3306219723)              | "Fixed!"                                                        | Done                             |
+| Description editor pass 3 (3311534270)           | "Perfect"                                                       | Done                             |
+| Files column (3306293650)                        | Works; asks whether buttons can be configured                   | Yes, live in #65 and #72. Done   |
+| Roles, permissions (3306251568)                  | Assume it works; review later with an ultrareview               | Done. See section D              |
+| Automation engine design (3306251672)            | "You can make the most informed decisions"                      | Decisions in section C; Planning |
+| Bug inbox 664822847                              | Dragging a favourite opens that board on release                | Section A                        |
+| Bug inbox 664830810 (screenshot asset 291448967) | Text colour should adapt to the fill: black on red is illegible | Section B                        |
 
 ## A. Bug: dragging a favourite opens the board on release (small, first)
 
