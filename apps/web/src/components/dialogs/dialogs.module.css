@@ -137,3 +137,9 @@
   color: var(--secondary-text-color);
   font: var(--font-text2-normal);
 }
+
+.inlineOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-24);
+}

@@ -7,6 +7,7 @@ import { NewBoardDialog } from './BoardDialogs';
 
 const mocks = vi.hoisted(() => ({
   createBoard: vi.fn(),
+  createBoardFromTemplate: vi.fn(),
   boards: [] as unknown[],
 }));
 
@@ -17,7 +18,12 @@ vi.mock('../../auth/auth-context', () => ({
 vi.mock('../../data', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
   useBoards: () => ({ data: mocks.boards, loading: false, error: null }),
-  writes: { createBoard: mocks.createBoard },
+  useTemplates: () => ({ data: [], loading: false, error: null }),
+  useWorkspace: () => ({ data: { roles: { u1: 'owner' } }, loading: false, error: null }),
+  writes: {
+    createBoard: mocks.createBoard,
+    createBoardFromTemplate: mocks.createBoardFromTemplate,
+  },
 }));
 
 function renderDialog(props: { folderId?: string | null } = {}) {
@@ -40,6 +46,7 @@ function renderDialog(props: { folderId?: string | null } = {}) {
 
 beforeEach(() => {
   mocks.createBoard.mockReset().mockResolvedValue('new-board');
+  mocks.createBoardFromTemplate.mockReset().mockResolvedValue('from-template');
   mocks.boards = [];
 });
 
@@ -89,6 +96,41 @@ describe('NewBoardDialog', () => {
     await userEvent.type(screen.getByLabelText('Board name'), 'Nope');
     await userEvent.click(screen.getByRole('button', { name: 'Create board' }));
     expect(await screen.findByRole('alert')).toHaveTextContent("You don't have permission");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('creates a board from a built-in template with its name prefilled', async () => {
+    renderDialog();
+    expect(screen.getByRole('radio', { name: 'Blank board' })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: 'Template' }));
+    // Nothing picked yet.
+    expect(screen.getByRole('button', { name: 'Create board' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await userEvent.click(screen.getByRole('radio', { name: /Project tracker/ }));
+    expect(screen.getByLabelText('Board name')).toHaveValue('Project tracker');
+    await userEvent.click(screen.getByRole('button', { name: 'Create board' }));
+
+    await waitFor(() => expect(mocks.createBoardFromTemplate).toHaveBeenCalledTimes(1));
+    const call = mocks.createBoardFromTemplate.mock.calls[0] as unknown[];
+    expect(call[0]).toBe('u1');
+    expect(call[2]).toMatchObject({ name: 'Project tracker', kind: 'main', folderId: null });
+    expect(call[4]).toMatchObject({ structure: expect.anything() });
+    expect(call[5]).toEqual({ includeSampleItems: true });
+    expect(mocks.createBoard).not.toHaveBeenCalled();
+    expect(await screen.findByText('board page')).toBeInTheDocument();
+  });
+
+  it('passes the sample items choice and reports a template failure', async () => {
+    mocks.createBoardFromTemplate.mockRejectedValue({ code: 'unavailable' });
+    const onClose = renderDialog();
+    await userEvent.click(screen.getByRole('radio', { name: 'Template' }));
+    await userEvent.click(screen.getByRole('radio', { name: /Bug tracker/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Include sample items' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create board' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('offline');
+    expect(mocks.createBoardFromTemplate.mock.calls[0]?.[5]).toEqual({ includeSampleItems: false });
     expect(onClose).not.toHaveBeenCalled();
   });
 });

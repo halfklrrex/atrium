@@ -1,0 +1,143 @@
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.scroll {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.sectionTitle {
+  margin: var(--space-8) 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-medium);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--atrium-card-min-width), 1fr));
+  gap: var(--space-12);
+  margin-bottom: var(--space-12);
+}
+
+.card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: var(--border-width) solid var(--ui-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--primary-background-color);
+  transition: border-color var(--motion-productive-medium) var(--motion-timing-transition);
+}
+
+.card:hover {
+  border-color: var(--primary-color);
+}
+
+.cardSelected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 var(--border-width) var(--primary-color);
+  background: var(--primary-selected-color);
+}
+
+.cardEditing {
+  gap: var(--space-8);
+  padding: var(--space-12);
+}
+
+.cardButton {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: var(--primary-text-color);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.cardButton:focus-visible {
+  outline: var(--space-2) solid var(--primary-color);
+  outline-offset: calc(var(--space-2) * -1);
+}
+
+.iconTile {
+  display: flex;
+  width: var(--atrium-avatar-sm);
+  height: var(--atrium-avatar-sm);
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-small);
+  background: var(--primary-selected-color);
+  color: var(--primary-color);
+}
+
+.cardName {
+  font: var(--font-text1-medium);
+}
+
+.cardDescription {
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.chip {
+  padding: 0 var(--space-8);
+  border-radius: var(--border-radius-small);
+  background: var(--allgrey-background-color);
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.meta {
+  margin-top: auto;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.manage {
+  position: absolute;
+  top: var(--space-4);
+  inset-inline-end: var(--space-4);
+  display: flex;
+  gap: var(--space-4);
+}
+
+.cardActions {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.confirmText {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.status {
+  margin: 0 0 var(--space-12);
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.error {
+  margin: 0 0 var(--space-12);
+  color: var(--negative-color);
+  font: var(--font-text2-normal);
+}

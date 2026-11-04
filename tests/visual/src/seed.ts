@@ -1,4 +1,5 @@
 import {
+  BUILT_IN_TEMPLATES,
   FIRESTORE_DATABASE_ID,
   columnRegistry,
   defaultBoardStructure,
@@ -1200,4 +1201,36 @@ export async function seedRichUpdate(): Promise<void> {
 /** Removes the update `seedRichUpdate` added, so other screens never see it. */
 export async function clearRichUpdate(): Promise<void> {
   await fullViewItemRef().collection('updates').doc(RICH_UPDATE).delete();
+}
+
+/** A saved template in the personal workspace, for the new-board template gallery screens. */
+export const SAVED_TEMPLATE = 'template-weekly-review';
+
+export async function seedSavedTemplate(): Promise<void> {
+  const base = BUILT_IN_TEMPLATES[0];
+  if (!base) throw new Error('No built-in template to base the saved one on');
+  await adminDb()
+    .collection('workspaces')
+    .doc(IDS.personalWorkspace)
+    .collection('templates')
+    .doc(SAVED_TEMPLATE)
+    .set({
+      name: 'Weekly review',
+      description: 'Saved from a board of mine.',
+      structure: base.structure,
+      sampleItems: base.sampleItems.slice(0, 3),
+      itemCount: Math.min(3, base.sampleItems.length),
+      createdBy: AVERY.uid,
+      createdAt: ago(2 * DAY),
+      updatedAt: ago(2 * DAY),
+    });
+}
+
+export async function removeSavedTemplate(): Promise<void> {
+  await adminDb()
+    .collection('workspaces')
+    .doc(IDS.personalWorkspace)
+    .collection('templates')
+    .doc(SAVED_TEMPLATE)
+    .delete();
 }
