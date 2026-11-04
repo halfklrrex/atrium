@@ -1,7 +1,11 @@
-/* The dependency layer: over the lanes, right of the group-name pane. Only the lines take the pointer. */
+/*
+ * The dependency layer: right of the group-name pane, above the grid but beneath the bars (a bar
+ * is z-index raised), so an arrow never paints over a name drawn outside a short bar. Only the
+ * lines take the pointer.
+ */
 .arrows {
   position: absolute;
-  z-index: var(--atrium-z-raised);
+  z-index: calc(var(--atrium-z-raised) - 1);
   top: 0;
   inset-inline-start: var(--tl-pane-width);
   overflow: visible;
@@ -10,6 +14,14 @@
 
 .arrow {
   --gantt-arrow-color: var(--atrium-gantt-arrow);
+}
+
+.arrowCritical {
+  --gantt-arrow-color: var(--atrium-gantt-arrow-critical);
+}
+
+.arrowCritical .arrowLine {
+  stroke-width: var(--atrium-gantt-arrow-width-critical);
 }
 
 .arrowActive {
@@ -44,9 +56,46 @@
   pointer-events: stroke;
 }
 
+/* The baseline layer: thin planned-dates bars under the main bars, beneath them like the arrows. */
+.baselines {
+  position: absolute;
+  z-index: calc(var(--atrium-z-raised) - 1);
+  top: 0;
+  inset-inline-start: var(--tl-pane-width);
+  pointer-events: none;
+}
+
+.baseline {
+  position: absolute;
+  top: calc(
+    var(--tl-row) * var(--atrium-timeline-row-height) +
+      (var(--atrium-timeline-row-height) + var(--atrium-timeline-bar-height)) / 2 +
+      var(--atrium-gantt-baseline-gap)
+  );
+  inset-inline-start: calc(var(--tl-start) * var(--tl-w));
+  box-sizing: border-box;
+  width: max(calc(var(--tl-span) * var(--tl-w)), var(--atrium-timeline-bar-min));
+  height: var(--atrium-gantt-baseline-height);
+  border-radius: var(--border-radius-big);
+  background: var(--atrium-gantt-baseline);
+}
+
+/* A bar on the critical path (marked from GanttArrows), a stronger outline than the hover one. */
+:global([data-item][data-critical='true']) {
+  outline: var(--atrium-gantt-critical-outline-width) var(--border-style)
+    var(--atrium-gantt-critical-outline);
+  outline-offset: var(--border-width);
+  border-radius: var(--atrium-timeline-bar-radius);
+}
+
 /* The two bars of a hovered arrow (marked from GanttArrows). */
 :global([data-item][data-linked='true']) {
   outline: var(--atrium-gantt-arrow-width-active) var(--border-style)
     var(--atrium-gantt-linked-outline);
   outline-offset: var(--border-width);
+}
+
+/* Settings panel: space between a select and the checkbox below it. */
+.settingsGap {
+  margin-block-start: var(--space-8);
 }

@@ -5,10 +5,14 @@ import { buildColumnViews } from '../board-table/table-model';
 import { buildTimeline, windowLanes } from '../board-timeline/timeline-model';
 import {
   buildEdges,
+  buildBaselines,
   buildNodes,
+  criticalPath,
   prerequisitesOf,
+  resolveBaselineColumn,
   renderedNodeIds,
   resolveDependencyColumn,
+  visibleBaselines,
   visibleEdges,
 } from './gantt-model';
 
@@ -24,6 +28,8 @@ const columns = buildColumnViews([
   column('plan', 'timeline', 'Plan', 'a0'),
   column('deps', 'dependency', 'Depends on', 'a1'),
   column('deps2', 'dependency', 'Blocked by', 'a2'),
+  column('base', 'timeline', 'Baseline', 'a3'),
+  column('due', 'date', 'Due', 'a4'),
 ]);
 const plan = columns.find((c) => c.def.id === 'plan')!;
 
@@ -202,5 +208,147 @@ describe('visibleEdges', () => {
     expect(visibleEdges(edges, windows)).toEqual([]);
     const all = windowLanes(m.lanes, 0, 10_000);
     expect(visibleEdges(edges, all)).toHaveLength(2);
+  });
+});
+
+const withBase = (
+  id: string,
+  groupId: string,
+  from: string,
+  to: string,
+  base: { from: string; to: string } | null,
+  position = 'a0',
+) =>
+  makeItem({
+    id,
+    name: id.toUpperCase(),
+    groupId,
+    position,
+    values: { plan: { from, to }, ...(base ? { base } : {}) },
+  });
+
+describe('resolveBaselineColumn', () => {
+  it('accepts a Timeline or Date column other than the bar column, never falls back', () => {
+    expect(resolveBaselineColumn(columns, 'base', 'plan')?.def.id).toBe('base');
+    expect(resolveBaselineColumn(columns, 'due', 'plan')?.def.id).toBe('due');
+    expect(resolveBaselineColumn(columns, 'plan', 'plan')).toBeNull();
+    expect(resolveBaselineColumn(columns, 'deps', 'plan')).toBeNull();
+    expect(resolveBaselineColumn(columns, null, 'plan')).toBeNull();
+    expect(resolveBaselineColumn(columns, 'gone', 'plan')).toBeNull();
+  });
+});
+
+describe('buildBaselines', () => {
+  const base = columns.find((c) => c.def.id === 'base')!;
+
+  it('pairs each item with the baseline dates in the same row as its bar', () => {
+    const m = model([
+      withBase('a', 'g1', '2026-10-05', '2026-10-10', { from: '2026-10-03', to: '2026-10-08' }),
+      withBase('b', 'g2', '2026-10-12', '2026-10-15', { from: '2026-10-12', to: '2026-10-12' }),
+    ]);
+    const baselines = buildBaselines(m, base);
+    expect(baselines.map((b) => [b.id, b.from, b.to, b.row])).toEqual([
+      ['a', '2026-10-03', '2026-10-08', 1],
+      ['b', '2026-10-12', '2026-10-12', 3],
+    ]);
+    expect(baselines[0]!.startIdx).toBe(m.axis.lowerBound('2026-10-03'));
+    expect(baselines[0]!.endIdx).toBe(m.axis.lowerBound('2026-10-09') - 1);
+  });
+
+  it('skips items without a baseline value and collapsed lanes', () => {
+    const items = [
+      withBase('a', 'g1', '2026-10-05', '2026-10-10', { from: '2026-10-03', to: '2026-10-08' }),
+      withBase('b', 'g1', '2026-10-12', '2026-10-15', null, 'a1'),
+      withBase('c', 'g2', '2026-10-12', '2026-10-15', { from: '2026-10-12', to: '2026-10-14' }),
+    ];
+    expect(buildBaselines(model(items), base).map((b) => b.id)).toEqual(['a', 'c']);
+    expect(buildBaselines(model(items, ['g1']), base).map((b) => b.id)).toEqual(['c']);
+  });
+
+  it('draws a Date column baseline as one day, and hides baselines outside the row window', () => {
+    const due = columns.find((c) => c.def.id === 'due')!;
+    const dated = makeItem({
+      id: 'a',
+      name: 'A',
+      groupId: 'g1',
+      position: 'a0',
+      values: { plan: { from: '2026-10-05', to: '2026-10-10' }, due: { date: '2026-10-09' } },
+    });
+    const m = model([dated]);
+    const [b] = buildBaselines(m, due);
+    expect(b).toMatchObject({ from: '2026-10-09', to: '2026-10-09' });
+    expect(b!.endIdx).toBe(b!.startIdx);
+    expect(visibleBaselines([b!], windowLanes(m.lanes, 0, 10))).toHaveLength(1);
+    expect(visibleBaselines([b!], [])).toEqual([]);
+  });
+});
+
+describe('criticalPath', () => {
+  const path = (items: ReturnType<typeof item>[]) => criticalPath(buildEdges(model(items), 'deps'));
+
+  it('has no path without arrows', () => {
+    expect(path([item('a', 'g1', '2026-10-05', '2026-10-10')])).toMatchObject({
+      ids: [],
+      cyclic: false,
+    });
+  });
+
+  it('follows a chain from its first prerequisite to its last dependent', () => {
+    const result = path([
+      item('a', 'g1', '2026-10-05', '2026-10-06'),
+      item('b', 'g1', '2026-10-07', '2026-10-09', ['a'], 'a1'),
+      item('c', 'g1', '2026-10-10', '2026-10-12', ['b'], 'a2'),
+    ]);
+    expect(result.ids).toEqual(['a', 'b', 'c']);
+    expect([...result.edgeKeys].sort()).toEqual(['b:a', 'c:b']);
+  });
+
+  it('takes the longer branch of a diamond', () => {
+    // a -> b (2 days) -> d and a -> c (6 days) -> d
+    const result = path([
+      item('a', 'g1', '2026-10-05', '2026-10-06'),
+      item('b', 'g1', '2026-10-07', '2026-10-08', ['a'], 'a1'),
+      item('c', 'g1', '2026-10-07', '2026-10-12', ['a'], 'a2'),
+      item('d', 'g1', '2026-10-13', '2026-10-14', ['b', 'c'], 'a3'),
+    ]);
+    expect(result.ids).toEqual(['a', 'c', 'd']);
+    expect(result.edgeKeys.has('d:b')).toBe(false);
+  });
+
+  it('breaks a tie in a diamond by the order of the items in the view', () => {
+    const items = [
+      item('a', 'g1', '2026-10-05', '2026-10-06'),
+      item('b', 'g1', '2026-10-07', '2026-10-09', ['a'], 'a1'),
+      item('c', 'g1', '2026-10-07', '2026-10-09', ['a'], 'a2'),
+      item('d', 'g1', '2026-10-10', '2026-10-11', ['c', 'b'], 'a3'),
+    ];
+    expect(path(items).ids).toEqual(['a', 'b', 'd']);
+    // Swap the order of b and c: the other branch wins.
+    const swapped = [
+      items[0]!,
+      { ...items[1]!, position: 'a2' },
+      { ...items[2]!, position: 'a1' },
+      items[3]!,
+    ];
+    expect(path(swapped).ids).toEqual(['a', 'c', 'd']);
+  });
+
+  it('picks the longest of several chains, counting each bar in days', () => {
+    const result = path([
+      item('a', 'g1', '2026-10-05', '2026-10-06'),
+      item('b', 'g1', '2026-10-07', '2026-10-08', ['a'], 'a1'),
+      item('x', 'g2', '2026-10-05', '2026-10-25'),
+      item('y', 'g2', '2026-10-26', '2026-10-27', ['x'], 'a1'),
+    ]);
+    expect(result.ids).toEqual(['x', 'y']);
+  });
+
+  it('skips the highlight on a cycle', () => {
+    const result = path([
+      item('a', 'g1', '2026-10-05', '2026-10-06', ['b']),
+      item('b', 'g1', '2026-10-07', '2026-10-08', ['a'], 'a1'),
+    ]);
+    expect(result).toMatchObject({ ids: [], cyclic: true });
+    expect(result.edgeKeys.size).toBe(0);
   });
 });

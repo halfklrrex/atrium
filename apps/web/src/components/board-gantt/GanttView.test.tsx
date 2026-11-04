@@ -5,7 +5,7 @@ import {
   type ColumnDef,
   type GanttSettings,
 } from '@atrium/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ItemDoc } from '../../data';
@@ -48,6 +48,15 @@ const group = [{ id: 'g1', title: 'Alpha', color: '#579bfc', position: 'a0' }];
 const withDeps = makeBoard({
   id: 'b1',
   columns: [column('plan', 'timeline', 'Plan', 'a0'), column('deps', 'dependency', 'After', 'a1')],
+  groups: group,
+});
+const withBaseline = makeBoard({
+  id: 'b1',
+  columns: [
+    ...withDeps.columns,
+    column('base', 'timeline', 'Planned', 'a2'),
+    column('due', 'date', 'Due', 'a3'),
+  ],
   groups: group,
 });
 const withoutDeps = makeBoard({
@@ -143,5 +152,86 @@ describe('GanttView', () => {
     open(withoutDeps);
     await user.click(screen.getByRole('button', { name: 'Gantt settings' }));
     expect(screen.getByText(/Add a Dependency column/)).toBeInTheDocument();
+  });
+
+  describe('baseline', () => {
+    const baselineItems = (): ItemDoc[] => [
+      makeItem({
+        ...items()[0]!,
+        values: {
+          plan: { from: '2026-10-05', to: '2026-10-12' },
+          base: { from: '2026-10-03', to: '2026-10-09' },
+        },
+      }),
+      items()[1]!,
+    ];
+
+    it('draws a thin bar for items with a baseline value, and the header toggle hides it', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mocks.items = baselineItems();
+      const { container } = open(withBaseline, { baselineColumnId: 'base', showBaseline: true });
+      expect(container.querySelector('[data-baseline="i1"]')).not.toBeNull();
+      expect(container.querySelector('[data-baseline="i2"]')).toBeNull();
+      const toggle = screen.getByRole('button', { name: 'Baseline' });
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      await user.click(toggle);
+      expect(currentViewState('b1').gantt?.showBaseline).toBe(false);
+      expect(container.querySelector('[data-baseline]')).toBeNull();
+    });
+
+    it('has no baseline or toggle without a baseline column', () => {
+      mocks.items = baselineItems();
+      const { container } = open(withBaseline);
+      expect(container.querySelector('[data-baseline]')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Baseline' })).toBeNull();
+    });
+
+    it('offers only other Timeline or Date columns in the settings and saves the choice', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      open(withBaseline);
+      await user.click(screen.getByRole('button', { name: 'Gantt settings' }));
+      const select = screen.getByLabelText('Planned dates in');
+      expect(
+        within(select)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['None', 'Planned', 'Due']);
+      await user.selectOptions(select, 'base');
+      expect(currentViewState('b1').gantt?.baselineColumnId).toBe('base');
+    });
+  });
+
+  describe('critical path', () => {
+    it('marks the arrows and bars of the longest chain, toggled from the header', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const { container } = open();
+      expect(container.querySelector('[data-edge][data-critical]')).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Critical path' }));
+      expect(currentViewState('b1').gantt?.showCriticalPath).toBe(true);
+      expect(container.querySelector('[data-edge="i2:i1"]')?.getAttribute('data-critical')).toBe(
+        'true',
+      );
+      expect(container.querySelector('[data-item="i1"]')?.getAttribute('data-critical')).toBe(
+        'true',
+      );
+      expect(container.querySelector('[data-item="i2"]')?.getAttribute('data-critical')).toBe(
+        'true',
+      );
+    });
+
+    it('toggles from the settings panel and warns about a dependency loop', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mocks.items = [
+        makeItem({ ...items()[0]!, values: { ...items()[0]!.values, deps: { item_ids: ['i2'] } } }),
+        items()[1]!,
+      ];
+      const { container } = open(withDeps, { showCriticalPath: false });
+      await user.click(screen.getByRole('button', { name: 'Gantt settings' }));
+      expect(screen.queryByRole('status')).toBeNull();
+      await user.click(screen.getByRole('checkbox', { name: 'Show critical path' }));
+      expect(currentViewState('b1').gantt?.showCriticalPath).toBe(true);
+      expect(screen.getByRole('status')).toHaveTextContent(/form a loop/);
+      expect(container.querySelector('[data-critical]')).toBeNull();
+    });
   });
 });

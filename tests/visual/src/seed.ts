@@ -727,27 +727,62 @@ export const GANTT_VIEW = 'view-roadmap-gantt';
 
 const GANTT_PLAN = 'gplan';
 const GANTT_DEPS = 'gdeps';
+const GANTT_BASE = 'gbase';
 
 /** Seven roadmap items with a plan (a Timeline value) and the items each one waits for. */
-const GANTT_PLANS: Record<string, { from: string; to: string; after: string[] }> = {
-  'roadmap-item-00': { from: '2026-10-12', to: '2026-10-16', after: [] },
-  'roadmap-item-01': { from: '2026-10-19', to: '2026-10-23', after: ['roadmap-item-00'] },
+const GANTT_PLANS: Record<
+  string,
+  { from: string; to: string; after: string[]; base: { from: string; to: string } | null }
+> = {
+  'roadmap-item-00': {
+    from: '2026-10-12',
+    to: '2026-10-16',
+    after: [],
+    base: { from: '2026-10-10', to: '2026-10-14' },
+  },
+  'roadmap-item-01': {
+    from: '2026-10-19',
+    to: '2026-10-23',
+    after: ['roadmap-item-00'],
+    base: { from: '2026-10-16', to: '2026-10-20' },
+  },
   // Starts before roadmap-item-01 finishes: the arrow is drawn as a violation.
-  'roadmap-item-02': { from: '2026-10-22', to: '2026-10-28', after: ['roadmap-item-01'] },
-  'roadmap-item-03': { from: '2026-10-29', to: '2026-11-02', after: ['roadmap-item-02'] },
-  'roadmap-item-06': { from: '2026-10-20', to: '2026-10-27', after: ['roadmap-item-00'] },
-  'roadmap-item-07': { from: '2026-10-28', to: '2026-11-03', after: ['roadmap-item-06'] },
+  'roadmap-item-02': {
+    from: '2026-10-22',
+    to: '2026-10-28',
+    after: ['roadmap-item-01'],
+    base: { from: '2026-10-21', to: '2026-10-26' },
+  },
+  'roadmap-item-03': {
+    from: '2026-10-29',
+    to: '2026-11-02',
+    after: ['roadmap-item-02'],
+    base: { from: '2026-10-27', to: '2026-10-30' },
+  },
+  'roadmap-item-06': {
+    from: '2026-10-20',
+    to: '2026-10-27',
+    after: ['roadmap-item-00'],
+    base: null,
+  },
+  'roadmap-item-07': {
+    from: '2026-10-28',
+    to: '2026-11-03',
+    after: ['roadmap-item-06'],
+    base: { from: '2026-10-28', to: '2026-11-02' },
+  },
   'roadmap-item-12': {
     from: '2026-11-03',
     to: '2026-11-09',
     after: ['roadmap-item-03', 'roadmap-item-07'],
+    base: { from: '2026-11-02', to: '2026-11-06' },
   },
 };
 export const GANTT_BARS = Object.keys(GANTT_PLANS).length;
 
 /**
  * A shared Gantt view on the roadmap board, with a temporary Timeline column and a Dependency
- * column: a chain with one violated arrow, a second branch, and an item that waits for both.
+ * column and a Baseline column: a chain with one violated arrow, a second branch, and an item that waits for both.
  * Pair with `removeGanttView`.
  */
 export async function addGanttView(): Promise<void> {
@@ -757,9 +792,10 @@ export async function addGanttView(): Promise<void> {
     const columns = ((await tx.get(board)).get('columns') ?? []) as ColumnDef[];
     tx.update(board, {
       columns: [
-        ...columns.filter((c) => c.id !== GANTT_PLAN && c.id !== GANTT_DEPS),
+        ...columns.filter((c) => c.id !== GANTT_PLAN && c.id !== GANTT_DEPS && c.id !== GANTT_BASE),
         column(GANTT_PLAN, 'timeline', 'Plan', 'a8'),
         column(GANTT_DEPS, 'dependency', 'Depends on', 'a9'),
+        column(GANTT_BASE, 'timeline', 'Baseline', 'aa'),
       ],
     });
   });
@@ -768,6 +804,7 @@ export async function addGanttView(): Promise<void> {
     batch.update(board.collection('items').doc(id), {
       [`values.${GANTT_PLAN}`]: { from: plan.from, to: plan.to },
       ...(plan.after.length ? { [`values.${GANTT_DEPS}`]: { item_ids: plan.after } } : {}),
+      ...(plan.base ? { [`values.${GANTT_BASE}`]: plan.base } : {}),
     });
   }
   batch.set(board.collection('views').doc(GANTT_VIEW), {
@@ -793,9 +830,9 @@ export async function addGanttView(): Promise<void> {
         showWeekends: true,
         showLegend: true,
         dependencyColumnId: GANTT_DEPS,
-        baselineColumnId: null,
+        baselineColumnId: GANTT_BASE,
         showBaseline: true,
-        showCriticalPath: false,
+        showCriticalPath: true,
       },
     },
     createdAt: ago(DAY),
@@ -812,7 +849,9 @@ export async function removeGanttView(): Promise<void> {
   await db.runTransaction(async (tx) => {
     const columns = ((await tx.get(board)).get('columns') ?? []) as ColumnDef[];
     tx.update(board, {
-      columns: columns.filter((c) => c.id !== GANTT_PLAN && c.id !== GANTT_DEPS),
+      columns: columns.filter(
+        (c) => c.id !== GANTT_PLAN && c.id !== GANTT_DEPS && c.id !== GANTT_BASE,
+      ),
     });
   });
   const batch = db.batch();
@@ -820,6 +859,7 @@ export async function removeGanttView(): Promise<void> {
     batch.update(board.collection('items').doc(id), {
       [`values.${GANTT_PLAN}`]: FieldValue.delete(),
       [`values.${GANTT_DEPS}`]: FieldValue.delete(),
+      [`values.${GANTT_BASE}`]: FieldValue.delete(),
     });
   }
   batch.delete(board.collection('views').doc(GANTT_VIEW));

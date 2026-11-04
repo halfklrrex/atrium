@@ -8,10 +8,20 @@
   --atrium-gantt-arrow-width: 1.5px;
   --atrium-gantt-arrow-width-active: 2.5px;
   --atrium-gantt-arrow-hit-width: 10px; /* the invisible grab zone around a line, for hover */
+  --atrium-gantt-arrow-width-critical: 2px;
+  --atrium-gantt-critical-outline-width: 2px; /* the outline of a bar on the critical path */
+  --atrium-gantt-baseline-height: 3px; /* the thin planned-dates bar under a main bar */
+  --atrium-gantt-baseline-gap: 1px; /* between the main bar's bottom edge and the baseline */
 
   /* ---- Colours ---- */
   --atrium-gantt-arrow: var(--secondary-text-color);
   --atrium-gantt-arrow-active: var(--primary-color);
   --atrium-gantt-arrow-violation: var(--negative-color);
+  --atrium-gantt-arrow-critical: var(--primary-color);
+  --atrium-gantt-critical-outline: var(--primary-color);
+  --atrium-gantt-baseline: var(--secondary-text-color);
+  --atrium-gantt-label-halo: var(
+    --atrium-timeline-bg
+  ); /* behind a name drawn outside a short bar */
   --atrium-gantt-linked-outline: var(--primary-color); /* the two bars of a hovered arrow */
 }

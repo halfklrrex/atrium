@@ -257,6 +257,9 @@ for (const theme of ['light', 'dark'] as const) {
         await page.goto(`/boards/${IDS.roadmap}/views/${GANTT_VIEW}`);
         // Seven planned items and seven arrows (one is violated).
         await ganttReady(page, GANTT_BARS, 7);
+        // Six baselines, and the longest chain (five items, four arrows) is highlighted.
+        await expect(page.locator('[data-baseline]')).toHaveCount(6);
+        await expect(page.locator('[data-edge][data-critical="true"]')).toHaveCount(4);
         await shoot(page, `board-gantt-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeGanttView();

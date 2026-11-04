@@ -212,6 +212,8 @@ const COLUMNS = [
     settings: { mode: 'personAndDate' },
   },
   { id: 'timeline', type: 'timeline', title: 'Timeline', settings: { showProgress: true } },
+  // The planned dates the Gantt view draws as a thin bar under each bar (see BASELINES).
+  { id: 'baseline', type: 'timeline', title: 'Baseline', settings: {} },
   {
     id: 'week',
     type: 'week',
@@ -398,6 +400,20 @@ function descriptionOf(blocks) {
  * Omit a field to leave the cell empty. `owner: true` puts the board owner in the people cell;
  * `people: ['jordan', 'sam']` adds fake members (see SHOWCASE_MEMBERS) to it.
  */
+/**
+ * Planned dates (days from today, as `timeline`) of the items on the Gantt's dependency chain, drawn
+ * as the baseline under each bar: some started late or ran long, so the baseline differs.
+ */
+const BASELINES = {
+  'hero-copy': [-4, 0],
+  'pricing-page': [-1, 5],
+  staging: [-7, -3],
+  'blog-migration': [-2, 5],
+  'responsive-nav': [2, 8],
+  'redirect-map': [6, 13],
+  'press-kit': [10, 17],
+};
+
 const ITEMS = [
   // ---- This week ----
   {
@@ -577,6 +593,7 @@ const ITEMS = [
   },
   {
     key: 'blog-migration',
+    dependsOn: ['staging'],
     people: ['casey'],
     group: 'this_week',
     name: 'Migrate blog posts to the new CMS',
@@ -707,6 +724,7 @@ const ITEMS = [
   // ---- Next up ----
   {
     key: 'responsive-nav',
+    dependsOn: ['pricing-page'],
     group: 'next_up',
     name: 'Build responsive navigation',
     owner: true,
@@ -792,6 +810,7 @@ const ITEMS = [
   },
   {
     key: 'redirect-map',
+    dependsOn: ['blog-migration'],
     group: 'next_up',
     name: 'Redirect map for old URLs',
     owner: true,
@@ -830,6 +849,7 @@ const ITEMS = [
   },
   {
     key: 'press-kit',
+    dependsOn: ['blog-migration', 'responsive-nav'],
     group: 'next_up',
     name: 'Refresh the press kit',
     priority: 'low',
@@ -1215,6 +1235,11 @@ function rawValues(spec, ownerUid, anchor) {
     values.timeline = {
       from: isoDate(anchor, spec.timeline[0]),
       to: isoDate(anchor, spec.timeline[1]),
+    };
+  if (BASELINES[spec.key])
+    values.baseline = {
+      from: isoDate(anchor, BASELINES[spec.key][0]),
+      to: isoDate(anchor, BASELINES[spec.key][1]),
     };
   if (spec.week)
     values.week = {
@@ -1679,6 +1704,45 @@ export function buildShowcase({
           showLegend: true,
           showValues: true,
           showEmpty: true,
+        },
+      },
+      createdAt: ago(3 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
+
+  // ---- A shared Gantt "Plan": the dependency chain with its baseline and the critical path ----
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-plan-gantt`,
+    data: boardViewSchema.parse({
+      name: 'Plan',
+      type: 'gantt',
+      position: 'a7',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        gantt: {
+          columnId: 'timeline',
+          zoom: 'weeks',
+          colorBy: 'status',
+          collapsedGroupIds: [],
+          showGroupSummary: true,
+          showToday: true,
+          showWeekends: true,
+          showLegend: true,
+          dependencyColumnId: 'dependency',
+          baselineColumnId: 'baseline',
+          showBaseline: true,
+          showCriticalPath: true,
         },
       },
       createdAt: ago(3 * DAY),

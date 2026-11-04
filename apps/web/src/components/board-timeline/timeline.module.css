@@ -426,6 +426,13 @@
   color: var(--primary-text-color);
 }
 
+/* In the Gantt the name sits on a halo, so an arrow running through it never cuts the text. */
+.content[data-kind='gantt'] .barLabel {
+  padding-inline: var(--space-4);
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-gantt-label-halo);
+}
+
 .barContinuesBefore .barFill {
   border-start-start-radius: 0;
   border-end-start-radius: 0;
