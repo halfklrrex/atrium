@@ -67,6 +67,7 @@ export function useNotificationPrefs(uid: string | undefined): {
       reply: data?.notificationPrefs?.reply ?? true,
       mention: data?.notificationPrefs?.mention ?? true,
       button: data?.notificationPrefs?.button ?? true,
+      automation: data?.notificationPrefs?.automation ?? true,
     }),
     [data],
   );
@@ -107,6 +108,7 @@ export const notificationWrites = {
         reply: prefs.reply,
         mention: prefs.mention,
         button: prefs.button,
+        automation: prefs.automation,
       },
     });
   },

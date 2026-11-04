@@ -40,6 +40,7 @@ export const ACTIVITY_KINDS = [
   'board_left',
   'update_posted',
   'button_clicked',
+  'automation_ran',
 ] as const;
 export const activityKindSchema = z.enum(ACTIVITY_KINDS);
 export type ActivityKind = z.infer<typeof activityKindSchema>;
@@ -75,6 +76,10 @@ export const activityDataSchema = z.object({
   actions: z.array(z.string().max(40)).max(5).optional(),
   /** `button_clicked`: how many people the click notified. */
   notified: z.number().int().min(0).max(10).optional(),
+  /** Entries caused by an automation: the depth of the chain (a user action is 0, so absent). */
+  depth: z.number().int().min(0).max(3).optional(),
+  /** `automation_ran` and entries an automation wrote: the automation id. */
+  automationId: idSchema.optional(),
 });
 export type ActivityData = z.infer<typeof activityDataSchema>;
 

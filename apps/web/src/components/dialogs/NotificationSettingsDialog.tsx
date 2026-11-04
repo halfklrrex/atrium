@@ -1,4 +1,4 @@
-import type { NotificationKind } from '@atrium/shared';
+import type { NotificationPrefs } from '@atrium/shared';
 import {
   Modal,
   ModalBasicLayout,
@@ -12,11 +12,16 @@ import { notificationWrites, useNotificationPrefs } from '../../data/notificatio
 import { showToast } from '../toast-store';
 import styles from './dialogs.module.css';
 
-const KINDS: readonly { kind: NotificationKind; label: string; hint: string }[] = [
+const KINDS: readonly { kind: keyof NotificationPrefs; label: string; hint: string }[] = [
   { kind: 'assigned', label: 'Assigned to me', hint: 'Someone adds you to a People column.' },
   { kind: 'reply', label: 'Replies', hint: 'Someone replies to an update you wrote.' },
   { kind: 'mention', label: 'Mentions', hint: 'Someone mentions you in an update or reply.' },
   { kind: 'button', label: 'Button clicks', hint: 'Someone clicks a button that notifies you.' },
+  {
+    kind: 'automation',
+    label: 'Automations',
+    hint: 'An automation notifies you, or one you created is turned off.',
+  },
 ];
 
 /** "Notification settings": one switch per kind; each change is saved straight away. */
@@ -25,7 +30,7 @@ export function NotificationSettingsDialog({ onClose }: { onClose: () => void })
   const uid = user?.uid;
   const { prefs, loading } = useNotificationPrefs(uid);
 
-  const change = (kind: NotificationKind, on: boolean) => {
+  const change = (kind: keyof NotificationPrefs, on: boolean) => {
     if (!uid) return;
     notificationWrites.setPrefs(uid, { ...prefs, [kind]: on }).catch(() => {
       showToast('Could not save your notification settings.', { type: 'negative' });

@@ -40,6 +40,8 @@ export function activityLabel(event: EventLike): string {
       return 'Update posted';
     case 'button_clicked':
       return columnTitle ? `Clicked ${columnTitle}` : 'Button clicked';
+    case 'automation_ran':
+      return 'Automation ran';
     case 'column_added':
       return 'Column added';
     case 'column_renamed':
@@ -99,6 +101,8 @@ export function activitySentence(event: EventLike): string {
       return `${who} posted an update on ${item}${data.snippet ? `: ${data.snippet}` : ''}`;
     case 'button_clicked':
       return `${who} clicked ${columnTitle ? `the button ${columnTitle}` : 'a button'} on ${item}`;
+    case 'automation_ran':
+      return `${who} ran an automation on ${item}`;
     case 'column_added':
       return `${who} added the column ${columnTitle ?? ''}`.trim();
     case 'column_renamed':

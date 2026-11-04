@@ -119,6 +119,7 @@ describe('useNotificationPrefs', () => {
       reply: true,
       mention: true,
       button: true,
+      automation: true,
     });
   });
 
@@ -130,6 +131,7 @@ describe('useNotificationPrefs', () => {
       reply: true,
       mention: false,
       button: true,
+      automation: true,
     });
   });
 });
@@ -169,16 +171,25 @@ describe('notificationWrites', () => {
     expect(mockDeleteDoc).toHaveBeenCalledWith({ path: 'users/u1/notifications/n9' });
   });
 
-  it('saves the four switches on the user document', async () => {
+  it('saves the five switches on the user document', async () => {
     await notificationWrites.setPrefs('u1', {
       assigned: true,
       reply: false,
       mention: true,
       button: false,
+      automation: true,
     });
     expect(mockUpdateDoc).toHaveBeenCalledWith(
       { path: 'users/u1' },
-      { notificationPrefs: { assigned: true, reply: false, mention: true, button: false } },
+      {
+        notificationPrefs: {
+          assigned: true,
+          reply: false,
+          mention: true,
+          button: false,
+          automation: true,
+        },
+      },
     );
   });
 });

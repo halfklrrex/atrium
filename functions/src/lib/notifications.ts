@@ -68,7 +68,13 @@ const KIND_PRIORITY: Record<NotificationKind, number> = {
   reply: 3,
   assigned: 2,
   button: 1,
+  automation: 1,
+  automation_disabled: 1,
 };
+
+/** The prefs switch behind a kind: `automation_disabled` follows the `automation` switch. */
+const prefKeyOf = (kind: NotificationKind): keyof NotificationPrefs =>
+  kind === 'automation_disabled' ? 'automation' : kind;
 
 export interface NotificationCandidate {
   uid: string;
@@ -127,7 +133,7 @@ export async function deliverNotifications(
   for (const candidate of byUid.values()) {
     if (resolveBoardRole(board, candidate.uid, roles[candidate.uid]) === null) continue;
     const prefs = await store.getPrefs(candidate.uid);
-    if (prefs?.[candidate.kind] === false) continue;
+    if (prefs?.[prefKeyOf(candidate.kind)] === false) continue;
     recipients.push(candidate);
   }
   if (recipients.length === 0) return 0;
