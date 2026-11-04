@@ -100,6 +100,13 @@ export interface DeliveryEvent {
   snippet?: string;
   /** Button clicks: the label shown on the card. */
   buttonLabel?: string;
+  /** Automation kinds: the recipe name shown on the card. */
+  recipeName?: string;
+  /**
+   * Lets the actor receive their own notification. An automation's notification names its creator
+   * as the actor, and the creator is also the one it notifies.
+   */
+  includeActor?: boolean;
   candidates: ReadonlyArray<NotificationCandidate>;
 }
 
@@ -117,7 +124,7 @@ export async function deliverNotifications(
   // One notification per person: the strongest kind wins; the actor never notifies themselves.
   const byUid = new Map<string, NotificationCandidate>();
   for (const candidate of event.candidates) {
-    if (candidate.uid === event.actorId) continue;
+    if (candidate.uid === event.actorId && !event.includeActor) continue;
     const current = byUid.get(candidate.uid);
     if (!current || KIND_PRIORITY[candidate.kind] > KIND_PRIORITY[current.kind]) {
       byUid.set(candidate.uid, candidate);
@@ -160,6 +167,7 @@ export async function deliverNotifications(
       columnId: recipient.columnId ?? null,
       snippet: event.snippet ?? '',
       ...(event.buttonLabel !== undefined ? { buttonLabel: clip(event.buttonLabel, 50) } : {}),
+      ...(event.recipeName !== undefined ? { recipeName: clip(event.recipeName, 80) } : {}),
     };
     const id = notificationId(recipient.kind, event.eventId, recipient.uid);
     if (await store.createNotification(recipient.uid, id, doc)) created += 1;
@@ -208,6 +216,68 @@ export async function deliverButtonNotifications(
     });
   }
   return created;
+}
+
+// -- Automations ---------------------------------------------------------------------------------
+
+export interface AutomationDelivery {
+  /** `${automationId}-${activityEventId}`: part of every notification id, so a retry overwrites nothing. */
+  eventId: string;
+  boardId: string;
+  itemId: string;
+  /** The recipe's creator (`runAs`): named as the actor and, for a disabled notice, the recipient. */
+  creatorUid: string;
+  recipeName: string;
+  itemName: string;
+  targets: ReadonlyArray<{ uid: string; message: string }>;
+}
+
+/**
+ * An automation run, after its transaction committed: one `automation` notification per person the
+ * `notify` actions named (board readers only, prefs respected). The creator is the actor and is not
+ * skipped as such. Returns how many were created.
+ */
+export async function deliverAutomationNotifications(
+  store: NotificationStore,
+  run: AutomationDelivery,
+): Promise<number> {
+  const byMessage = new Map<string, string[]>();
+  for (const { uid, message } of run.targets) {
+    byMessage.set(message, [...(byMessage.get(message) ?? []), uid]);
+  }
+  let created = 0;
+  for (const [message, uids] of byMessage) {
+    created += await deliverNotifications(store, {
+      eventId: run.eventId,
+      boardId: run.boardId,
+      itemId: run.itemId,
+      actorId: run.creatorUid,
+      includeActor: true,
+      itemName: run.itemName,
+      recipeName: run.recipeName,
+      snippet: makeSnippet(message),
+      candidates: uids.map((uid) => ({ uid, kind: 'automation' as const })),
+    });
+  }
+  return created;
+}
+
+/** The circuit breaker switched a recipe off: one `automation_disabled` notice to its creator. */
+export async function deliverAutomationDisabled(
+  store: NotificationStore,
+  notice: Omit<AutomationDelivery, 'targets'> & { reason: string },
+): Promise<number> {
+  return await deliverNotifications(store, {
+    eventId: notice.eventId,
+    boardId: notice.boardId,
+    itemId: notice.itemId,
+    actorId: notice.creatorUid,
+    includeActor: true,
+    itemName: notice.itemName,
+    recipeName: notice.recipeName,
+    snippet: makeSnippet(notice.reason),
+    candidates: [{ uid: notice.creatorUid, kind: 'automation_disabled' }],
+  });
 }
 
 // -- Assigned ---------------------------------------------------------------------------------

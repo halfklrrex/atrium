@@ -10,6 +10,9 @@ Live checks only the owner can do, collected per feature while agents build ahea
 - **Favourite drag (#78):** drag a favourite to reorder it and release; the board must not open. Try the same in the main sidebar tree.
 - **Readable text on fills (#77):** check status pills and bars on every colour, red included, in light and dark; the text should always be readable.
 - **Dashboards data layer (#89) and the P5a automations schemas (#81, #82, #84):** nothing visible yet. The dashboard screens and the automations engine are in progress (the engine is PR #90, held for the ultrareview).
+## Merged 2026-11-04 (P5a)
+
+- **Automations engine (P5a):** P5a is backend only: no UI until P5b. Nothing to check in the app yet; recipes can only be created through the Firebase console until the builder lands.
 
 ## Merged 2026-11-04
 
