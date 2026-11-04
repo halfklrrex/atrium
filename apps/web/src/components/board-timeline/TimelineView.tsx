@@ -112,6 +112,8 @@ export interface TimelineViewProps {
   renderOverlay?: (args: TimelineOverlayArgs) => ReactNode;
   /** A replacement for the Timeline settings panel (the Gantt adds its own options). */
   renderSettings?: (args: TimelinePanelArgs) => ReactNode;
+  /** Extra toolbar controls after the zoom (the Gantt's baseline and critical-path toggles). */
+  extraControls?: ReactNode;
 }
 
 /** The Timeline view: toolbar with the zoom, a lane per group on a day axis, and the settings panel. */
@@ -120,6 +122,7 @@ export function TimelineView({
   kind = 'timeline',
   renderOverlay,
   renderSettings,
+  extraControls,
 }: TimelineViewProps) {
   const title = kind === 'gantt' ? 'Gantt' : 'Timeline';
   const { user } = useAuth();
@@ -355,6 +358,7 @@ export function TimelineView({
           </option>
         ))}
       </select>
+      {extraControls}
     </>
   ) : null;
 
@@ -501,6 +505,7 @@ function TimelineGrid({
       role="group"
       aria-label={title}
       data-zoom={zoom}
+      data-kind={title.toLowerCase()}
     >
       <div className={styles.headerRow}>
         <div className={styles.corner}>

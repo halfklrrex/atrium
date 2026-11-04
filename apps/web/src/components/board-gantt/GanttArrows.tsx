@@ -2,7 +2,7 @@ import classNames from 'classnames';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { LaneWindow, TimelineModel } from '../board-timeline/timeline-model';
 import { arrowShape, barBox } from './gantt-geometry';
-import { buildEdges, visibleEdges } from './gantt-model';
+import { buildEdges, criticalPath, visibleEdges } from './gantt-model';
 import styles from './gantt.module.css';
 
 const DEFAULT_ROW_HEIGHT = 32;
@@ -12,15 +12,22 @@ export interface GanttArrowsProps {
   windows: readonly LaneWindow[];
   /** The Dependency column whose prerequisites are drawn; null draws nothing. */
   dependencyColumnId: string | null;
+  /** Highlight the longest chain: stronger bar outlines and accent arrows. */
+  showCriticalPath?: boolean;
 }
 
 /**
  * The dependency arrows: one SVG layer over the lanes, from the end of each prerequisite's bar to
  * the start of its dependent's (finish to start). Violated arrows (the prerequisite ends after the
  * dependent starts) are drawn in the danger colour with a tooltip. Only the lines take the pointer;
- * hovering one highlights both items.
+ * hovering one highlights both items. The arrows of the critical path take the accent colour.
  */
-export function GanttArrows({ model, windows, dependencyColumnId }: GanttArrowsProps) {
+export function GanttArrows({
+  model,
+  windows,
+  dependencyColumnId,
+  showCriticalPath = false,
+}: GanttArrowsProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [rowHeight, setRowHeight] = useState(DEFAULT_ROW_HEIGHT);
   const [hover, setHover] = useState<string | null>(null);
@@ -36,6 +43,26 @@ export function GanttArrows({ model, windows, dependencyColumnId }: GanttArrowsP
 
   const edges = useMemo(() => buildEdges(model, dependencyColumnId), [model, dependencyColumnId]);
   const shown = useMemo(() => visibleEdges(edges, windows), [edges, windows]);
+
+  const critical = useMemo(
+    () => (showCriticalPath ? criticalPath(edges) : null),
+    [edges, showCriticalPath],
+  );
+
+  // The bars of the critical path get a stronger outline (marked from here, like the hover link).
+  const criticalKey = critical ? JSON.stringify(critical.ids) : '';
+  useEffect(() => {
+    const root = svgRef.current?.parentElement;
+    if (!root || !criticalKey) return;
+    const marked: Element[] = [];
+    for (const id of JSON.parse(criticalKey) as string[]) {
+      root.querySelectorAll(`[data-item="${id.replace(/["\\]/g, '\\$&')}"]`).forEach((el) => {
+        el.setAttribute('data-critical', 'true');
+        marked.push(el);
+      });
+    }
+    return () => marked.forEach((el) => el.removeAttribute('data-critical'));
+  }, [criticalKey, windows]);
 
   // Hovering an arrow marks its two bars (they live in the lanes, outside this layer).
   const active = shown.find((e) => e.key === hover) ?? null;
@@ -66,6 +93,7 @@ export function GanttArrows({ model, windows, dependencyColumnId }: GanttArrowsP
       viewBox={`0 0 ${width} ${height}`}
       aria-hidden="true"
       data-gantt-arrows={shown.length}
+      data-critical-path={critical && critical.ids.length > 0 ? critical.ids.join(',') : undefined}
     >
       {shown.map((edge) => {
         const shape = arrowShape(
@@ -78,11 +106,13 @@ export function GanttArrows({ model, windows, dependencyColumnId }: GanttArrowsP
             key={edge.key}
             className={classNames(
               styles.arrow,
+              critical?.edgeKeys.has(edge.key) && styles.arrowCritical,
               edge.violated && styles.arrowViolated,
               hover === edge.key && styles.arrowActive,
             )}
             data-edge={edge.key}
             data-violated={edge.violated ? 'true' : undefined}
+            data-critical={critical?.edgeKeys.has(edge.key) ? 'true' : undefined}
           >
             {edge.message ? <title>{edge.message}</title> : null}
             <path className={styles.arrowLine} d={shape.line} />

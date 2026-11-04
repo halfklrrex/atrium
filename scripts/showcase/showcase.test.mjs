@@ -714,8 +714,8 @@ test('re-running keeps the item numbers the function assigned', async () => {
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
   const { docs, summary } = build();
   const views = docs.filter((d) => /^boards\/showcase-main\/views\/[^/]+$/.test(d.path));
-  assert.equal(summary.views, 6);
-  assert.equal(views.length, 6);
+  assert.equal(summary.views, 7);
+  assert.equal(views.length, 7);
   const view = views.find((v) => v.data.name === 'Due this week').data;
   assert.equal(view.name, 'Due this week');
   assert.equal(view.type, 'table');
@@ -784,6 +784,37 @@ test('the main board has a shared Timeline "Roadmap": lanes by group, placed by 
   assert.ok(items.length >= 15, `${items.length} items with a timeline`);
   assert.ok(new Set(items.map((d) => d.data.groupId)).size >= 3);
   for (const { data } of items) assert.ok(data.values[column.id].from <= data.values[column.id].to);
+});
+
+test('the main board has a shared Gantt "Plan": dependencies, baseline dates and the critical path', () => {
+  const { docs } = build();
+  const view = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-plan-gantt').data;
+  assert.equal(view.type, 'gantt');
+  assert.equal(view.ownerId, null);
+  const gantt = view.settings.gantt;
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const type = (id) => board.columns.find((c) => c.id === id)?.type;
+  assert.equal(type(gantt.columnId), 'timeline');
+  assert.equal(type(gantt.dependencyColumnId), 'dependency');
+  assert.equal(type(gantt.baselineColumnId), 'timeline');
+  assert.notEqual(gantt.baselineColumnId, gantt.columnId);
+  assert.ok(gantt.showBaseline && gantt.showCriticalPath);
+  const items = docs.filter((d) => /^boards\/showcase-main\/items\/[^/]+$/.test(d.path));
+  const withBaseline = items.filter((d) => d.data.values?.[gantt.baselineColumnId]);
+  assert.ok(withBaseline.length >= 5, `${withBaseline.length} items with a baseline`);
+  for (const { data } of withBaseline) {
+    const b = data.values[gantt.baselineColumnId];
+    assert.ok(b.from <= b.to);
+    assert.ok(data.values[gantt.columnId], 'a baseline item has a bar');
+  }
+  // A chain of at least four items, with no item waiting for itself.
+  const edges = items.flatMap((d) =>
+    (d.data.values?.[gantt.dependencyColumnId]?.item_ids ?? []).map((from) => [
+      from,
+      d.data.id ?? d.path,
+    ]),
+  );
+  assert.ok(edges.length >= 5, `${edges.length} dependency arrows`);
 });
 
 test('a view that left the content is pruned on the next run', async () => {
