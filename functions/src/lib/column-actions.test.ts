@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { NewActivity } from './activity';
 import {
   clickButtonInTransaction,
+  runActionsInTransaction,
   startTimeTrackingInTransaction,
   stopTimeTrackingInTransaction,
   type BoardData,
@@ -982,6 +983,96 @@ describe('column-actions', () => {
         store.recentClicksMs = [store.currentTimeMs - 2500];
         await expect(click(store)).resolves.toMatchObject({ success: true });
       });
+    });
+  });
+});
+
+describe('runActionsInTransaction', () => {
+  const board: BoardData = {
+    kind: 'main',
+    workspaceId: 'ws_1',
+    access: {},
+    columns: [{ id: 'col_text', type: 'text', settings: {} }],
+    groups: [{ id: 'g1' }, { id: 'g2' }],
+  };
+  const item: ItemData = { id: 'item_1', name: 'Task', state: 'active', values: {} };
+  const newStore = (): TestStore => ({
+    board,
+    workspaceRoles: {},
+    item,
+    appendedActivities: [],
+    itemUpdates: [],
+    currentTimeMs: 1700000000000,
+    generatedSessionId: 's',
+  });
+  const ctx = (over: Partial<Parameters<typeof runActionsInTransaction>[1]> = {}) => ({
+    boardId: 'b_1',
+    item,
+    actions: [
+      { type: 'set_value' as const, columnId: 'col_text', value: 'hi' },
+      { type: 'move_to_group' as const, groupId: 'g2' },
+    ],
+    board,
+    role: 'editor' as BoardRole,
+    actorUid: 'automation-runner',
+    nowMs: 1700000000000,
+    ...over,
+  });
+
+  it('applies the patch with the extra item fields and reports applied types', async () => {
+    const store = newStore();
+    const out = await runActionsInTransaction(
+      createFakeTx(store),
+      ctx({ extraItemFields: { updatedVia: 'automation:abc', automationDepth: 1 } }),
+      'TS',
+    );
+    expect(out).toEqual({ applied: ['set_value', 'move_to_group'] });
+    expect(store.itemUpdates).toEqual([
+      {
+        patch: {
+          'values.col_text': 'hi',
+          groupId: 'g2',
+          updatedVia: 'automation:abc',
+          automationDepth: 1,
+        },
+        updatedBy: 'automation-runner',
+      },
+    ]);
+  });
+
+  it('skips a non-active item without writing', async () => {
+    const store = newStore();
+    const out = await runActionsInTransaction(
+      createFakeTx(store),
+      ctx({ item: { ...item, state: 'archived' } }),
+      'TS',
+    );
+    expect(out).toEqual({ skipped: 'item not active' });
+    expect(store.itemUpdates).toEqual([]);
+  });
+
+  it('checks notify targets against board.memberUids when given', async () => {
+    const actions = [{ type: 'notify' as const, uids: ['u_x'], message: 'hey' }];
+    await expect(
+      runActionsInTransaction(
+        createFakeTx(newStore()),
+        ctx({ actions, board: { ...board, memberUids: ['u_y'] } }),
+        'TS',
+      ),
+    ).rejects.toMatchObject({ code: 'failed-precondition' });
+    const ok = await runActionsInTransaction(
+      createFakeTx(newStore()),
+      ctx({
+        actions,
+        board: { ...board, memberUids: ['u_x'] },
+        notifyColumnId: 'c',
+        notifyLabel: 'L',
+      }),
+      'TS',
+    );
+    expect(ok).toMatchObject({
+      applied: ['notify'],
+      notify: { columnId: 'c', buttonLabel: 'L', targets: [{ uid: 'u_x', message: 'hey' }] },
     });
   });
 });

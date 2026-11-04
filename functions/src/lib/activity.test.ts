@@ -5,6 +5,7 @@ import {
   actorOf,
   diffBoardActivity,
   diffItemActivity,
+  itemActorId,
   expiresAt,
   expiresAtMs,
   rawValue,
@@ -588,5 +589,69 @@ describe('recordUpdatePosted', () => {
       actorName: 'Taylor Lee',
       actorPhotoUrl: 'https://example.com/t.png',
     });
+  });
+});
+
+describe('automation loop marker', () => {
+  const via = (automationDepth: unknown, updatedVia: unknown = 'automation:abc') => ({
+    ...edit({ name: 'Renamed' }, 'u1'),
+    updatedVia,
+    automationDepth,
+  });
+
+  it('attributes the write to the automation and stamps data.depth on every entry', () => {
+    const change = {
+      before: base,
+      after: { ...via(2), values: { status: 'Done' } },
+    };
+    expect(itemActorId(change)).toBe('automation:abc');
+    const plan = diffItemActivity(change, BOARD, profiles);
+    expect(kinds(plan)).toEqual(['item_renamed', 'value_changed']);
+    for (const p of plan) expect((p.fields.data as { depth?: number }).depth).toBe(2);
+  });
+
+  it('behaves as today when updatedVia is null or absent', () => {
+    const change = { before: base, after: via(2, null) };
+    expect(itemActorId(change)).toBe('u1');
+    const plan = diffItemActivity(change, BOARD, profiles);
+    expect(plan).toEqual(
+      diffItemActivity({ before: base, after: edit({ name: 'Renamed' }) }, BOARD, profiles),
+    );
+    expect((plan[0]!.fields.data as { depth?: number }).depth).toBeUndefined();
+  });
+
+  it('ignores an updatedVia that is not an automation id', () => {
+    expect(itemActorId({ before: base, after: via(1, 'import:x') })).toBe('u1');
+  });
+
+  it('names an automation actor "Automation" without a member profile', () => {
+    expect(actorOf('automation:abc', null)).toEqual({
+      id: 'automation:abc',
+      name: 'Automation',
+      photoUrl: null,
+    });
+    expect(actorOf('u9', null).name).toBe('Someone');
+  });
+
+  it('records entries by the automation with the depth', async () => {
+    const created: NewActivityEntry[] = [];
+    const store: ActivityStore = {
+      getBoard: async () => BOARD,
+      getMemberProfiles: async () => new Map(),
+      createMany: async (_b: string, entries: NewActivityEntry[]) => {
+        created.push(...entries);
+        return entries.length;
+      },
+    } as unknown as ActivityStore;
+    await recordItemActivity(store, {
+      eventId: 'e1',
+      boardId: 'b1',
+      itemId: 'i1',
+      before: base,
+      after: via(1),
+    });
+    expect(created[0]!.doc.actorId).toBe('automation:abc');
+    expect(created[0]!.doc.actorName).toBe('Automation');
+    expect((created[0]!.doc.data as { depth?: number }).depth).toBe(1);
   });
 });

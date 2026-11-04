@@ -55,6 +55,9 @@ export interface ActivityActor {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_ACTOR_NAME = 'Someone';
+/** Actor ids that start with this are automations, not people. */
+export const AUTOMATION_ACTOR_PREFIX = 'automation:';
+const AUTOMATION_ACTOR_NAME = 'Automation';
 
 /** Epoch milliseconds when an entry written at `nowMs` is deleted by the TTL policy. */
 export function expiresAtMs(nowMs: number): number {
@@ -76,9 +79,12 @@ export function rawValue(value: unknown): unknown {
 }
 
 export function actorOf(uid: string, profile?: MemberProfile | null): ActivityActor {
+  const fallback = uid.startsWith(AUTOMATION_ACTOR_PREFIX)
+    ? AUTOMATION_ACTOR_NAME
+    : DEFAULT_ACTOR_NAME;
   return {
     id: uid,
-    name: clipText(profile?.name?.trim() || DEFAULT_ACTOR_NAME),
+    name: clipText(profile?.name?.trim() || fallback),
     photoUrl: profile?.photoURL ?? null,
   };
 }
@@ -207,6 +213,10 @@ export interface ActivityItemDoc {
   createdBy?: unknown;
   updatedBy?: unknown;
   updatedAt?: unknown;
+  /** `automation:<id>` when an automation made the write (rules refuse it from clients). */
+  updatedVia?: unknown;
+  /** How many automation hops led to this write; stamped as `data.depth` on its entries. */
+  automationDepth?: unknown;
 }
 
 export interface ItemWriteChange {
@@ -217,8 +227,16 @@ export interface ItemWriteChange {
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
 
+/** The automation actor id (`automation:<id>`) of a write, or `undefined` for a normal one. */
+export function automationVia(doc: ActivityItemDoc): string | undefined {
+  const via = str(doc.updatedVia);
+  return via?.startsWith(AUTOMATION_ACTOR_PREFIX) ? via : undefined;
+}
+
 /** Who made this write: `updatedBy` (rules force it to the caller), `createdBy` on create. */
 export function itemActorId(change: ItemWriteChange): string | undefined {
+  const via = automationVia(change.after);
+  if (via) return via;
   return change.before
     ? (str(change.after.updatedBy) ?? str(change.after.createdBy))
     : (str(change.after.createdBy) ?? str(change.after.updatedBy));
@@ -282,6 +300,22 @@ const stateKind = (from: string | undefined, to: string | undefined): ActivityKi
  * position, `seq`, `boardSeq`, `descriptionImages`, `updatesCount`, index fields and derived columns.
  */
 export function diffItemActivity(
+  change: ItemWriteChange,
+  board: ActivityBoard,
+  profiles: ReadonlyMap<string, MemberProfile>,
+): ActivityPlan[] {
+  const plan = diffItemActivityPlain(change, board, profiles);
+  // Loop marker: an automation write stamps its depth on every entry it produces.
+  if (!automationVia(change.after)) return plan;
+  const depth = change.after.automationDepth;
+  const stamped = typeof depth === 'number' && Number.isInteger(depth) && depth >= 0 ? depth : 0;
+  return plan.map((p) => ({
+    ...p,
+    fields: { ...p.fields, data: { ...p.fields.data, depth: stamped } as ActivityData },
+  }));
+}
+
+function diffItemActivityPlain(
   change: ItemWriteChange,
   board: ActivityBoard,
   profiles: ReadonlyMap<string, MemberProfile>,
