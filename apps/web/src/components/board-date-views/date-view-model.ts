@@ -70,17 +70,35 @@ export function itemSpan(item: ItemDoc, column: ColumnView, override?: unknown):
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
-/** Black or white text, whichever reads better on `hex` (WCAG relative luminance). */
-export function textToneFor(hex: string | null): 'dark' | 'light' {
-  if (!hex || !HEX.test(hex)) return 'dark';
+/**
+ * Relative luminance of the dark text ink, monday ink `#323338`. Keep in step with
+ * `--atrium-calendar-pill-text-dark` in `theme/calendar-tokens.css`.
+ */
+const DARK_INK_LUMINANCE = 0.0333;
+
+/** WCAG relative luminance of a `#rgb` / `#rrggbb` colour, or null when it isn't one. */
+function luminanceOf(hex: string | null): number | null {
+  if (!hex || !HEX.test(hex)) return null;
   const full = hex.length === 4 ? `#${[1, 2, 3].map((i) => hex[i]! + hex[i]!).join('')}` : hex;
   const channel = (offset: number) => {
     const c = parseInt(full.slice(offset, offset + 2), 16) / 255;
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
-  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-  // White text reaches 4.5:1 up to about this luminance.
-  return luminance > 0.18 ? 'dark' : 'light';
+  return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+}
+
+/** Contrast ratios of the dark ink and of white against `hex`; null for an invalid colour. */
+export function textContrastFor(hex: string | null): { dark: number; light: number } | null {
+  const l = luminanceOf(hex);
+  if (l === null) return null;
+  return { dark: (l + 0.05) / (DARK_INK_LUMINANCE + 0.05), light: 1.05 / (l + 0.05) };
+}
+
+/** Dark ink or white text, whichever has the higher contrast on `hex`. */
+export function textToneFor(hex: string | null): 'dark' | 'light' {
+  const c = textContrastFor(hex);
+  if (!c) return 'dark';
+  return c.light > c.dark ? 'light' : 'dark';
 }
 
 /** The value a new item gets for a day: a date, or a one-day timeline. */
