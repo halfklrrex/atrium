@@ -9,6 +9,7 @@ import {
   defaultKanbanSettings,
   defaultTimelineViewSettings,
   defaultViewSettings,
+  defaultWorkloadSettings,
   type BoardFilterState,
   type ColumnDef,
   type CalendarSettings,
@@ -16,6 +17,7 @@ import {
   type GanttSettings,
   type KanbanSettings,
   type TimelineViewSettings,
+  type WorkloadSettings,
   type FilterCondition,
   type FilterGroup,
   type SortCondition,
@@ -34,16 +36,25 @@ export interface TypeSettingsMap {
   calendar: CalendarSettings;
   timeline: TimelineViewSettings;
   gantt: GanttSettings;
+  workload: WorkloadSettings;
   chart: ChartSettings;
 }
 export type SettingsViewType = keyof TypeSettingsMap;
 
-const TYPE_KEYS: readonly SettingsViewType[] = ['kanban', 'calendar', 'timeline', 'gantt', 'chart'];
+const TYPE_KEYS: readonly SettingsViewType[] = [
+  'kanban',
+  'calendar',
+  'timeline',
+  'gantt',
+  'workload',
+  'chart',
+];
 const TYPE_DEFAULTS: { [K in SettingsViewType]: () => TypeSettingsMap[K] } = {
   kanban: defaultKanbanSettings,
   calendar: defaultCalendarSettings,
   timeline: defaultTimelineViewSettings,
   gantt: defaultGanttSettings,
+  workload: defaultWorkloadSettings,
   chart: defaultChartSettings,
 };
 
@@ -59,6 +70,8 @@ export interface ViewState {
   timeline: TimelineViewSettings | null;
   /** Gantt settings; `null` for a view that has none. */
   gantt: GanttSettings | null;
+  /** Workload settings; `null` for a view that has none. */
+  workload: WorkloadSettings | null;
   /** Chart settings; `null` for a view that has none. */
   chart: ChartSettings | null;
 }
@@ -90,6 +103,7 @@ export function stateFromSettings(settings: ViewSettings | null | undefined): Vi
     calendar: s.calendar ? structuredClone(s.calendar) : null,
     timeline: s.timeline ? structuredClone(s.timeline) : null,
     gantt: s.gantt ? structuredClone(s.gantt) : null,
+    workload: s.workload ? structuredClone(s.workload) : null,
     chart: s.chart ? structuredClone(s.chart) : null,
   };
 }
@@ -101,6 +115,7 @@ export function settingsFromState(state: ViewState, base?: ViewSettings): ViewSe
     calendar: _c,
     timeline: _t,
     gantt: _g,
+    workload: _w,
     chart: _ch,
     ...rest
   } = base ?? defaultViewSettings();
@@ -110,6 +125,7 @@ export function settingsFromState(state: ViewState, base?: ViewSettings): ViewSe
     ...(state.calendar ? { calendar: state.calendar } : {}),
     ...(state.timeline ? { timeline: state.timeline } : {}),
     ...(state.gantt ? { gantt: state.gantt } : {}),
+    ...(state.workload ? { workload: state.workload } : {}),
     ...(state.chart ? { chart: state.chart } : {}),
     filter: {
       personIds: state.filter.personIds,
@@ -142,6 +158,7 @@ const emptyState = (): ViewState => ({
   calendar: null,
   timeline: null,
   gantt: null,
+  workload: null,
   chart: null,
 });
 

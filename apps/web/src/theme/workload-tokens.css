@@ -1,0 +1,40 @@
+/*
+ * Workload view tokens (P3). The grid reuses the Timeline axis tokens (timeline-tokens.css); this
+ * adds the cell geometry and the three load tints. A tint always comes with the number in the cell
+ * and a text mark, never colour alone. Each tint is contrast-checked against its theme's text
+ * (the dark ink in light themes, white in dark ones) in workload-model.test.ts with the same
+ * logic as `textToneFor`: keep both in step.
+ */
+
+:root {
+  /* ---- Geometry ---- */
+  --atrium-workload-row-height: 44px;
+  --atrium-workload-pane-width: var(--atrium-timeline-pane-width);
+  --atrium-workload-popover-width: 320px;
+  --atrium-workload-popover-max-height: 320px;
+  --atrium-workload-cell-inset: 2px; /* the gap around a tint, so neighbours read as separate cells */
+
+  /* ---- Typography ---- */
+  --atrium-workload-value-font: 500 13px / 20px var(--font-family);
+  --atrium-workload-name-font: 500 14px / 20px var(--font-family);
+
+  /* ---- Load tints (light) ---- */
+  --atrium-workload-under: #cce5ff;
+  --atrium-workload-balanced: #c4f0d9;
+  --atrium-workload-over: #ffb3bf;
+  --atrium-workload-text: var(--atrium-calendar-pill-text-dark);
+  --atrium-workload-mark-over: var(--negative-color);
+
+  /* ---- Colours ---- */
+  --atrium-workload-line: var(--atrium-timeline-line);
+  --atrium-workload-bg: var(--atrium-timeline-bg);
+  --atrium-workload-weekend: var(--atrium-timeline-weekend);
+}
+
+.dark-app-theme,
+.black-app-theme {
+  --atrium-workload-under: #1f3a5f;
+  --atrium-workload-balanced: #1c4a35;
+  --atrium-workload-over: #6b1f2e;
+  --atrium-workload-text: var(--atrium-calendar-pill-text-light);
+}

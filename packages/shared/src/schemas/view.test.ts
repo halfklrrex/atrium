@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultGanttSettings,
+  defaultWorkloadSettings,
+  workloadSettingsSchema,
   ganttSettingsSchema,
   VIEW_LIMITS,
   boardViewSchema,
@@ -264,5 +266,37 @@ describe('gantt view settings', () => {
     ).toBe(false);
     const { showCriticalPath: _omitted, ...missing } = defaultGanttSettings();
     expect(ganttSettingsSchema.safeParse(missing).success).toBe(false);
+  });
+});
+
+describe('workload view settings', () => {
+  it('accepts a workload view and its default settings', () => {
+    const settings = { ...defaultViewSettings(), workload: defaultWorkloadSettings() };
+    expect(viewSettingsSchema.parse(settings).workload).toEqual(defaultWorkloadSettings());
+    expect(
+      boardViewSchema.safeParse({
+        name: 'Workload',
+        type: 'workload',
+        position: 'a1',
+        ownerId: null,
+        settings,
+        createdAt: ts(),
+        createdBy: 'u1',
+        updatedAt: ts(),
+        updatedBy: 'u1',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('validates zoom, measure and capacity', () => {
+    const base = defaultWorkloadSettings();
+    expect(base).toMatchObject({ zoom: 'weeks', measure: 'count', capacityPerDay: null });
+    expect(workloadSettingsSchema.safeParse({ ...base, capacityPerDay: 6.5 }).success).toBe(true);
+    expect(workloadSettingsSchema.safeParse({ ...base, capacityPerDay: 0 }).success).toBe(false);
+    expect(workloadSettingsSchema.safeParse({ ...base, capacityPerDay: -1 }).success).toBe(false);
+    expect(workloadSettingsSchema.safeParse({ ...base, measure: 'average' }).success).toBe(false);
+    expect(workloadSettingsSchema.safeParse({ ...base, zoom: 'years' }).success).toBe(false);
+    const { showToday: _omitted, ...missing } = base;
+    expect(workloadSettingsSchema.safeParse(missing).success).toBe(false);
   });
 });

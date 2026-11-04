@@ -8,6 +8,7 @@ import {
   kanbanReady,
   timelineReady,
   ganttReady,
+  workloadReady,
   chartReady,
   shoot,
   test,
@@ -20,6 +21,7 @@ import {
   KANBAN_VIEW,
   TIMELINE_VIEW,
   GANTT_VIEW,
+  WORKLOAD_VIEW,
   GANTT_BARS,
   CHART_VIEW,
   addCalendarView,
@@ -27,6 +29,7 @@ import {
   addKanbanView,
   addTimelineView,
   addGanttView,
+  addWorkloadView,
   addChartView,
   addView,
   clearActivity,
@@ -40,6 +43,7 @@ import {
   removeKanbanView,
   removeTimelineView,
   removeGanttView,
+  removeWorkloadView,
   removeChartView,
   removeView,
   removeSavedTemplate,
@@ -265,6 +269,17 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-gantt-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeGanttView();
+      }
+    });
+
+    test('board: Workload view', async ({ page }) => {
+      await addWorkloadView();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${WORKLOAD_VIEW}`);
+        await workloadReady(page);
+        await shoot(page, `board-workload-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeWorkloadView();
       }
     });
 

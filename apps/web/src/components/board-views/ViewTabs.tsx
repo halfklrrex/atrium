@@ -23,6 +23,7 @@ import {
   Person,
   Pin,
   Table,
+  Team,
   Timeline,
 } from '@vibe/icons';
 import classNames from 'classnames';
@@ -53,6 +54,7 @@ const VIEW_ICONS = {
   calendar: Calendar,
   timeline: Timeline,
   gantt: Gantt,
+  workload: Team,
   chart: Chart,
 } as const;
 
@@ -326,6 +328,11 @@ export function ViewTabs() {
             title="Gantt"
             icon={Gantt}
             onClick={() => void viewActions.add(actions, 'gantt')}
+          />
+          <MenuItem
+            title="Workload"
+            icon={Team}
+            onClick={() => void viewActions.add(actions, 'workload')}
           />
           <MenuItem
             title="Chart"
