@@ -19,6 +19,7 @@ export * from './schemas/column-type-change';
 export * from './schemas/membership';
 export * from './schemas/board-sharing';
 export * from './schemas/template';
+export * from './schemas/dashboard';
 export * from './templates';
 export * from './columns';
 export * from './derived-ids';
