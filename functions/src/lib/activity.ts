@@ -217,6 +217,8 @@ export interface ActivityItemDoc {
   updatedVia?: unknown;
   /** How many automation hops led to this write; stamped as `data.depth` on its entries. */
   automationDepth?: unknown;
+  /** Changes on every automation write; tells a fresh automation write from a stale `updatedVia`. */
+  automationRunId?: unknown;
 }
 
 export interface ItemWriteChange {
@@ -228,14 +230,19 @@ export interface ItemWriteChange {
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
 
 /** The automation actor id (`automation:<id>`) of a write, or `undefined` for a normal one. */
-export function automationVia(doc: ActivityItemDoc): string | undefined {
-  const via = str(doc.updatedVia);
-  return via?.startsWith(AUTOMATION_ACTOR_PREFIX) ? via : undefined;
+export function automationVia(change: ItemWriteChange): string | undefined {
+  const via = str(change.after.updatedVia);
+  if (!via?.startsWith(AUTOMATION_ACTOR_PREFIX)) return undefined;
+  // Clients can't clear `updatedVia`, so a later human edit still carries it: only a changed run
+  // id (or one set on create) marks this write as the automation's.
+  const runId = str(change.after.automationRunId);
+  if (!runId || runId === str(change.before?.automationRunId)) return undefined;
+  return via;
 }
 
 /** Who made this write: `updatedBy` (rules force it to the caller), `createdBy` on create. */
 export function itemActorId(change: ItemWriteChange): string | undefined {
-  const via = automationVia(change.after);
+  const via = automationVia(change);
   if (via) return via;
   return change.before
     ? (str(change.after.updatedBy) ?? str(change.after.createdBy))
@@ -306,7 +313,7 @@ export function diffItemActivity(
 ): ActivityPlan[] {
   const plan = diffItemActivityPlain(change, board, profiles);
   // Loop marker: an automation write stamps its depth on every entry it produces.
-  if (!automationVia(change.after)) return plan;
+  if (!automationVia(change)) return plan;
   const depth = change.after.automationDepth;
   const stamped = typeof depth === 'number' && Number.isInteger(depth) && depth >= 0 ? depth : 0;
   return plan.map((p) => ({

@@ -56,6 +56,7 @@ export interface ItemData {
   /** `automation:<id>` when an automation wrote the item last. */
   updatedVia?: string | null;
   automationDepth?: number | null;
+  automationRunId?: string | null;
 }
 
 export interface ColumnActionsTx {
