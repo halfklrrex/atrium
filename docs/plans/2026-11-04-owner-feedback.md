@@ -29,10 +29,12 @@ Follows the format of `2026-11-03-autonomous-batch.md`. Work loop (AGENTS.md / C
 
 ## B. Bug: readable text on coloured fills
 
-- **First:** download the screenshot (monday asset 291448967; the public URL is valid for 1 hour) to the scratchpad and confirm which surface it is. Likeliest: the rich-text highlights (`--atrium-highlight-*` in `apps/web/src/theme/editor-tokens.css`, a 40% colour mix) in the description editor and the update composer. Other candidate: label chips on custom colours.
-- **Reuse:** `getReadableButtonTextColor` in `apps/web/src/columns/button.tsx` already picks dark or light text from WCAG luminance. Move it to `apps/web/src/theme/readable-text.ts` (tests beside it) and use it for any runtime-coloured fill.
-- **Token highlights:** add a paired `--atrium-highlight-<key>-text` token per colour, light and dark, in `editor-tokens.css`; apply it in `RichText.module.css` and the description editor styles. Extend `editor-tokens.test.ts` so every pair meets 4.5:1.
-- **Visual QA:** light and dark against monday; rebuild the baselines if screens change.
+- **Surface (confirmed from the screenshot):** the Timeline view's bars (the Calendar pills share the code). Dark text on the red "Design new pricing page" bar and on the purple "Legal review" bar.
+- **Cause:** `textToneFor` in `apps/web/src/components/board-date-views/date-view-model.ts` picks dark text above luminance 0.18, the point where white text stops reaching 4.5:1. But the dark text is monday ink `#323338`, not black. The red (`#df2f4a`, luminance about 0.182) and purple (`#9d50dd`, about 0.181) sit just over the line, get dark text and reach only about 2.8:1, while white would reach about 4.5:1.
+- **Fix:** choose the tone by comparing the real contrast of the two text colours (`--atrium-calendar-pill-text-dark` `#323338` and white) against the fill. The crossover is a luminance of about 0.245. Keep the helper in one place for Timeline and Calendar.
+- **Tests:** in `calendar-model.test.ts` or a new `date-view-model.test.ts`, check that red and purple get light text and orange, green and yellow keep dark text, and that every Vibe status colour gets the better of the two (at least 4.5:1 wherever either reaches it).
+- **Other surfaces:** a quick look for the same problem on Kanban cards, label chips and the Chart view legend. Log any other miss as its own item instead of widening this one.
+- **Visual QA:** Timeline and Calendar in light and dark; rebuild the baselines if the screens change.
 
 ## C. P5 decisions and the start of P5a
 
