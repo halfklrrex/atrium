@@ -16,6 +16,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
   - change a column's type, with undo (2026-10-31)
   - the Calendar and Timeline views (2026-10-31)
   - @mentions in updates, replies and descriptions
+  - the Activity log (board and item), button actions with notify, column descriptions and defaults, reorderable favourites (2026-11-03)
   - archive, trash and undo
   - empty states and the notifications bell and panel (2026-10-30)
   - the layering fix for menus
@@ -27,20 +28,20 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **Actionable column** on the Roadmap: Yes (owner's move), Agents (owner answered, so it's back with us), No. Check the Agents items at the start of every session (`AGENTS.md`).
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
-## Open work (2026-11-03)
+## Open work (2026-11-04)
 
-- **Live since 2026-10-30/31:** P4 notifications, P4b board sharing (Share dialog, board kinds, leave board), Calendar, Timeline and Chart views, Mirror column, change a column's type, My Work, global search (Ctrl/Cmd+B or K), required columns and defaults, the item index, and the activity-log backend (PR #58).
-- **Merged but local-only:** the Atrium MCP connector (OPS3, PR #60). The owner registers it per machine (`docs/mcp-connector.md`) and tries it on a throwaway board. It has not been run against production.
+- **Live since 2026-11-03** (autonomous batch while the owner was away): the Activity web UI (#63), button actions (#65) and the notify action (#72), column settings (#66), reorder favourite boards (#68), and the rich-text backend (#69, `contentDoc` on updates and replies). Earlier: P4 notifications, board sharing, Calendar, Timeline and Chart views, Mirror, change a column's type, My Work, global search.
+- **Open PR:** #74, rich text in the update composer and replies (web side of #69). Roadmap 3327934712 is Pending Merge. Review, run the checks and baselines if needed, then merge with rebase.
+- **P5 automations:** the design is merged as a proposal (`docs/specs/P5-automations-design.md`, #73). Roadmap "Automation engine design" (3306251672) is Planning with Actionable = Yes. **Do not start P5a** until the owner answers the six questions in section 11.
+- **Merged but local-only:** the Atrium MCP connector (OPS3, #60), not yet run against production.
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
-- **No open PRs** as of 2026-11-03. Autonomous work queue while the owner is away: `docs/plans/2026-11-03-autonomous-batch.md`. Actionable = Agents items at that date: Description editor pass 2 (sign off) and Button column (the owner wants configurable multi-step actions). When filtering the Roadmap by Actionable, use the label id (Agents = 4), not the index.
+- **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Activity log, button actions, notify, column settings, favourites; notify needs two accounts), the P5 questions, whether "Required" columns need a hard rule, and the flag emoji on Windows (needs a CDN picture fallback). The legacy-activity migration script has not been run; dry run first and only with the owner's agreement.
 - **Next, in this order:**
-  1. Activity web UI (Roadmap 3306251299): item "Activity" tab and a board-level log. PR split in `docs/specs/P4-activity-audit-log.md`.
-  2. Bug-inbox feature requests (2026-11-01): rich text and Ctrl+B in the update composer (Roadmap 3327934712), and reordering favourite boards (3327933132). Both need a short spec first.
-  3. Column settings sign-off (3306293031) and the Button column first slice (3306219470, waiting on the owner's choice).
-  4. Bug sweep of the 🐞 Bugs group; most items already show Done.
-- **Owner to-dos:** live checks in `docs/plans/owner-check-list.md` (including the `updatedBy` rule), the Button decision, and trying the MCP connector. The legacy-activity migration script has not been run; dry run first and only with the owner's agreement.
-- **Owner decision pending:** flag emoji on Windows (needs a CDN picture fallback).
-- Details and gotchas: `docs/handoff/2026-10-31-ophelia-evening-activity-backend-merged.md` and `docs/handoff/2026-11-01-claude-atrium-mcp-connector.md`.
+  1. Merge #74 once it is reviewed, then move 3327934712 to In review and add its owner check.
+  2. Flaky test: world clock tests in `packages/shared` (Roadmap 3328651015).
+  3. Remaining Roadmap items that need no product decision. Anything that does goes on the item with Actionable = Yes and an exact question.
+  4. Check the bug inbox and Actionable = Agents first (filter by label id, Agents = 4, not the index).
+- Plan and gotchas: `docs/plans/2026-11-03-autonomous-batch.md` and `docs/handoff/2026-11-03-ophelia-autonomous-batch.md`.
 
 ## Notes index
 
@@ -60,6 +61,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - [2026-10-31 · Ophelia · Ava's queue, @mentions, Calendar, Timeline, Mirror, change column type](docs/handoff/2026-10-31-ophelia-ava-queue-and-p3.md)
 - [2026-10-31 · Ophelia · activity backend and polish batch 2 merged](docs/handoff/2026-10-31-ophelia-evening-activity-backend-merged.md)
 - [2026-11-01 · Claude · Atrium MCP connector (OPS3)](docs/handoff/2026-11-01-claude-atrium-mcp-connector.md)
+- [2026-11-03 · Ophelia · autonomous batch: activity UI, button actions, notify, favourites, rich-text backend, P5 design](docs/handoff/2026-11-03-ophelia-autonomous-batch.md)
 - [2026-10-24 · Antigravity · Board filter, sort, search & group-by](docs/handoff/2026-10-24-antigravity-board-filters-sort.md)
 - [2026-10-25 · Antigravity · Files storage upload, rules & tests](docs/handoff/2026-10-25-antigravity-files-storage-upload.md)
 - [2026-10-25 · Antigravity · Server-side column actions](docs/handoff/2026-10-25-antigravity-server-column-actions.md)
