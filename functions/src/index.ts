@@ -39,3 +39,4 @@ export { onItemPeopleAssigned } from './triggers/onItemPeopleAssigned';
 export { onUpdateCreated } from './triggers/onUpdateCreated';
 export { onReplyCreated } from './triggers/onReplyCreated';
 export { purgeOldNotifications } from './scheduled/purgeOldNotifications';
+export { onActivityCreated } from './triggers/onActivityCreated';
