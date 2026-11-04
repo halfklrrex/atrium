@@ -1,0 +1,249 @@
+/* The Workload grid. The axis header, scroller and settings panel come from timeline.module.css. */
+
+.cornerTitle {
+  padding-inline-start: var(--space-8);
+  color: var(--primary-text-color);
+  font: var(--atrium-workload-name-font);
+}
+
+.row {
+  display: flex;
+  box-sizing: border-box;
+  height: var(--atrium-workload-row-height);
+  border-bottom: var(--border-width) var(--border-style) var(--atrium-workload-line);
+}
+
+.person {
+  position: sticky;
+  z-index: var(--atrium-z-sticky);
+  inset-inline-start: 0;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--tl-pane-width);
+  padding-inline: var(--space-8);
+  border-inline-end: var(--border-width) var(--border-style) var(--atrium-workload-line);
+  background: var(--atrium-workload-bg);
+}
+
+.personName {
+  overflow: hidden;
+  color: var(--primary-text-color);
+  font: var(--atrium-workload-name-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personUnassigned {
+  color: var(--secondary-text-color);
+  font-style: italic;
+}
+
+.personMeta {
+  overflow: hidden;
+  color: var(--secondary-text-color);
+  font: var(--atrium-timeline-header-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personOver {
+  color: var(--atrium-workload-mark-over);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ---- Cells ---- */
+
+.cell {
+  display: flex;
+  flex: none;
+  box-sizing: border-box;
+  width: calc(var(--tl-span) * var(--tl-w));
+  padding: var(--atrium-workload-cell-inset);
+  border-inline-start: var(--border-width) var(--border-style) var(--atrium-workload-line);
+}
+
+.cellWeekend {
+  background: var(--atrium-workload-weekend);
+}
+
+.cellToday {
+  background: var(--primary-selected-color);
+}
+
+.cellPopover {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.tint {
+  display: flex;
+  flex: 1;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-workload-under);
+  color: var(--atrium-workload-text);
+  font: var(--atrium-workload-value-font);
+  cursor: pointer;
+}
+
+.tint[data-level='balanced'] {
+  background: var(--atrium-workload-balanced);
+}
+
+.tint[data-level='over'] {
+  background: var(--atrium-workload-over);
+  font-weight: var(--font-weight-bold);
+}
+
+.tint:hover {
+  outline: var(--border-width) var(--border-style) var(--atrium-workload-text);
+}
+
+.tint:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: var(--border-width);
+}
+
+.overMark {
+  font-weight: var(--font-weight-bold);
+}
+
+.noRows {
+  margin: 0;
+  padding: var(--space-48) var(--space-16);
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+/* ---- Popover ---- */
+
+.popoverPanel {
+  width: var(--atrium-workload-popover-width);
+}
+
+.popover {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--atrium-workload-popover-max-height);
+}
+
+.popoverHead {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-12) var(--space-16);
+  border-bottom: var(--border-width) var(--border-style) var(--atrium-workload-line);
+}
+
+.popoverTitle {
+  font: var(--atrium-workload-name-font);
+}
+
+.popoverSub {
+  color: var(--secondary-text-color);
+  font: var(--atrium-timeline-header-font);
+}
+
+.popoverList {
+  margin: 0;
+  padding: var(--space-4);
+  overflow: auto;
+  list-style: none;
+}
+
+.popoverItem {
+  display: block;
+}
+
+.popoverButton {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-calendar-day-font);
+  text-align: start;
+  cursor: pointer;
+}
+
+.popoverButton:hover,
+.popoverButton:focus-visible {
+  background: var(--primary-background-hover-color);
+  outline: 0;
+}
+
+.popoverName {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popoverDates {
+  color: var(--secondary-text-color);
+  font: var(--atrium-timeline-header-font);
+}
+
+.chip {
+  padding: 0 var(--space-8);
+  border-radius: var(--border-radius-small);
+  color: var(--atrium-timeline-bar-text-dark);
+  font: var(--atrium-timeline-header-font);
+}
+
+.chip[data-tone='light'] {
+  color: var(--atrium-timeline-bar-text-light);
+}
+
+/* ---- Items without dates ---- */
+
+.noDates {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  align-items: center;
+  margin-inline: var(--atrium-calendar-gutter);
+}
+
+.noDatesTitle {
+  color: var(--secondary-text-color);
+  font: var(--atrium-workload-name-font);
+}
+
+.noDatesList {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.noDatesItem {
+  padding: var(--space-4) var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-big);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-timeline-header-font);
+  cursor: pointer;
+}
+
+.noDatesItem:hover,
+.noDatesItem:focus-visible {
+  background: var(--primary-background-hover-color);
+  outline: 0;
+}

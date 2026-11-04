@@ -337,7 +337,7 @@ export function packRows(bars: TimelineBar[], dayWidth: number): number {
 }
 
 /** The first and last day to show: the items' range (and today), padded, within the axis limits. */
-function axisRange(
+export function axisRange(
   spans: readonly { from: string; to: string }[],
   zoom: TimelineZoom,
   today: string,

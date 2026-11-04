@@ -43,7 +43,15 @@ export const sortConditionSchema: z.ZodType<SortCondition> = z.object({
   direction: z.enum(['asc', 'desc']),
 });
 
-export const viewTypeSchema = z.enum(['table', 'kanban', 'calendar', 'timeline', 'gantt', 'chart']);
+export const viewTypeSchema = z.enum([
+  'table',
+  'kanban',
+  'calendar',
+  'timeline',
+  'gantt',
+  'workload',
+  'chart',
+]);
 export type ViewType = z.infer<typeof viewTypeSchema>;
 
 export const viewFilterSettingsSchema = z.object({
@@ -154,6 +162,41 @@ export function defaultGanttSettings(): GanttSettings {
   };
 }
 
+/** Largest capacity per day a Workload view accepts. */
+export const WORKLOAD_MAX_CAPACITY = 1_000_000;
+
+/** Settings of a Workload view (`views/{id}.settings.workload`): one row per person, a column per period. */
+export const workloadSettingsSchema = z.object({
+  /** The date or timeline column that places items; null = first timeline column, else first date column. */
+  columnId: columnIdSchema.nullable(),
+  /** The People column whose persons are the rows; null = the first People column. */
+  peopleColumnId: columnIdSchema.nullable(),
+  zoom: z.enum(['days', 'weeks', 'months']),
+  measure: z.enum(['count', 'sum']),
+  /** The Numbers column that `sum` adds up; null = the first Numbers column. */
+  sumColumnId: columnIdSchema.nullable(),
+  /** Capacity of one person for one day; null = 1 item (count) or 8 units (sum). */
+  capacityPerDay: z.number().positive().max(WORKLOAD_MAX_CAPACITY).nullable(),
+  showWeekends: z.boolean(),
+  showToday: z.boolean(),
+  /** Person ids whose row the user collapsed. */
+  collapsedPersonIds: z.array(columnIdSchema).max(TIMELINE_LIMITS.collapsedGroups).optional(),
+});
+export type WorkloadSettings = z.infer<typeof workloadSettingsSchema>;
+
+export function defaultWorkloadSettings(): WorkloadSettings {
+  return {
+    columnId: null,
+    peopleColumnId: null,
+    zoom: 'weeks',
+    measure: 'count',
+    sumColumnId: null,
+    capacityPerDay: null,
+    showWeekends: true,
+    showToday: true,
+  };
+}
+
 /** Axis key meaning "the board's groups". */
 export const CHART_GROUP_AXIS = '__group';
 
@@ -210,6 +253,8 @@ export const viewSettingsSchema = z.object({
   timeline: timelineViewSettingsSchema.optional(),
   /** Only Gantt views have these. */
   gantt: ganttSettingsSchema.optional(),
+  /** Only Workload views have these. */
+  workload: workloadSettingsSchema.optional(),
   /** Only Chart views have these. */
   chart: chartSettingsSchema.optional(),
 });

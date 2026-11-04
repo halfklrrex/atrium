@@ -722,6 +722,60 @@ export async function removeTimelineView(): Promise<void> {
     .delete();
 }
 
+/** Id of the shared Workload view the Workload screens add to the roadmap board (and remove again). */
+export const WORKLOAD_VIEW = 'view-roadmap-workload';
+
+/**
+ * A shared Workload view on the roadmap board: a row for the one assigned person and one for
+ * Unassigned, items placed by the Date column, weekly cells against a small capacity so all
+ * three tints show. Pair with `removeWorkloadView`.
+ */
+export async function addWorkloadView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(WORKLOAD_VIEW)
+    .set({
+      name: 'Workload',
+      type: 'workload',
+      position: 'a1',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        workload: {
+          columnId: 'date',
+          peopleColumnId: 'person',
+          zoom: 'weeks',
+          measure: 'count',
+          sumColumnId: null,
+          capacityPerDay: 0.4,
+          showWeekends: true,
+          showToday: true,
+        },
+      },
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeWorkloadView(): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(WORKLOAD_VIEW)
+    .delete();
+}
+
 /** Id of the shared Gantt view the Gantt screens add to the roadmap board (and remove again). */
 export const GANTT_VIEW = 'view-roadmap-gantt';
 

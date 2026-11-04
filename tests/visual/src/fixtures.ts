@@ -120,6 +120,13 @@ export async function timelineReady(page: Page, bars: number): Promise<void> {
   await expect(page.locator('[data-item]')).toHaveCount(bars);
 }
 
+/** The seeded roadmap as a Workload view: a row per person (and Unassigned) with tinted cells. */
+export async function workloadReady(page: Page): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('grid', { name: 'Workload' })).toBeVisible();
+  await expect(page.getByRole('rowheader', { name: /Unassigned/ })).toBeVisible();
+}
+
 /** The seeded roadmap as a Gantt view: the bars, and one dependency arrow per prerequisite. */
 export async function ganttReady(page: Page, bars: number, arrows: number): Promise<void> {
   await appReady(page);

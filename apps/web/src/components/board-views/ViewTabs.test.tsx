@@ -143,7 +143,16 @@ describe('view tabs', () => {
     const items = await screen.findAllByRole('menuitem');
     const titles = items.map((item) => item.textContent);
     expect(titles).toEqual(
-      expect.arrayContaining(['Table', 'Kanban', 'Calendar', 'Timeline', 'Gantt', 'Chart', 'Map']),
+      expect.arrayContaining([
+        'Table',
+        'Kanban',
+        'Calendar',
+        'Timeline',
+        'Gantt',
+        'Workload',
+        'Chart',
+        'Map',
+      ]),
     );
     const kanban = items.find((item) => item.textContent === 'Kanban');
     expect(kanban?.className).not.toMatch(/disabled/);
