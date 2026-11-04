@@ -1,6 +1,5 @@
 import type { ColumnDef } from '@atrium/shared';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __notifySharedTickerForTests } from './shared-ticker';
 import type { CellContext } from './types';
@@ -132,7 +131,7 @@ describe('world_clock column UI', () => {
     expect(clearIntervalSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('filters CANONICAL_TIMEZONES by city or timezone and selects an option in WorldClockEditor', async () => {
+  it('filters CANONICAL_TIMEZONES by city or timezone and selects an option in WorldClockEditor', () => {
     const onChange = vi.fn();
     const onClose = vi.fn();
     const Editor = worldClockUi.Editor!;
@@ -152,14 +151,15 @@ describe('world_clock column UI', () => {
 
     const input = screen.getByPlaceholderText('Search timezone or city…');
 
+    // Set the whole query in one change event: typing it key by key re-renders the ~300-row
+    // list once per keystroke, which took 10s+ on loaded CI runners. The filter result is the same.
     // Filter by city name (with space, matching getDefaultCity("America/New_York"))
-    await userEvent.type(input, 'New York');
+    fireEvent.change(input, { target: { value: 'New York' } });
     const nyOption = screen.getByRole('option', { name: /New York.*America\/New_York/i });
     expect(nyOption).toBeInTheDocument();
 
     // Filter by IANA timezone substring
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Asia/Tokyo');
+    fireEvent.change(input, { target: { value: 'Asia/Tokyo' } });
     const tokyoOption = screen.getByRole('option', { name: /Tokyo.*Asia\/Tokyo/i });
     fireEvent.click(tokyoOption);
 
