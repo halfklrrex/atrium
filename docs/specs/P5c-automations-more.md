@@ -1,6 +1,6 @@
 # P5c: more automation triggers and actions
 
-Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: P5 · Automations (new item "More triggers and actions") · Design: `P5-automations-design.md` (sections 4, 5, 7, 11) · Builds on: `P5a-automations-backend.md` (PR #90, the engine) and `P5b-automations-ui.md` (#97, #100). **Do not start until #90, #97 and #100 are merged.**
+Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: P5 · Automations (new item "More triggers and actions") · Design: `P5-automations-design.md` (sections 4, 5, 7, 11) · Builds on: `P5a-automations-backend.md` (PR #90, the engine) and `P5b-automations-ui.md` (#97, #100). The engine (#90), the Automation center (#97) and the recipe builder (#100) are merged (2026-11-05), so this can start.
 
 ## What the owner gets
 
@@ -12,9 +12,9 @@ Recipes can start on more events and do more things:
 
 Decisions 2026-11-04 (design section 11) already cover these: create items and post updates are allowed, behind the same limits (20 recipes per board, 100 runs per hour, depth 3).
 
-## Ground truth to verify first (the engine isn't on `main` yet)
+## Ground truth to verify first
 
-Read these on `main` once #90 has merged and fix this spec if they differ:
+Read these on `main` and fix this spec if they differ (written against the engine as merged in #90):
 
 - `packages/shared/src/schemas/automation.ts`: `automationTriggerSchema` (discriminated union on `type`, each member strict), `AUTOMATION_TRIGGER_LABELS`, `validateAutomation`, `AUTOMATION_LIMITS`. Actions are `buttonActionSchema` (`packages/shared/src/columns/button.ts`).
 - `functions/src/lib/automations/match.ts`: `matchAutomation(automation, entry, item)` is pure; `TRIGGER_KINDS` lists the activity kinds that can start a recipe (`item_created`, `value_changed`, `button_clicked`).
