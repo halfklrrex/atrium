@@ -62,6 +62,8 @@ describe('design tokens', () => {
       '--chart-color',
       // Dashboard Table widget: the grid template of its rows.
       '--table-columns',
+      // Dashboard Workload widget: the number of period columns.
+      '--workload-cells',
     ]);
     const missing = [...references.keys()].filter(
       (name) => !known.has(name) && !local.has(name) && !inline.has(name),
