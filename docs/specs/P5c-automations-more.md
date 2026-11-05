@@ -30,7 +30,7 @@ Read these on `main` and fix this spec if they differ (written against the engin
 - Labels in `AUTOMATION_TRIGGER_LABELS`: "Item moved", "Person assigned".
 - `validateAutomation`: `item_moved` needs `groupId` to exist when given. `person_assigned` needs an existing `people` column; `uid`, when given, must be in `board.memberUids`.
 - Actions (in `packages/shared/src/columns/button.ts`, kept in the **one** action schema and marked automation-only so the button editor does not offer them: add `AUTOMATION_ONLY_ACTION_TYPES = ['create_item', 'post_update']` and make `validateButtonActions` refuse them for a button column and accept them for an automation):
-  - `{ type: 'create_item', name: string(1..500) (supports the `{name}` and `{date}` tokens of `renderRenameTemplate`), groupId?: slugId, values?: Record<columnId, unknown> (max 10 entries) }`. Every value goes through `columnRegistry.validateCell`; derived, server-managed and locked columns are refused, as for `set_value`.
+  - `{ type: 'create_item', name: string(1..500) (supports the `{name}`and`{date}`tokens of`renderRenameTemplate`), groupId?: slugId, values?: Record<columnId, unknown> (max 10 entries) }`. Every value goes through `columnRegistry.validateCell`; derived, server-managed and locked columns are refused, as for `set_value`.
   - `{ type: 'post_update', text: string(1..2000) }` (plain text; same `{name}` / `{date}` tokens).
 - Add labels to `BUTTON_ACTION_LABELS`. Existing exhaustive `Record<ButtonAction['type'], …>` maps fail to compile until updated; that is the checklist.
 - Tests: schema accept/reject per type, `validateAutomation` per rule above, and "a button column refuses `create_item` / `post_update`".
