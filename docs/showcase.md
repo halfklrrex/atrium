@@ -8,6 +8,7 @@
 - `showcase-archived-demo` and `showcase-trashed-demo`: two tiny boards, one archived and one deleted, so the workspace's **Archive & Trash** page has something to show. (That page lists boards. Archived and trashed _items_ have no screen yet; they are in the data for when one lands.)
 - `showcase-linked-demo`: an active board "🔗 Showcase: Linked tasks" with five items (Status and Budget columns). The main board's **Related items** (Connect boards) column links to it, and its two **Mirror** columns read from it: "Linked status" lists the linked items' Status as coloured chips, "Total budget" sums their Budget.
 - **Three fake workspace members** (Jordan Lee, Sam Rivera and Casey Morgan, fixed uids `showcase-user-*`, `@example.com` emails), so People cells show names and initials instead of "Board member". They get `workspaces/{id}/members/{uid}` profile docs **only**: they are not in the workspace's `roles` or `memberIds`, are not real accounts, cannot sign in and do not appear in the Members dialog. Several items list them in the Owner column.
+- `dashboards/showcase-dashboard`: the dashboard "📊 Showcase overview" with one widget of each type (Numbers, Battery, Chart, Table, Workload) over the main and the linked board. `--reset` deletes and recreates it; it may only be written at that id.
 - The owner's favourite and "recently visited" entries for the main board.
 - Three notifications in the owner's bell (`users/{owner}/notifications/showcase-notification-*`): a mention, a reply and an assignment from the fake members, two unread and one read, pointing at real showcase items and updates. Clients cannot create notifications, so the script writes them directly.
 
@@ -42,7 +43,7 @@ pnpm showcase --project atrium-board --workspace <workspaceId> --owner <ownerUid
 
 ### Safety
 
-The script only ever creates, updates or deletes documents it owns: `boards/showcase-*` with their `items`, `updates` and `replies` (and any other sub-collection, on `--reset`), plus the owner's `favorites/showcase-*`, `recents/showcase-*` and `notifications/showcase-notification-*`, plus the three fake members' `workspaces/<workspace>/members/showcase-user-*` docs (only in the workspace being seeded; `--reset` recreates them). The workspace document, real members' docs, `invites` and `roles` are never touched. Every write and delete is checked against that allow-list (`isOwnedPath` in `data.mjs`) before anything is sent. It also refuses to run when:
+The script only ever creates, updates or deletes documents it owns: `boards/showcase-*` with their `items`, `updates` and `replies` (and any other sub-collection, on `--reset`), `dashboards/showcase-dashboard`, plus the owner's `favorites/showcase-*`, `recents/showcase-*` and `notifications/showcase-notification-*`, plus the three fake members' `workspaces/<workspace>/members/showcase-user-*` docs (only in the workspace being seeded; `--reset` recreates them). The workspace document, real members' docs, `invites` and `roles` are never touched. Every write and delete is checked against that allow-list (`isOwnedPath` in `data.mjs`) before anything is sent. It also refuses to run when:
 
 - the workspace does not exist, or the owner is not a member (or is only a viewer);
 - a `showcase-*` board id already exists in a _different_ workspace;

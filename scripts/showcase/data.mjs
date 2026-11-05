@@ -11,6 +11,8 @@ import {
   DEFAULT_BOARD_STATUS_LABELS,
   boardSchema,
   boardViewSchema,
+  dashboardSchema,
+  defaultWidgetSettings,
   columnDefSchema,
   columnRegistry,
   defaultSubitemColumns,
@@ -46,6 +48,9 @@ export const SHOWCASE_BOARD_IDS = [
   SHOWCASE_TRASHED_ID,
   SHOWCASE_LINKED_ID,
 ];
+/** The dashboard the seed owns (`dashboards/<id>`); it reads the main and the linked board. */
+export const SHOWCASE_DASHBOARD_ID = 'showcase-dashboard';
+export const SHOWCASE_DASHBOARD_IDS = [SHOWCASE_DASHBOARD_ID];
 export const SHOWCASE_PREFIX = 'showcase-';
 /** The owner's three showcase notifications (`users/{owner}/notifications/<id>`), one per kind. */
 export const SHOWCASE_NOTIFICATION_PREFIX = 'showcase-notification-';
@@ -1878,6 +1883,87 @@ export function buildShowcase({
   summary.boards[SHOWCASE_ARCHIVED_ID] = { items: 0 };
   summary.boards[SHOWCASE_TRASHED_ID] = { items: 0 };
 
+  // ---- Dashboard: one widget of each type over the main and the linked board ----
+  const widget = (id, type, title, layout, over = {}) => ({
+    id,
+    type,
+    title,
+    layout,
+    boardIds: [],
+    settings: { ...defaultWidgetSettings(type), ...(over.settings ?? {}) },
+    ...(over.boardIds ? { boardIds: over.boardIds } : {}),
+  });
+  docs.push({
+    path: `dashboards/${SHOWCASE_DASHBOARD_ID}`,
+    data: dashboardSchema.parse({
+      workspaceId,
+      folderId: null,
+      name: '📊 Showcase overview',
+      kind: 'main',
+      access: { [ownerUid]: 'owner' },
+      accessUids: [ownerUid],
+      position: 'Zz',
+      icon: null,
+      boardIds: [SHOWCASE_MAIN_ID, SHOWCASE_LINKED_ID],
+      widgets: [
+        widget(
+          'total-budget',
+          'numbers',
+          'Total budget',
+          { x: 0, y: 0, w: 3, h: 3 },
+          {
+            settings: { mode: 'sum', columnId: 'budget' },
+          },
+        ),
+        widget(
+          'progress',
+          'battery',
+          'Progress',
+          { x: 3, y: 0, w: 4, h: 3 },
+          {
+            settings: { statusColumnId: 'status' },
+          },
+        ),
+        widget(
+          'by-status',
+          'chart',
+          'Items by status',
+          { x: 7, y: 0, w: 5, h: 3 },
+          {
+            settings: { chartType: 'donut', xColumnId: 'status', yMode: 'count' },
+          },
+        ),
+        widget(
+          'upcoming',
+          'table',
+          'Upcoming work',
+          { x: 0, y: 3, w: 12, h: 5 },
+          {
+            boardIds: [SHOWCASE_MAIN_ID],
+            settings: { columnIds: ['status', 'person', 'due'], rowLimit: 10 },
+          },
+        ),
+        widget(
+          'team-load',
+          'workload',
+          'Team workload',
+          { x: 0, y: 8, w: 12, h: 5 },
+          {
+            boardIds: [SHOWCASE_MAIN_ID],
+            settings: { peopleColumnId: 'person', dateColumnId: 'timeline', bucket: 'week' },
+          },
+        ),
+      ],
+      state: 'active',
+      deletedAt: null,
+      createdAt: ago(10 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.dashboards = SHOWCASE_DASHBOARD_IDS.length;
+
   // ---- Fake members' profile docs (members/{uid} only; never roles or memberIds) ----
   for (const member of SHOWCASE_MEMBERS) {
     docs.push({
@@ -1974,7 +2060,7 @@ export function buildShowcase({
 
 /**
  * Whether the seed script may create, update or delete the document at `path`. The only paths it
- * owns are: `boards/showcase-*` and everything below them, the owner's `favorites` and
+ * owns are: `boards/showcase-*` and everything below them, the `dashboards/showcase-*` dashboard, the owner's `favorites` and
  * `recents` documents named like a showcase board, the three `showcase-notification-*` notifications, and the fake members' `members` docs in the
  * workspace being seeded. Nothing else, ever.
  */
@@ -1983,6 +2069,9 @@ export function isOwnedPath(path, ownerUid, workspaceId) {
   if (parts.some((p) => p === '' || p === '.' || p === '..')) return false;
   if (parts[0] === 'boards') {
     return parts.length >= 2 && SHOWCASE_BOARD_IDS.includes(parts[1]);
+  }
+  if (parts[0] === 'dashboards') {
+    return parts.length === 2 && SHOWCASE_DASHBOARD_IDS.includes(parts[1]);
   }
   if (parts[0] === 'workspaces') {
     // Only the fake members' profile docs, and only in the workspace being seeded.
