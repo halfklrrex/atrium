@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FilterCondition, FilterGroup, FilterOperator, SortCondition } from '../filters/types';
+import { formSettingsSchema } from './form';
 import { auditFields, positionSchema, uidSchema, type WriteDoc } from './common';
 
 /** Caps that keep a saved view small (a Firestore document is limited to 1 MiB). */
@@ -51,6 +52,7 @@ export const viewTypeSchema = z.enum([
   'gantt',
   'workload',
   'chart',
+  'form',
 ]);
 export type ViewType = z.infer<typeof viewTypeSchema>;
 
@@ -257,6 +259,8 @@ export const viewSettingsSchema = z.object({
   workload: workloadSettingsSchema.optional(),
   /** Only Chart views have these. */
   chart: chartSettingsSchema.optional(),
+  /** Only Form views have these. */
+  form: formSettingsSchema.optional(),
 });
 export type ViewSettings = z.infer<typeof viewSettingsSchema>;
 export type ViewFilterSettings = z.infer<typeof viewFilterSettingsSchema>;

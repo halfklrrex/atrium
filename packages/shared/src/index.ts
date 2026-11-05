@@ -1,6 +1,7 @@
 export * from './roles';
 export * from './callable';
 export * from './boards';
+export * from './forms';
 export * from './subitems';
 export * from './schemas/common';
 export * from './schemas/user';
@@ -11,6 +12,7 @@ export * from './schemas/update';
 export * from './schemas/notification';
 export * from './schemas/activity';
 export * from './schemas/automation';
+export * from './schemas/form';
 export * from './schemas/view';
 export * from './schemas/files-upload';
 export * from './schemas/description-images';
