@@ -1,19 +1,12 @@
 import { canManageBoard, type BoardRole } from '@atrium/shared';
-import {
-  Button,
-  Modal,
-  ModalBasicLayout,
-  ModalContent,
-  ModalHeader,
-  Tab,
-  TabList,
-} from '@vibe/core';
-import { useCallback, useMemo, useState } from 'react';
+import { Modal, ModalBasicLayout, ModalContent, ModalHeader, Tab, TabList } from '@vibe/core';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import {
   automationInputOf,
   automationWrites,
   duplicateAutomationName,
+  type AutomationInput,
   useAutomationRuns,
   useBoardAutomations,
   type AutomationDoc,
@@ -24,24 +17,24 @@ import { describeError } from '../boards/board-actions';
 import { openItem } from '../board-table/open-item';
 import { showToast } from '../toast-store';
 import { RecipesTab } from './RecipesTab';
+import { RecipeBuilder } from './RecipeBuilder';
 import { RunHistoryTab } from './RunHistoryTab';
 import { lastRunByAutomation } from './run-history';
+import { buildStarterRecipes } from './starter-recipes';
 import styles from './AutomationCenter.module.css';
 
 type CenterTab = 'recipes' | 'history';
 
-/** What the center asks the recipe builder (B2) to open. */
-export type BuilderTarget = { mode: 'create' } | { mode: 'edit'; automation: AutomationDoc };
+/** What the center asks the recipe builder to open; a new recipe may begin from a preset. */
+export type BuilderTarget =
+  { mode: 'create'; initial?: AutomationInput } | { mode: 'edit'; automation: AutomationDoc };
 
 export interface AutomationCenterProps {
   board: BoardDoc;
   /** The viewer's role on the board; only owners get the controls and the run history. */
   role: BoardRole | null;
   onClose: () => void;
-  /**
-   * Hook for the recipe builder (P5b B2). While it is not wired, "Create automation" and "Edit"
-   * show a clearly marked placeholder instead.
-   */
+  /** Overrides the built-in recipe builder (tests, or hosting the builder elsewhere). */
   onOpenBuilder?: (target: BuilderTarget) => void;
 }
 
@@ -78,6 +71,7 @@ function CenterBody({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AutomationDoc | null>(null);
   const [builder, setBuilder] = useState<BuilderTarget | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   const automations = useBoardAutomations(board.id);
   // Owners only: everyone else never subscribes to the history.
@@ -122,27 +116,47 @@ function CenterBody({
     [],
   );
 
+  const starters = useMemo(
+    () => (isOwner ? buildStarterRecipes(board, uid) : []),
+    [board, isOwner, uid],
+  );
+
   const openBuilder = (target: BuilderTarget) => {
     if (onOpenBuilder) onOpenBuilder(target);
     else setBuilder(target);
   };
 
+  const closeBuilder = () => {
+    setBuilder(null);
+    // Give focus back to the selected tab, where the Create or Edit control lived.
+    requestAnimationFrame(() =>
+      bodyRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus(),
+    );
+  };
+
   if (builder) {
+    const editing = builder.mode === 'edit' ? builder.automation : null;
     return (
-      <div className={styles.placeholder} data-testid="builder-placeholder">
-        <p className={styles.sentence}>
-          Recipe builder coming in the next update. For now you can switch automations on and off,
-          duplicate and delete them.
-        </p>
-        <Button kind="secondary" size="small" onClick={() => setBuilder(null)}>
-          Back to automations
-        </Button>
+      <div className={styles.body}>
+        <h2 className={styles.builderTitle}>{editing ? 'Edit automation' : 'New automation'}</h2>
+        <div className={styles.scroll}>
+          <RecipeBuilder
+            board={board}
+            role={role}
+            uid={uid}
+            existingCount={automations.data.length}
+            automation={editing}
+            initial={builder.mode === 'create' ? builder.initial : undefined}
+            onCancel={closeBuilder}
+            onSaved={closeBuilder}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={styles.body}>
+    <div className={styles.body} ref={bodyRef}>
       <TabList
         activeTabId={tab === 'recipes' ? 0 : 1}
         onTabChange={(id: number) => setTab(id === 0 ? 'recipes' : 'history')}
@@ -163,6 +177,8 @@ function CenterBody({
             lastRuns={lastRuns}
             busyId={busyId}
             deleting={deleting}
+            starters={starters}
+            onStart={(starter) => openBuilder({ mode: 'create', initial: starter.input })}
             onCreate={() => openBuilder({ mode: 'create' })}
             onEdit={(automation) => openBuilder({ mode: 'edit', automation })}
             onDuplicate={(automation) =>
