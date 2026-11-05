@@ -277,6 +277,29 @@ describe('runAutomation', () => {
     expect(w.itemPatches).toEqual([]);
   });
 
+  it('rethrows a transient error without recording a run or counting a failure', async () => {
+    const w = makeWorld();
+    const store = makeStore(w);
+    const flaky: AutomationStore = {
+      ...store,
+      transact: () =>
+        Promise.reject(Object.assign(new Error('10 ABORTED: contention'), { code: 10 })),
+    };
+    await expect(runAutomation(flaky, request, 'TS')).rejects.toThrow('ABORTED');
+    expect(w.runs.size).toBe(0);
+    expect(w.automations.get('a1')?.consecutiveFailures).toBe(0);
+    // The retry (same event) then runs normally.
+    expect((await runAutomation(store, request, 'TS')).status).toBe('ok');
+  });
+
+  it('records an invalid recipe as a failed run', async () => {
+    const w = makeWorld();
+    w.automations.set('a1', automation({ invalid: 'The automation is not valid any more' }));
+    const out = await runAutomation(makeStore(w), request, 'TS');
+    expect(out).toMatchObject({ status: 'failed', error: 'The automation is not valid any more' });
+    expect(w.automations.get('a1')?.consecutiveFailures).toBe(1);
+  });
+
   it('trips the circuit breaker on the tenth failure and a success resets the count', async () => {
     const w = makeWorld();
     w.automations.set(

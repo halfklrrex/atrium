@@ -41,8 +41,9 @@ import { TRIGGER_KINDS, conditionsHold, matchAutomation, type MatchEntry } from 
  * - Loops: an automation write carries `automationDepth = depth + 1`; entries it causes carry that
  *   depth. A recipe never reacts to its own writes, and from `MAX_DEPTH` on nothing runs: matching
  *   recipes only record a `skipped` "loop limit" run.
- * - Failures: a run that throws rolls back, then a second transaction records it `failed` and counts
- *   it on the automation (`consecutiveFailures`). At `CIRCUIT_BREAKER_FAILURES` the recipe is
+ * - Failures: a run that throws a deterministic error (validation, an invalid recipe) rolls back, then
+ *   a second transaction records it `failed` and counts it on the automation (`consecutiveFailures`).
+ *   Transient errors (contention, timeouts, unavailable) are rethrown so the event retry runs it again. At `CIRCUIT_BREAKER_FAILURES` the recipe is
  *   switched off with one notice to its creator.
  */
 
@@ -129,9 +130,36 @@ const clip = (value: string, max = 200): string =>
 
 const ACCESS_LOST_REASON = 'The person who runs this automation can no longer edit this board';
 
+/** A recipe whose stored shape no longer parses: the same input fails the same way every time. */
+export class InvalidAutomationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidAutomationError';
+  }
+}
+
+const isHttpsError = (error: unknown): boolean =>
+  error instanceof Error && 'httpErrorCode' in error;
+
+/**
+ * True when running the same recipe on the same event would fail the same way: validation
+ * (`HttpsError`, zod) and an `invalid` recipe. Anything else (Firestore ABORTED, DEADLINE_EXCEEDED,
+ * UNAVAILABLE, a bug) may be transient, so it is rethrown for the platform's event retry instead of
+ * being recorded as a permanent failed run.
+ */
+function isDeterministicFailure(error: unknown): boolean {
+  return (
+    error instanceof InvalidAutomationError ||
+    isHttpsError(error) ||
+    (error instanceof Error && error.name === 'ZodError')
+  );
+}
+
 function errorText(error: unknown): string {
-  // HttpsError messages are written for people; anything else may hold internals.
-  if (error instanceof Error && 'httpErrorCode' in error) return clip(error.message);
+  // HttpsError and invalid-recipe messages are written for people; anything else may hold internals.
+  if (error instanceof InvalidAutomationError || isHttpsError(error)) {
+    return clip((error as Error).message);
+  }
   return 'Unexpected error while running the automation';
 }
 
@@ -168,7 +196,7 @@ async function executeInTransaction(
   const automation = await tx.getAutomation(boardId, automationId);
   if (!automation || !automation.enabled) return { status: 'none', reason: 'disabled' };
   if (await tx.runExists(boardId, runId)) return { status: 'none', reason: 'already ran' };
-  if (automation.invalid) throw new Error(automation.invalid);
+  if (automation.invalid) throw new InvalidAutomationError(automation.invalid);
   const board = await tx.getBoard(boardId);
   if (!board) return { status: 'none', reason: 'board gone' };
   const item = await tx.getItem(boardId, itemId);
@@ -308,7 +336,10 @@ async function recordFailureInTransaction(
 const disabledReasonOf = (lastError: string): string =>
   `Turned off after ${CIRCUIT_BREAKER_FAILURES} failed runs in a row. Last error: ${lastError}`;
 
-/** Runs one recipe for one event. A failed run is recorded, not thrown. */
+/**
+ * Runs one recipe for one event. A deterministic failure is recorded (and counted by the circuit
+ * breaker), not thrown. A transient or unknown error is rethrown, so the event retry runs again.
+ */
 export async function runAutomation(
   store: AutomationStore,
   req: RunRequest,
@@ -317,6 +348,7 @@ export async function runAutomation(
   try {
     return await store.transact((tx) => executeInTransaction(tx, req, serverTimestamp));
   } catch (error) {
+    if (!isDeterministicFailure(error)) throw error;
     return await store.transact((tx) => recordFailureInTransaction(tx, req, error));
   }
 }
