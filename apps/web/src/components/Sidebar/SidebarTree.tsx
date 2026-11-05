@@ -14,6 +14,8 @@ import {
   Board as BoardIcon,
   BoardPrivate,
   BoardShareable,
+  Dashboard as DashboardIcon,
+  DashboardPrivate,
   Delete,
   Edit,
   ClassicFolder as FolderIcon,
@@ -29,12 +31,14 @@ import {
   filterTree,
   flattenTree,
   type BoardDoc,
+  type DashboardDoc,
   type FolderDoc,
   type FolderNode,
   type TreeRow,
 } from '../../data';
 import { computeDrop, type DropResult } from '../../data/treeDnd';
 import { BoardMenu } from '../boards/BoardMenu';
+import { DashboardMenu } from '../dashboard/DashboardMenu';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { InlineEdit } from '../InlineEdit';
 import { useUiStore } from '../AppShell/ui-store';
@@ -45,7 +49,10 @@ export interface SidebarTreeProps {
   workspaceId: string;
   folders: readonly FolderDoc[];
   boards: readonly BoardDoc[];
+  /** Dashboards of the workspace; they sit among the boards. */
+  dashboards?: readonly DashboardDoc[];
   activeBoardId: string | null;
+  activeDashboardId?: string | null;
   /** Owners/admins may create, recolour, rename and delete folders. */
   canManageFolders: boolean;
   /** Drag and drop is available to anyone who can edit boards. */
@@ -55,6 +62,7 @@ export interface SidebarTreeProps {
   expanded: ReadonlySet<string>;
   onToggleFolder: (folderId: string) => void;
   onRenameBoard: (board: BoardDoc, name: string) => void;
+  onRenameDashboard?: (dashboard: DashboardDoc, name: string) => void;
   onRenameFolder: (folder: FolderDoc, name: string) => void;
   onDrop: (drop: DropResult) => void;
   onNavigate?: () => void;
@@ -62,19 +70,26 @@ export interface SidebarTreeProps {
 
 const boardIconFor = (kind: BoardDoc['kind']) =>
   kind === 'private' ? BoardPrivate : kind === 'shareable' ? BoardShareable : BoardIcon;
+const dashboardIconFor = (kind: DashboardDoc['kind']) =>
+  kind === 'main' ? DashboardIcon : DashboardPrivate;
 
-/** The workspace's folders and boards, ordered, collapsible and drag-and-drop sortable. */
+const NO_DASHBOARDS: readonly DashboardDoc[] = [];
+
+/** The workspace's folders, boards and dashboards, ordered, collapsible and drag-and-drop sortable. */
 export function SidebarTree({
   workspaceId,
   folders,
   boards,
+  dashboards = NO_DASHBOARDS,
   activeBoardId,
+  activeDashboardId = null,
   canManageFolders,
   canReorder,
   filter,
   expanded,
   onToggleFolder,
   onRenameBoard,
+  onRenameDashboard,
   onRenameFolder,
   onDrop,
   onNavigate,
@@ -85,7 +100,7 @@ export function SidebarTree({
   const [overKey, setOverKey] = useState<string | null>(null);
 
   const filtering = filter.trim().length > 0;
-  const tree = useMemo(() => buildTree(folders, boards), [folders, boards]);
+  const tree = useMemo(() => buildTree(folders, boards, dashboards), [folders, boards, dashboards]);
   const visibleTree = useMemo(
     () => (filtering ? filterTree(tree, filter) : tree),
     [tree, filter, filtering],
@@ -132,7 +147,8 @@ export function SidebarTree({
     );
   }
 
-  const draggingBoard = activeKey?.startsWith('board:') ?? false;
+  const draggingBoard =
+    (activeKey?.startsWith('board:') || activeKey?.startsWith('dashboard:')) ?? false;
 
   return (
     <DndContext
@@ -153,7 +169,7 @@ export function SidebarTree({
       }}
     >
       <SortableContext items={rows.map((r) => r.key)} strategy={verticalListSortingStrategy}>
-        <ul className={styles.tree} role="tree" aria-label="Boards and folders">
+        <ul className={styles.tree} role="tree" aria-label="Boards, dashboards and folders">
           {rows.map((row) => (
             <SortableItem key={row.key} row={row} disabled={!dragEnabled}>
               {row.node.type === 'folder' ? (
@@ -172,6 +188,19 @@ export function SidebarTree({
                     if (row.node.type === 'folder') onRenameFolder(row.node.folder, name);
                   }}
                   canCreateSubFolder={row.depth === 0}
+                />
+              ) : row.node.type === 'dashboard' ? (
+                <DashboardRowView
+                  dashboard={row.node.dashboard}
+                  active={row.node.dashboard.id === activeDashboardId}
+                  renaming={renaming === row.key}
+                  onRenamingChange={(on) => setRenaming(on ? row.key : null)}
+                  onRename={(name) => {
+                    if (row.node.type === 'dashboard')
+                      onRenameDashboard?.(row.node.dashboard, name);
+                  }}
+                  openDashboardId={activeDashboardId}
+                  onNavigate={onNavigate}
                 />
               ) : (
                 <BoardRowView
@@ -279,6 +308,74 @@ function BoardRowView({
         <BoardMenu
           board={board}
           size="xs"
+          onRename={() => onRenamingChange(true)}
+          onMenuShow={() => setMenuOpen(true)}
+          onMenuHide={() => setMenuOpen(false)}
+        />
+      </span>
+    </div>
+  );
+}
+
+function DashboardRowView({
+  dashboard,
+  active,
+  renaming,
+  openDashboardId,
+  onRenamingChange,
+  onRename,
+  onNavigate,
+}: {
+  dashboard: DashboardDoc;
+  active: boolean;
+  renaming: boolean;
+  openDashboardId: string | null;
+  onRenamingChange: (on: boolean) => void;
+  onRename: (name: string) => void;
+  onNavigate?: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const icon = (
+    <Icon icon={dashboardIconFor(dashboard.kind)} size={16} className={styles.rowIcon} />
+  );
+  return (
+    <div
+      className={classNames(
+        styles.treeRow,
+        active && styles.rowActive,
+        menuOpen && styles.menuOpen,
+      )}
+    >
+      {renaming ? (
+        <div className={styles.treeMain}>
+          {icon}
+          <InlineEdit
+            value={dashboard.name}
+            ariaLabel="Dashboard name"
+            maxLength={80}
+            editing
+            onEditingChange={onRenamingChange}
+            onCommit={onRename}
+            className={styles.treeEdit}
+          />
+        </div>
+      ) : (
+        <NavLink
+          to={`/dashboards/${dashboard.id}`}
+          className={styles.treeMain}
+          onClick={guardedNavigate(onNavigate)}
+          onDoubleClick={() => onRenamingChange(true)}
+          draggable={false}
+        >
+          {icon}
+          <span className={styles.rowLabel}>{dashboard.name}</span>
+        </NavLink>
+      )}
+      <span className={styles.rowActions}>
+        <DashboardMenu
+          dashboard={dashboard}
+          size="xs"
+          openDashboardId={openDashboardId}
           onRename={() => onRenamingChange(true)}
           onMenuShow={() => setMenuOpen(true)}
           onMenuHide={() => setMenuOpen(false)}

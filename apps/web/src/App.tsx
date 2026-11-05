@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell/AppShell';
+import { DashboardPage } from './components/dashboard/DashboardPage';
 import { BoardPage } from './pages/BoardPage';
 import { HomePage } from './pages/HomePage';
 import { InvitePage } from './pages/InvitePage';
@@ -27,6 +28,7 @@ export function App() {
           <Route path="boards/:boardId/items/:itemId" element={<BoardPage />} />
           <Route path="boards/:boardId/views/:viewId" element={<BoardPage />} />
           <Route path="boards/:boardId/views/:viewId/items/:itemId" element={<BoardPage />} />
+          <Route path="dashboards/:dashboardId" element={<DashboardPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

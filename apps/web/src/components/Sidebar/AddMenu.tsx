@@ -1,5 +1,5 @@
 import { Icon, Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
-import { Add, Board, ClassicFolder as Folder, Workspace } from '@vibe/icons';
+import { Add, Board, Dashboard, ClassicFolder as Folder, Workspace } from '@vibe/icons';
 import { useUiStore } from '../AppShell/ui-store';
 import styles from './Sidebar.module.css';
 
@@ -32,6 +32,15 @@ export function AddMenu({
           disableReason="You can't add boards to this workspace"
           onClick={() =>
             workspaceId && openDialog({ type: 'newBoard', workspaceId, folderId: null })
+          }
+        />
+        <MenuItem
+          title="Dashboard"
+          icon={Dashboard}
+          disabled={!workspaceId || !canCreateBoards}
+          disableReason="You can't add dashboards to this workspace"
+          onClick={() =>
+            workspaceId && openDialog({ type: 'newDashboard', workspaceId, folderId: null })
           }
         />
         <MenuItem
