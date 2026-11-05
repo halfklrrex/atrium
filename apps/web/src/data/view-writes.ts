@@ -6,6 +6,8 @@ import {
   MAIN_VIEW_ID,
   MAIN_VIEW_NAME,
   MAIN_VIEW_POSITION,
+  formSettingsSchema,
+  type FormSettings,
   viewSettingsSchema,
   type ViewSettings,
   type ViewType,
@@ -94,6 +96,25 @@ export const viewWrites = {
         );
       }
     });
+  },
+
+  /**
+   * Save changed Form settings as field paths under `settings.form` (never the whole settings map).
+   * The merged form is validated first; `help` is dropped, not set to undefined, when empty.
+   */
+  async saveFormFields(
+    boardId: string,
+    uid: string,
+    viewId: string,
+    current: FormSettings,
+    patch: Partial<FormSettings>,
+  ): Promise<void> {
+    formSettingsSchema.parse(JSON.parse(JSON.stringify({ ...current, ...patch })));
+    const fields: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(patch)) {
+      fields[`settings.form.${key}`] = JSON.parse(JSON.stringify(value));
+    }
+    await updateDoc(plainRefs.view(boardId, viewId), { ...fields, ...stamp(uid) });
   },
 
   async rename(boardId: string, uid: string, viewId: string, name: string): Promise<void> {

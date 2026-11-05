@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell/AppShell';
 import { DashboardPage } from './components/dashboard/DashboardPage';
 import { BoardPage } from './pages/BoardPage';
+import { FormPage } from './pages/FormPage';
 import { HomePage } from './pages/HomePage';
 import { InvitePage } from './pages/InvitePage';
 import { LoginPage } from './pages/LoginPage';
@@ -17,6 +18,7 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireAuth />}>
+        <Route path="forms/:boardId/:viewId" element={<FormPage />} />
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />
           <Route path="invite/:workspaceId/:inviteId" element={<InvitePage />} />

@@ -1,0 +1,24 @@
+/*
+ * Form view and public form page tokens (P7). monday's form builder is not in the measured
+ * reference, so these follow Vibe and the other view token files. Light, dark and black themes
+ * inherit through the Vibe variables used here.
+ */
+
+:root {
+  --atrium-form-editor-width: 440px; /* the left-hand editor column */
+  --atrium-form-surface-max-width: 640px; /* the form card, in the preview and on the public page */
+  --atrium-form-canvas-bg: var(--allgrey-background-color);
+  --atrium-form-card-bg: var(--primary-background-color);
+  --atrium-form-card-border: var(--ui-border-color);
+  --atrium-form-card-radius: var(--atrium-surface-radius);
+  --atrium-form-title-font: 500 24px / 32px var(--title-font-family);
+  --atrium-form-label-font: 500 14px / 20px var(--font-family);
+  --atrium-form-help-font: 400 12px / 16px var(--font-family);
+  --atrium-form-section-font: 500 16px / 24px var(--font-family);
+  --atrium-form-textarea-min-height: 96px;
+  --atrium-form-rating-size: 28px;
+  --atrium-form-error: var(--negative-color);
+  --atrium-form-warning: var(--warning-color);
+  --atrium-form-success: var(--positive-color);
+  --atrium-form-handle-size: 24px;
+}

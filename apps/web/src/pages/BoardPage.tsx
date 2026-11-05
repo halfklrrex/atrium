@@ -6,6 +6,7 @@ import { useAuth } from '../auth/auth-context';
 import { boardActions } from '../components/boards/board-actions';
 import { BoardHeader } from '../components/boards/BoardHeader';
 import { CalendarView } from '../components/board-calendar/CalendarView';
+import { FormBuilder } from '../components/board-form/FormBuilder';
 import { ChartView } from '../components/board-chart/ChartView';
 import { GanttView } from '../components/board-gantt/GanttView';
 import { WorkloadView } from '../components/board-workload/WorkloadView';
@@ -140,7 +141,7 @@ function ViewBody({ board }: { board: BoardDoc }) {
     case 'chart':
       return <ChartView board={board} />;
     case 'form':
-      return null; // the form builder arrives with PR F2
+      return <FormBuilder board={board} />;
     default: {
       const unhandled: never = type;
       return unhandled;

@@ -37,16 +37,17 @@ const shared = view('v1', 'Due this week', null, 'a1');
 const personal = view('p1', 'My tasks', 'me', 'a2');
 const goTo = vi.fn();
 
-function renderTabs(options: { canEdit: boolean; shown?: BoardViewDoc }) {
+function renderTabs(options: { canEdit: boolean; shown?: BoardViewDoc; tabs?: BoardViewDoc[] }) {
+  const tabs = options.tabs ?? [main, shared, personal];
   const shownView = options.shown ?? main;
   const value: BoardViewsValue = {
-    views: [main, shared, personal],
+    views: tabs,
     view: shownView,
     actions: {
       boardId: 'b1',
       uid: 'me',
       canEdit: options.canEdit,
-      views: [main, shared, personal],
+      views: tabs,
       goTo,
     },
     permissions: viewPermissions(shownView, 'me', options.canEdit),
@@ -168,5 +169,25 @@ describe('view tabs', () => {
     expect(map?.className).toMatch(/disabled/);
     const table = items.find((item) => item.textContent === 'Table');
     expect(table?.className).not.toMatch(/disabled/);
+  });
+
+  it('offers the Form view to editors only', async () => {
+    const { unmount } = renderTabs({ canEdit: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Add view' }));
+    expect((await screen.findAllByRole('menuitem')).map((i) => i.textContent)).toContain('Form');
+    unmount();
+    renderTabs({ canEdit: false });
+    fireEvent.click(screen.getByRole('button', { name: 'Add view' }));
+    expect((await screen.findAllByRole('menuitem')).map((i) => i.textContent)).not.toContain(
+      'Form',
+    );
+  });
+
+  it('never offers to make a form view personal', () => {
+    const form: BoardViewDoc = { ...view('f1', 'Sign up', null, 'a3'), type: 'form' };
+    renderTabs({ canEdit: true, shown: form, tabs: [main, form] });
+    openMenuOf('Sign up');
+    expect(menuItems()).toEqual(expect.arrayContaining(['Rename', 'Duplicate', 'Delete']));
+    expect(menuItems()).not.toContain('Make personal');
   });
 });

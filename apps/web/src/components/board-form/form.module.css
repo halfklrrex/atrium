@@ -1,0 +1,136 @@
+/* Shared by the Form view (builder) and the public form page. */
+
+.surface {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  width: 100%;
+  max-width: var(--atrium-form-surface-max-width);
+  padding: var(--space-24);
+  border: var(--border-width) var(--border-style) var(--atrium-form-card-border);
+  border-radius: var(--atrium-form-card-radius);
+  background: var(--atrium-form-card-bg);
+  color: var(--primary-text-color);
+}
+
+.surfaceTitle,
+.surfaceTitleEmpty {
+  margin: 0;
+  font: var(--atrium-form-title-font);
+}
+
+.surfaceTitleEmpty {
+  color: var(--secondary-text-color);
+}
+
+.surfaceDescription {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text1-normal);
+  white-space: pre-wrap;
+}
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.label {
+  font: var(--atrium-form-label-font);
+}
+
+.asterisk {
+  color: var(--atrium-form-error);
+}
+
+.help {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--atrium-form-help-font);
+}
+
+.error {
+  margin: 0;
+  color: var(--atrium-form-error);
+  font: var(--atrium-form-help-font);
+}
+
+.rating {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.ratingButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--atrium-form-rating-size);
+  height: var(--atrium-form-rating-size);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-border-color);
+  cursor: pointer;
+}
+
+.ratingButton:disabled {
+  cursor: default;
+}
+
+.ratingButton:focus-visible {
+  outline: var(--atrium-focus-ring);
+  border-radius: var(--border-radius-small);
+}
+
+.ratingActive {
+  color: var(--color-egg_yolk);
+}
+
+/* ---- Public page ---- */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100dvh;
+  padding: var(--space-48) var(--space-16);
+  background: var(--atrium-form-canvas-bg);
+}
+
+.submitRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.formError {
+  margin: 0;
+  color: var(--atrium-form-error);
+  font: var(--font-text2-normal);
+}
+
+.thanks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+
+.thanksText {
+  margin: 0;
+  font: var(--font-text1-normal);
+  white-space: pre-wrap;
+}
+
+.formWrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
