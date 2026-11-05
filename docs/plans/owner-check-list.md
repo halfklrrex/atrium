@@ -2,6 +2,15 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Merged 2026-11-04 (feature push, live)
+
+- **Gantt view (#83, #88):** on the showcase board add or open a Gantt view. Check the dependency arrows, the baseline bars, the critical path highlight (red arrows) and that the label on a bar stays readable. Drag a bar to move it. Light and dark.
+- **Workload view (#91):** add a Workload view to a board with a people, a timeline and an effort column. Check the capacity bars per person, that they change when you edit an item's dates or effort, and the overloaded colour. Light and dark.
+- **Board templates (#85, #87):** open **New board** and pick a starter template in the gallery; create the board. Then open a board's options menu, choose **Save as template**, and create another board from it.
+- **Favourite drag (#78):** drag a favourite to reorder it and release; the board must not open. Try the same in the main sidebar tree.
+- **Readable text on fills (#77):** check status pills and bars on every colour, red included, in light and dark; the text should always be readable.
+- **Dashboards data layer (#89) and the P5a automations schemas (#81, #82, #84):** nothing visible yet. The dashboard screens and the automations engine are in progress (the engine is PR #90, held for the ultrareview).
+
 ## Merged 2026-11-04
 
 - **Rich text in updates and replies (#74):** open an item card and write an update. Check the toolbar (bold, italic, underline, lists, links), Ctrl+B / I / U, @mentions (the person is notified) and replies, then reopen the item to confirm the formatting stays. Old plain-text updates still render. Light and dark.
