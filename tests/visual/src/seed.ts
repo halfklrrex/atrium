@@ -1233,6 +1233,49 @@ export async function clearActivity(): Promise<void> {
   );
 }
 
+/**
+ * Two recipes for the Automation center screens on the roadmap board: one on and one off with the
+ * reason it was turned off. Remove them with `clearAutomations`.
+ */
+export async function seedAutomations(): Promise<void> {
+  const automations = adminDb().collection('boards').doc(IDS.roadmap).collection('automations');
+  const stamps = {
+    conditions: [],
+    runAs: AVERY.uid,
+    createdBy: AVERY.uid,
+    createdAt: ago(3 * DAY),
+    updatedBy: AVERY.uid,
+    updatedAt: ago(2 * DAY),
+  };
+  const batch = adminDb().batch();
+  batch.set(automations.doc('visual-notify-new'), {
+    ...stamps,
+    name: 'Heads-up on new items',
+    enabled: true,
+    trigger: { type: 'item_created' },
+    actions: [{ type: 'notify', uids: [AVERY.uid], message: 'A new item was added.' }],
+    disabledReason: null,
+  });
+  batch.set(automations.doc('visual-done-to-group'), {
+    ...stamps,
+    createdAt: ago(2 * DAY),
+    name: 'File finished items',
+    enabled: false,
+    trigger: { type: 'status_changed', columnId: 'status', toLabelId: 1 },
+    actions: [{ type: 'move_to_group', groupId: 'roadmap-p1' }],
+    disabledReason: 'Turned off after 5 failed runs in a row.',
+  });
+  await batch.commit();
+}
+
+/** Removes what `seedAutomations` wrote, so other screens never see it. */
+export async function clearAutomations(): Promise<void> {
+  const firestore = adminDb();
+  await firestore.recursiveDelete(
+    firestore.collection('boards').doc(IDS.roadmap).collection('automations'),
+  );
+}
+
 /** Id of the button column the button settings screens add to the roadmap board (and remove again). */
 export const ACTION_BUTTON_COLUMN = 'ship-button';
 

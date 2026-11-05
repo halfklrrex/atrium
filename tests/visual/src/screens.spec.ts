@@ -40,6 +40,7 @@ import {
   addDashboard,
   addView,
   clearActivity,
+  clearAutomations,
   clearRichUpdate,
   clearRecents,
   readFullViewDescription,
@@ -58,6 +59,7 @@ import {
   removeSavedTemplate,
   seedSavedTemplate,
   seedActivity,
+  seedAutomations,
   seedNotifications,
   seedRichUpdate,
 } from './seed';
@@ -561,6 +563,23 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-activity-panel-${theme}`, PARK_IN_HEADER);
       } finally {
         await clearActivity();
+      }
+    });
+
+    // P5b: the Automation center with one recipe on and one off (with its reason).
+    test('board: Automation center', async ({ page }) => {
+      await seedAutomations();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}`);
+        await boardReady(page);
+        await page.getByRole('button', { name: 'Automate' }).click();
+        const dialog = page.getByRole('dialog', { name: 'Automations' });
+        const list = dialog.getByRole('list', { name: 'Automations' });
+        await expect(list.getByRole('listitem')).toHaveCount(2);
+        await expect(dialog.getByText(/Turned off: /)).toBeVisible();
+        await shoot(page, `automation-center-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await clearAutomations();
       }
     });
 
