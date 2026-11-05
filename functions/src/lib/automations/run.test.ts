@@ -438,6 +438,25 @@ describe('handleActivityEvent', () => {
     expect(out.map((o) => o.status)).toEqual(['ok']);
   });
 
+  it('records a failure for an invalid recipe on any trigger-kind event and lets the breaker disable it', async () => {
+    const w = makeWorld();
+    w.automations.set(
+      'a1',
+      automation({
+        invalid: 'Not valid any more',
+        consecutiveFailures: CIRCUIT_BREAKER_FAILURES - 1,
+      }),
+    );
+    const out = await handleActivityEvent(deps(w), {
+      eventId: 'e1',
+      boardId: 'b1',
+      activity: { ...created, kind: 'value_changed', columnId: 'status', data: {} },
+    });
+    expect(out).toMatchObject([{ status: 'failed', disabled: true }]);
+    expect(w.automations.get('a1')).toMatchObject({ enabled: false });
+    expect(w.automations.get('a1')?.disabledReason).toContain('Not valid any more');
+  });
+
   it('considers at most 20 recipes', async () => {
     const w = makeWorld();
     for (let i = 2; i <= 25; i += 1) {

@@ -95,7 +95,7 @@ export interface AutomationRunTx extends ColumnActionsTx {
 
 export interface AutomationStore {
   transact<T>(fn: (tx: AutomationRunTx) => Promise<T>): Promise<T>;
-  /** Up to `limit` enabled recipes of the board that still parse. */
+  /** Up to `limit` valid enabled recipes of the board, plus every invalid one (so it can fail visibly). */
   listEnabledAutomations(boardId: string, limit: number): Promise<AutomationDoc[]>;
   /** The board's columns (status labels live in their settings); `[]` when the board is gone. */
   getColumns(boardId: string): Promise<MatchColumn[]>;
@@ -407,7 +407,9 @@ export async function handleActivityEvent(
     ) {
       columns = await deps.store.getColumns(event.boardId);
     }
-    if (!matchAutomation(automation, activity, null, columns)) continue;
+    // A recipe that no longer parses has no usable trigger: it fails (and is counted) on every
+    // trigger-kind event until the circuit breaker switches it off with a reason.
+    if (!automation.invalid && !matchAutomation(automation, activity, null, columns)) continue;
 
     const outcome = await runAutomation(
       deps.store,
