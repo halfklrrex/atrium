@@ -272,6 +272,8 @@ async function executeInTransaction(
         automationDepth: depth + 1,
         automationRunId: runId,
       },
+      automation: true,
+      automationActorId: automationActorId(automationId),
       notifyColumnId: 'columnId' in automation.trigger ? automation.trigger.columnId : '',
       notifyLabel: automation.name,
     },

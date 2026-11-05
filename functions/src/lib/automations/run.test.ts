@@ -27,6 +27,9 @@ interface World {
   activities: NewActivity[];
   itemPatches: Array<Record<string, unknown>>;
   notifications: Array<{ uid: string; id: string; data: NewNotification }>;
+  createdItems: Array<Record<string, unknown>>;
+  createdUpdates: Array<Record<string, unknown>>;
+  lastPosition: string | null;
 }
 
 const automation = (over: Partial<AutomationDoc> = {}): AutomationDoc => ({
@@ -61,6 +64,9 @@ function makeWorld(over: Partial<World> = {}): World {
     activities: [],
     itemPatches: [],
     notifications: [],
+    createdItems: [],
+    createdUpdates: [],
+    lastPosition: 'a3',
     ...over,
   };
 }
@@ -84,6 +90,16 @@ function makeStore(w: World): AutomationStore {
         },
         updateItem(_b, _i, patch) {
           pending.push(() => w.itemPatches.push(patch));
+        },
+        async getLastItemPosition() {
+          return w.lastPosition;
+        },
+        createItem(_b, item) {
+          pending.push(() => w.createdItems.push(item as unknown as Record<string, unknown>));
+          return 'new1';
+        },
+        createUpdate(_b, itemId, update) {
+          pending.push(() => w.createdUpdates.push({ itemId, ...update }));
         },
         async hasRecentButtonClick() {
           return false;
@@ -584,5 +600,85 @@ describe('handleActivityEvent', () => {
     expect(notices).toHaveLength(1);
     expect(notices[0]).toMatchObject({ uid: 'creator' });
     expect(notices[0]?.data.snippet).toContain('10 failed runs');
+  });
+});
+
+describe('create_item and post_update', () => {
+  const run = async (actions: AutomationDoc['actions'], w = makeWorld()) => {
+    w.automations.set('a1', automation({ actions }));
+    return { w, out: await runAutomation(makeStore(w), request, 'TS') };
+  };
+
+  it('create_item builds a new item after the last position with the loop markers', async () => {
+    const { w, out } = await run([
+      {
+        type: 'create_item',
+        name: '{name} follow-up {date}',
+        groupId: 'g1',
+        values: { stage: 'Todo' },
+      },
+    ]);
+    expect(out.status).toBe('ok');
+    expect(w.createdItems).toEqual([
+      {
+        name: 'Task follow-up 2026-11-04',
+        groupId: 'g1',
+        position: 'a4',
+        values: { stage: 'Todo' },
+        createdBy: 'creator',
+        markers: { updatedVia: 'automation:a1', automationDepth: 1, automationRunId: 'a1-e1' },
+      },
+    ]);
+    // The trigger item itself is not written.
+    expect(w.itemPatches).toEqual([]);
+    expect(w.runs.get('a1-e1')).toMatchObject({ status: 'ok', actions: ['create_item'] });
+    expect(w.counter).toEqual({ hourBucket: BUCKET, runs: 1 });
+  });
+
+  it('create_item without a group uses the first group', async () => {
+    const w = makeWorld();
+    w.board.groups = [
+      { id: 'g2', position: 'a1' },
+      { id: 'g1', position: 'a0' },
+    ];
+    const { w: after } = await run([{ type: 'create_item', name: 'X' }], w);
+    expect(after.createdItems[0]).toMatchObject({ groupId: 'g1', position: 'a4' });
+  });
+
+  it('post_update writes a plain update authored as the automation', async () => {
+    const { w, out } = await run([{ type: 'post_update', text: 'Moved: {name}' }]);
+    expect(out.status).toBe('ok');
+    expect(w.createdUpdates).toEqual([
+      {
+        itemId: 'i1',
+        authorId: 'automation:a1',
+        authorName: 'Automations',
+        content: 'Moved: Task',
+      },
+    ]);
+  });
+
+  it('a recipe with two create_item actions is recorded failed, with no side effects', async () => {
+    const { w, out } = await run([
+      { type: 'create_item', name: 'A' },
+      { type: 'create_item', name: 'B' },
+    ]);
+    expect(out.status).toBe('failed');
+    expect(w.createdItems).toEqual([]);
+    expect(w.runs.get('a1-e1')).toMatchObject({ status: 'failed' });
+  });
+
+  it('a create_item with an unsafe value (unknown group, derived column) is recorded failed', async () => {
+    const { w, out } = await run([{ type: 'create_item', name: 'A', groupId: 'nope' }]);
+    expect(out.status).toBe('failed');
+    expect(w.createdItems).toEqual([]);
+  });
+
+  it('a rendered name over 500 characters fails the run', async () => {
+    const w = makeWorld();
+    w.item = { id: 'i1', name: 'x'.repeat(500), state: 'active', values: {} };
+    const { out, w: after } = await run([{ type: 'create_item', name: '{name}{name}' }], w);
+    expect(out.status).toBe('failed');
+    expect(after.createdItems).toEqual([]);
   });
 });

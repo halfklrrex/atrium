@@ -9,6 +9,8 @@ import type * as AdminAutomationsModule from '../../../functions/src/lib/admin-a
 import type * as AdminNotificationsModule from '../../../functions/src/lib/admin-notifications';
 import type * as ColumnActionsModule from '../../../functions/src/lib/column-actions';
 import type * as RunModule from '../../../functions/src/lib/automations/run';
+import type * as AdminItemSeqModule from '../../../functions/src/lib/admin-item-seq';
+import type * as ItemSeqModule from '../../../functions/src/lib/item-seq';
 import { USERS, WS, boardDoc, createTestEnv, itemDoc, seedFixture } from './helpers';
 
 /**
@@ -29,6 +31,8 @@ let notificationsAdapter: typeof AdminNotificationsModule;
 let actions: typeof ColumnActionsModule;
 let runner: typeof RunModule;
 let FieldValue: typeof FieldValueType;
+let itemSeq: typeof ItemSeqModule;
+let itemSeqAdapter: typeof AdminItemSeqModule;
 
 const BOARD = 'boardAutomationsE2e';
 const CREATOR = USERS.owner;
@@ -48,6 +52,7 @@ const columns = [
       ],
     },
   },
+  { id: 'owner', type: 'people', title: 'Owner', position: 'a3', settings: {} },
   {
     id: 'go',
     type: 'button',
@@ -56,7 +61,10 @@ const columns = [
     settings: { label: 'Go', color: '#579bfc', actions: [] },
   },
 ];
-const groups = [{ id: 'g1', title: 'To do', color: '#579bfc', position: 'a0' }];
+const groups = [
+  { id: 'g1', title: 'To do', color: '#579bfc', position: 'a0' },
+  { id: 'g2', title: 'Done', color: '#00c875', position: 'a1' },
+];
 
 beforeAll(async () => {
   process.env.GCLOUD_PROJECT = 'demo-atrium-rules';
@@ -68,6 +76,8 @@ beforeAll(async () => {
   logic = await import('../../../functions/src/lib/activity');
   actions = await import('../../../functions/src/lib/column-actions');
   runner = await import('../../../functions/src/lib/automations/run');
+  itemSeq = await import('../../../functions/src/lib/item-seq');
+  itemSeqAdapter = await import('../../../functions/src/lib/admin-item-seq');
   ({ FieldValue } = await import('firebase-admin/firestore'));
 });
 
@@ -76,10 +86,12 @@ afterAll(async () => {
 });
 
 let processed: Set<string>;
+let logged: Set<string>;
 let counter: number;
 
 beforeEach(async () => {
   processed = new Set();
+  logged = new Set();
   counter = 0;
   await env.clearFirestore();
   await seedFixture(env);
@@ -136,6 +148,7 @@ async function createItem(id: string, over: Record<string, unknown> = {}) {
     );
   });
   const after = await getItem(id);
+  logged.add(id);
   counter += 1;
   await logic.recordItemActivity(activityAdapter.adminActivityStore(admin.db()), {
     eventId: `create-${counter}`,
@@ -195,6 +208,27 @@ async function handle(entryId: string, itemId = 'i1') {
       itemId,
       before,
       after,
+    });
+  }
+  // Items the run created: `onItemCreated` numbers them, `onItemWrittenActivity` logs them.
+  for (const created of (await boardRef().collection('items').get()).docs) {
+    if (logged.has(created.id)) continue;
+    logged.add(created.id);
+    await admin
+      .db()
+      .runTransaction((tx) =>
+        itemSeq.allocateItemNumbers(
+          itemSeqAdapter.adminItemSeqTx(admin.db(), tx),
+          BOARD,
+          created.id,
+        ),
+      );
+    counter += 1;
+    await logic.recordItemActivity(activityAdapter.adminActivityStore(admin.db()), {
+      eventId: `create-${counter}`,
+      boardId: BOARD,
+      itemId: created.id,
+      after: created.data(),
     });
   }
   return outcomes;
@@ -452,5 +486,236 @@ describe('automations engine against the emulator', () => {
         itemName: 'Write spec',
       }),
     ]);
+  });
+
+  describe('P5c: more triggers and actions', () => {
+    const people = (...uids: string[]) => ({
+      personsAndTeams: uids.map((id) => ({ id, kind: 'person' })),
+    });
+    const itemIds = async () => (await boardRef().collection('items').get()).docs.map((d) => d.id);
+
+    it('item moved fires for the chosen group only', async () => {
+      await createItem('i1');
+      await seedAutomation('moved', {
+        trigger: { type: 'item_moved', groupId: 'g2' },
+        actions: [{ type: 'set_value', columnId: 'stage', value: 'Moved' }],
+      });
+      await seedAutomation('elsewhere', {
+        trigger: { type: 'item_moved', groupId: 'g9' },
+      });
+      await humanEdit(USERS.member, { groupId: 'g2' });
+      await settle();
+      expect((await runsOf()).map((r) => r.id)).toEqual([expect.stringMatching(/^moved-/)]);
+      expect((await getItem()).values.stage).toBe('Moved');
+
+      await humanEdit(USERS.member, { groupId: 'g1' });
+      await settle();
+      expect(await runsOf()).toHaveLength(1);
+    });
+
+    it('person assigned fires when someone is added, and honours the person filter', async () => {
+      await createItem('i1');
+      await seedAutomation('anyone', {
+        trigger: { type: 'person_assigned', columnId: 'owner' },
+        actions: [{ type: 'set_value', columnId: 'stage', value: 'Assigned' }],
+      });
+      await seedAutomation('viewer-only', {
+        trigger: { type: 'person_assigned', columnId: 'owner', uid: USERS.viewer },
+        actions: [{ type: 'set_value', columnId: 'stage', value: 'Viewer' }],
+      });
+      await humanEdit(USERS.member, { 'values.owner': people(USERS.member) });
+      await settle();
+      expect((await runsOf()).map((r) => r.id)).toEqual([expect.stringMatching(/^anyone-/)]);
+      expect((await getItem()).values.stage).toBe('Assigned');
+
+      // Adding a second person fires the filtered recipe; removing one fires nothing.
+      await humanEdit(USERS.member, { 'values.owner': people(USERS.member, USERS.viewer) });
+      await settle();
+      expect((await runsOf()).map((r) => r.id.split('-')[0]).sort()).toEqual([
+        'anyone',
+        'anyone',
+        'viewer',
+      ]);
+      await humanEdit(USERS.member, { 'values.owner': people(USERS.viewer) });
+      await settle();
+      expect(await runsOf()).toHaveLength(3);
+    });
+
+    it('create_item makes a numbered item in the chosen group, credited to the automation', async () => {
+      await createItem('i1', { name: 'Write spec' });
+      await seedAutomation('follow', {
+        name: 'Follow up',
+        trigger: { type: 'status_changed', columnId: 'status', toLabelId: 2 },
+        actions: [
+          {
+            type: 'create_item',
+            name: '{name} follow-up',
+            groupId: 'g2',
+            values: { stage: 'Review' },
+          },
+        ],
+      });
+      await humanEdit(USERS.member, { 'values.status': { index: 2 } });
+      await settle();
+
+      const ids = (await itemIds()).filter((id) => id !== 'i1');
+      expect(ids).toHaveLength(1);
+      const made = await getItem(ids[0]);
+      expect(made).toMatchObject({
+        name: 'Write spec follow-up',
+        groupId: 'g2',
+        parentItemId: null,
+        state: 'active',
+        values: { stage: 'Review' },
+        createdBy: CREATOR,
+        updatedVia: 'automation:follow',
+        automationDepth: 1,
+        automationRunId: expect.stringMatching(/^follow-/),
+      });
+      expect(typeof made.position).toBe('string');
+      expect(made.seq).toBeGreaterThan(0);
+      expect(made.boardSeq).toBeGreaterThan(0);
+      // The trigger item is not stamped by the run.
+      expect((await getItem()).updatedVia).toBeUndefined();
+
+      const entries = (await activityOf()).map((d) => d.data());
+      expect(entries.find((e) => e.kind === 'item_created' && e.itemId === ids[0])).toMatchObject({
+        actorId: 'automation:follow',
+        data: { depth: 1 },
+      });
+      expect((await runsOf()).map((r) => r.data())).toEqual([
+        expect.objectContaining({ status: 'ok', actions: ['create_item'], depth: 0 }),
+      ]);
+      expect(entries.find((e) => e.kind === 'automation_ran')?.data.actions).toEqual([
+        'create_item',
+      ]);
+    });
+
+    it('post_update adds a plain update authored as Automations', async () => {
+      await createItem('i1', { name: 'Ship' });
+      await seedAutomation('say', {
+        name: 'Say it',
+        trigger: { type: 'item_moved', groupId: 'g2' },
+        actions: [{ type: 'post_update', text: '{name} is done on {date}' }],
+      });
+      await humanEdit(USERS.member, { groupId: 'g2' });
+      await settle();
+
+      const updates = await itemRef('i1').collection('updates').get();
+      expect(updates.docs).toHaveLength(1);
+      const update = updates.docs[0]!;
+      expect(update.data()).toMatchObject({
+        itemId: 'i1',
+        authorId: 'automation:say',
+        authorName: 'Automations',
+        authorPhotoUrl: null,
+        content: expect.stringMatching(/^Ship is done on \d{4}-\d{2}-\d{2}$/),
+        likes: [],
+        repliesCount: 0,
+      });
+      expect((await getItem()).updatesCount).toBe(1);
+
+      // `onUpdateCreated` logs it once, under the automation's name.
+      await logic.recordUpdatePosted(activityAdapter.adminActivityStore(admin.db()), {
+        eventId: 'upd-1',
+        boardId: BOARD,
+        itemId: 'i1',
+        update: update.data(),
+      });
+      const posted = (await activityOf()).find((d) => d.data().kind === 'update_posted')!;
+      expect(posted.data()).toMatchObject({ actorId: 'automation:say', actorName: 'Automations' });
+      expect((await runsOf()).map((r) => r.data().actions)).toEqual([['post_update']]);
+    });
+
+    it('a recipe that creates an item in the group it triggers on does not trigger itself', async () => {
+      await seedAutomation('again', {
+        trigger: { type: 'item_created', groupId: 'g1' },
+        actions: [{ type: 'create_item', name: 'Again', groupId: 'g1' }],
+      });
+      await createItem('i1');
+      await settle();
+      expect(await itemIds()).toHaveLength(2);
+      expect((await runsOf()).map((r) => r.data().status)).toEqual(['ok']);
+    });
+
+    it('two recipes that create items for each other stop at depth 3 with a "loop limit" run', async () => {
+      await seedAutomation('ping', {
+        trigger: { type: 'item_created', groupId: 'g1' },
+        actions: [{ type: 'create_item', name: 'Ping', groupId: 'g2' }],
+      });
+      await seedAutomation('pong', {
+        trigger: { type: 'item_created', groupId: 'g2' },
+        actions: [{ type: 'create_item', name: 'Pong', groupId: 'g1' }],
+      });
+      await createItem('i1');
+      await settle();
+
+      expect(await itemIds()).toHaveLength(4); // the human's item plus three created ones
+      const runs = (await runsOf()).map((r) => r.data());
+      expect(
+        runs
+          .filter((r) => r.status === 'ok')
+          .map((r) => r.depth)
+          .sort(),
+      ).toEqual([0, 1, 2]);
+      expect(runs.filter((r) => r.status === 'skipped')).toEqual([
+        expect.objectContaining({ reason: 'loop limit', depth: 3 }),
+      ]);
+    });
+
+    it('create_item counts toward the hourly run limit', async () => {
+      const bucket = new Date().toISOString().slice(0, 13);
+      await boardRef()
+        .collection('counters')
+        .doc('automations')
+        .set({ hourBucket: bucket, runs: 100 });
+      await seedAutomation('make', { actions: [{ type: 'create_item', name: 'X' }] });
+      await createItem('i1');
+      await settle();
+      expect(await itemIds()).toEqual(['i1']);
+      expect((await runsOf()).map((r) => r.data())).toEqual([
+        expect.objectContaining({ status: 'skipped', reason: 'rate limit' }),
+      ]);
+    });
+
+    it('an invalid or unsafe recipe is recorded failed and changes nothing', async () => {
+      await seedAutomation('bad-group', {
+        actions: [
+          { type: 'post_update', text: 'Hello' },
+          { type: 'create_item', name: 'X', groupId: 'gone' },
+        ],
+      });
+      await seedAutomation('two-creates', {
+        actions: [
+          { type: 'create_item', name: 'A' },
+          { type: 'create_item', name: 'B' },
+        ],
+      });
+      await seedAutomation('derived', {
+        actions: [{ type: 'create_item', name: 'A', values: { go: 'x' } }],
+      });
+      await createItem('i1');
+      await settle();
+
+      const runs = (await runsOf()).map((r) => r.data());
+      expect(runs.map((r) => r.status)).toEqual(['failed', 'failed', 'failed']);
+      expect(await itemIds()).toEqual(['i1']);
+      expect((await itemRef('i1').collection('updates').get()).empty).toBe(true);
+      expect((await getItem()).updatesCount).toBeUndefined();
+    });
+
+    it('a button column ignores the automation-only actions (its settings no longer parse)', async () => {
+      await createItem('i1');
+      await boardRef().update({
+        columns: columns.map((c) =>
+          c.id === 'go'
+            ? { ...c, settings: { ...c.settings, actions: [{ type: 'create_item', name: 'X' }] } }
+            : c,
+        ),
+      });
+      // Stored settings that do not parse fall back to "no actions": the click runs nothing.
+      expect(await click()).toMatchObject({ success: true, applied: [] });
+      expect(await itemIds()).toEqual(['i1']);
+    });
   });
 });
