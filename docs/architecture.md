@@ -175,7 +175,8 @@ Loading a board means one listener on `items where state == 'active'`, which is 
   - **Retention.** 90 days by a Firestore TTL policy on `expiresAt` (`fieldOverrides` in `firestore.indexes.json`, like presence); deletion lags up to about a day, so the web hides entries past `expiresAt`. Legacy pre-P4 `button_clicked` docs have no `expiresAt` and are removed once by `scripts/migrations/2026-11-delete-legacy-activity.mjs` (dry run unless `--apply`).
   - **Indexes.** Composites on `activity` (`COLLECTION`): `itemId asc, createdAt desc`; `actorId asc, createdAt desc`; `columnId asc, createdAt desc`. Person plus column together relies on index merging; if production names a missing composite, add it then.
 - `boards/{boardId}/columnSnapshots/{snapshotId}` (+ `chunks/{n}`): the backup of a column type change (old column def and every old value), Functions-only (`changeColumnType`, `revertColumnType`, the daily purge); rules deny every client read and write. Expires after 30 days. Details: `docs/specs/P2-change-column-type.md`
-- `boards/{boardId}/automations/{id}` (P5) · `dashboards/{id}` (P6) · `docs/{id}` (P7)
+- `boards/{boardId}/automations/{id}` (P5) · `docs/{id}` (P7)
+- `dashboards/{dashboardId}` (P6): a page of widgets (numbers, battery, chart, table, workload) that read live from up to 50 boards and store no item data. Same access model as boards (`kind`, `access`, `accessUids`); owners trash, restore and share it with direct writes the rules allow. Spec: `docs/specs/P6-dashboards.md`.
 - `users/{uid}/notifications/{id}` (P4) · workspace `invites` and `members`: see 5.2a (P4a)
 
 ## 6. Column-type registry (`packages/shared/src/columns/`)
