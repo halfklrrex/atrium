@@ -113,7 +113,7 @@
 
 .handle:focus-visible,
 .resizeHandle:focus-visible {
-  outline: 2px solid var(--primary-color);
+  outline: var(--atrium-focus-ring);
 }
 
 .widgetMenu {
@@ -432,4 +432,96 @@
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* ---- Workload widget ---- */
+
+.workloadWidget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  height: 100%;
+  min-height: 0;
+}
+
+.workloadScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.workloadGrid {
+  display: grid;
+  grid-template-columns:
+    var(--atrium-dashboard-workload-person-width)
+    repeat(var(--workload-cells), var(--atrium-dashboard-workload-cell-width));
+  width: max-content;
+}
+
+.workloadRow {
+  display: contents;
+}
+
+.workloadHead,
+.workloadPerson,
+.workloadCell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--atrium-dashboard-workload-row-height);
+  padding: var(--atrium-workload-cell-inset);
+}
+
+.workloadHead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--atrium-z-raised);
+  justify-content: center;
+  background: var(--atrium-dashboard-card-bg);
+  color: var(--atrium-dashboard-caption-text);
+  font: var(--font-text3-medium);
+  white-space: nowrap;
+}
+
+.workloadPerson {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: var(--atrium-z-raised);
+  padding-inline: var(--space-8);
+  overflow: hidden;
+  background: var(--atrium-dashboard-card-bg);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workloadHead.workloadPerson {
+  z-index: calc(var(--atrium-z-raised) + 1);
+}
+
+.workloadUnassigned {
+  color: var(--secondary-text-color);
+  font-style: italic;
+}
+
+.workloadTint {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  border-radius: var(--border-radius-small);
+  background: var(--atrium-workload-under);
+  color: var(--atrium-workload-text);
+  font: var(--atrium-workload-value-font);
+}
+
+.workloadTint[data-level='balanced'] {
+  background: var(--atrium-workload-balanced);
+}
+
+.workloadTint[data-level='over'] {
+  background: var(--atrium-workload-over);
+  font-weight: var(--font-weight-bold);
 }

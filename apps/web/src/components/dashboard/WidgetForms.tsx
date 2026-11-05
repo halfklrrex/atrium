@@ -10,6 +10,7 @@ import { CHART_STACK_TYPES, CHART_X_TYPES } from '../board-chart/chart-model';
 import dialogStyles from '../dialogs/dialogs.module.css';
 import styles from './dashboard.module.css';
 import type { TableSettings } from './widgets/table-model';
+import type { WorkloadWidgetSettings } from './widgets/workload-widget-model';
 import {
   columnOptions,
   isNumericColumn,
@@ -338,6 +339,69 @@ export function TableSettingsForm({
               Up to {n}
             </option>
           ))}
+        </select>
+      </label>
+    </>
+  );
+}
+
+export function WorkloadSettingsForm({
+  boards,
+  settings,
+  onChange,
+}: {
+  boards: readonly BoardDoc[];
+  settings: WorkloadWidgetSettings;
+  onChange: (next: WorkloadWidgetSettings) => void;
+}) {
+  const people = columnOptions(boards, (d) => d.type === 'people');
+  const dates = columnOptions(boards, (d) => d.type === 'timeline' || d.type === 'date');
+  return (
+    <>
+      <label className={styles.field}>
+        <span className={dialogStyles.fieldLabel}>People column</span>
+        <select
+          className={styles.select}
+          aria-label="People column"
+          value={settings.peopleColumnId ?? ''}
+          onChange={(e) => onChange({ ...settings, peopleColumnId: e.target.value || null })}
+        >
+          <option value="">First People column of each board</option>
+          {people.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className={styles.field}>
+        <span className={dialogStyles.fieldLabel}>Date column</span>
+        <select
+          className={styles.select}
+          aria-label="Date column"
+          value={settings.dateColumnId ?? ''}
+          onChange={(e) => onChange({ ...settings, dateColumnId: e.target.value || null })}
+        >
+          <option value="">First Timeline or Date column of each board</option>
+          {dates.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className={styles.field}>
+        <span className={dialogStyles.fieldLabel}>Period</span>
+        <select
+          className={styles.select}
+          aria-label="Period"
+          value={settings.bucket}
+          onChange={(e) =>
+            onChange({ ...settings, bucket: e.target.value === 'month' ? 'month' : 'week' })
+          }
+        >
+          <option value="week">Weeks</option>
+          <option value="month">Months</option>
         </select>
       </label>
     </>

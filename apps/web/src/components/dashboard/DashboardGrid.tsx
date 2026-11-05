@@ -14,7 +14,6 @@ import {
   moveItemBy,
   normalizeLayout,
   resizeItem,
-  resizeItemBy,
   toGridItems,
   type GridItem,
 } from './dashboard-layout';
@@ -22,9 +21,21 @@ import { deltaToCells, readGridMetrics } from './grid-metrics';
 import styles from './dashboard.module.css';
 import { parseHandleId } from './handle-ids';
 import { WidgetFrame } from './WidgetFrame';
+import { atLeastMinSize } from './widgets/widget-catalog';
 
 /** Pause after the last key press before a keyboard move or resize is saved. */
 export const LAYOUT_SAVE_DELAY_MS = 400;
+
+/** A resize to `size`, never below the widget type's minimum. */
+function resizeWithMin(
+  widgets: readonly DashboardWidget[],
+  list: readonly GridItem[],
+  id: string,
+  size: { w: number; h: number },
+): GridItem[] {
+  const type = widgets.find((w) => w.id === id)?.type;
+  return resizeItem(list, id, type ? atLeastMinSize(type, size) : size);
+}
 
 type Gesture =
   | { kind: 'move'; id: string; dx: number; dy: number }
@@ -113,8 +124,12 @@ export function DashboardGrid({
     scheduleSave(next);
     describe(next, id, 'moved to');
   };
+  const resizeTo = (list: readonly GridItem[], id: string, size: { w: number; h: number }) =>
+    resizeWithMin(widgets, list, id, size);
   const keyResize = (id: string, dw: number, dh: number) => {
-    const next = resizeItemBy(items, id, { dw, dh });
+    const current = items.find((i) => i.id === id);
+    if (!current) return;
+    const next = resizeTo(items, id, { w: current.w + dw, h: current.h + dh });
     scheduleSave(next);
     describe(next, id, 'resized to');
   };
@@ -150,7 +165,7 @@ export function DashboardGrid({
     const next =
       handle.kind === 'move'
         ? moveItem(items, current.id, { x: current.x + dx, y: current.y + dy })
-        : resizeItem(items, current.id, { w: current.w + dx, h: current.h + dy });
+        : resizeTo(items, current.id, { w: current.w + dx, h: current.h + dy });
     scheduleSave(next);
     describe(next, current.id, handle.kind === 'move' ? 'moved to' : 'resized to');
     flush();
@@ -164,8 +179,11 @@ export function DashboardGrid({
     if (!current) return null;
     return gesture.kind === 'move'
       ? moveItem(items, current.id, { x: current.x + gesture.dx, y: current.y + gesture.dy })
-      : resizeItem(items, current.id, { w: current.w + gesture.dx, h: current.h + gesture.dy });
-  }, [gesture, items]);
+      : resizeWithMin(widgets, items, current.id, {
+          w: current.w + gesture.dx,
+          h: current.h + gesture.dy,
+        });
+  }, [gesture, items, widgets]);
   const shown = preview ?? items;
   const landing = gesture ? shown.find((i) => i.id === gesture.id) : undefined;
   const original = (id: string) => items.find((i) => i.id === id)!;

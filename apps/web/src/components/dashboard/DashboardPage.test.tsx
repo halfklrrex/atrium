@@ -49,7 +49,7 @@ vi.mock('../../data', async (importOriginal) => ({
 
 const widget = (
   id: string,
-  type: 'numbers' | 'battery' | 'chart' | 'table',
+  type: 'numbers' | 'battery' | 'chart' | 'table' | 'workload',
   title: string,
 ): DashboardWidget =>
   ({
@@ -163,6 +163,37 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('This widget type is coming soon.')).toBeNull();
     expect(screen.getByRole('link', { name: 'First deal' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: /Bar chart/ })).toBeInTheDocument();
+  });
+
+  it('renders a Workload widget with a row per person', () => {
+    const team = makeBoard({
+      id: 'b2',
+      name: 'Team',
+      columns: [column('who', 'people', 'Owner'), column('when', 'timeline', 'Dates')],
+    });
+    mocks.items.boards = [
+      {
+        board: team,
+        items: [
+          makeItem({
+            id: 'i1',
+            values: {
+              who: { personsAndTeams: [{ id: 'u1', kind: 'person' }] },
+              when: { from: '2026-11-02', to: '2026-11-04' },
+            },
+          }),
+        ],
+      },
+    ];
+    renderPage(
+      makeDashboard({
+        id: 'd1',
+        boardIds: ['b2'],
+        widgets: [widget('w1', 'workload', 'Team load')],
+      }),
+    );
+    expect(screen.queryByText('This widget type is coming soon.')).toBeNull();
+    expect(screen.getByRole('grid', { name: /Workload of 1 person/ })).toBeInTheDocument();
   });
 
   it('says how many boards are hidden because the user cannot open them', () => {

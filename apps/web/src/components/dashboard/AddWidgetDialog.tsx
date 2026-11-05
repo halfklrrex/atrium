@@ -26,7 +26,13 @@ import {
 } from './widgets/numbers-model';
 import type { BatterySettings } from './widgets/battery-model';
 import type { TableSettings } from './widgets/table-model';
-import { BoardSubsetField, ChartSettingsForm, TableSettingsForm } from './WidgetForms';
+import type { WorkloadWidgetSettings } from './widgets/workload-widget-model';
+import {
+  BoardSubsetField,
+  ChartSettingsForm,
+  TableSettingsForm,
+  WorkloadSettingsForm,
+} from './WidgetForms';
 import {
   DEFAULT_WIDGET_TITLE,
   WIDGET_TYPES,
@@ -48,7 +54,8 @@ export interface AddWidgetDialogProps {
   onClose: () => void;
 }
 
-type Settings = NumbersSettings | BatterySettings | ChartSettings | TableSettings;
+type Settings =
+  NumbersSettings | BatterySettings | ChartSettings | TableSettings | WorkloadWidgetSettings;
 
 /** Adds a widget to a dashboard, or edits one: type (new only), title and its settings. */
 export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidgetDialogProps) {
@@ -76,7 +83,8 @@ export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidge
   const battery = type === 'battery' ? (settings as BatterySettings) : null;
   const chart = type === 'chart' ? (settings as ChartSettings) : null;
   const table = type === 'table' ? (settings as TableSettings) : null;
-  const hasBoardSubset = type === 'chart' || type === 'table';
+  const workload = type === 'workload' ? (settings as WorkloadWidgetSettings) : null;
+  const hasBoardSubset = type === 'chart' || type === 'table' || type === 'workload';
 
   const needsColumn = numbers !== null && numbers.mode !== 'count';
   const missingColumn = needsColumn && !numbers.columnId;
@@ -312,6 +320,9 @@ export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidge
             ) : null}
             {table ? (
               <TableSettingsForm boards={boards} settings={table} onChange={setSettings} />
+            ) : null}
+            {workload ? (
+              <WorkloadSettingsForm boards={boards} settings={workload} onChange={setSettings} />
             ) : null}
             {hasBoardSubset ? (
               <BoardSubsetField boards={boards} value={boardIds} onChange={setBoardIds} />
