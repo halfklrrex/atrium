@@ -1,9 +1,10 @@
 import { positionAfterAll, positionAtIndex, positionBeforeAll } from '../lib/positions';
-import { boardKey, folderKey, type TreeNode } from './boards';
+import { nodeKey, type LeafNode, type TreeNode } from './boards';
 
 /** Where a dragged sidebar row ends up; each result maps to exactly one document update. */
 export type DropResult =
   | { type: 'board'; boardId: string; folderId: string | null; position: string }
+  | { type: 'dashboard'; dashboardId: string; folderId: string | null; position: string }
   | { type: 'folder'; folderId: string; position: string };
 
 interface Located {
@@ -17,7 +18,7 @@ function locate(nodes: readonly TreeNode[]): Map<string, Located> {
   const found = new Map<string, Located>();
   const walk = (list: readonly TreeNode[], parentFolderId: string | null) => {
     for (const node of list) {
-      const key = node.type === 'folder' ? folderKey(node.folder.id) : boardKey(node.board.id);
+      const key = nodeKey(node);
       found.set(key, { node, parentFolderId, siblings: [...list] });
       if (node.type === 'folder') walk(node.children, node.folder.id);
     }
@@ -26,17 +27,25 @@ function locate(nodes: readonly TreeNode[]): Map<string, Located> {
   return found;
 }
 
-const boardsOf = (nodes: readonly TreeNode[]) =>
-  nodes.flatMap((n) => (n.type === 'board' ? [n.board] : []));
+/** Boards and dashboards share one position order inside a folder, so both count as leaves. */
+const leafId = (n: LeafNode): string => (n.type === 'board' ? n.board.id : n.dashboard.id);
+const leafOf = (n: LeafNode): { id: string; position: string } =>
+  n.type === 'board' ? n.board : n.dashboard;
+const leavesOf = (nodes: readonly TreeNode[]): LeafNode[] =>
+  nodes.filter((n): n is LeafNode => n.type !== 'folder');
+const leafDrop = (node: LeafNode, folderId: string | null, position: string): DropResult =>
+  node.type === 'board'
+    ? { type: 'board', boardId: node.board.id, folderId, position }
+    : { type: 'dashboard', dashboardId: node.dashboard.id, folderId, position };
 const foldersOf = (nodes: readonly TreeNode[]) =>
   nodes.flatMap((n) => (n.type === 'folder' ? [n.folder] : []));
 
 /**
  * Translate "row `activeKey` was dropped on row `overKey`" into a single position/folder update.
  *
- *  - A board dropped on a folder goes to the end of that folder (dropping it on the folder it already
+ *  - A board or dashboard dropped on a folder goes to the end of that folder (dropping it on the folder it already
  *    lives in moves it out to the top of the workspace-root boards).
- *  - A board dropped on another board takes that board's place (before it when moving up or between
+ *  - A board or dashboard dropped on another leaf takes its place (before it when moving up or between
  *    folders, after it when moving down within the same level).
  *  - A folder dropped on a sibling folder reorders folders at that level. Folders are never nested by
  *    dragging, and a folder dropped on a board is ignored.
@@ -52,41 +61,33 @@ export function computeDrop(
   const over = located.get(overKey);
   if (!active || !over) return null;
 
-  if (active.node.type === 'board') {
-    const board = active.node.board;
+  if (active.node.type !== 'folder') {
+    const moving = active.node;
+    const movingId = leafId(moving);
+    const others = (nodes: readonly TreeNode[]) =>
+      leavesOf(nodes)
+        .filter((n) => leafId(n) !== movingId)
+        .map(leafOf);
     if (over.node.type === 'folder') {
       const target = over.node.folder.id;
       if (active.parentFolderId === target) {
-        const rootBoards = boardsOf(tree).filter((b) => b.id !== board.id);
-        return {
-          type: 'board',
-          boardId: board.id,
-          folderId: null,
-          position: positionBeforeAll(rootBoards),
-        };
+        return leafDrop(moving, null, positionBeforeAll(others(tree)));
       }
-      const inside = boardsOf(over.node.children).filter((b) => b.id !== board.id);
-      return {
-        type: 'board',
-        boardId: board.id,
-        folderId: target,
-        position: positionAfterAll(inside),
-      };
+      return leafDrop(moving, target, positionAfterAll(others(over.node.children)));
     }
 
-    const overBoard = over.node.board;
-    const siblings = boardsOf(over.siblings).filter((b) => b.id !== board.id);
-    const overIndex = siblings.findIndex((b) => b.id === overBoard.id);
+    const overId = leafId(over.node);
+    const siblings = others(over.siblings);
+    const overIndex = siblings.findIndex((b) => b.id === overId);
     const sameLevel = active.parentFolderId === over.parentFolderId;
-    const activeIndex = boardsOf(active.siblings).findIndex((b) => b.id === board.id);
-    const originalOverIndex = boardsOf(over.siblings).findIndex((b) => b.id === overBoard.id);
+    const activeIndex = leavesOf(active.siblings).findIndex((n) => leafId(n) === movingId);
+    const originalOverIndex = leavesOf(over.siblings).findIndex((n) => leafId(n) === overId);
     const movingDown = sameLevel && activeIndex < originalOverIndex;
-    return {
-      type: 'board',
-      boardId: board.id,
-      folderId: over.parentFolderId,
-      position: positionAtIndex(siblings, movingDown ? overIndex + 1 : overIndex),
-    };
+    return leafDrop(
+      moving,
+      over.parentFolderId,
+      positionAtIndex(siblings, movingDown ? overIndex + 1 : overIndex),
+    );
   }
 
   // Folders only reorder among folders at the same level.

@@ -1,11 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeBoard, makeFolder } from '../test/fixtures';
-import { activeBoards, buildTree, filterTree, flattenTree, mergeBoards } from './boards';
+import { makeBoard, makeDashboard, makeFolder } from '../test/fixtures';
+import {
+  activeBoards,
+  buildTree,
+  dashboardKey,
+  filterTree,
+  flattenTree,
+  mergeBoards,
+} from './boards';
 
 vi.mock('../lib/firebase', () => ({ db: {} }));
 
 const names = (nodes: ReturnType<typeof buildTree>) =>
-  nodes.map((n) => (n.type === 'folder' ? `[${n.folder.id}]` : n.board.id));
+  nodes.map((n) =>
+    n.type === 'folder'
+      ? `[${n.folder.id}]`
+      : n.type === 'dashboard'
+        ? `dash:${n.dashboard.id}`
+        : n.board.id,
+  );
 
 describe('mergeBoards (main boards + boards I have access to)', () => {
   it('dedupes a board that both listeners return, keeping the latest snapshot', () => {
@@ -101,5 +114,58 @@ describe('buildTree', () => {
     expect(names(filterTree(tree, 'road'))).toEqual(['[f1]']);
     expect(names(filterTree(tree, 'zzz'))).toEqual([]);
     expect(filterTree(tree, '  ')).toHaveLength(2);
+  });
+});
+
+describe('buildTree with dashboards', () => {
+  const folders = [makeFolder({ id: 'f1', position: 'a0' })];
+  const boards = [
+    makeBoard({ id: 'b1', position: 'a0' }),
+    makeBoard({ id: 'b2', position: 'a2' }),
+    makeBoard({ id: 'inF', folderId: 'f1', position: 'a0' }),
+  ];
+  const dashboards = [
+    makeDashboard({ id: 'd1', position: 'a1' }),
+    makeDashboard({ id: 'dIn', folderId: 'f1', position: 'a1' }),
+    makeDashboard({ id: 'dGone', folderId: 'missing', position: 'a3' }),
+  ];
+
+  it('interleaves boards and dashboards by position after the folders', () => {
+    expect(names(buildTree(folders, boards, dashboards))).toEqual([
+      '[f1]',
+      'b1',
+      'dash:d1',
+      'b2',
+      'dash:dGone',
+    ]);
+  });
+
+  it('nests dashboards in folders without counting them as boards', () => {
+    const f1 = buildTree(folders, boards, dashboards)[0];
+    if (f1?.type !== 'folder') throw new Error('expected folder');
+    expect(names(f1.children)).toEqual(['inF', 'dash:dIn']);
+    expect(f1.boardCount).toBe(1);
+  });
+
+  it('keeps working without dashboards', () => {
+    expect(names(buildTree(folders, boards))).toEqual(['[f1]', 'b1', 'b2']);
+  });
+
+  it('flattens dashboard rows with a dashboard key', () => {
+    const rows = flattenTree(buildTree(folders, boards, dashboards), new Set(['f1']));
+    expect(rows.map((r) => r.key)).toContain(dashboardKey('dIn'));
+    expect(rows.find((r) => r.key === 'dashboard:d1')?.parentFolderId).toBeNull();
+    expect(rows.find((r) => r.key === 'dashboard:dIn')).toMatchObject({
+      depth: 1,
+      parentFolderId: 'f1',
+    });
+  });
+
+  it('filters dashboards by name', () => {
+    const tree = buildTree([], boards, [
+      makeDashboard({ id: 'd1', name: 'Team overview' }),
+      makeDashboard({ id: 'd2', name: 'Budget' }),
+    ]);
+    expect(names(filterTree(tree, 'overv'))).toEqual(['dash:d1']);
   });
 });
