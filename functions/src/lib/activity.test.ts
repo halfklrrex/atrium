@@ -73,6 +73,32 @@ describe('diffItemActivity', () => {
     ]);
   });
 
+  it('tags item_created with source form for an item the form function created', () => {
+    const plan = diffItemActivity({ after: { ...base, updatedVia: 'form' } }, BOARD, profiles);
+    expect(plan).toEqual([
+      {
+        kind: 'item_created',
+        fields: {
+          itemName: 'Write spec',
+          parentItemId: null,
+          groupId: 'g1',
+          groupTitle: 'To do',
+          data: { source: 'form' },
+        },
+      },
+    ]);
+    // A later edit of the same item doesn't carry the tag.
+    const edited = diffItemActivity(
+      {
+        before: { ...base, updatedVia: 'form' },
+        after: { ...edit({ name: 'Renamed' }), updatedVia: 'form' },
+      },
+      BOARD,
+      profiles,
+    );
+    expect(edited.every((p) => p.fields.data?.source === undefined)).toBe(true);
+  });
+
   it('logs rename, move, archive, delete and restore', () => {
     const rename = diffItemActivity(
       { before: base, after: edit({ name: 'Write the spec' }) },

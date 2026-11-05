@@ -11,6 +11,8 @@ export { requestDescriptionImageUpload } from './callable/requestDescriptionImag
 export { finalizeDescriptionImage } from './callable/finalizeDescriptionImage';
 export { getDescriptionImageUrl } from './callable/getDescriptionImageUrl';
 export { clickButton } from './callable/clickButton';
+export { getForm } from './callable/getForm';
+export { submitForm } from './callable/submitForm';
 export { changeColumnType } from './callable/changeColumnType';
 export { revertColumnType } from './callable/revertColumnType';
 export { startTimeTracking } from './callable/startTimeTracking';

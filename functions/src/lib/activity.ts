@@ -55,6 +55,8 @@ export interface ActivityActor {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_ACTOR_NAME = 'Someone';
+/** `updatedVia` of an item the `submitForm` function created. */
+export const FORM_UPDATED_VIA = 'form';
 /** Actor ids that start with this are automations, not people. */
 export const AUTOMATION_ACTOR_PREFIX = 'automation:';
 const AUTOMATION_ACTOR_NAME = 'Automation';
@@ -340,7 +342,13 @@ function diffItemActivityPlain(
     return [
       {
         kind: 'item_created',
-        fields: { ...base(), groupId: groupId ?? null, groupTitle: groupTitle(groupId) },
+        fields: {
+          ...base(),
+          groupId: groupId ?? null,
+          groupTitle: groupTitle(groupId),
+          // Items the `submitForm` function creates say so, so automations and the log can tell.
+          ...(after.updatedVia === FORM_UPDATED_VIA ? { data: { source: 'form' as const } } : {}),
+        },
       },
     ];
   }
