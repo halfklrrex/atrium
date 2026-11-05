@@ -1,4 +1,10 @@
-import type { AutomationCondition, AutomationTrigger } from '@atrium/shared';
+import {
+  findStatusLabel,
+  type AutomationCondition,
+  type AutomationTrigger,
+  type StatusSettings,
+  type StatusValue,
+} from '@atrium/shared';
 
 /**
  * Pure matching for the automation runner (P5a): does an activity entry start a recipe, and does an
@@ -19,24 +25,44 @@ export interface MatchItem {
   values: Record<string, unknown>;
 }
 
+/** The slice of a board column the matcher reads: a status column's labels live in `settings`. */
+export interface MatchColumn {
+  id: string;
+  settings?: unknown;
+}
+
 /** The activity kinds that can start a recipe today. */
 export const TRIGGER_KINDS = ['item_created', 'value_changed', 'button_clicked'] as const;
 
-/** A status value is `{ index }`; returns the index, or `null` for anything else. */
-export function statusIndexOf(value: unknown): number | null {
-  const index = (value as { index?: unknown } | null | undefined)?.index;
-  return typeof index === 'number' && Number.isInteger(index) ? index : null;
+const isStatusSettings = (settings: unknown): settings is StatusSettings =>
+  Array.isArray((settings as { labels?: unknown } | null | undefined)?.labels);
+
+/**
+ * The label index of a status value: `{ index }`, or `{ label }` text resolved through the column's
+ * `settings` (`findStatusLabel`, as the cell itself is read). `null` for anything else.
+ */
+export function statusIndexOf(value: unknown, settings?: unknown): number | null {
+  if (!value || typeof value !== 'object') return null;
+  const { index, label } = value as { index?: unknown; label?: unknown };
+  const hasIndex = typeof index === 'number' && Number.isInteger(index);
+  if (isStatusSettings(settings) && (hasIndex || typeof label === 'string')) {
+    const found = findStatusLabel(value as StatusValue, settings);
+    if (found) return found.index;
+  }
+  return hasIndex ? index : null;
 }
 
 /**
  * True when `entry` starts `automation`. `status_changed` compares `toLabelId` (a status label
  * index) with the entry's new value, falling back to the item's current value when the entry did
- * not keep the raw value. Subitem entries never match.
+ * not keep the raw value; a label-only value (`{ label }`) is resolved through the column's settings
+ * in `columns`. Subitem entries never match.
  */
 export function matchAutomation(
   automation: { trigger: AutomationTrigger },
   entry: MatchEntry,
   item?: MatchItem | null,
+  columns?: readonly MatchColumn[],
 ): boolean {
   if (!entry.itemId || entry.parentItemId) return false;
   const { trigger } = automation;
@@ -51,7 +77,8 @@ export function matchAutomation(
       if (trigger.toLabelId === undefined) return true;
       const to =
         entry.data?.toValue !== undefined ? entry.data.toValue : item?.values[trigger.columnId];
-      return statusIndexOf(to) === trigger.toLabelId;
+      const settings = columns?.find((c) => c.id === trigger.columnId)?.settings;
+      return statusIndexOf(to, settings) === trigger.toLabelId;
     }
     case 'button_clicked':
       return entry.kind === 'button_clicked' && entry.columnId === trigger.columnId;
@@ -83,26 +110,31 @@ export function isEmptyValue(value: unknown): boolean {
 }
 
 /** Cell equality for `is`: a status index number equals a `{ index }` value; otherwise JSON equality. */
-export function valuesEqual(stored: unknown, wanted: unknown): boolean {
-  const a = statusIndexOf(stored);
-  const b = statusIndexOf(wanted);
+export function valuesEqual(stored: unknown, wanted: unknown, settings?: unknown): boolean {
+  const a = statusIndexOf(stored, settings);
+  const b = statusIndexOf(wanted, settings);
   if (a !== null && b !== null) return a === b;
   if (a !== null && typeof wanted === 'number') return a === wanted;
   if (b !== null && typeof stored === 'number') return b === stored;
   return canonical(stored) === canonical(wanted);
 }
 
-export function conditionHolds(condition: AutomationCondition, item: MatchItem): boolean {
+export function conditionHolds(
+  condition: AutomationCondition,
+  item: MatchItem,
+  columns?: readonly MatchColumn[],
+): boolean {
   const stored = item.values[condition.columnId];
+  const settings = columns?.find((c) => c.id === condition.columnId)?.settings;
   switch (condition.op) {
     case 'is_empty':
       return isEmptyValue(stored);
     case 'is_not_empty':
       return !isEmptyValue(stored);
     case 'is':
-      return valuesEqual(stored, condition.value);
+      return valuesEqual(stored, condition.value, settings);
     case 'is_not':
-      return !valuesEqual(stored, condition.value);
+      return !valuesEqual(stored, condition.value, settings);
   }
 }
 
@@ -110,4 +142,5 @@ export function conditionHolds(condition: AutomationCondition, item: MatchItem):
 export const conditionsHold = (
   conditions: readonly AutomationCondition[],
   item: MatchItem,
-): boolean => conditions.every((c) => conditionHolds(c, item));
+  columns?: readonly MatchColumn[],
+): boolean => conditions.every((c) => conditionHolds(c, item, columns));

@@ -7,6 +7,7 @@ import {
 import { Timestamp, type Firestore, type Transaction } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { adminColumnActionsTx } from './admin';
+import type { MatchColumn } from './automations/match';
 import type { AutomationDoc, AutomationRunTx, AutomationStore, RunRecord } from './automations/run';
 
 const boardRef = (firestore: Firestore, boardId: string) =>
@@ -108,6 +109,11 @@ export function adminAutomationStore(firestore: Firestore): AutomationStore {
       return snap.docs
         .map((d) => toAutomationDoc(d.id, d.data()))
         .filter((a) => a.invalid === undefined);
+    },
+    async getColumns(boardId) {
+      const snap = await boardRef(firestore, boardId).get();
+      const columns: unknown = snap.get('columns');
+      return Array.isArray(columns) ? (columns as MatchColumn[]) : [];
     },
     async noteRun(boardId, runId, note) {
       await runRef(firestore, boardId, runId).update({ note });
