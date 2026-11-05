@@ -1,5 +1,13 @@
 import { canManageBoard, type BoardRole } from '@atrium/shared';
-import { Modal, ModalBasicLayout, ModalContent, ModalHeader, Tab, TabList } from '@vibe/core';
+import {
+  Button,
+  Modal,
+  ModalBasicLayout,
+  ModalContent,
+  ModalHeader,
+  Tab,
+  TabList,
+} from '@vibe/core';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import {
@@ -24,6 +32,8 @@ import { buildStarterRecipes } from './starter-recipes';
 import styles from './AutomationCenter.module.css';
 
 type CenterTab = 'recipes' | 'history';
+/** The two halves of the center: browse templates to make an automation, or manage the board's. */
+type CenterView = 'create' | 'manage';
 
 /** What the center asks the recipe builder to open; a new recipe may begin from a preset. */
 export type BuilderTarget =
@@ -46,9 +56,9 @@ export function AutomationCenter(props: AutomationCenterProps) {
   // A retry remounts the body, which re-subscribes both listeners.
   const [attempt, setAttempt] = useState(0);
   return (
-    <Modal id="automation-center" show size="large" onClose={props.onClose}>
+    <Modal id="automation-center" show size="full-view" onClose={props.onClose}>
       <ModalBasicLayout>
-        <ModalHeader title="Automations" />
+        <ModalHeader title={`Automations: ${props.board.name}`} />
         <ModalContent>
           <CenterBody key={attempt} {...props} onRetry={() => setAttempt((n) => n + 1)} />
         </ModalContent>
@@ -67,6 +77,7 @@ function CenterBody({
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const isOwner = canManageBoard(role);
+  const [view, setView] = useState<CenterView>('manage');
   const [tab, setTab] = useState<CenterTab>('recipes');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AutomationDoc | null>(null);
@@ -157,15 +168,44 @@ function CenterBody({
 
   return (
     <div className={styles.body} ref={bodyRef}>
-      <TabList
-        activeTabId={tab === 'recipes' ? 0 : 1}
-        onTabChange={(id: number) => setTab(id === 0 ? 'recipes' : 'history')}
-      >
-        <Tab>Recipes</Tab>
-        <Tab>Run history</Tab>
-      </TabList>
+      <div className={styles.viewToggle} role="group" aria-label="Automation center view">
+        <Button
+          kind={view === 'create' ? 'primary' : 'tertiary'}
+          size="small"
+          aria-pressed={view === 'create'}
+          onClick={() => setView('create')}
+        >
+          Create
+        </Button>
+        <Button
+          kind={view === 'manage' ? 'primary' : 'tertiary'}
+          size="small"
+          aria-pressed={view === 'manage'}
+          onClick={() => setView('manage')}
+        >
+          Manage
+        </Button>
+      </div>
+      {view === 'manage' ? (
+        <TabList
+          activeTabId={tab === 'recipes' ? 0 : 1}
+          onTabChange={(id: number) => setTab(id === 0 ? 'recipes' : 'history')}
+        >
+          <Tab>Recipes</Tab>
+          <Tab>Run history</Tab>
+        </TabList>
+      ) : null}
       <div className={styles.scroll}>
-        {tab === 'recipes' ? (
+        {view === 'create' ? (
+          <div className={styles.createPlaceholder}>
+            <p className={styles.toolbarHint}>Template catalog coming in the next step.</p>
+            {isOwner ? (
+              <Button kind="secondary" size="small" onClick={() => openBuilder({ mode: 'create' })}>
+                Create automation
+              </Button>
+            ) : null}
+          </div>
+        ) : tab === 'recipes' ? (
           <RecipesTab
             automations={automations.data}
             loading={automations.loading}
