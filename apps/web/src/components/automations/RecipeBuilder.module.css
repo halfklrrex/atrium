@@ -1,7 +1,15 @@
 .builder {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: var(--space-24);
+}
+
+.sentence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  font: var(--font-text1-normal);
+  color: var(--primary-text-color);
 }
 
 .part {
@@ -23,20 +31,107 @@
   list-style: none;
 }
 
-.condition {
+.item {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-8);
-  border: var(--border-width) var(--border-style) var(--ui-border-color);
-  border-radius: var(--border-radius-small);
 }
 
-.conditionFields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--atrium-automation-field-min-width), 1fr));
-  align-items: end;
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-8);
+  min-height: var(--atrium-automation-sentence-line-height);
+}
+
+.keyword {
+  min-width: var(--atrium-automation-keyword-width);
+  color: var(--secondary-text-color);
+}
+
+.keywordStrong {
+  color: var(--primary-text-color);
+  font-weight: var(--font-weight-bold);
+}
+
+.word {
+  color: var(--secondary-text-color);
+}
+
+.token,
+.tokenInput {
+  max-width: 100%;
+  min-height: var(--atrium-automation-token-height);
+  padding: var(--space-2) var(--space-8);
+  border: var(--border-width) var(--border-style) transparent;
+  border-radius: var(--border-radius-small);
+  background: var(--primary-selected-color);
+  color: var(--primary-text-color);
+  font: var(--font-text1-medium);
+  cursor: pointer;
+  transition: background-color var(--motion-productive-short) var(--motion-timing-transition);
+}
+
+.tokenInput {
+  width: var(--atrium-automation-token-input-width);
+  cursor: text;
+}
+
+.token:hover,
+.tokenInput:hover {
+  background: var(--primary-selected-hover-color);
+}
+
+.token:focus-visible,
+.tokenInput:focus-visible {
+  outline: var(--border-width) var(--border-style) var(--primary-color);
+  outline-offset: var(--border-width);
+}
+
+.problem {
+  margin: 0;
+  padding-inline-start: var(--atrium-automation-sentence-indent);
+  color: var(--negative-color);
+  font: var(--font-text2-normal);
+}
+
+.hint,
+.count {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.hint {
+  padding-inline-start: var(--atrium-automation-sentence-indent);
+}
+
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  padding-inline-start: var(--atrium-automation-sentence-indent);
+}
+
+.actions {
+  padding-inline-start: var(--atrium-automation-sentence-indent);
+}
+
+.reads {
+  margin: 0;
+  padding: var(--space-12);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--secondary-background-color);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.readsLabel {
+  color: var(--secondary-text-color);
+  font-weight: var(--font-weight-bold);
 }
 
 .note {
@@ -50,6 +145,20 @@
 
 .footer {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   justify-content: flex-end;
   gap: var(--space-8);
+}
+
+.nameField {
+  flex: 1 1 var(--atrium-automation-field-min-width);
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .token,
+  .tokenInput {
+    transition: none;
+  }
 }
