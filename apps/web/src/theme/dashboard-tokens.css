@@ -1,0 +1,41 @@
+/*
+ * Dashboard tokens (P6). The grid, the widget card and the Numbers / Battery widgets. Vibe has no
+ * dashboard tokens; values follow monday's dashboard cards (white card, thin border, soft radius)
+ * and the other view token files. Light, dark and black themes inherit through the Vibe
+ * variables used here.
+ */
+
+:root {
+  /* ---- Grid geometry ---- */
+  --atrium-dashboard-row-height: 80px; /* one grid row; a widget is 2 to 12 rows tall */
+  --atrium-dashboard-gap: var(--space-16);
+  --atrium-dashboard-resize-handle: 16px;
+  --atrium-dashboard-widget-min-height: 160px;
+  --atrium-dashboard-list-max-height: 320px; /* the board picker in dialogs */
+
+  /* ---- Widget card ---- */
+  --atrium-dashboard-card-bg: var(--primary-background-color);
+  --atrium-dashboard-card-border: var(--ui-border-color);
+  --atrium-dashboard-card-radius: var(--border-radius-medium);
+  --atrium-dashboard-card-shadow: var(--box-shadow-small);
+  --atrium-dashboard-card-shadow-lifted: var(--box-shadow-medium);
+  --atrium-dashboard-card-padding: var(--space-16);
+  --atrium-dashboard-drop-bg: var(--primary-selected-color);
+  --atrium-dashboard-drop-border: var(--primary-color);
+
+  /* ---- Typography ---- */
+  --atrium-dashboard-title-font: 500 16px / 24px var(--font-family);
+  --atrium-dashboard-caption-font: 400 14px / 20px var(--font-family);
+  --atrium-dashboard-number-font: 500 48px / 56px var(--font-family);
+  --atrium-dashboard-battery-font: 500 32px / 40px var(--font-family);
+
+  /* ---- Colours ---- */
+  --atrium-dashboard-title-text: var(--primary-text-color);
+  --atrium-dashboard-caption-text: var(--secondary-text-color);
+  --atrium-dashboard-number-text: var(--primary-text-color);
+  --atrium-dashboard-battery-track: var(--ui-background-color);
+  --atrium-dashboard-battery-empty: var(--color-explosive); /* same grey as an empty status */
+  --atrium-dashboard-battery-height: 24px;
+  --atrium-dashboard-battery-gap: var(--space-4);
+  --atrium-dashboard-note-bg: var(--ui-background-color);
+}
