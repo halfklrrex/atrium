@@ -1,17 +1,28 @@
-import { canManageWorkspace } from '@atrium/shared';
+import { canManageBoard, canManageWorkspace, resolveBoardRole } from '@atrium/shared';
 import { Button, Heading, Loader, Tab, TabList, Text } from '@vibe/core';
-import { Archive, Board, Delete, NavigationChevronLeft, Retry } from '@vibe/icons';
+import {
+  Archive,
+  Board,
+  Dashboard as DashboardIcon,
+  Delete,
+  NavigationChevronLeft,
+  Retry,
+} from '@vibe/icons';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { showToast } from '../components/toast-store';
 import {
   archivedBoards,
+  dashboardWrites,
   deletedBoards,
+  deletedDashboards,
   useAllWorkspaceBoards,
+  useAllWorkspaceDashboards,
   useWorkspace,
   writes,
   type BoardDoc,
+  type DashboardDoc,
 } from '../data';
 import styles from './TrashPage.module.css';
 import pageStyles from './Pages.module.css';
@@ -27,8 +38,12 @@ export function TrashPage() {
 
   const { data: workspace, loading: wsLoading } = useWorkspace(workspaceId);
   const { data: allBoards, loading: boardsLoading } = useAllWorkspaceBoards(workspaceId, uid);
+  const { data: allDashboards, loading: dashboardsLoading } = useAllWorkspaceDashboards(
+    workspaceId,
+    uid,
+  );
 
-  if (wsLoading || boardsLoading) {
+  if (wsLoading || boardsLoading || dashboardsLoading) {
     return (
       <div className={pageStyles.center} role="status">
         <Loader size="medium" />
@@ -52,6 +67,8 @@ export function TrashPage() {
 
   const deletedList = deletedBoards(allBoards);
   const archivedList = archivedBoards(allBoards);
+  const deletedDashboardList = deletedDashboards(allDashboards);
+  const deletedCount = deletedList.length + deletedDashboardList.length;
 
   const restoreBoard = async (board: BoardDoc) => {
     try {
@@ -71,7 +88,27 @@ export function TrashPage() {
     }
   };
 
+  const restoreDashboard = async (dashboard: DashboardDoc) => {
+    try {
+      await dashboardWrites.setDashboardState(dashboard.id, 'active');
+      showToast(`Restored "${dashboard.name}".`, {
+        type: 'positive',
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            dashboardWrites.setDashboardState(dashboard.id, 'deleted').catch(console.error);
+          },
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      showToast('Could not restore dashboard.', { type: 'negative' });
+    }
+  };
+
   const currentList = tab === TAB_ARCHIVED ? archivedList : deletedList;
+  const dashboardList = tab === TAB_ARCHIVED ? [] : deletedDashboardList;
+  const isEmpty = currentList.length === 0 && dashboardList.length === 0;
 
   return (
     <div className={styles.page}>
@@ -88,22 +125,22 @@ export function TrashPage() {
                 Archive & Trash
               </Heading>
               <Text type="text1" color="secondary" className={styles.description}>
-                Review and restore archived or deleted boards from this workspace. Soft-deleted
-                boards are permanently purged after 30 days.
+                Review and restore archived or deleted boards and deleted dashboards from this
+                workspace. Soft-deleted items are permanently purged after 30 days.
               </Text>
             </div>
           </div>
 
           <div className={styles.tabsRow}>
             <TabList activeTabId={tab} onTabChange={setTab} stretchedUnderline>
-              <Tab icon={Delete}>{`Deleted Boards (${deletedList.length})`}</Tab>
+              <Tab icon={Delete}>{`Deleted (${deletedCount})`}</Tab>
               <Tab icon={Archive}>{`Archived Boards (${archivedList.length})`}</Tab>
             </TabList>
           </div>
         </header>
 
         <main className={styles.content}>
-          {currentList.length === 0 ? (
+          {isEmpty ? (
             <div className={styles.empty}>
               {tab === TAB_DELETED ? <Delete size="40" /> : <Archive size="40" />}
               <Text type="text1" color="secondary">
@@ -139,6 +176,38 @@ export function TrashPage() {
                   </div>
                 </div>
               ))}
+              {dashboardList.map((dashboard) => {
+                const canRestore = canManageBoard(
+                  resolveBoardRole(dashboard, uid ?? '', workspace.roles[uid ?? '']),
+                );
+                return (
+                  <div key={dashboard.id} className={styles.row}>
+                    <div className={styles.itemInfo}>
+                      <DashboardIcon size="24" />
+                      <div className={styles.itemText}>
+                        <span className={styles.itemTitle}>{dashboard.name}</span>
+                        <span className={styles.itemMeta}>
+                          Dashboard · {dashboard.widgets.length}{' '}
+                          {dashboard.widgets.length === 1 ? 'widget' : 'widgets'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className={styles.actions}>
+                      {canRestore && (
+                        <Button
+                          size="small"
+                          kind="tertiary"
+                          leftIcon={Retry}
+                          aria-label={`Restore ${dashboard.name}`}
+                          onClick={() => restoreDashboard(dashboard)}
+                        >
+                          Restore
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </main>
