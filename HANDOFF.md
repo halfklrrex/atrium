@@ -29,20 +29,22 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **No open-PR limits** (owner, 2026-11-04). Pace is set by usage and the owner's availability; hot-spot PRs merge in order and rebase.
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
-## Open work (2026-11-04)
+## Open work (2026-11-05)
 
-- **Live since 2026-11-03** (autonomous batch while the owner was away): the Activity web UI (#63), button actions (#65) and the notify action (#72), column settings (#66), reorder favourite boards (#68), and the rich-text backend (#69, `contentDoc` on updates and replies). Earlier: P4 notifications, board sharing, Calendar, Timeline and Chart views, Mirror, change a column's type, My Work, global search.
-- **Plan in progress:** `docs/plans/2026-11-04-feature-push.md` (P5 automations, Gantt and Workload, dashboards, forms and templates). The owner feedback plan (`2026-11-04-owner-feedback.md`) is done for its two bugs (#77, #78, live); its P5a and ultrareview parts continue in the push.
-- **P5 automations:** the design is merged as a proposal (`docs/specs/P5-automations-design.md`, #73). The owner delegated the six product questions; the decisions are recorded in section 11 of the spec (accepted 2026-11-04). P5a starts after sections A and B of the pending plan.
-- **Merged but local-only:** the Atrium MCP connector (OPS3, #60), not yet run against production.
+- **Live today (2026-11-05):** the automations engine (#90, after an ultrareview and its 7 fixes), the Automation center (#97), the recipe builder and starter recipes (#100), and the dashboard Workload widget, sharing and trash (#102). Earlier on 11-04/05: Gantt, Workload view, templates, dashboards (Numbers, Battery, Chart, Table), forms (builder and public page), the rich-text composer. The showcase was re-seeded on 2026-11-05.
+- **Latest session note:** `docs/handoff/2026-11-05-ophelia-automations-merged-redesign.md` (what merged, gotchas, next steps). The plan it follows: `docs/plans/2026-11-04-feature-push.md`.
+- **Open PRs:** #103 (P5c spec, docs) and the 2026-11-05 handoff docs PR. Merge when CI is green.
+- **Owner decision, 2026-11-05:** the Automation center gets redesigned to look more like monday's: **variant A plus two pieces of C** ("Hide coming soon" switch, "Needs attention" chip). Outline and five open questions with defaults: `docs/specs/P5e-automation-center-redesign.md`. Mockups: `.private/design/automation-center/` (gitignored).
+- **Not verified in a browser:** the live check of automations (Claude in Chrome never connected). First thing next session if Chrome is connected; steps are in the session note and `docs/plans/owner-check-list.md`.
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
-- **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Activity log, button actions, notify, column settings, favourites; notify needs two accounts), whether "Required" columns need a hard rule, and the flag emoji on Windows (needs a CDN picture fallback). The legacy-activity migration script has not been run; dry run first and only with the owner's agreement.
+- **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md`, whether "Required" columns need a hard rule, and the flag emoji on Windows. The legacy-activity migration script has not been run; dry run first and only with the owner's agreement.
 - **Next, in this order:**
-  1. Follow `docs/plans/2026-11-04-feature-push.md`: flaky world clock tests, then the four tracks (A automations, B Gantt and Workload, C dashboards, D templates and forms).
-  2. Flaky test: world clock tests in `packages/shared` (Roadmap 3328651015).
-  3. Remaining Roadmap items that need no product decision. Anything that does goes on the item with Actionable = Yes and an exact question.
-  4. Check the bug inbox and Actionable = Agents first (filter by label id, Agents = 4, not the index).
-- Plan and gotchas: `docs/plans/2026-11-03-autonomous-batch.md` and `docs/handoff/2026-11-03-ophelia-autonomous-batch.md`.
+  1. Start-of-session routine (bug inbox, Actionable = Agents; filter by label id, Agents = 4, not the index).
+  2. Merge #103 and the docs PR; the live check.
+  3. Finish and build P5e (R1 to R4, Sonnet subagents), then P5c (three PRs), then P5d (needs a spec).
+  4. Visual QA (VF) for the new screens; the open "Dashboard sharing: server-side check" item.
+- **Local machine (Mac):** `gcloud` is installed and signed in; `PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` for `pnpm test:rules`; `LC_ALL=en_US.UTF-8 pnpm test` avoids 5 locale-only web test failures.
+- Older plan and gotchas: `docs/plans/2026-11-03-autonomous-batch.md` and `docs/handoff/2026-11-03-ophelia-autonomous-batch.md`.
 
 ## Notes index
 
@@ -63,6 +65,8 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - [2026-10-31 · Ophelia · activity backend and polish batch 2 merged](docs/handoff/2026-10-31-ophelia-evening-activity-backend-merged.md)
 - [2026-11-01 · Claude · Atrium MCP connector (OPS3)](docs/handoff/2026-11-01-claude-atrium-mcp-connector.md)
 - [2026-11-03 · Ophelia · autonomous batch: activity UI, button actions, notify, favourites, rich-text backend, P5 design](docs/handoff/2026-11-03-ophelia-autonomous-batch.md)
+- [2026-11-04 · Ophelia · feature push (Gantt, Workload, templates, dashboards data, P5a pieces)](docs/handoff/2026-11-04-ophelia-feature-push.md)
+- [2026-11-05 · Ophelia · automations and dashboards merged, Automation center redesign chosen](docs/handoff/2026-11-05-ophelia-automations-merged-redesign.md)
 - [2026-10-24 · Antigravity · Board filter, sort, search & group-by](docs/handoff/2026-10-24-antigravity-board-filters-sort.md)
 - [2026-10-25 · Antigravity · Files storage upload, rules & tests](docs/handoff/2026-10-25-antigravity-files-storage-upload.md)
 - [2026-10-25 · Antigravity · Server-side column actions](docs/handoff/2026-10-25-antigravity-server-column-actions.md)
