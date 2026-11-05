@@ -1378,3 +1378,104 @@ export async function removeSavedTemplate(): Promise<void> {
     .doc(SAVED_TEMPLATE)
     .delete();
 }
+
+/** Id of the dashboard the dashboard screens add to the personal workspace (and remove again). */
+export const DASHBOARD_ID = 'dashboard-overview';
+
+/** A dashboard over the roadmap board with one widget of each type. Pair with `removeDashboard`. */
+export async function addDashboard(): Promise<void> {
+  const widget = (
+    id: string,
+    type: string,
+    title: string,
+    layout: { x: number; y: number; w: number; h: number },
+    settings: Record<string, unknown>,
+  ) => ({ id, type, title, layout, boardIds: [], settings });
+  await adminDb()
+    .collection('dashboards')
+    .doc(DASHBOARD_ID)
+    .set({
+      workspaceId: IDS.personalWorkspace,
+      folderId: null,
+      name: 'Roadmap overview',
+      kind: 'main',
+      access: { [AVERY.uid]: 'owner' },
+      accessUids: [AVERY.uid],
+      position: 'a5',
+      icon: null,
+      boardIds: [IDS.roadmap],
+      widgets: [
+        widget(
+          'items',
+          'numbers',
+          'Items',
+          { x: 0, y: 0, w: 3, h: 3 },
+          {
+            mode: 'count',
+            columnId: null,
+            filter: null,
+          },
+        ),
+        widget(
+          'progress',
+          'battery',
+          'Progress',
+          { x: 3, y: 0, w: 4, h: 3 },
+          {
+            statusColumnId: 'status',
+            doneLabelIds: ['done'],
+          },
+        ),
+        widget(
+          'by-status',
+          'chart',
+          'Items by status',
+          { x: 7, y: 0, w: 5, h: 3 },
+          {
+            chartType: 'bar',
+            xColumnId: 'status',
+            dateBucket: 'month',
+            stackColumnId: null,
+            yMode: 'count',
+            yColumnId: null,
+            sortBy: 'board',
+            showLegend: true,
+            showValues: true,
+            showEmpty: true,
+          },
+        ),
+        widget(
+          'table',
+          'table',
+          'Upcoming work',
+          { x: 0, y: 3, w: 6, h: 5 },
+          {
+            columnIds: ['status', 'person', 'date'],
+            filter: null,
+            rowLimit: 10,
+          },
+        ),
+        widget(
+          'load',
+          'workload',
+          'Team workload',
+          { x: 6, y: 3, w: 6, h: 5 },
+          {
+            peopleColumnId: 'person',
+            dateColumnId: 'date',
+            bucket: 'week',
+          },
+        ),
+      ],
+      state: 'active',
+      deletedAt: null,
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeDashboard(): Promise<void> {
+  await adminDb().collection('dashboards').doc(DASHBOARD_ID).delete();
+}

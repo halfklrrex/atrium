@@ -12,6 +12,7 @@ import {
   chartReady,
   formBuilderReady,
   formPageReady,
+  dashboardReady,
   shoot,
   test,
 } from './fixtures';
@@ -27,6 +28,7 @@ import {
   GANTT_BARS,
   CHART_VIEW,
   FORM_VIEW,
+  DASHBOARD_ID,
   addCalendarView,
   addActionButton,
   addKanbanView,
@@ -35,6 +37,7 @@ import {
   addWorkloadView,
   addChartView,
   addFormView,
+  addDashboard,
   addView,
   clearActivity,
   clearRichUpdate,
@@ -50,6 +53,7 @@ import {
   removeWorkloadView,
   removeChartView,
   removeFormView,
+  removeDashboard,
   removeView,
   removeSavedTemplate,
   seedSavedTemplate,
@@ -285,6 +289,17 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-workload-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeWorkloadView();
+      }
+    });
+
+    test('dashboard', async ({ page }) => {
+      await addDashboard();
+      try {
+        await page.goto(`/dashboards/${DASHBOARD_ID}`);
+        await dashboardReady(page);
+        await shoot(page, `dashboard-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeDashboard();
       }
     });
 
