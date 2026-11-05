@@ -190,6 +190,33 @@ export interface ButtonClickDelivery {
 }
 
 /**
+ * Delivers `notify`-action targets: one notification of `kind` per person. People are grouped by
+ * message because a delivery carries one snippet. `event` holds the fields that differ per caller
+ * (`eventId`, `actorId`, `buttonLabel` or `recipeName`, `includeActor`, ...). Returns how many
+ * were created.
+ */
+async function deliverNotifyTargets(
+  store: NotificationStore,
+  event: Omit<DeliveryEvent, 'candidates' | 'snippet'>,
+  targets: ReadonlyArray<{ uid: string; message: string }>,
+  candidate: (uid: string) => NotificationCandidate,
+): Promise<number> {
+  const byMessage = new Map<string, string[]>();
+  for (const { uid, message } of targets) {
+    byMessage.set(message, [...(byMessage.get(message) ?? []), uid]);
+  }
+  let created = 0;
+  for (const [message, uids] of byMessage) {
+    created += await deliverNotifications(store, {
+      ...event,
+      snippet: makeSnippet(message),
+      candidates: uids.map(candidate),
+    });
+  }
+  return created;
+}
+
+/**
  * `clickButton`, after the transaction committed: one `button` notification per person the
  * `notify` actions named (board readers only, prefs respected, never the clicker). People are
  * grouped by message because a delivery carries one snippet. Returns how many were created.
@@ -198,24 +225,19 @@ export async function deliverButtonNotifications(
   store: NotificationStore,
   click: ButtonClickDelivery,
 ): Promise<number> {
-  const byMessage = new Map<string, string[]>();
-  for (const { uid, message } of click.targets) {
-    byMessage.set(message, [...(byMessage.get(message) ?? []), uid]);
-  }
-  let created = 0;
-  for (const [message, uids] of byMessage) {
-    created += await deliverNotifications(store, {
+  return await deliverNotifyTargets(
+    store,
+    {
       eventId: click.activityId,
       boardId: click.boardId,
       itemId: click.itemId,
       actorId: click.actorId,
       itemName: click.itemName,
       buttonLabel: click.buttonLabel,
-      snippet: makeSnippet(message),
-      candidates: uids.map((uid) => ({ uid, kind: 'button' as const, columnId: click.columnId })),
-    });
-  }
-  return created;
+    },
+    click.targets,
+    (uid) => ({ uid, kind: 'button', columnId: click.columnId }),
+  );
 }
 
 // -- Automations ---------------------------------------------------------------------------------
@@ -241,13 +263,9 @@ export async function deliverAutomationNotifications(
   store: NotificationStore,
   run: AutomationDelivery,
 ): Promise<number> {
-  const byMessage = new Map<string, string[]>();
-  for (const { uid, message } of run.targets) {
-    byMessage.set(message, [...(byMessage.get(message) ?? []), uid]);
-  }
-  let created = 0;
-  for (const [message, uids] of byMessage) {
-    created += await deliverNotifications(store, {
+  return await deliverNotifyTargets(
+    store,
+    {
       eventId: run.eventId,
       boardId: run.boardId,
       itemId: run.itemId,
@@ -255,11 +273,10 @@ export async function deliverAutomationNotifications(
       includeActor: true,
       itemName: run.itemName,
       recipeName: run.recipeName,
-      snippet: makeSnippet(message),
-      candidates: uids.map((uid) => ({ uid, kind: 'automation' as const })),
-    });
-  }
-  return created;
+    },
+    run.targets,
+    (uid) => ({ uid, kind: 'automation' }),
+  );
 }
 
 /** The circuit breaker switched a recipe off: one `automation_disabled` notice to its creator. */
