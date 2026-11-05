@@ -1,6 +1,7 @@
 import { useUiStore } from '../AppShell/ui-store';
 import { AboutDialog } from './AboutDialog';
 import { ShareBoardDialog } from '../boards/ShareBoardDialog';
+import { ShareDashboardDialog } from '../dashboard/ShareDashboardDialog';
 import { NewBoardDialog } from './BoardDialogs';
 import { NewDashboardDialog } from './DashboardDialogs';
 import { DashboardBoardsDialog } from '../dashboard/DashboardBoardsDialog';
@@ -42,6 +43,8 @@ export function DialogHost() {
       );
     case 'dashboardBoards':
       return <DashboardBoardsDialog dashboardId={dialog.dashboardId} onClose={close} />;
+    case 'shareDashboard':
+      return <ShareDashboardDialog dashboardId={dialog.dashboardId} onClose={close} />;
     case 'saveTemplate':
       return <SaveAsTemplateDialog boardId={dialog.boardId} onClose={close} />;
     case 'folder':
