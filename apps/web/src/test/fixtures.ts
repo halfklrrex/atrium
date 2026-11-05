@@ -1,5 +1,5 @@
 import type { TimestampLike } from '@atrium/shared';
-import type { BoardDoc, FolderDoc, ItemDoc, WorkspaceDoc } from '../data/model';
+import type { BoardDoc, DashboardDoc, FolderDoc, ItemDoc, WorkspaceDoc } from '../data/model';
 
 export const ts = (ms = 1_700_000_000_000): TimestampLike => ({
   seconds: Math.floor(ms / 1000),
@@ -78,6 +78,27 @@ export function makeItem(overrides: Partial<ItemDoc> & { id: string }): ItemDoc 
     createdBy: 'u1',
     updatedAt: ts(),
     updatedBy: 'u1',
+    ...overrides,
+  };
+}
+
+export function makeDashboard(overrides: Partial<DashboardDoc> & { id: string }): DashboardDoc {
+  return {
+    workspaceId: 'w1',
+    folderId: null,
+    name: overrides.id,
+    kind: 'main',
+    access: { u1: 'owner' },
+    accessUids: ['u1'],
+    position: 'a0',
+    icon: null,
+    boardIds: [],
+    widgets: [],
+    state: 'active',
+    deletedAt: null,
+    createdAt: ts(),
+    createdBy: 'u1',
+    updatedAt: ts(),
     ...overrides,
   };
 }

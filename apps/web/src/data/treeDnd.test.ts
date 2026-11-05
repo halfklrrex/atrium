@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeBoard, makeFolder } from '../test/fixtures';
+import { makeBoard, makeDashboard, makeFolder } from '../test/fixtures';
 import { buildTree } from './boards';
 import { computeDrop } from './treeDnd';
 
@@ -59,5 +59,40 @@ describe('computeDrop', () => {
     expect(drop?.position && drop.position > 'a1').toBe(true);
     expect(computeDrop(tree, 'folder:f1', 'board:r1')).toBeNull();
     expect(computeDrop(tree, 'folder:f1', 'board:in1')).toBeNull();
+  });
+});
+
+describe('computeDrop with dashboards', () => {
+  const dTree = buildTree(folders, boards, [
+    makeDashboard({ id: 'd1', position: 'a0V' }),
+    makeDashboard({ id: 'din', folderId: 'f1', position: 'a2' }),
+  ]);
+
+  it('places a dashboard among boards by position', () => {
+    // root leaves: r1 (a0), d1 (a0V), r2 (a1), r3 (a2); d1 dropped on r3 moves down, after r3
+    const drop = computeDrop(dTree, 'dashboard:d1', 'board:r3');
+    expect(drop).toMatchObject({ type: 'dashboard', dashboardId: 'd1', folderId: null });
+    expect(drop?.position && drop.position > 'a2').toBe(true);
+  });
+
+  it('drops a dashboard on a folder: end of that folder', () => {
+    const drop = computeDrop(dTree, 'dashboard:d1', 'folder:f2');
+    expect(drop).toMatchObject({ type: 'dashboard', dashboardId: 'd1', folderId: 'f2' });
+  });
+
+  it('moves a dashboard out of its folder when dropped on that folder', () => {
+    const drop = computeDrop(dTree, 'dashboard:din', 'folder:f1');
+    expect(drop).toMatchObject({ type: 'dashboard', dashboardId: 'din', folderId: null });
+    expect(drop?.position && drop.position < 'a0').toBe(true);
+  });
+
+  it("lets a board take a dashboard's place", () => {
+    const drop = computeDrop(dTree, 'board:r1', 'dashboard:d1');
+    expect(drop).toMatchObject({ type: 'board', boardId: 'r1', folderId: null });
+    expect(drop?.position && drop.position > 'a0V' && drop.position < 'a1').toBe(true);
+  });
+
+  it('ignores a dashboard dropped on a folder it cannot reorder with', () => {
+    expect(computeDrop(dTree, 'folder:f1', 'dashboard:d1')).toBeNull();
   });
 });
