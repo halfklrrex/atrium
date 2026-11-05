@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   FIRESTORE_DATABASE_ID,
   boardSchema,
+  automationSchema,
   boardViewSchema,
   columnRegistry,
   formPublishProblems,
@@ -16,6 +17,7 @@ import {
   itemSchema,
   itemUpdateSchema,
   notificationSchema,
+  validateAutomation,
   validateButtonActions,
   recentSchema,
   updateReplySchema,
@@ -71,6 +73,7 @@ test('every document re-validates against its shared schema', () => {
     [/^boards\/[^/]+$/, boardSchema],
     [/^dashboards\/[^/]+$/, dashboardSchema],
     [/^boards\/[^/]+\/views\/[^/]+$/, boardViewSchema],
+    [/^boards\/[^/]+\/automations\/[^/]+$/, automationSchema],
     [/^boards\/[^/]+\/items\/[^/]+$/, itemSchema],
     [/^boards\/[^/]+\/items\/[^/]+\/updates\/[^/]+$/, itemUpdateSchema],
     [/^boards\/[^/]+\/items\/[^/]+\/updates\/[^/]+\/replies\/[^/]+$/, updateReplySchema],
@@ -469,6 +472,8 @@ test('ownership allow-list', () => {
   assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}`, OWNER, WORKSPACE));
   assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}/invites/showcase-user-sam`, OWNER, WORKSPACE));
   assert.ok(isOwnedPath('boards/showcase-main', OWNER));
+  assert.ok(isOwnedPath('boards/showcase-main/automations/showcase-notify-new', OWNER));
+  assert.ok(!isOwnedPath('boards/real-board/automations/x', OWNER));
   assert.ok(isOwnedPath('boards/showcase-main/items/x/updates/y/replies/z', OWNER));
   assert.ok(isOwnedPath(`users/${OWNER}/favorites/showcase-main`, OWNER));
   assert.ok(isOwnedPath(`users/${OWNER}/recents/showcase-trashed-demo`, OWNER));
@@ -957,4 +962,23 @@ test('the main board has a shared, closed Form view whose questions the form rul
   assert.ok(view.settings.form.questions.length >= 4);
   // Every question maps to a real column of an allowed type, and the group exists.
   assert.deepEqual(formPublishProblems(view.settings.form, board), []);
+});
+
+test('the main board has two recipes (one on, one off with a reason) valid against the board, and no runs', () => {
+  const { docs, summary } = build();
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const recipes = docs.filter((d) => /^boards\/showcase-main\/automations\/[^/]+$/.test(d.path));
+  assert.equal(summary.automations, 2);
+  assert.equal(recipes.length, 2);
+  const on = recipes.filter((r) => r.data.enabled);
+  const off = recipes.filter((r) => !r.data.enabled);
+  assert.equal(on.length, 1);
+  assert.equal(off.length, 1);
+  assert.equal(on[0].data.disabledReason, null);
+  assert.ok(off[0].data.disabledReason);
+  for (const { data } of recipes) {
+    assert.equal(data.runAs, OWNER);
+    assert.deepEqual(validateAutomation(data, board, 'owner'), { ok: true });
+  }
+  assert.ok(!docs.some((d) => d.path.includes('/automationRuns/')));
 });

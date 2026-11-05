@@ -9,6 +9,7 @@
 // it here in the same PR. See docs/showcase.md.
 import {
   DEFAULT_BOARD_STATUS_LABELS,
+  automationSchema,
   boardSchema,
   boardViewSchema,
   dashboardSchema,
@@ -1337,6 +1338,7 @@ export function buildShowcase({
     updates: 0,
     replies: 0,
     views: 0,
+    automations: 0,
   };
 
   const columns = buildColumns();
@@ -1801,6 +1803,41 @@ export function buildShowcase({
     }),
   });
   summary.views += 1;
+
+  // ---- Two recipes in the Automation center: one on and harmless, one off with its reason ----
+  // `runAs` is the owner. No `automationRuns` are seeded: only Cloud Functions write those.
+  const recipeStamps = {
+    runAs: ownerUid,
+    createdBy: ownerUid,
+    createdAt: ago(4 * DAY),
+    updatedBy: ownerUid,
+    updatedAt: ago(2 * DAY),
+  };
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/automations/showcase-notify-new`,
+    data: automationSchema.parse({
+      name: 'Heads-up on new items',
+      enabled: true,
+      trigger: { type: 'item_created' },
+      conditions: [],
+      actions: [{ type: 'notify', uids: [ownerUid], message: 'A new item was added.' }],
+      disabledReason: null,
+      ...recipeStamps,
+    }),
+  });
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/automations/showcase-done-to-group`,
+    data: automationSchema.parse({
+      name: 'File finished items',
+      enabled: false,
+      trigger: { type: 'status_changed', columnId: 'status', toLabelId: STATUS.done },
+      conditions: [],
+      actions: [{ type: 'move_to_group', groupId: 'done' }],
+      disabledReason: 'Turned off after 5 failed runs in a row.',
+      ...recipeStamps,
+    }),
+  });
+  summary.automations += 2;
 
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
