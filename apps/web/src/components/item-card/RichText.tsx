@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { isAlignKey, isDirKey, isFontSizeKey } from './composer-marks';
 import { DEFAULT_HIGHLIGHT, isColorKey } from '../item-view/editor-palette';
 import mentionStyles from './MentionTextarea.module.css';
 import { safeLinkHref } from './safe-link';
@@ -14,6 +15,8 @@ interface DocNode {
 
 /** Deeper than any real post; past it a node shows its text only (a guard for hand-made docs). */
 const MAX_DEPTH = 12;
+/** The largest column or row span a cell can render with. */
+const MAX_SPAN = 50;
 
 const asNode = (value: unknown): DocNode | null =>
   value && typeof value === 'object' ? (value as DocNode) : null;
@@ -67,8 +70,11 @@ function renderText(node: DocNode, key: number): ReactNode {
   if (find('italic')) out = <em>{out}</em>;
   if (find('underline')) out = <u>{out}</u>;
   if (find('strike')) out = <s>{out}</s>;
-  const color = find('textStyle')?.attrs?.color;
+  const textStyle = find('textStyle')?.attrs;
+  const color = textStyle?.color;
   if (isColorKey(color)) out = <span className={`atrium-text-${color}`}>{out}</span>;
+  const size = textStyle?.fontSize;
+  if (isFontSizeKey(size)) out = <span className={`atrium-size-${size}`}>{out}</span>;
   const highlight = find('highlight');
   if (highlight) {
     const tone = isColorKey(highlight.attrs?.color) ? highlight.attrs.color : DEFAULT_HIGHLIGHT;
@@ -86,6 +92,22 @@ function renderText(node: DocNode, key: number): ReactNode {
   return <Fragment key={key}>{out}</Fragment>;
 }
 
+/** The `class` and `dir` a paragraph or heading gets from its align and dir keys (others are ignored). */
+function blockProps(node: DocNode): { className?: string; dir?: 'ltr' | 'rtl' } {
+  const align = node.attrs?.align;
+  const dir = node.attrs?.dir;
+  return {
+    className: isAlignKey(align) ? `atrium-align-${align}` : undefined,
+    dir: isDirKey(dir) ? dir : undefined,
+  };
+}
+
+/** A table cell's span, only when it is a small whole number. */
+const span = (value: unknown): number | undefined =>
+  Number.isInteger(value) && (value as number) > 1 && (value as number) <= MAX_SPAN
+    ? (value as number)
+    : undefined;
+
 function renderChildren(node: DocNode, depth: number): ReactNode[] {
   return childrenOf(node).map((child, index) => renderNode(child, index, depth + 1));
 }
@@ -98,7 +120,50 @@ function renderNode(value: unknown, key: number, depth: number): ReactNode {
 
   switch (node.type) {
     case 'paragraph':
-      return <p key={key}>{renderChildren(node, depth)}</p>;
+      return (
+        <p key={key} {...blockProps(node)}>
+          {renderChildren(node, depth)}
+        </p>
+      );
+    case 'heading':
+      // The composer has one heading level; any other is shown as its text.
+      return node.attrs?.level === 2 ? (
+        <h2 key={key} {...blockProps(node)}>
+          {renderChildren(node, depth)}
+        </h2>
+      ) : (
+        <Fragment key={key}>{plainText(node)}</Fragment>
+      );
+    case 'codeBlock':
+      return (
+        <pre key={key}>
+          <code>{plainText(node)}</code>
+        </pre>
+      );
+    case 'horizontalRule':
+      return <hr key={key} />;
+    case 'table':
+      return (
+        <div key={key} className={styles.tableScroll}>
+          <table>
+            <tbody>{renderChildren(node, depth)}</tbody>
+          </table>
+        </div>
+      );
+    case 'tableRow':
+      return <tr key={key}>{renderChildren(node, depth)}</tr>;
+    case 'tableHeader':
+      return (
+        <th key={key} colSpan={span(node.attrs?.colspan)} rowSpan={span(node.attrs?.rowspan)}>
+          {renderChildren(node, depth)}
+        </th>
+      );
+    case 'tableCell':
+      return (
+        <td key={key} colSpan={span(node.attrs?.colspan)} rowSpan={span(node.attrs?.rowspan)}>
+          {renderChildren(node, depth)}
+        </td>
+      );
     case 'hardBreak':
       return <br key={key} />;
     case 'bulletList':

@@ -15,7 +15,7 @@ import { createSlashCommand } from './slash-menu/slash-command';
 import { SuggestController, type SlashController } from './slash-menu/slash-controller';
 
 /** The table's scroll wrapper gets the thin app scrollbar, so a wide table scrolls inside the editor. */
-class ScrollingTableView extends TableView {
+export class ScrollingTableView extends TableView {
   constructor(node: ProseMirrorNode, cellMinWidth: number) {
     super(node, cellMinWidth);
     // `composes` makes the module class a space-separated list, which classList.add rejects.

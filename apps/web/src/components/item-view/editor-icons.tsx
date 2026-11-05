@@ -57,3 +57,13 @@ export function ParagraphIcon() {
     </svg>
   );
 }
+
+/** Text direction: a pilcrow with an arrow; the arrow points the way the text runs. */
+export function DirectionIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="20" height="20" fill="currentColor" aria-hidden="true">
+      <path d="M8.500 3H16v1.500h-1.500V12H13V4.500h-2.500V12H9v-3.500H8.500a4 4 0 0 1 0-8.500z" />
+      <path d="M3 16l3-2.500v1.800h10v1.400H6v1.800z" />
+    </svg>
+  );
+}
