@@ -127,6 +127,9 @@ function makeStore(w: World): AutomationStore {
     async listEnabledAutomations(_b, limit) {
       return [...w.automations.values()].filter((a) => a.enabled).slice(0, limit);
     },
+    async getColumns() {
+      return w.board.columns;
+    },
     async noteRun() {},
   };
 }
@@ -405,6 +408,34 @@ describe('handleActivityEvent', () => {
     });
     expect(out).toMatchObject([{ status: 'skipped', reason: 'loop limit' }]);
     expect(w.itemPatches).toEqual([]);
+  });
+
+  it('matches a status_changed recipe by label when the cell holds label text only', async () => {
+    const w = makeWorld();
+    w.board.columns = [
+      { id: 'stage', type: 'text', title: 'Stage', settings: {} },
+      {
+        id: 'status',
+        type: 'status',
+        title: 'Status',
+        settings: { labels: [{ id: 'done', index: 1, label: 'Done', color: '#00c875' }] },
+      },
+    ];
+    w.automations.set(
+      'a1',
+      automation({ trigger: { type: 'status_changed', columnId: 'status', toLabelId: 1 } }),
+    );
+    const out = await handleActivityEvent(deps(w), {
+      eventId: 'e1',
+      boardId: 'b1',
+      activity: {
+        ...created,
+        kind: 'value_changed',
+        columnId: 'status',
+        data: { toValue: { label: 'Done' } },
+      },
+    });
+    expect(out.map((o) => o.status)).toEqual(['ok']);
   });
 
   it('considers at most 20 recipes', async () => {

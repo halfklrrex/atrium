@@ -27,7 +27,13 @@ import {
   runIdOf,
   type RunCounter,
 } from './limits';
-import { TRIGGER_KINDS, conditionsHold, matchAutomation, type MatchEntry } from './match';
+import {
+  TRIGGER_KINDS,
+  conditionsHold,
+  matchAutomation,
+  type MatchColumn,
+  type MatchEntry,
+} from './match';
 
 /**
  * The automation runner (P5a, spec docs/specs/P5a-automations-backend.md, section A3).
@@ -91,6 +97,8 @@ export interface AutomationStore {
   transact<T>(fn: (tx: AutomationRunTx) => Promise<T>): Promise<T>;
   /** Up to `limit` enabled recipes of the board that still parse. */
   listEnabledAutomations(boardId: string, limit: number): Promise<AutomationDoc[]>;
+  /** The board's columns (status labels live in their settings); `[]` when the board is gone. */
+  getColumns(boardId: string): Promise<MatchColumn[]>;
   /** Best effort note on a finished run (a notification that could not be delivered). */
   noteRun(boardId: string, runId: string, note: string): Promise<void>;
 }
@@ -230,7 +238,7 @@ async function executeInTransaction(
   }
   if (!item) return skip('item not found');
   if (item.state !== 'active') return skip('item not active');
-  if (!conditionsHold(automation.conditions, item)) {
+  if (!conditionsHold(automation.conditions, item, board.columns)) {
     flush();
     return { status: 'none', reason: 'conditions not met' };
   }
@@ -387,10 +395,19 @@ export async function handleActivityEvent(
     MAX_AUTOMATIONS_CONSIDERED,
   );
   const outcomes: RunOutcome[] = [];
-  for (const automation of automations.slice(0, MAX_AUTOMATIONS_CONSIDERED)) {
+  // Status labels are read from the column settings; load them only when a recipe needs a label.
+  let columns: MatchColumn[] | undefined;
+  for (const automation of automations) {
     // A recipe never reacts to its own writes.
     if (activity.actorId === automationActorId(automation.id)) continue;
-    if (!matchAutomation(automation, activity)) continue;
+    if (
+      columns === undefined &&
+      automation.trigger.type === 'status_changed' &&
+      automation.trigger.toLabelId !== undefined
+    ) {
+      columns = await deps.store.getColumns(event.boardId);
+    }
+    if (!matchAutomation(automation, activity, null, columns)) continue;
 
     const outcome = await runAutomation(
       deps.store,

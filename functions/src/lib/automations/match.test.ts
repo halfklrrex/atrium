@@ -65,6 +65,47 @@ describe('matchAutomation', () => {
   });
 });
 
+describe('label-only status values', () => {
+  const columns = [
+    {
+      id: 'status',
+      settings: {
+        labels: [
+          { id: 'w', index: 0, label: 'Working on it', color: '#fdab3d' },
+          { id: 'd', index: 1, label: 'Done', color: '#00c875' },
+        ],
+      },
+    },
+  ];
+  const t = (toLabelId: number) => ({
+    trigger: { type: 'status_changed' as const, columnId: 'status', toLabelId },
+  });
+  const labelEntry = (label: string) => entry({ data: { toValue: { label } } });
+
+  it('status_changed resolves the label through the column settings', () => {
+    expect(matchAutomation(t(1), labelEntry('Done'), null, columns)).toBe(true);
+    expect(matchAutomation(t(1), labelEntry(' done '), null, columns)).toBe(true);
+    expect(matchAutomation(t(0), labelEntry('Done'), null, columns)).toBe(false);
+    // Without settings a label cannot be resolved.
+    expect(matchAutomation(t(1), labelEntry('Done'))).toBe(false);
+    // Index values still work with settings present.
+    expect(matchAutomation(t(1), entry(), null, columns)).toBe(true);
+  });
+
+  it('is and is_not compare a label-only cell with an index or label value', () => {
+    const item = { values: { status: { label: 'Done' } } };
+    const is = (value: unknown) => [{ columnId: 'status', op: 'is' as const, value }];
+    expect(conditionsHold(is({ index: 1 }), item, columns)).toBe(true);
+    expect(conditionsHold(is(1), item, columns)).toBe(true);
+    expect(conditionsHold(is({ index: 0 }), item, columns)).toBe(false);
+    expect(
+      conditionsHold([{ columnId: 'status', op: 'is_not', value: { index: 1 } }], item, columns),
+    ).toBe(false);
+    const byIndex = { values: { status: { index: 1 } } };
+    expect(conditionsHold(is({ label: 'Done' }), byIndex, columns)).toBe(true);
+  });
+});
+
 describe('conditionsHold', () => {
   const item = {
     values: {
