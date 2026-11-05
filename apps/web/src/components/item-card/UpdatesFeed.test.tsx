@@ -143,10 +143,13 @@ describe('UpdatesFeed', () => {
       'Numbered list',
       'Checklist',
       'Text colour and highlight',
-      'Emoji',
-      'Mention someone',
     ]) {
       expect(within(toolbar).getByRole('button', { name })).toBeInTheDocument();
+    }
+    // Emoji and @ moved to the bottom row, under the text.
+    for (const name of ['Emoji', 'Mention someone']) {
+      expect(within(toolbar).queryByRole('button', { name })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
     expect(screen.queryByRole('button', { name: 'Format bold' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Format italic' })).not.toBeInTheDocument();
