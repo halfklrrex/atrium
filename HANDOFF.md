@@ -34,7 +34,8 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **Live today (2026-11-05):** the automations engine (#90, after an ultrareview and its 7 fixes), the Automation center (#97), the recipe builder and starter recipes (#100), and the dashboard Workload widget, sharing and trash (#102). Earlier on 11-04/05: Gantt, Workload view, templates, dashboards (Numbers, Battery, Chart, Table), forms (builder and public page), the rich-text composer. The showcase was re-seeded on 2026-11-05.
 - **Latest session note:** `docs/handoff/2026-11-05-ophelia-automations-merged-redesign.md` (what merged, gotchas, next steps). The plan it follows: `docs/plans/2026-11-04-feature-push.md`.
 - **Live since this evening:** P5c (item moved and person assigned triggers, create item and post update actions; #107, #108, #109) and the Automation center redesign R1 to R3 (#105 shell and catalog, #110 Create tab, #111 sentence builder). Newest note: `docs/handoff/2026-11-05-ophelia-p5c-p5e-live.md`.
-- **Open PRs:** #112 (R4, the Manage table with the Needs attention chip). Merge when CI is green.
+- **Open PRs:** #112 (R4, the Manage table with the Needs attention chip). Merge when CI is green. **Update 2026-11-06:** #112 is CONFLICTING with `main` and shows no checks; a rebased local copy `claude/p5e-r4-manage-tab-v2` is not pushed.
+- **Unfinished work found 2026-11-06:** four subagent worktrees hold uncommitted, unpushed work: Required columns REQ-1, the flag emoji fallback, the automation `post_update` author rendering, and the template relabel (Soon to ready). Each now has a Roadmap item (Building). Details, paths and what each needs: `docs/handoff/2026-11-06-ophelia-in-flight-inventory.md`. Read it first.
 - **Owner decision, 2026-11-05:** the Automation center gets redesigned to look more like monday's: **variant A plus two pieces of C** ("Hide coming soon" switch, "Needs attention" chip). Outline and five open questions with defaults: `docs/specs/P5e-automation-center-redesign.md`. Mockups: `.private/design/automation-center/` (gitignored).
 - **Live check:** Claude in Chrome now connects. Read-only checks of the Automate dialog and Create tab are done (dark mode). Still open: light mode and running a recipe (it writes data, so the owner or a go-ahead).
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
@@ -69,6 +70,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - [2026-11-03 · Ophelia · autonomous batch: activity UI, button actions, notify, favourites, rich-text backend, P5 design](docs/handoff/2026-11-03-ophelia-autonomous-batch.md)
 - [2026-11-04 · Ophelia · feature push (Gantt, Workload, templates, dashboards data, P5a pieces)](docs/handoff/2026-11-04-ophelia-feature-push.md)
 - [2026-11-05 · Ophelia · automations and dashboards merged, Automation center redesign chosen](docs/handoff/2026-11-05-ophelia-automations-merged-redesign.md)
+- [2026-11-06 · Ophelia · inventory of work in flight (R4, REQ-1, flag emoji, post_update author, template relabel)](docs/handoff/2026-11-06-ophelia-in-flight-inventory.md)
 - [2026-10-24 · Antigravity · Board filter, sort, search & group-by](docs/handoff/2026-10-24-antigravity-board-filters-sort.md)
 - [2026-10-25 · Antigravity · Files storage upload, rules & tests](docs/handoff/2026-10-25-antigravity-files-storage-upload.md)
 - [2026-10-25 · Antigravity · Server-side column actions](docs/handoff/2026-10-25-antigravity-server-column-actions.md)
