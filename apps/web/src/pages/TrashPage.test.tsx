@@ -1,12 +1,14 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { makeBoard, makeWorkspace } from '../test/fixtures';
+import { makeBoard, makeDashboard, makeWorkspace } from '../test/fixtures';
 import { TrashPage } from './TrashPage';
-import type { BoardDoc } from '../data/model';
+import type { BoardDoc, DashboardDoc } from '../data/model';
 
 const mocks = vi.hoisted(() => ({
   boards: [] as BoardDoc[],
+  dashboards: [] as DashboardDoc[],
+  setDashboardState: vi.fn().mockResolvedValue(undefined),
   setBoardState: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -35,6 +37,14 @@ vi.mock('../data', async (importOriginal) => ({
     loading: false,
     error: null,
   }),
+  useAllWorkspaceDashboards: () => ({
+    data: mocks.dashboards,
+    loading: false,
+    error: null,
+  }),
+  dashboardWrites: {
+    setDashboardState: (...args: unknown[]) => mocks.setDashboardState(...args),
+  },
   writes: {
     setBoardState: (...args: unknown[]) => mocks.setBoardState(...args),
   },
@@ -85,5 +95,15 @@ describe('TrashPage', () => {
     fireEvent.click(archivedTab);
 
     expect(screen.getByText('Archived Roadmap')).toBeInTheDocument();
+  });
+
+  it('lists deleted dashboards and restores them', () => {
+    mocks.boards = [];
+    mocks.dashboards = [makeDashboard({ id: 'd-del', name: 'Old overview', state: 'deleted' })];
+    renderTrash();
+    expect(screen.getByText('Old overview')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Old overview' }));
+    expect(mocks.setDashboardState).toHaveBeenCalledWith('d-del', 'active');
+    mocks.dashboards = [];
   });
 });
