@@ -381,12 +381,20 @@
   white-space: nowrap;
 }
 
+.tableCell {
+  /* Column cells (the status fill) position themselves against the cell, not the widget frame. */
+  position: relative;
+  align-self: stretch;
+  padding: 0;
+}
+
 .tableHeaderCell {
   color: var(--atrium-dashboard-caption-text);
   font: var(--font-text3-medium);
 }
 
 .tableRow {
+  height: var(--atrium-dashboard-table-row-height);
   border-block-start: var(--border-width) var(--border-style) var(--atrium-dashboard-card-border);
   color: var(--primary-text-color);
   font: var(--font-text2-normal);
