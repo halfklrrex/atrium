@@ -1,9 +1,8 @@
 import {
   DASHBOARD_LIMITS,
-  type ColumnDef,
+  type ChartSettings,
   type DashboardWidget,
   type DashboardWidgetType,
-  type StatusSettings,
 } from '@atrium/shared';
 import {
   Checkbox,
@@ -26,12 +25,19 @@ import {
   type NumbersSettings,
 } from './widgets/numbers-model';
 import type { BatterySettings } from './widgets/battery-model';
+import type { TableSettings } from './widgets/table-model';
+import { BoardSubsetField, ChartSettingsForm, TableSettingsForm } from './WidgetForms';
 import {
   DEFAULT_WIDGET_TITLE,
   WIDGET_TYPES,
   defaultWidgetSettings,
 } from './widgets/widget-catalog';
-import { columnOptions, isNumericColumn, isStatusColumn } from './widgets/widget-columns';
+import {
+  columnOptions,
+  isNumericColumn,
+  isStatusColumn,
+  statusLabelsOf,
+} from './widgets/widget-columns';
 
 export interface AddWidgetDialogProps {
   dashboard: DashboardDoc;
@@ -42,21 +48,7 @@ export interface AddWidgetDialogProps {
   onClose: () => void;
 }
 
-type Settings = NumbersSettings | BatterySettings;
-
-/** Status labels of the column `columnId`, from the first board that has it. */
-function labelsOf(boards: readonly BoardDoc[], columnId: string | null) {
-  if (!columnId) return [];
-  for (const board of boards) {
-    const def: ColumnDef | undefined = board.columns.find((c) => c.id === columnId);
-    if (def && isStatusColumn(def)) {
-      return [...((def.settings as unknown as StatusSettings).labels ?? [])]
-        .filter((l) => l.label.trim() !== '')
-        .sort((a, b) => a.index - b.index);
-    }
-  }
-  return [];
-}
+type Settings = NumbersSettings | BatterySettings | ChartSettings | TableSettings;
 
 /** Adds a widget to a dashboard, or edits one: type (new only), title and its settings. */
 export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidgetDialogProps) {
@@ -67,6 +59,7 @@ export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidge
   const [settings, setSettings] = useState<Settings>(
     (widget?.settings as Settings | undefined) ?? defaultWidgetSettings('numbers'),
   );
+  const [boardIds, setBoardIds] = useState<string[]>(widget?.boardIds ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,6 +74,9 @@ export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidge
 
   const numbers = type === 'numbers' ? (settings as NumbersSettings) : null;
   const battery = type === 'battery' ? (settings as BatterySettings) : null;
+  const chart = type === 'chart' ? (settings as ChartSettings) : null;
+  const table = type === 'table' ? (settings as TableSettings) : null;
+  const hasBoardSubset = type === 'chart' || type === 'table';
 
   const needsColumn = numbers !== null && numbers.mode !== 'count';
   const missingColumn = needsColumn && !numbers.columnId;
@@ -96,12 +92,14 @@ export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidge
       if (widget) {
         await dashboardWrites.updateWidget(dashboard.id, widget.id, {
           title: cleanTitle,
+          ...(hasBoardSubset ? { boardIds } : {}),
           settings: settings as DashboardWidget['settings'],
         });
       } else {
         await dashboardWrites.addWidget(dashboard.id, {
           type,
           title: cleanTitle,
+          ...(hasBoardSubset ? { boardIds } : {}),
           settings: settings as DashboardWidget['settings'],
         });
       }
@@ -112,8 +110,8 @@ export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidge
     }
   }
 
-  const filterLabels = labelsOf(boards, numbers?.filter?.columnId ?? null);
-  const doneLabels = labelsOf(boards, battery?.statusColumnId ?? null);
+  const filterLabels = statusLabelsOf(boards, numbers?.filter?.columnId ?? null);
+  const doneLabels = statusLabelsOf(boards, battery?.statusColumnId ?? null);
 
   const toggleIn = (list: readonly string[], id: string): string[] =>
     list.includes(id) ? list.filter((v) => v !== id) : [...list, id];
@@ -307,6 +305,16 @@ export function AddWidgetDialog({ dashboard, boards, widget, onClose }: AddWidge
                     : 'Labels marked as done on the board count as done.'}
                 </p>
               </>
+            ) : null}
+
+            {chart ? (
+              <ChartSettingsForm boards={boards} settings={chart} onChange={setSettings} />
+            ) : null}
+            {table ? (
+              <TableSettingsForm boards={boards} settings={table} onChange={setSettings} />
+            ) : null}
+            {hasBoardSubset ? (
+              <BoardSubsetField boards={boards} value={boardIds} onChange={setBoardIds} />
             ) : null}
 
             {error ? (

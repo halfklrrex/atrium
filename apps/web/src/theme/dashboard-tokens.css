@@ -11,6 +11,7 @@
   --atrium-dashboard-gap: var(--space-16);
   --atrium-dashboard-resize-handle: 16px;
   --atrium-dashboard-widget-min-height: 160px;
+  --atrium-dashboard-table-min-width: 480px; /* a Table widget scrolls sideways below this */
   --atrium-dashboard-list-max-height: 320px; /* the board picker in dialogs */
 
   /* ---- Widget card ---- */

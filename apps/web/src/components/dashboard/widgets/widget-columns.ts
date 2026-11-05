@@ -129,3 +129,20 @@ export function widgetBoards<T extends { board: Pick<BoardDoc, 'id'> }>(
   const wanted = new Set(widgetBoardIds);
   return all.filter((b) => wanted.has(b.board.id));
 }
+
+/** Status labels of the column `columnId`, from the first board that has it. */
+export function statusLabelsOf(
+  boards: readonly Pick<BoardDoc, 'columns'>[],
+  columnId: string | null,
+) {
+  if (!columnId) return [];
+  for (const board of boards) {
+    const def: ColumnDef | undefined = board.columns.find((c) => c.id === columnId);
+    if (def && isStatusColumn(def)) {
+      return [...((def.settings as unknown as StatusSettings).labels ?? [])]
+        .filter((l) => l.label.trim() !== '')
+        .sort((a, b) => a.index - b.index);
+    }
+  }
+  return [];
+}

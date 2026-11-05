@@ -12,8 +12,8 @@ export interface WidgetTypeInfo {
 export const WIDGET_TYPES: readonly WidgetTypeInfo[] = [
   { type: 'numbers', label: 'Numbers', hint: 'Count, sum, average, min or max', available: true },
   { type: 'battery', label: 'Battery', hint: 'Progress by status', available: true },
-  { type: 'chart', label: 'Chart', hint: 'Bars, lines and pies', available: false },
-  { type: 'table', label: 'Table', hint: 'Items from several boards', available: false },
+  { type: 'chart', label: 'Chart', hint: 'Bars, lines and pies', available: true },
+  { type: 'table', label: 'Table', hint: 'Items from several boards', available: true },
   { type: 'workload', label: 'Workload', hint: 'Items per person', available: false },
 ];
 

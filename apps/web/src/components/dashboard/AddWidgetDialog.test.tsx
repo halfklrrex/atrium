@@ -36,14 +36,97 @@ beforeEach(() => {
 });
 
 describe('AddWidgetDialog', () => {
-  it('lists Numbers and Battery and marks the rest as coming soon', () => {
+  it('lists Numbers, Battery, Chart and Table and marks Workload as coming soon', () => {
     open();
-    expect(screen.getByRole('radio', { name: /Numbers/ })).toBeEnabled();
-    expect(screen.getByRole('radio', { name: /Battery/ })).toBeEnabled();
-    for (const name of [/Chart/, /Table/, /Workload/]) {
-      expect(screen.getByRole('radio', { name })).toBeDisabled();
+    for (const name of [/Numbers/, /Battery/, /Chart/, /Table/]) {
+      expect(screen.getByRole('radio', { name })).toBeEnabled();
     }
-    expect(screen.getAllByText('Coming soon')).toHaveLength(3);
+    expect(screen.getByRole('radio', { name: /Workload/ })).toBeDisabled();
+    expect(screen.getAllByText('Coming soon')).toHaveLength(1);
+  });
+
+  it('adds a Chart widget with its type, axes, measure and boards', async () => {
+    open();
+    await userEvent.click(screen.getByRole('radio', { name: /Chart/ }));
+    expect(screen.getByLabelText('Widget title')).toHaveValue('Chart');
+    await userEvent.selectOptions(screen.getByLabelText('Chart type'), 'stacked_bar');
+    await userEvent.selectOptions(screen.getByLabelText('X axis'), 'status');
+    expect(screen.getByLabelText('Stack by')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Measure'), 'sum');
+    const measure = screen.getByLabelText('Measure column') as HTMLSelectElement;
+    expect(Array.from(measure.options).map((o) => o.text)).toEqual([
+      'First number column',
+      'Amount',
+    ]);
+    await userEvent.selectOptions(measure, 'amount');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'b1' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add widget' }));
+    await waitFor(() => expect(mocks.addWidget).toHaveBeenCalled());
+    expect(mocks.addWidget.mock.calls[0]?.[1]).toMatchObject({
+      type: 'chart',
+      boardIds: ['b1'],
+      settings: {
+        chartType: 'stacked_bar',
+        xColumnId: 'status',
+        yMode: 'sum',
+        yColumnId: 'amount',
+      },
+    });
+  });
+
+  it('only offers date bucket for a date X axis', async () => {
+    render(
+      <AddWidgetDialog
+        dashboard={dashboard}
+        boards={[makeBoard({ id: 'b9', columns: [column('due', 'date', 'Due')] })]}
+        onClose={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole('radio', { name: /Chart/ }));
+    expect(screen.queryByLabelText('Group dates by')).toBeNull();
+    await userEvent.selectOptions(screen.getByLabelText('X axis'), 'due');
+    expect(screen.getByLabelText('Group dates by')).toBeInTheDocument();
+  });
+
+  it('adds a Table widget with columns, a status filter and a row limit', async () => {
+    open();
+    await userEvent.click(screen.getByRole('radio', { name: /Table/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Amount' }));
+    await userEvent.selectOptions(screen.getByLabelText('Filter by status column'), 'status');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Done' }));
+    await userEvent.selectOptions(screen.getByLabelText('Row limit'), '25');
+    await userEvent.click(screen.getByRole('button', { name: 'Add widget' }));
+    await waitFor(() => expect(mocks.addWidget).toHaveBeenCalled());
+    expect(mocks.addWidget).toHaveBeenCalledWith('d1', {
+      type: 'table',
+      title: 'Table',
+      boardIds: [],
+      settings: {
+        columnIds: ['amount'],
+        filter: { columnId: 'status', values: ['done'] },
+        rowLimit: 25,
+      },
+    });
+  });
+
+  it('edits a Chart widget and saves its boards', async () => {
+    const widget = {
+      id: 'w5',
+      type: 'chart',
+      title: 'By status',
+      layout: { x: 0, y: 0, w: 6, h: 5 },
+      boardIds: ['b1'],
+      settings: defaultWidgetSettings('chart'),
+    } as DashboardWidget;
+    const onClose = open(widget);
+    await userEvent.selectOptions(screen.getByLabelText('Chart type'), 'donut');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(mocks.updateWidget).toHaveBeenCalledWith('d1', 'w5', {
+      title: 'By status',
+      boardIds: ['b1'],
+      settings: { ...defaultWidgetSettings('chart'), chartType: 'donut' },
+    });
   });
 
   it('adds a Numbers widget that counts items by default', async () => {

@@ -13,6 +13,7 @@ import {
   dashboardWrites,
   useDashboard,
   useDashboardItems,
+  useUserLookup,
   useWorkspace,
   type DashboardDoc,
 } from '../../data';
@@ -29,6 +30,8 @@ import type { GridItem } from './dashboard-layout';
 import { DashboardGrid } from './DashboardGrid';
 import styles from './dashboard.module.css';
 import { BatteryWidget } from './widgets/BatteryWidget';
+import { ChartWidget } from './widgets/ChartWidget';
+import { TableWidget } from './widgets/TableWidget';
 import { NumbersWidget } from './widgets/NumbersWidget';
 
 type WidgetDialogState = { mode: 'add' } | { mode: 'edit'; widgetId: string } | null;
@@ -106,6 +109,9 @@ function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdi
     [dashboard.id],
   );
 
+  const memberLookup = useUserLookup(dashboard.workspaceId);
+  const userName = useMemo(() => (uid: string) => memberLookup(uid)?.name, [memberLookup]);
+
   const renderWidget = (widget: DashboardWidget) => {
     const data = {
       boards: items.boards,
@@ -117,6 +123,10 @@ function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdi
         return <NumbersWidget {...data} settings={widget.settings} />;
       case 'battery':
         return <BatteryWidget {...data} settings={widget.settings} />;
+      case 'chart':
+        return <ChartWidget {...data} settings={widget.settings} userName={userName} />;
+      case 'table':
+        return <TableWidget {...data} settings={widget.settings} />;
       default:
         return <div className={styles.widgetNote}>This widget type is coming soon.</div>;
     }
@@ -185,7 +195,7 @@ function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdi
         <EmptyState
           size="page"
           title="Add your first widget"
-          body="Numbers and Battery widgets summarise your boards at a glance."
+          body="Charts, tables and numbers summarise your boards at a glance."
           primaryAction={
             canEdit ? { label: 'Add widget', onClick: () => setDialog({ mode: 'add' }) } : undefined
           }

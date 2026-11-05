@@ -47,7 +47,11 @@ vi.mock('../../data', async (importOriginal) => ({
   },
 }));
 
-const widget = (id: string, type: 'numbers' | 'battery', title: string): DashboardWidget =>
+const widget = (
+  id: string,
+  type: 'numbers' | 'battery' | 'chart' | 'table',
+  title: string,
+): DashboardWidget =>
   ({
     id,
     type,
@@ -143,6 +147,22 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('group', { name: '2 items: 2' })).toHaveTextContent('2');
     expect(screen.getByText('50% done')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Dashboard widgets' })).toBeInTheDocument();
+  });
+
+  it('renders Chart and Table widgets instead of the coming soon note', () => {
+    mocks.items.boards = [
+      { board: sales, items: [makeItem({ id: 'i1', name: 'First deal', values: {} })] },
+    ];
+    renderPage(
+      makeDashboard({
+        id: 'd1',
+        boardIds: ['b1'],
+        widgets: [widget('c1', 'chart', 'By status'), widget('t1', 'table', 'All deals')],
+      }),
+    );
+    expect(screen.queryByText('This widget type is coming soon.')).toBeNull();
+    expect(screen.getByRole('link', { name: 'First deal' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Bar chart/ })).toBeInTheDocument();
   });
 
   it('says how many boards are hidden because the user cannot open them', () => {
