@@ -42,6 +42,17 @@ export function getButtonActionErrors(
     if (action.type === 'rename_item' && action.template.trim() === '') {
       return 'Enter a new name';
     }
+    if (action.type === 'create_item') {
+      if (action.name.trim() === '') return 'Enter a name for the new item';
+      if (action.groupId !== undefined && !groups.some((g) => g.id === action.groupId)) {
+        return 'This group was deleted';
+      }
+      for (const [columnId, value] of Object.entries(action.values ?? {})) {
+        if (!columns.some((c) => c.def.id === columnId)) return 'A column was deleted';
+        if (value === undefined) return 'Choose a value, or clear the cell';
+      }
+    }
+    if (action.type === 'post_update' && action.text.trim() === '') return 'Enter the update text';
     const checked = validateButtonActions([action], board, undefined, columnRegistry, options);
     if (checked.ok) return null;
     const at = checked.message.indexOf('): ');

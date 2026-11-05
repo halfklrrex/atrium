@@ -9,6 +9,7 @@ import {
 } from '@atrium/shared';
 import { Button, TextField } from '@vibe/core';
 import { useId, useMemo, useState } from 'react';
+import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
 import { automationWrites, type AutomationDoc, type AutomationInput } from '../../data/automations';
 import popups from '../../columns/popups.module.css';
 import type { BoardDoc } from '../../data/model';
@@ -119,6 +120,36 @@ function ColumnSelect({
   );
 }
 
+/** "Anyone" or one workspace member (a person who has left stays selectable so it can be changed). */
+function AssigneeSelect({
+  value,
+  onChange,
+}: {
+  value: string | undefined;
+  onChange: (uid: string) => void;
+}) {
+  const { members } = useWorkspaceMembers();
+  const lookup = useUserLookup();
+  const known = value === undefined || members.some((m) => m.id === value);
+  return (
+    <Field label="Assigned person">
+      <select
+        className={popups.input}
+        value={value ?? ''}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Anyone</option>
+        {known ? null : <option value={value}>Former member</option>}
+        {members.map((m) => (
+          <option key={m.id} value={m.id}>
+            {lookup(m.id)?.name ?? UNKNOWN_PERSON_NAME}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
 function TriggerFields({
   board,
   trigger,
@@ -130,8 +161,18 @@ function TriggerFields({
 }) {
   const hasStatus = triggerColumns(board, 'status').length > 0;
   const hasButton = triggerColumns(board, 'button').length > 0;
-  const fits = (type: AutomationTrigger['type']) =>
-    type === 'item_created' || (type === 'status_changed' ? hasStatus : hasButton);
+  const hasPeople = triggerColumns(board, 'people').length > 0;
+  const fits = (type: AutomationTrigger['type']) => {
+    if (type === 'status_changed') return hasStatus;
+    if (type === 'button_clicked') return hasButton;
+    if (type === 'person_assigned') return hasPeople;
+    return true;
+  };
+  const missing: Partial<Record<AutomationTrigger['type'], string>> = {
+    status_changed: ' (no Status column)',
+    button_clicked: ' (no Button column)',
+    person_assigned: ' (no People column)',
+  };
 
   return (
     <>
@@ -146,26 +187,22 @@ function TriggerFields({
           {TRIGGER_TYPES.map((type) => (
             <option key={type} value={type} disabled={!fits(type) && type !== trigger.type}>
               {AUTOMATION_TRIGGER_LABELS[type]}
-              {fits(type)
-                ? ''
-                : type === 'status_changed'
-                  ? ' (no Status column)'
-                  : ' (no Button column)'}
+              {fits(type) ? '' : missing[type]}
             </option>
           ))}
         </select>
       </Field>
 
-      {trigger.type === 'item_created' ? (
-        <Field label="In group">
+      {trigger.type === 'item_created' || trigger.type === 'item_moved' ? (
+        <Field label={trigger.type === 'item_moved' ? 'Moved to group' : 'In group'}>
           <select
             className={popups.input}
             value={trigger.groupId ?? ''}
             onChange={(event) =>
               onChange(
                 event.target.value
-                  ? { type: 'item_created', groupId: event.target.value }
-                  : { type: 'item_created' },
+                  ? { type: trigger.type, groupId: event.target.value }
+                  : { type: trigger.type },
               )
             }
           >
@@ -210,6 +247,33 @@ function TriggerFields({
               ))}
             </select>
           </Field>
+        </>
+      ) : null}
+
+      {trigger.type === 'person_assigned' ? (
+        <>
+          <ColumnSelect
+            label="People column"
+            columns={triggerColumns(board, 'people')}
+            value={trigger.columnId}
+            onChange={(columnId) =>
+              onChange({
+                type: 'person_assigned',
+                columnId,
+                ...(trigger.uid === undefined ? {} : { uid: trigger.uid }),
+              })
+            }
+          />
+          <AssigneeSelect
+            value={trigger.uid}
+            onChange={(uid) =>
+              onChange({
+                type: 'person_assigned',
+                columnId: trigger.columnId,
+                ...(uid === '' ? {} : { uid }),
+              })
+            }
+          />
         </>
       ) : null}
 
@@ -533,6 +597,7 @@ export function RecipeBuilder({
           columns={columnViews}
           groups={board.groups}
           boardId={board.id}
+          allowAutomationOnly
           emptyHint="Add at least one action: what should happen."
           onChange={setActions}
         />

@@ -964,17 +964,21 @@ test('the main board has a shared, closed Form view whose questions the form rul
   assert.deepEqual(formPublishProblems(view.settings.form, board), []);
 });
 
-test('the main board has two recipes (one on, one off with a reason) valid against the board, and no runs', () => {
+test('the main board has four recipes (three on, one off with a reason, covering every trigger and action type) valid against the board, and no runs', () => {
   const { docs, summary } = build();
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
   const recipes = docs.filter((d) => /^boards\/showcase-main\/automations\/[^/]+$/.test(d.path));
-  assert.equal(summary.automations, 2);
-  assert.equal(recipes.length, 2);
+  assert.equal(summary.automations, 4);
+  assert.equal(recipes.length, 4);
   const on = recipes.filter((r) => r.data.enabled);
   const off = recipes.filter((r) => !r.data.enabled);
-  assert.equal(on.length, 1);
+  assert.equal(on.length, 3);
   assert.equal(off.length, 1);
-  assert.equal(on[0].data.disabledReason, null);
+  assert.ok(on.every((r) => r.data.disabledReason === null));
+  const triggers = new Set(recipes.map((r) => r.data.trigger.type));
+  const actions = new Set(recipes.flatMap((r) => r.data.actions.map((a) => a.type)));
+  for (const type of ['item_moved', 'person_assigned']) assert.ok(triggers.has(type), type);
+  for (const type of ['create_item', 'post_update']) assert.ok(actions.has(type), type);
   assert.ok(off[0].data.disabledReason);
   for (const { data } of recipes) {
     assert.equal(data.runAs, OWNER);

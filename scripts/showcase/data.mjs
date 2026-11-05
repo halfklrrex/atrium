@@ -1804,7 +1804,7 @@ export function buildShowcase({
   });
   summary.views += 1;
 
-  // ---- Two recipes in the Automation center: one on and harmless, one off with its reason ----
+  // ---- Four recipes in the Automation center: two on and harmless, one off with its reason, and one of each P5c trigger and action ----
   // `runAs` is the owner. No `automationRuns` are seeded: only Cloud Functions write those.
   const recipeStamps = {
     runAs: ownerUid,
@@ -1837,7 +1837,38 @@ export function buildShowcase({
       ...recipeStamps,
     }),
   });
-  summary.automations += 2;
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/automations/showcase-moved-done-update`,
+    data: automationSchema.parse({
+      name: 'Say it when work lands in Done',
+      enabled: true,
+      trigger: { type: 'item_moved', groupId: 'done' },
+      conditions: [],
+      actions: [{ type: 'post_update', text: '{name} moved to Done on {date}.' }],
+      disabledReason: null,
+      ...recipeStamps,
+    }),
+  });
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/automations/showcase-assigned-follow-up`,
+    data: automationSchema.parse({
+      name: 'Follow-up for new owners',
+      enabled: true,
+      trigger: { type: 'person_assigned', columnId: 'person' },
+      conditions: [],
+      actions: [
+        {
+          type: 'create_item',
+          name: '{name} follow-up',
+          groupId: 'backlog',
+          values: { status: { index: STATUS.working } },
+        },
+      ],
+      disabledReason: null,
+      ...recipeStamps,
+    }),
+  });
+  summary.automations += 4;
 
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
