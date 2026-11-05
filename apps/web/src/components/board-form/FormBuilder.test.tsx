@@ -16,7 +16,9 @@ import { BoardViewsContext, type BoardViewsValue } from '../board-views/view-con
 import { viewPermissions } from '../board-views/view-permissions';
 import { FormBuilder } from './FormBuilder';
 
-const saveFormFields = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const saveFormFields = vi.hoisted(() =>
+  vi.fn((..._args: unknown[]): Promise<void> => Promise.resolve()),
+);
 
 vi.mock('../../lib/firebase', () => ({ db: {} }));
 vi.mock('../../auth/auth-context', () => ({ useAuth: () => ({ user: { uid: 'u1' } }) }));
@@ -119,12 +121,12 @@ describe('form builder', () => {
     fireEvent.change(label, { target: { value: 'Notes for us' } });
     fireEvent.blur(label);
     await waitFor(() => expect(saveFormFields).toHaveBeenCalled());
-    const patch = saveFormFields.mock.calls[0]![4] as unknown as Partial<FormSettings>;
+    const patch = saveFormFields.mock.calls[0]![4] as Partial<FormSettings>;
     expect(patch.questions![1]).toMatchObject({ columnId: 'notes', label: 'Notes for us' });
 
     await userEvent.click(within(row).getByRole('switch', { name: /Required/ }));
     await waitFor(() => expect(saveFormFields).toHaveBeenCalledTimes(2));
-    const second = saveFormFields.mock.calls[1]![4] as unknown as Partial<FormSettings>;
+    const second = saveFormFields.mock.calls[1]![4] as Partial<FormSettings>;
     expect(second.questions![1]!.required).toBe(true);
   });
 
@@ -140,7 +142,7 @@ describe('form builder', () => {
     renderBuilder();
     await userEvent.click(screen.getByRole('button', { name: 'Remove Anything else?' }));
     await waitFor(() => expect(saveFormFields).toHaveBeenCalled());
-    const patch = saveFormFields.mock.calls[0]![4] as unknown as Partial<FormSettings>;
+    const patch = saveFormFields.mock.calls[0]![4] as Partial<FormSettings>;
     expect(patch.questions!.map((q) => q.columnId)).toEqual(['name']);
   });
 
@@ -153,7 +155,7 @@ describe('form builder', () => {
     expect(screen.queryByRole('menuitem', { name: 'Notes' })).not.toBeInTheDocument();
     await chooseMenuItem(user, 'When');
     await waitFor(() => expect(saveFormFields).toHaveBeenCalled());
-    const patch = saveFormFields.mock.calls[0]![4] as unknown as Partial<FormSettings>;
+    const patch = saveFormFields.mock.calls[0]![4] as Partial<FormSettings>;
     expect(patch.questions!.at(-1)).toEqual({ columnId: 'when', label: 'When', required: false });
   });
 
