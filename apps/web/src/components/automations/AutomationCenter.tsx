@@ -24,6 +24,7 @@ import { UNKNOWN_PERSON_NAME, useWorkspaceMembers } from '../../data/members-sto
 import { describeError } from '../boards/board-actions';
 import { openItem } from '../board-table/open-item';
 import { showToast } from '../toast-store';
+import { CreateTab } from './CreateTab';
 import { RecipesTab } from './RecipesTab';
 import { RecipeBuilder } from './RecipeBuilder';
 import { RunHistoryTab } from './RunHistoryTab';
@@ -197,14 +198,12 @@ function CenterBody({
       ) : null}
       <div className={styles.scroll}>
         {view === 'create' ? (
-          <div className={styles.createPlaceholder}>
-            <p className={styles.toolbarHint}>Template catalog coming in the next step.</p>
-            {isOwner ? (
-              <Button kind="secondary" size="small" onClick={() => openBuilder({ mode: 'create' })}>
-                Create automation
-              </Button>
-            ) : null}
-          </div>
+          <CreateTab
+            board={board}
+            uid={uid}
+            isOwner={isOwner}
+            onOpenBuilder={(initial) => openBuilder({ mode: 'create', initial })}
+          />
         ) : tab === 'recipes' ? (
           <RecipesTab
             automations={automations.data}
