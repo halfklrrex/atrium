@@ -193,7 +193,7 @@ describe('validateFormAnswers', () => {
     due: { date: '2026-11-05' },
     ok: { checked: 'true' },
     mail: { email: 'avery@example.com', text: 'avery@example.com' },
-    tel: { phone: '+64211234567', countryShortName: 'NZ' },
+    tel: { phone: '+12125551234', countryShortName: 'US' },
     site: { url: 'https://example.com', text: 'Example' },
     stars: { rating: 4 },
   };
