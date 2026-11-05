@@ -162,3 +162,64 @@ describe('limits', () => {
     expect(CIRCUIT_BREAKER_FAILURES).toBe(10);
   });
 });
+
+describe('matchAutomation: item_moved and person_assigned', () => {
+  const moved = (over: Partial<MatchEntry> = {}) =>
+    entry({
+      kind: 'item_moved',
+      columnId: null,
+      groupId: 'g2',
+      data: { fromGroupId: 'g1' },
+      ...over,
+    });
+  const people = (...uids: string[]) => ({
+    personsAndTeams: uids.map((id) => ({ id, kind: 'person' as const })),
+  });
+  const assigned = (from: unknown, to: unknown, over: Partial<MatchEntry> = {}) =>
+    entry({ columnId: 'owner', data: { fromValue: from, toValue: to }, ...over });
+  const trigger = (uid?: string) => ({
+    trigger: { type: 'person_assigned' as const, columnId: 'owner', uid },
+  });
+
+  it.each([
+    ['any move', undefined, moved(), true],
+    ['the destination group', 'g2', moved(), true],
+    ['another destination group', 'g3', moved(), false],
+    ['not a move', undefined, entry(), false],
+    ['a subitem move', undefined, moved({ parentItemId: 'p1' }), false],
+  ])('item_moved: %s', (_name, groupId, e, expected) => {
+    expect(matchAutomation({ trigger: { type: 'item_moved', groupId } }, e)).toBe(expected);
+  });
+
+  it.each([
+    ['adds someone to an empty cell', trigger(), assigned(null, people('u1')), true],
+    ['adds a second person', trigger(), assigned(people('u1'), people('u1', 'u2')), true],
+    ['only removes someone', trigger(), assigned(people('u1', 'u2'), people('u1')), false],
+    ['no change in the people', trigger(), assigned(people('u1'), people('u1')), false],
+    [
+      'a team is added',
+      trigger(),
+      assigned(null, { personsAndTeams: [{ id: 't', kind: 'team' }] }),
+      false,
+    ],
+    ['the chosen person is added', trigger('u2'), assigned(people('u1'), people('u1', 'u2')), true],
+    ['another person is added', trigger('u3'), assigned(people('u1'), people('u1', 'u2')), false],
+    ['another column', trigger(), assigned(null, people('u1'), { columnId: 'other' }), false],
+    ['not a value change', trigger(), assigned(null, people('u1'), { kind: 'item_moved' }), false],
+    [
+      'a dropped from value',
+      trigger(),
+      entry({ columnId: 'owner', data: { toValue: people('u1') } }),
+      false,
+    ],
+    ['no values at all', trigger(), entry({ columnId: 'owner', data: {} }), false],
+  ])('person_assigned: %s', (_name, t, e, expected) => {
+    expect(matchAutomation(t, e)).toBe(expected);
+  });
+
+  it('person_assigned falls back to the item value when the new raw value was dropped', () => {
+    const e = entry({ columnId: 'owner', data: { fromValue: null } });
+    expect(matchAutomation(trigger(), e, { values: { owner: people('u1') } })).toBe(true);
+    expect(matchAutomation(trigger(), e, { values: {} })).toBe(false);
+  });
+});

@@ -1,5 +1,6 @@
 import {
   findStatusLabel,
+  peopleValueSchema,
   type AutomationCondition,
   type AutomationTrigger,
   type StatusSettings,
@@ -18,7 +19,8 @@ export interface MatchEntry {
   parentItemId?: string | null;
   columnId: string | null;
   groupId: string | null;
-  data?: { toValue?: unknown; depth?: number } | undefined;
+  data?:
+    { fromValue?: unknown; toValue?: unknown; fromGroupId?: string; depth?: number } | undefined;
 }
 
 export interface MatchItem {
@@ -32,7 +34,12 @@ export interface MatchColumn {
 }
 
 /** The activity kinds that can start a recipe today. */
-export const TRIGGER_KINDS = ['item_created', 'value_changed', 'button_clicked'] as const;
+export const TRIGGER_KINDS = [
+  'item_created',
+  'item_moved',
+  'value_changed',
+  'button_clicked',
+] as const;
 
 const isStatusSettings = (settings: unknown): settings is StatusSettings =>
   Array.isArray((settings as { labels?: unknown } | null | undefined)?.labels);
@@ -50,6 +57,14 @@ export function statusIndexOf(value: unknown, settings?: unknown): number | null
     if (found) return found.index;
   }
   return hasIndex ? index : null;
+}
+
+/** The uids of the `person` entries (not teams) of a People cell value; `[]` for anything else. */
+export function personUidsOf(value: unknown): string[] {
+  const parsed = peopleValueSchema.safeParse(value);
+  return parsed.success
+    ? parsed.data.personsAndTeams.filter((p) => p.kind === 'person').map((p) => p.id)
+    : [];
 }
 
 /**
@@ -83,9 +98,23 @@ export function matchAutomation(
     case 'button_clicked':
       return entry.kind === 'button_clicked' && entry.columnId === trigger.columnId;
     case 'item_moved':
-    case 'person_assigned':
-      // Matching arrives with P5c-2; until then these recipes never fire.
-      return false;
+      return (
+        entry.kind === 'item_moved' &&
+        (trigger.groupId === undefined || trigger.groupId === entry.groupId)
+      );
+    case 'person_assigned': {
+      if (entry.kind !== 'value_changed' || entry.columnId !== trigger.columnId) return false;
+      // The activity entry keeps the raw values only when they fit `ACTIVITY_LIMITS.rawBytes`.
+      // `fromValue: null` is a kept, empty cell; a missing key was dropped. The new value falls
+      // back to the item's current one. When "from" is unknown the change cannot be decided: a
+      // missed run is better than a wrong one, so it does not match.
+      const to =
+        entry.data?.toValue !== undefined ? entry.data.toValue : item?.values[trigger.columnId];
+      if (entry.data?.fromValue === undefined || to === undefined) return false;
+      const before = new Set(personUidsOf(entry.data.fromValue));
+      const added = personUidsOf(to).filter((uid) => !before.has(uid));
+      return trigger.uid === undefined ? added.length > 0 : added.includes(trigger.uid);
+    }
   }
 }
 

@@ -248,6 +248,53 @@ export function adminColumnActionsTx(firestore: Firestore, tx: Transaction): Col
       const [first, second, ...rest] = args as [string | FieldPath, unknown, ...unknown[]];
       tx.update(itemRef(boardId, itemId), first, second, ...rest);
     },
+    async getLastItemPosition(boardId) {
+      const snap = await tx.get(
+        firestore
+          .collection('boards')
+          .doc(boardId)
+          .collection('items')
+          .orderBy('position', 'desc')
+          .limit(1),
+      );
+      const position: unknown = snap.docs[0]?.get('position');
+      return typeof position === 'string' && position ? position : null;
+    },
+    createItem(boardId, item, serverTimestamp) {
+      const ref = firestore.collection('boards').doc(boardId).collection('items').doc();
+      tx.create(ref, {
+        name: item.name,
+        groupId: item.groupId,
+        position: item.position,
+        parentItemId: null,
+        values: item.values,
+        state: 'active',
+        deletedAt: null,
+        createdAt: serverTimestamp,
+        createdBy: item.createdBy,
+        updatedAt: serverTimestamp,
+        updatedBy: item.createdBy,
+        ...item.markers,
+      });
+      return ref.id;
+    },
+    createUpdate(boardId, itemId, update, serverTimestamp) {
+      const item = itemRef(boardId, itemId);
+      tx.create(item.collection('updates').doc(), {
+        itemId,
+        authorId: update.authorId,
+        authorName: update.authorName,
+        authorPhotoUrl: null,
+        content: update.content,
+        likes: [],
+        repliesCount: 0,
+        createdAt: serverTimestamp,
+        updatedAt: serverTimestamp,
+      });
+      // The row bubble counts updates; clients maintain it, so the Function does too. Not an edit:
+      // `updatedAt` stays, so the activity log writes nothing for it.
+      tx.update(item, 'updatesCount', FieldValue.increment(1));
+    },
     async hasRecentButtonClick(boardId, itemId, columnId, uid, sinceMs) {
       // Uses the existing (actorId, createdAt) index; the rest is filtered here.
       const snap = await tx.get(

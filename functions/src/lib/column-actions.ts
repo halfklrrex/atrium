@@ -10,8 +10,11 @@ import {
   type StopTimeTrackingResult,
   type TimeTrackingValue,
   type WorkspaceRole,
+  BUTTON_LIMITS,
   BUTTON_RENAME_MAX_LENGTH,
   COLUMN_LOCKED_MESSAGE,
+  AUTOMATION_LIMITS,
+  applyDefaultColumnValues,
   buttonSettingsSchema,
   canEditBoard,
   canEditColumn,
@@ -30,6 +33,7 @@ import {
   type MemberProfile,
   type NewActivity,
 } from './activity';
+import { positionAfter } from './forms';
 
 export interface BoardData {
   kind: BoardKind;
@@ -42,7 +46,7 @@ export interface BoardData {
     settings?: unknown;
     migrating?: unknown;
   }>;
-  groups?: Array<{ id: string }>;
+  groups?: Array<{ id: string; position?: string }>;
   columnLocks?: string[];
   /** Workspace member uids, when the caller knows them (the automation runner does). */
   memberUids?: readonly string[];
@@ -58,6 +62,28 @@ export interface ItemData {
   automationDepth?: number | null;
   automationRunId?: string | null;
 }
+
+/** What `create_item` writes; the adapter adds timestamps and the fixed item fields. */
+export interface NewItemInput {
+  name: string;
+  groupId: string;
+  position: string;
+  values: Record<string, unknown>;
+  /** Written as `createdBy` and `updatedBy`. */
+  createdBy: string;
+  /** Loop markers (`updatedVia`, `automationDepth`, `automationRunId`). */
+  markers: Record<string, unknown>;
+}
+
+/** What `post_update` writes: a plain-text update authored as the automation. */
+export interface NewUpdateInput {
+  authorId: string;
+  authorName: string;
+  content: string;
+}
+
+/** Display name of the author of an update an automation posts. */
+export const AUTOMATION_UPDATE_AUTHOR_NAME = 'Automations';
 
 export interface ColumnActionsTx {
   getBoard(boardId: string): Promise<BoardData | null>;
@@ -96,6 +122,21 @@ export interface ColumnActionsTx {
   ): Promise<boolean>;
   /** The workspace member's display name and photo, `null` when there is no member document. */
   getMemberProfile(workspaceId: string, uid: string): Promise<MemberProfile | null>;
+  /**
+   * `create_item` support (automations only; the Admin adapter and the test fakes of the runner
+   * provide it). The largest item position on the board, `null` when it has no items. A read:
+   * call it before the transaction's first write.
+   */
+  getLastItemPosition?(boardId: string): Promise<string | null>;
+  /** Creates a new active item in the transaction and returns its id. `onItemCreated` numbers it. */
+  createItem?(boardId: string, item: NewItemInput, serverTimestamp: unknown): string;
+  /** Creates a plain-text update on an item (and counts it on the item). */
+  createUpdate?(
+    boardId: string,
+    itemId: string,
+    update: NewUpdateInput,
+    serverTimestamp: unknown,
+  ): void;
   /** Creates the activity entry (P4) in the same transaction and returns its id. */
   appendActivity(boardId: string, activity: NewActivity): Promise<string>;
   nowMs(): number;
@@ -385,8 +426,15 @@ export interface RunActionsContext {
   /** Written as `updatedBy`. */
   actorUid: string;
   nowMs: number;
-  /** Merged into the item patch (the automation sets `updatedVia` / `automationDepth`). */
+  /**
+   * Merged into the item patch (the automation sets `updatedVia` / `automationDepth`). Written only
+   * when the actions change the item; also stamped on an item `create_item` creates.
+   */
   extraItemFields?: Record<string, unknown>;
+  /** True for an automation run: `create_item` and `post_update` are accepted (P5c). */
+  automation?: boolean;
+  /** `automation:<id>`: the author of a `post_update`. */
+  automationActorId?: string;
   /** Column id and label the notify plan reports (the button's, or the automation's). */
   notifyColumnId?: string;
   notifyLabel?: string;
@@ -422,12 +470,20 @@ export async function runActionsInTransaction(
       ...(board.memberUids ? { memberUids: board.memberUids } : {}),
     },
     ctx.role,
+    undefined,
+    { automation: ctx.automation === true },
   );
   if (!checked.ok) {
     throw new HttpsError('failed-precondition', checked.message);
   }
 
-  const patch = buildActionsPatch(ctx.actions, item, ctx.nowMs);
+  const { patch, creates, posts } = buildActionsPatch(ctx.actions, item, ctx.nowMs);
+  if (creates.length > AUTOMATION_LIMITS.maxCreatedPerRun) {
+    throw new HttpsError(
+      'failed-precondition',
+      `At most ${AUTOMATION_LIMITS.maxCreatedPerRun} Create item action per run`,
+    );
+  }
   const notify = buildNotifyPlan(
     ctx.actions,
     ctx.notifyColumnId ?? '',
@@ -436,9 +492,76 @@ export async function runActionsInTransaction(
     item,
   );
   if (ctx.beforeWrite) await ctx.beforeWrite();
-  const fields = { ...patch, ...(ctx.extraItemFields ?? {}) };
-  if (Object.keys(fields).length > 0) {
-    tx.updateItem(ctx.boardId, item.id, fields, ctx.actorUid, serverTimestamp);
+
+  // Reads come before the first write.
+  let lastPosition: string | null = null;
+  if (creates.length > 0) {
+    if (!tx.getLastItemPosition || !tx.createItem) {
+      throw new Error('This transaction cannot create items');
+    }
+    lastPosition = await tx.getLastItemPosition(ctx.boardId);
+  }
+  if (posts.length > 0 && !tx.createUpdate) {
+    throw new Error('This transaction cannot create updates');
+  }
+
+  // `create_item` / `post_update` leave the trigger item alone (no stamp on it); every other recipe
+  // stamps it, even a notify-only one.
+  const touchesItem =
+    Object.keys(patch).length > 0 ||
+    (creates.length === 0 &&
+      posts.length === 0 &&
+      Object.keys(ctx.extraItemFields ?? {}).length > 0);
+  if (touchesItem) {
+    tx.updateItem(
+      ctx.boardId,
+      item.id,
+      { ...patch, ...(ctx.extraItemFields ?? {}) },
+      ctx.actorUid,
+      serverTimestamp,
+    );
+  }
+  for (const create of creates) {
+    const sorted = [...(board.groups ?? [])].sort((a, b) =>
+      (a.position ?? '') < (b.position ?? '')
+        ? -1
+        : (a.position ?? '') > (b.position ?? '')
+          ? 1
+          : 0,
+    );
+    const groupId = create.groupId ?? sorted[0]?.id;
+    if (!groupId) {
+      throw new HttpsError('failed-precondition', 'The board has no group to create the item in.');
+    }
+    const defaults = applyDefaultColumnValues(
+      board.columns.filter(
+        (c) => !Object.prototype.hasOwnProperty.call(create.values, c.id),
+      ) as unknown as Parameters<typeof applyDefaultColumnValues>[0],
+    );
+    tx.createItem!(
+      ctx.boardId,
+      {
+        name: create.name,
+        groupId,
+        position: positionAfter(lastPosition),
+        values: { ...defaults, ...create.values },
+        createdBy: ctx.actorUid,
+        markers: { ...(ctx.extraItemFields ?? {}) },
+      },
+      serverTimestamp,
+    );
+  }
+  for (const post of posts) {
+    tx.createUpdate!(
+      ctx.boardId,
+      item.id,
+      {
+        authorId: ctx.automationActorId ?? ctx.actorUid,
+        authorName: AUTOMATION_UPDATE_AUTHOR_NAME,
+        content: post.text,
+      },
+      serverTimestamp,
+    );
   }
   return { applied: ctx.actions.map((a) => a.type), ...(notify ? { notify } : {}) };
 }
@@ -468,17 +591,27 @@ function buildNotifyPlan(
   };
 }
 
+/** A `create_item` after rendering: values are as the recipe stored them (already validated). */
+interface PlannedCreate {
+  name: string;
+  groupId: string | undefined;
+  values: Record<string, unknown>;
+}
+
 /**
- * Merges the actions, in order, into one field-path patch (later actions win on the same key).
- * `move_to_group` only changes `groupId`: the item keeps its position key, which orders it in the
- * target group (ties break on id) because `fractional-indexing` is a web-only dependency.
+ * Merges the actions, in order, into one field-path patch (later actions win on the same key) plus
+ * the new documents `create_item` and `post_update` need. `move_to_group` only changes `groupId`:
+ * the item keeps its position key, which orders it in the target group (ties break on id) because
+ * `fractional-indexing` is a web-only dependency.
  */
 function buildActionsPatch(
   actions: readonly ButtonAction[],
   item: ItemData,
   nowMs: number,
-): Record<string, unknown> {
+): { patch: Record<string, unknown>; creates: PlannedCreate[]; posts: Array<{ text: string }> } {
   const patch: Record<string, unknown> = {};
+  const creates: PlannedCreate[] = [];
+  const posts: Array<{ text: string }> = [];
   let name = item.name;
   for (const [index, action] of actions.entries()) {
     switch (action.type) {
@@ -506,7 +639,29 @@ function buildActionsPatch(
       case 'notify':
         // Delivered after the commit (see buildNotifyPlan); nothing to write on the item.
         break;
+      case 'create_item': {
+        const next = renderRenameTemplate(action.name, name, nowMs);
+        if (next.length < 1 || next.length > BUTTON_LIMITS.maxCreateName) {
+          throw new HttpsError(
+            'failed-precondition',
+            `Action ${index + 1} (Create item): the item name must be 1 to ${BUTTON_LIMITS.maxCreateName} characters.`,
+          );
+        }
+        creates.push({ name: next, groupId: action.groupId, values: { ...(action.values ?? {}) } });
+        break;
+      }
+      case 'post_update': {
+        const text = renderRenameTemplate(action.text, name, nowMs);
+        if (text.length < 1 || text.length > BUTTON_LIMITS.maxUpdateText) {
+          throw new HttpsError(
+            'failed-precondition',
+            `Action ${index + 1} (Post an update): the text must be 1 to ${BUTTON_LIMITS.maxUpdateText} characters.`,
+          );
+        }
+        posts.push({ text });
+        break;
+      }
     }
   }
-  return patch;
+  return { patch, creates, posts };
 }
