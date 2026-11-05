@@ -76,6 +76,8 @@ export function pickAutomations(docs: readonly AutomationDoc[], limit: number): 
 /** Adapts an Admin SDK transaction to the run transaction port. */
 export function adminAutomationTx(firestore: Firestore, tx: Transaction): AutomationRunTx {
   const base = adminColumnActionsTx(firestore, tx);
+  // `getBoard` reads the workspace document for the member list; the role lookup reuses that read.
+  const rolesByWorkspace = new Map<string, Record<string, WorkspaceRole>>();
   return {
     ...base,
     async getBoard(boardId) {
@@ -84,7 +86,12 @@ export function adminAutomationTx(firestore: Firestore, tx: Transaction): Automa
       // Workspace members: the people a `notify` action may name.
       const ws = await tx.get(firestore.collection('workspaces').doc(board.workspaceId));
       const roles = (ws.get('roles') as Record<string, WorkspaceRole> | undefined) ?? {};
+      rolesByWorkspace.set(board.workspaceId, roles);
       return { ...board, memberUids: Object.keys(roles) };
+    },
+    async getWorkspaceMemberRole(workspaceId, uid) {
+      const cached = rolesByWorkspace.get(workspaceId);
+      return cached ? (cached[uid] ?? null) : base.getWorkspaceMemberRole(workspaceId, uid);
     },
     async getAutomation(boardId, automationId) {
       const snap = await tx.get(automationRef(firestore, boardId, automationId));
