@@ -10,6 +10,7 @@ import {
   type DescribeOptions,
 } from './describe-automation';
 import { RUN_STATUS_LABELS } from './run-history';
+import type { StarterRecipe } from './starter-recipes';
 import styles from './AutomationCenter.module.css';
 
 const STATUS_COLOR: Record<AutomationRunStatus, 'positive' | 'negative' | 'dark'> = {
@@ -31,6 +32,9 @@ export interface RecipesTabProps {
   lastRuns: ReadonlyMap<string, AutomationRunDoc> | null;
   busyId: string | null;
   deleting: AutomationDoc | null;
+  /** One-click presets for the empty state (owners only; may be empty). */
+  starters: readonly StarterRecipe[];
+  onStart: (starter: StarterRecipe) => void;
   onCreate: () => void;
   onEdit: (automation: AutomationDoc) => void;
   onDuplicate: (automation: AutomationDoc) => void;
@@ -151,18 +155,39 @@ export function RecipesTab(props: RecipesTabProps) {
   }
   if (automations.length === 0) {
     return (
-      <EmptyState
-        size="panel"
-        title="No automations yet"
-        body={
-          isOwner
-            ? 'Automations do the routine work for you: when something happens on this board, they act on it.'
-            : 'Board owners can add automations that act when something happens on this board.'
-        }
-        primaryAction={
-          isOwner ? { label: 'Create automation', onClick: props.onCreate } : undefined
-        }
-      />
+      <>
+        <EmptyState
+          size="panel"
+          title="No automations yet"
+          body={
+            isOwner
+              ? 'Automations do the routine work for you: when something happens on this board, they act on it.'
+              : 'Board owners can add automations that act when something happens on this board.'
+          }
+          primaryAction={
+            isOwner ? { label: 'Create automation', onClick: props.onCreate } : undefined
+          }
+        />
+        {isOwner && props.starters.length > 0 ? (
+          <section className={styles.starters} aria-label="Start from a recipe">
+            <h3 className={styles.startersTitle}>Start from a recipe</h3>
+            <ul className={styles.startersList}>
+              {props.starters.map((starter) => (
+                <li key={starter.id}>
+                  <button
+                    type="button"
+                    className={styles.starter}
+                    onClick={() => props.onStart(starter)}
+                  >
+                    <span className={styles.name}>{starter.title}</span>
+                    <span className={styles.meta}>{starter.description}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+      </>
     );
   }
 

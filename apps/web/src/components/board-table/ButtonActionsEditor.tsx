@@ -7,14 +7,14 @@ import {
 import { IconButton } from '@vibe/core';
 import { Delete, DropdownChevronDown, DropdownChevronUp } from '@vibe/icons';
 import classNames from 'classnames';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { PersonRow } from '../../columns/people';
 import { getColumnUi } from '../../columns/registry';
 import { useWorkspaceMembers } from '../../data/members-store';
 import popups from '../../columns/popups.module.css';
 import type { CellContext } from '../../columns/types';
 import { tableActions } from './table-actions';
-import { useTableEnv } from './table-env';
+import { TableEnvContext } from './table-env';
 import type { ColumnView } from './table-model';
 import { isWritableByButton } from './button-actions';
 import styles from './ButtonActionsEditor.module.css';
@@ -26,13 +26,24 @@ const ADD_DISABLED_REASON = `A button runs at most ${BUTTON_LIMITS.maxActions} a
 function ValueField({
   column,
   value,
+  boardId,
   onChange,
 }: {
   column: ColumnView;
   value: unknown;
+  boardId?: string;
   onChange: (value: unknown) => void;
 }) {
-  const env = useTableEnv();
+  // Inside the board table the env is there; the Automation center renders outside it and passes
+  // `boardId` instead (it then can't change column settings, so label editing is read-only).
+  const env = useContext(TableEnvContext);
+  const saveColumnSettings = (settings: unknown) => {
+    if (env) {
+      void tableActions.updateColumn(env.ctx, column.def.id, {
+        settings: settings as Record<string, unknown>,
+      });
+    }
+  };
   const ui = getColumnUi(column.def.type);
   const [editing, setEditing] = useState(false);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -42,8 +53,8 @@ function ValueField({
     highlight: '',
     rowDone: false,
     canEdit: true,
-    boardId: env.boardId,
-    getItems: env.getItems,
+    boardId: env?.boardId ?? boardId ?? '',
+    getItems: env?.getItems ?? (() => []),
   };
   const cleared = value === null;
   const current = value === undefined || value === null ? null : value;
@@ -80,11 +91,7 @@ function ValueField({
               anchor={anchor}
               onChange={onChange}
               onClose={() => setEditing(false)}
-              saveSettings={(settings) =>
-                void tableActions.updateColumn(env.ctx, column.def.id, {
-                  settings: settings as Record<string, unknown>,
-                })
-              }
+              saveSettings={saveColumnSettings}
             />
           ) : cleared ? null : (
             <ui.Cell
@@ -106,11 +113,7 @@ function ValueField({
           anchor={anchor}
           onChange={onChange}
           onClose={() => setEditing(false)}
-          saveSettings={(settings) =>
-            void tableActions.updateColumn(env.ctx, column.def.id, {
-              settings: settings as Record<string, unknown>,
-            })
-          }
+          saveSettings={saveColumnSettings}
         />
       ) : null}
       <label className={popups.checkboxRow}>
@@ -193,6 +196,7 @@ function ActionRow({
   error,
   columns,
   groups,
+  boardId,
   onChange,
   onMove,
   onRemove,
@@ -203,6 +207,7 @@ function ActionRow({
   error: string | null;
   columns: readonly ColumnView[];
   groups: readonly GroupDef[];
+  boardId?: string;
   onChange: (action: ButtonAction) => void;
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
@@ -275,6 +280,7 @@ function ActionRow({
               key={target.def.id}
               column={target}
               value={action.value}
+              boardId={boardId}
               onChange={(value) => onChange({ ...action, value })}
             />
           ) : null}
@@ -356,12 +362,18 @@ export function ButtonActionsEditor({
   errors,
   columns,
   groups,
+  boardId,
+  emptyHint = 'No actions: a click is only recorded in the activity log.',
   onChange,
 }: {
   actions: readonly ButtonAction[];
   errors: readonly (string | null)[];
   columns: readonly ColumnView[];
   groups: readonly GroupDef[];
+  /** Needed outside the board table (no table env there), e.g. in the recipe builder. */
+  boardId?: string;
+  /** Shown while the list is empty (a recipe needs at least one action). */
+  emptyHint?: string;
   onChange: (actions: ButtonAction[]) => void;
 }) {
   const full = actions.length >= BUTTON_LIMITS.maxActions;
@@ -388,6 +400,7 @@ export function ButtonActionsEditor({
               error={errors[index] ?? null}
               columns={columns}
               groups={groups}
+              boardId={boardId}
               onChange={(next) => replace(index, next)}
               onMove={(delta) => move(index, delta)}
               onRemove={() => onChange(actions.filter((_, i) => i !== index))}
@@ -395,7 +408,7 @@ export function ButtonActionsEditor({
           ))}
         </ol>
       ) : (
-        <p className={styles.helper}>No actions: a click is only recorded in the activity log.</p>
+        <p className={styles.helper}>{emptyHint}</p>
       )}
       <div className={styles.addRow}>
         <select

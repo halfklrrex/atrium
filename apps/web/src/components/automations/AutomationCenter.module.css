@@ -188,11 +188,53 @@ button.runRow:focus-visible {
   font: var(--font-text3-normal);
 }
 
-.placeholder {
+.builderTitle {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-h3-bold);
+}
+
+.starters {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-12);
+  gap: var(--space-8);
+}
+
+.startersTitle {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text1-medium);
+}
+
+.startersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.starter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-12);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: none;
+  text-align: start;
+  cursor: pointer;
+}
+
+.starter:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.starter:focus-visible {
+  outline: var(--border-width) var(--border-style) var(--primary-color);
+  outline-offset: var(--border-width);
 }
 
 @media (max-width: 640px) {

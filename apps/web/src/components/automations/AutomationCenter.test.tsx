@@ -22,6 +22,7 @@ vi.mock('../../auth/auth-context', () => ({ useAuth: () => ({ user: { uid: 'u1' 
 vi.mock('../../lib/firebase', () => ({ db: {}, auth: {} }));
 vi.mock('../../data/members-store', () => ({
   UNKNOWN_PERSON_NAME: 'Board member',
+  useUserLookup: () => () => undefined,
   useWorkspaceMembers: () => ({
     members: [{ id: 'u2', displayName: 'Avery Quinn', email: 'avery@example.com' }],
   }),
@@ -179,14 +180,105 @@ describe('Recipes tab', () => {
     expect(mocks.runsEnabled.every((enabled) => enabled === false)).toBe(true);
   });
 
-  it('Create opens the marked builder placeholder', () => {
+  it('Create opens the builder; Save waits for a valid recipe and then creates it', async () => {
+    mocks.automations = { data: [recipe({ id: 'a1' })], loading: false, error: null };
     open('owner');
     fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    expect(screen.getByTestId('builder-placeholder')).toHaveTextContent(
-      'Recipe builder coming in the next update',
+    const form = screen.getByRole('form', { name: 'New automation' });
+    const save = within(form).getByRole('button', { name: 'Save' });
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.change(within(form).getByRole('combobox', { name: 'Add action' }), {
+      target: { value: 'move_to_group' },
+    });
+    // The new action starts on the first group, so the recipe is valid.
+    await waitFor(() => expect(save).toHaveAttribute('aria-disabled', 'false'));
+    fireEvent.click(save);
+    await waitFor(() => expect(mocks.writes.create).toHaveBeenCalledTimes(1));
+    expect(mocks.writes.create.mock.calls[0]![1]).toEqual({
+      name: '',
+      trigger: { type: 'item_created' },
+      conditions: [],
+      actions: [{ type: 'move_to_group', groupId: 'g1' }],
+    });
+    expect(mocks.writes.create.mock.calls[0]![2]).toBe(1);
+  });
+
+  it('shows the first failure next to the trigger and keeps Save off', async () => {
+    mocks.automations = {
+      data: [recipe({ id: 'a1', trigger: { type: 'status_changed', columnId: 'gone' } })],
+      loading: false,
+      error: null,
+    };
+    open('owner');
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await user.click(screen.getByRole('button', { name: /Options for/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    const form = await screen.findByRole('form', { name: 'Edit automation' });
+    expect(within(form).getByRole('alert')).toHaveTextContent('the column no longer exists');
+    expect(within(form).getByRole('button', { name: 'Save' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Back to automations' }));
+  });
+
+  it('offers up to three conditions and only fitting columns', () => {
+    open('owner');
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    const add = within(form).getByRole('button', { name: '+ Add condition' });
+    fireEvent.click(add);
+    fireEvent.click(add);
+    fireEvent.click(add);
+    expect(within(form).getAllByRole('group', { name: /^Condition / })).toHaveLength(3);
+    expect(add).toHaveAttribute('aria-disabled', 'true');
+    const columns = within(
+      within(form).getAllByRole('group', { name: 'Condition 1' })[0]!,
+    ).getAllByRole('combobox')[0]!;
+    expect(
+      within(columns)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Choose a column', 'Status']);
+  });
+
+  it('a starter opens the builder prefilled', () => {
+    open('owner');
+    fireEvent.click(screen.getByRole('button', { name: /notify the board owner/ }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    expect(within(form).getByRole('group', { name: /^Action 1: / })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: 'Save' })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+  });
+
+  it('warns that saving takes over a recipe someone else made, then updates it', async () => {
+    mocks.automations = {
+      data: [recipe({ id: 'a1', runAs: 'u9', createdBy: 'u9' })],
+      loading: false,
+      error: null,
+    };
+    mocks.writes.update.mockResolvedValue(undefined);
+    open('owner');
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await user.click(screen.getByRole('button', { name: /Options for/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    const form = await screen.findByRole('form', { name: 'Edit automation' });
+    expect(within(form).getByRole('note')).toHaveTextContent(
+      'Saving makes you the person this runs as.',
+    );
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.writes.update).toHaveBeenCalledTimes(1));
+    expect(mocks.writes.update.mock.calls[0]![1]).toBe('a1');
+    await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+  });
+
+  it('Cancel returns to the list without saving', () => {
+    open('owner');
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByText('No automations yet')).toBeInTheDocument();
+    expect(mocks.writes.create).not.toHaveBeenCalled();
   });
 
   it('Create calls onOpenBuilder when it is wired', () => {
