@@ -574,8 +574,9 @@ for (const theme of ['light', 'dark'] as const) {
         await boardReady(page);
         await page.getByRole('button', { name: 'Automate' }).click();
         const dialog = page.getByRole('dialog', { name: 'Automations' });
-        const list = dialog.getByRole('list', { name: 'Automations' });
-        await expect(list.getByRole('listitem')).toHaveCount(2);
+        const table = dialog.getByRole('table', { name: 'Automations' });
+        // Two data rows; the header row is excluded.
+        await expect(table.locator('tbody').getByRole('row')).toHaveCount(2);
         await expect(dialog.getByText(/Turned off: /)).toBeVisible();
         await shoot(page, `automation-center-${theme}`, PARK_IN_HEADER);
       } finally {
