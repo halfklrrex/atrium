@@ -82,6 +82,10 @@ export function matchAutomation(
     }
     case 'button_clicked':
       return entry.kind === 'button_clicked' && entry.columnId === trigger.columnId;
+    case 'item_moved':
+    case 'person_assigned':
+      // Matching arrives with P5c-2; until then these recipes never fire.
+      return false;
   }
 }
 

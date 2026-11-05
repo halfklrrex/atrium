@@ -1,5 +1,6 @@
 import {
   BUTTON_ACTION_LABELS,
+  isAutomationOnlyAction,
   BUTTON_LIMITS,
   type ButtonAction,
   type GroupDef,
@@ -20,6 +21,8 @@ import { isWritableByButton } from './button-actions';
 import styles from './ButtonActionsEditor.module.css';
 
 const ACTION_TYPES = Object.keys(BUTTON_ACTION_LABELS) as ButtonAction['type'][];
+/** What a button column offers: the automation-only types stay out of its settings. */
+const BUTTON_ACTION_TYPES = ACTION_TYPES.filter((type) => !isAutomationOnlyAction(type));
 const ADD_DISABLED_REASON = `A button runs at most ${BUTTON_LIMITS.maxActions} actions`;
 
 /** The column's own cell editor for a `set_value` action's value, plus "Clear the cell". */
@@ -353,6 +356,10 @@ function newAction(type: ButtonAction['type'], groups: readonly GroupDef[]): But
       return { type };
     case 'notify':
       return { type, uids: [] };
+    case 'create_item':
+      return { type, name: '' };
+    case 'post_update':
+      return { type, text: '' };
   }
 }
 
@@ -364,6 +371,7 @@ export function ButtonActionsEditor({
   groups,
   boardId,
   emptyHint = 'No actions: a click is only recorded in the activity log.',
+  allowAutomationOnly = false,
   onChange,
 }: {
   actions: readonly ButtonAction[];
@@ -374,6 +382,8 @@ export function ButtonActionsEditor({
   boardId?: string;
   /** Shown while the list is empty (a recipe needs at least one action). */
   emptyHint?: string;
+  /** Offer `create_item` / `post_update`; only a recipe may (their rows arrive with P5c-3). */
+  allowAutomationOnly?: boolean;
   onChange: (actions: ButtonAction[]) => void;
 }) {
   const full = actions.length >= BUTTON_LIMITS.maxActions;
@@ -423,7 +433,7 @@ export function ButtonActionsEditor({
           }}
         >
           <option value="">Add action</option>
-          {ACTION_TYPES.map((type) => (
+          {(allowAutomationOnly ? ACTION_TYPES : BUTTON_ACTION_TYPES).map((type) => (
             <option key={type} value={type}>
               {BUTTON_ACTION_LABELS[type]}
             </option>

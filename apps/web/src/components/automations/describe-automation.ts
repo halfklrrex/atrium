@@ -69,6 +69,12 @@ export function describeTrigger(trigger: AutomationTrigger, board: DescribeBoard
     }
     case 'button_clicked':
       return `${columnTitle(board, trigger.columnId)} is clicked`;
+    case 'item_moved':
+      return trigger.groupId === undefined
+        ? 'an item is moved'
+        : `an item is moved to ${groupTitle(board, trigger.groupId)}`;
+    case 'person_assigned':
+      return `someone is assigned to ${columnTitle(board, trigger.columnId)}`;
   }
 }
 
@@ -110,6 +116,12 @@ export function describeAction(
           : `${action.uids.length} ${action.uids.length === 1 ? 'person' : 'people'}`;
       return action.message ? `notify ${who}: "${action.message}"` : `notify ${who}`;
     }
+    case 'create_item':
+      return action.groupId === undefined
+        ? `create an item "${action.name}"`
+        : `create an item "${action.name}" in ${groupTitle(board, action.groupId)}`;
+    case 'post_update':
+      return `post an update "${action.text}"`;
   }
 }
 

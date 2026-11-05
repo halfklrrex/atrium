@@ -12,6 +12,8 @@ export const AUTOMATION_LIMITS = {
   maxPerBoard: 20,
   maxConditions: 3,
   maxActions: BUTTON_LIMITS.maxActions,
+  /** `create_item` actions per recipe, so a recipe cannot fan out (P5c; no board item cap exists). */
+  maxCreatedPerRun: 1,
   maxRunsPerHour: 100,
   /** A chain of automation-caused events stops at this depth. */
   maxDepth: 3,
@@ -37,6 +39,12 @@ export const automationTriggerSchema = z.discriminatedUnion('type', [
     })
     .strict(),
   z.object({ type: z.literal('button_clicked'), columnId: idSchema }).strict(),
+  /** Absent `groupId`: any move. */
+  z.object({ type: z.literal('item_moved'), groupId: slugIdSchema.optional() }).strict(),
+  /** `columnId` is a people column; absent `uid`: anyone newly added. */
+  z
+    .object({ type: z.literal('person_assigned'), columnId: idSchema, uid: uidSchema.optional() })
+    .strict(),
 ]);
 export type AutomationTrigger = z.infer<typeof automationTriggerSchema>;
 
@@ -44,6 +52,8 @@ export const AUTOMATION_TRIGGER_LABELS: Record<AutomationTrigger['type'], string
   item_created: 'Item created',
   status_changed: 'Status changes',
   button_clicked: 'Button clicked',
+  item_moved: 'Item moved',
+  person_assigned: 'Person assigned',
 };
 
 export const AUTOMATION_CONDITION_OPS = ['is', 'is_not', 'is_empty', 'is_not_empty'] as const;
@@ -151,7 +161,7 @@ export type AutomationValidationResult =
 
 /**
  * Checks a recipe against a board: trigger and condition columns exist and fit (a status column for
- * `status_changed`, a button for `button_clicked`, never a button or calculated column in a
+ * `status_changed`, a button for `button_clicked`, a people column for `person_assigned`, never a button or calculated column in a
  * condition), `is` / `is_not` carry a value, the trigger group exists, and the actions pass
  * `validateButtonActions` (which also takes the role's column locks and `board.memberUids`).
  * Returns the first failure; an action failure carries its 0-based `index`.
@@ -164,16 +174,29 @@ export function validateAutomation(
   const fail = (message: string): AutomationValidationResult => ({ ok: false, message });
   const { trigger } = automation;
 
-  if (trigger.type === 'item_created') {
+  if (trigger.type === 'item_created' || trigger.type === 'item_moved') {
     if (trigger.groupId !== undefined && !board.groups.some((g) => g.id === trigger.groupId)) {
       return fail('Trigger: the group no longer exists');
     }
   } else {
-    const wanted = trigger.type === 'status_changed' ? 'status' : 'button';
+    const wanted =
+      trigger.type === 'status_changed'
+        ? 'status'
+        : trigger.type === 'person_assigned'
+          ? 'people'
+          : 'button';
     const col = board.columns.find((c) => c.id === trigger.columnId);
     if (!col) return fail('Trigger: the column no longer exists');
     if (col.type !== wanted) {
       return fail(`Trigger: ${AUTOMATION_TRIGGER_LABELS[trigger.type]} needs a ${wanted} column`);
+    }
+    if (
+      trigger.type === 'person_assigned' &&
+      trigger.uid !== undefined &&
+      board.memberUids &&
+      !board.memberUids.includes(trigger.uid)
+    ) {
+      return fail('Trigger: the chosen person is no longer a workspace member');
     }
   }
 
@@ -197,6 +220,14 @@ export function validateAutomation(
   if (automation.actions.length < 1 || automation.actions.length > AUTOMATION_LIMITS.maxActions) {
     return fail(`Choose 1 to ${AUTOMATION_LIMITS.maxActions} actions`);
   }
-  const actions = validateButtonActions(automation.actions, board, role);
+  if (
+    automation.actions.filter((a) => a.type === 'create_item').length >
+    AUTOMATION_LIMITS.maxCreatedPerRun
+  ) {
+    return fail(`At most ${AUTOMATION_LIMITS.maxCreatedPerRun} Create item action`);
+  }
+  const actions = validateButtonActions(automation.actions, board, role, columnRegistry, {
+    automation: true,
+  });
   return actions.ok ? { ok: true } : { ok: false, message: actions.message, index: actions.index };
 }

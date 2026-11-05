@@ -1,6 +1,5 @@
 import {
   AUTOMATION_LIMITS,
-  AUTOMATION_TRIGGER_LABELS,
   columnRegistry,
   validateAutomation,
   type AutomationCondition,
@@ -42,8 +41,10 @@ export function conditionColumns(board: BuilderBoard): ColumnDef[] {
   );
 }
 
-export const triggerColumns = (board: BuilderBoard, type: 'status' | 'button'): ColumnDef[] =>
-  board.columns.filter((c) => c.type === type);
+export const triggerColumns = (
+  board: BuilderBoard,
+  type: 'status' | 'button' | 'people',
+): ColumnDef[] => board.columns.filter((c) => c.type === type);
 
 /** The operators a column type offers, with their label. A checkbox has no value to compare. */
 export function conditionOps(columnType: string): { op: ConditionOp; label: string }[] {
@@ -68,7 +69,10 @@ export function defaultTrigger(
   type: AutomationTrigger['type'],
   board: BuilderBoard,
 ): AutomationTrigger {
-  if (type === 'item_created') return { type };
+  if (type === 'item_created' || type === 'item_moved') return { type };
+  if (type === 'person_assigned') {
+    return { type, columnId: triggerColumns(board, 'people')[0]?.id ?? '' };
+  }
   const columnId = triggerColumns(board, type === 'status_changed' ? 'status' : 'button')[0]?.id;
   return { type, columnId: columnId ?? '' };
 }
@@ -107,7 +111,9 @@ export function checkDraft(
   const problems: DraftProblems = {
     trigger: null,
     conditions: draft.conditions.map(() => null),
-    actions: getButtonActionErrors(draft.actions, buildColumnViews(board.columns), board.groups),
+    actions: getButtonActionErrors(draft.actions, buildColumnViews(board.columns), board.groups, {
+      automation: true,
+    }),
     general: null,
   };
   if (existingCount !== null && existingCount >= AUTOMATION_LIMITS.maxPerBoard) {
@@ -115,8 +121,14 @@ export function checkDraft(
   }
 
   const { trigger } = draft;
-  if (trigger.type !== 'item_created' && trigger.columnId === '') {
-    problems.trigger = `Choose a ${trigger.type === 'status_changed' ? 'Status' : 'Button'} column`;
+  if ('columnId' in trigger && trigger.columnId === '') {
+    const kind =
+      trigger.type === 'status_changed'
+        ? 'Status'
+        : trigger.type === 'person_assigned'
+          ? 'People'
+          : 'Button';
+    problems.trigger = `Choose a ${kind} column`;
   }
   draft.conditions.forEach((condition, i) => {
     if (condition.columnId === '') problems.conditions[i] = 'Choose a column';
@@ -152,4 +164,9 @@ export function isDraftOk(problems: DraftProblems, actionCount: number): boolean
   );
 }
 
-export const TRIGGER_TYPES = Object.keys(AUTOMATION_TRIGGER_LABELS) as AutomationTrigger['type'][];
+/** Triggers the builder offers; `item_moved` / `person_assigned` get their pickers in P5c-3. */
+export const TRIGGER_TYPES: AutomationTrigger['type'][] = [
+  'item_created',
+  'status_changed',
+  'button_clicked',
+];
