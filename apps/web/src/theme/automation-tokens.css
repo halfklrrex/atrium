@@ -10,5 +10,6 @@
   --atrium-automation-run-recipe-width: 200px;
   --atrium-automation-run-item-width: 160px;
   --atrium-automation-run-status-width: 88px;
+  --atrium-automation-switch-width: 56px;
   --atrium-automation-field-min-width: 160px; /* recipe builder pickers wrap below this */
 }

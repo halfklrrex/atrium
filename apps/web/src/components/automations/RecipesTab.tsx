@@ -1,6 +1,7 @@
 import { AUTOMATION_LIMITS, type AutomationRunStatus } from '@atrium/shared';
 import { Button, Icon, Label, Loader, Menu, MenuButton, MenuItem, Toggle } from '@vibe/core';
 import { Alert, Delete, Duplicate, Edit } from '@vibe/icons';
+import { useState } from 'react';
 import type { AutomationDoc, AutomationRunDoc } from '../../data/automations';
 import { formatUpdated } from '../../lib/format';
 import { EmptyState } from '../EmptyState/EmptyState';
@@ -9,6 +10,7 @@ import {
   type DescribeBoard,
   type DescribeOptions,
 } from './describe-automation';
+import { attentionReason, filterNeedsAttention } from './attention';
 import { RUN_STATUS_LABELS } from './run-history';
 import type { StarterRecipe } from './starter-recipes';
 import styles from './AutomationCenter.module.css';
@@ -44,10 +46,10 @@ export interface RecipesTabProps {
 }
 
 function LastRun({ run }: { run: AutomationRunDoc | undefined }) {
-  if (!run) return <span className={styles.meta}>Last run: Never</span>;
+  if (!run) return <span className={styles.meta}>Never</span>;
   return (
-    <span className={styles.meta}>
-      {`Last run ${formatUpdated(run.startedAt)} `}
+    <span className={styles.lastRun}>
+      <span className={styles.meta}>{formatUpdated(run.startedAt)}</span>
       <Label
         text={RUN_STATUS_LABELS[run.status]}
         color={STATUS_COLOR[run.status]}
@@ -63,9 +65,10 @@ function RecipeRow(props: RecipesTabProps & { automation: AutomationDoc }) {
   const sentence = describeAutomation(automation, board, describeOptions);
   const title = automation.name.trim() || sentence;
   const busy = busyId === automation.id;
+  const attention = attentionReason(automation, lastRuns?.get(automation.id));
   return (
-    <li className={styles.row}>
-      <div className={styles.switchCell}>
+    <tr className={styles.tableRow}>
+      <td className={styles.switchCell}>
         {isOwner ? (
           <Toggle
             isSelected={automation.enabled}
@@ -82,29 +85,40 @@ function RecipeRow(props: RecipesTabProps & { automation: AutomationDoc }) {
             kind="line"
           />
         )}
-      </div>
-      <div className={styles.text}>
-        {automation.name.trim() ? <span className={styles.name}>{automation.name}</span> : null}
-        <span className={styles.sentence}>{sentence}</span>
-        {!automation.enabled && automation.disabledReason ? (
-          <span className={styles.warning} role="status">
-            <Icon icon={Alert} className={styles.warningIcon} ignoreFocusStyle />
-            <span>{`Turned off: ${automation.disabledReason}`}</span>
-            {isOwner ? (
-              <Button
-                kind="tertiary"
-                size="xs"
-                disabled={busy}
-                onClick={() => props.onToggle(automation, true)}
-              >
-                Turn on
-              </Button>
+      </td>
+      <td>
+        <div className={styles.text}>
+          <span className={styles.nameLine}>
+            {automation.name.trim() ? <span className={styles.name}>{automation.name}</span> : null}
+            {attention ? (
+              <Label text="Needs attention" color="negative" size="small" kind="fill" />
             ) : null}
           </span>
-        ) : null}
-        {lastRuns ? <LastRun run={lastRuns.get(automation.id)} /> : null}
-      </div>
-      <div>
+          <span className={styles.sentence}>{sentence}</span>
+          {!automation.enabled && automation.disabledReason ? (
+            <span className={styles.warning} role="status">
+              <Icon icon={Alert} className={styles.warningIcon} ignoreFocusStyle />
+              <span>{`Turned off: ${automation.disabledReason}`}</span>
+              {isOwner ? (
+                <Button
+                  kind="tertiary"
+                  size="xs"
+                  disabled={busy}
+                  onClick={() => props.onToggle(automation, true)}
+                >
+                  Turn on
+                </Button>
+              ) : null}
+            </span>
+          ) : null}
+        </div>
+      </td>
+      {lastRuns ? (
+        <td>
+          <LastRun run={lastRuns.get(automation.id)} />
+        </td>
+      ) : null}
+      <td className={styles.actionsCell}>
         {isOwner ? (
           <MenuButton
             size="xs"
@@ -127,14 +141,15 @@ function RecipeRow(props: RecipesTabProps & { automation: AutomationDoc }) {
             </Menu>
           </MenuButton>
         ) : null}
-      </div>
-    </li>
+      </td>
+    </tr>
   );
 }
 
 /** The Recipes tab: create, the list with its states, and the delete confirmation. */
 export function RecipesTab(props: RecipesTabProps) {
-  const { automations, loading, error, isOwner, deleting } = props;
+  const { automations, loading, error, isOwner, deleting, lastRuns } = props;
+  const [onlyAttention, setOnlyAttention] = useState(false);
 
   if (loading) {
     return (
@@ -191,6 +206,9 @@ export function RecipesTab(props: RecipesTabProps) {
     );
   }
 
+  const attentionCount = filterNeedsAttention(automations, lastRuns).length;
+  const visible = onlyAttention ? filterNeedsAttention(automations, lastRuns) : automations;
+
   return (
     <>
       {isOwner ? (
@@ -230,11 +248,43 @@ export function RecipesTab(props: RecipesTabProps) {
           </div>
         </div>
       ) : null}
-      <ul className={styles.list} aria-label="Automations">
-        {automations.map((automation) => (
-          <RecipeRow key={automation.id} {...props} automation={automation} />
-        ))}
-      </ul>
+      {attentionCount > 0 || onlyAttention ? (
+        <div className={styles.filters}>
+          <Button
+            kind="tertiary"
+            size="small"
+            aria-pressed={onlyAttention}
+            onClick={() => setOnlyAttention((v) => !v)}
+          >
+            {`Needs attention (${attentionCount})`}
+          </Button>
+        </div>
+      ) : null}
+      {visible.length === 0 ? (
+        <p className={styles.toolbarHint} role="status">
+          Nothing needs attention right now.
+        </p>
+      ) : (
+        <table className={styles.table} aria-label="Automations">
+          <thead>
+            <tr>
+              <th scope="col">
+                <span className={styles.srOnly}>On or off</span>
+              </th>
+              <th scope="col">Automation</th>
+              {lastRuns ? <th scope="col">Last run</th> : null}
+              <th scope="col">
+                <span className={styles.srOnly}>Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((automation) => (
+              <RecipeRow key={automation.id} {...props} automation={automation} />
+            ))}
+          </tbody>
+        </table>
+      )}
     </>
   );
 }

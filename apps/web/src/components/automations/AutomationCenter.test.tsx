@@ -158,8 +158,45 @@ describe('Recipes tab', () => {
     open();
     expect(screen.getAllByText(SENTENCE)).toHaveLength(2);
     expect(screen.getByText('Second')).toBeInTheDocument();
-    expect(screen.getByText(/Last run 5 minutes ago/)).toBeInTheDocument();
-    expect(screen.getByText('Last run: Never')).toBeInTheDocument();
+    const table = screen.getByRole('table', { name: 'Automations' });
+    expect(within(table).getByRole('columnheader', { name: 'Last run' })).toBeInTheDocument();
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(3); // header + two automations
+    expect(within(rows[1]!).getByText(/5 minutes ago/)).toBeInTheDocument();
+    expect(within(rows[2]!).getByText('Never')).toBeInTheDocument();
+    expect(screen.queryByText('Needs attention')).toBeNull();
+  });
+
+  it('marks failing and breaker-disabled automations and filters to them', () => {
+    mocks.automations = {
+      data: [
+        recipe({ id: 'a1', name: 'Fine' }),
+        recipe({ id: 'a2', name: 'Broken' }),
+        recipe({ id: 'a3', name: 'Tripped', enabled: false, disabledReason: 'Failed 5 times' }),
+        recipe({ id: 'a4', name: 'Paused', enabled: false }),
+      ],
+      loading: false,
+      error: null,
+    };
+    mocks.runs = {
+      data: [
+        runDoc({ id: 'r1', automationId: 'a2', status: 'failed' }),
+        runDoc({ id: 'r2', automationId: 'a1', status: 'ok' }),
+      ],
+      loading: false,
+      error: null,
+    };
+    open();
+    expect(screen.getAllByText('Needs attention')).toHaveLength(2);
+    const filter = screen.getByRole('button', { name: 'Needs attention (2)' });
+    expect(filter).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(filter);
+    expect(filter).toHaveAttribute('aria-pressed', 'true');
+    const table = screen.getByRole('table', { name: 'Automations' });
+    expect(within(table).queryByText('Fine')).toBeNull();
+    expect(within(table).queryByText('Paused')).toBeNull();
+    expect(within(table).getByText('Broken')).toBeInTheDocument();
+    expect(within(table).getByText('Tripped')).toBeInTheDocument();
   });
 
   it('an owner switches a recipe off and on through the data layer', async () => {
@@ -190,6 +227,7 @@ describe('Recipes tab', () => {
     expect(screen.queryByRole('switch')).toBeNull();
     expect(screen.queryByRole('button', { name: /Options for/ })).toBeNull();
     expect(screen.queryByText(/Last run/)).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Last run' })).toBeNull();
     expect(mocks.runsEnabled.every((enabled) => enabled === false)).toBe(true);
   });
 
