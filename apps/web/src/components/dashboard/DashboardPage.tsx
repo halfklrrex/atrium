@@ -134,6 +134,7 @@ function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdi
   };
 
   const openBoards = () => openDialog({ type: 'dashboardBoards', dashboardId: dashboard.id });
+  const openShare = () => openDialog({ type: 'shareDashboard', dashboardId: dashboard.id });
   const hiddenBoards = items.unreadableBoardIds.length;
 
   return (
@@ -148,6 +149,9 @@ function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdi
           className={styles.title}
         />
         <div className={styles.headerActions}>
+          <Button kind="secondary" size="small" onClick={openShare}>
+            Share
+          </Button>
           <Button kind="secondary" size="small" onClick={openBoards} disabled={!canEdit}>
             Boards ({dashboard.boardIds.length})
           </Button>

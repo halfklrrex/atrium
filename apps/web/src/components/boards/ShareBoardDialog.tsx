@@ -40,7 +40,7 @@ import {
 import styles from './ShareBoardDialog.module.css';
 import { BOARD_KIND_OPTIONS } from './kinds';
 
-interface Person {
+export interface Person {
   uid: string;
   name: string;
   email: string;
@@ -330,7 +330,7 @@ export function ShareBoardDialog({ boardId, onClose }: { boardId: string; onClos
   );
 }
 
-function PersonCell({ person, isSelf }: { person: Person; isSelf?: boolean }) {
+export function PersonCell({ person, isSelf }: { person: Person; isSelf?: boolean }) {
   return (
     <div className={styles.person}>
       <UserAvatar uid={person.uid} name={person.name} photoURL={person.photoURL} size="medium" />
@@ -345,7 +345,7 @@ function PersonCell({ person, isSelf }: { person: Person; isSelf?: boolean }) {
   );
 }
 
-function AccessRow({
+export function AccessRow({
   person,
   boardRole,
   isSelf,

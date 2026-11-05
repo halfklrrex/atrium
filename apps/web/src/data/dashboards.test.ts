@@ -43,6 +43,8 @@ vi.mock('../lib/firebase', () => ({ db: {}, auth: { currentUser: { uid: 'u1' } }
 
 import {
   activeDashboards,
+  applyDashboardSharing,
+  deletedDashboards,
   assertValidWidgets,
   buildWidget,
   dashboardWrites,
@@ -296,5 +298,58 @@ describe('widget writes (transactions)', () => {
         Array.from({ length: 51 }, (_, i) => `b${i}`),
       ),
     ).rejects.toThrow(/at most 50/);
+  });
+
+  it('writes the kind and a person role together with accessUids', async () => {
+    reads(dashboard({ id: 'd1', kind: 'private', access: { u1: 'owner' }, accessUids: ['u1'] }));
+    await dashboardWrites.setDashboardSharing('d1', { person: { uid: 'u2', role: 'editor' } });
+    expect(m.txUpdate.mock.calls[0]?.[1]).toMatchObject({
+      kind: 'private',
+      access: { u1: 'owner', u2: 'editor' },
+      accessUids: ['u1', 'u2'],
+    });
+  });
+});
+
+describe('applyDashboardSharing', () => {
+  const priv = { kind: 'private' as const, access: { u1: 'owner', u2: 'viewer' } as const };
+
+  it('adds, changes and removes people', () => {
+    const added = applyDashboardSharing(priv, { person: { uid: 'u3', role: 'editor' } }, 'u1');
+    expect(added.access).toEqual({ u1: 'owner', u2: 'viewer', u3: 'editor' });
+    const removed = applyDashboardSharing(priv, { person: { uid: 'u2', role: null } }, 'u1');
+    expect(removed.access).toEqual({ u1: 'owner' });
+  });
+
+  it('refuses to remove or demote the last owner of a private dashboard', () => {
+    expect(() => applyDashboardSharing(priv, { person: { uid: 'u1', role: null } }, 'u1')).toThrow(
+      /at least one owner/,
+    );
+    expect(() =>
+      applyDashboardSharing(priv, { person: { uid: 'u1', role: 'editor' } }, 'u1'),
+    ).toThrow(/at least one owner/);
+  });
+
+  it('keeps the caller as owner when a main dashboard becomes private', () => {
+    const next = applyDashboardSharing({ kind: 'main', access: {} }, { kind: 'private' }, 'u9');
+    expect(next).toEqual({ kind: 'private', access: { u9: 'owner' } });
+  });
+
+  it('refuses more people than the rules allow', () => {
+    const many = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`p${i}`, 'viewer']));
+    expect(() =>
+      applyDashboardSharing(
+        { kind: 'shareable', access: { u1: 'owner', ...many } },
+        { person: { uid: 'new', role: 'viewer' } },
+        'u1',
+      ),
+    ).toThrow(/at most 100/);
+  });
+});
+
+describe('deletedDashboards', () => {
+  it('keeps only trashed dashboards', () => {
+    const list = [dashboard({ id: 'a' }), dashboard({ id: 'b', state: 'deleted' })];
+    expect(deletedDashboards(list).map((d) => d.id)).toEqual(['b']);
   });
 });
