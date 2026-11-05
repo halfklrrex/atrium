@@ -39,7 +39,15 @@ Live checks only the owner can do, collected per feature while agents build ahea
 - **Earlier:** two-account notifications and @mentions; drag and drop on Calendar and Timeline.
 - Signed off on 2026-11-04 and removed: board sharing and roles (#46, the owner will review it later with an ultrareview), saved views, change column type, Files column, Mirror, description editor passes.
 
-## Decisions waiting for the owner
+## Owner decisions, 2026-11-05 (answered in the session; work not yet scheduled)
+
+- **Required columns:** a **hard rule** (the server refuses an empty required cell). Needs a spec: rules and `validateCell` changes, rules tests, and how it treats items on existing boards.
+- **Flag emoji on Windows:** add a **CDN picture fallback** (for example Twemoji). Needs a licence entry in `THIRD_PARTY_NOTICES.md` or `docs/PROVENANCE.md`, and a note that it makes an external request.
+- **Legacy-activity migration:** a **dry run only** is approved. Run it read-only, report what it would change, and wait for the owner's go-ahead before a real run.
+- **Live checks:** the agent checks what it can read-only in Chrome; the owner still does anything that writes data and the two-account notify check.
+- **Site admin role** (bug inbox, 2026-11-05, Roadmap item 3335038323): waiting on two questions on the item.
+
+## Decisions waiting for the owner (older, now answered above where noted)
 
 - **Button column:** answered (configurable multi-step actions). Slice B, "notify people", is merged (#72); see its check above.
 - **Required columns:** I made "Required" a soft rule (a hint, nothing blocked). Tell me if you want a hard rule somewhere, for example when an item moves to Done.
