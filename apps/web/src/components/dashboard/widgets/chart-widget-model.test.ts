@@ -33,7 +33,7 @@ describe('buildMultiBoardChartModel', () => {
   it('defaults to the first status column and limits to the widget boards', () => {
     const model = run({}, twoBoards(), ['b2']);
     expect(model.itemCount).toBe(3);
-    expect(byLabel(model)).toEqual({ 'Working on it': 1, Done: 1, Empty: 1 });
+    expect(byLabel(model)).toEqual({ 'Working on it': 1, done: 1, Empty: 1 });
   });
 
   it('sums a Numbers column across boards, matched by title', () => {
