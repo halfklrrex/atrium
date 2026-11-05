@@ -10,6 +10,8 @@ import {
   ganttReady,
   workloadReady,
   chartReady,
+  formBuilderReady,
+  formPageReady,
   shoot,
   test,
 } from './fixtures';
@@ -24,6 +26,7 @@ import {
   WORKLOAD_VIEW,
   GANTT_BARS,
   CHART_VIEW,
+  FORM_VIEW,
   addCalendarView,
   addActionButton,
   addKanbanView,
@@ -31,6 +34,7 @@ import {
   addGanttView,
   addWorkloadView,
   addChartView,
+  addFormView,
   addView,
   clearActivity,
   clearRichUpdate,
@@ -45,6 +49,7 @@ import {
   removeGanttView,
   removeWorkloadView,
   removeChartView,
+  removeFormView,
   removeView,
   removeSavedTemplate,
   seedSavedTemplate,
@@ -303,6 +308,28 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-chart-donut-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeChartView();
+      }
+    });
+
+    test('board: Form view (builder)', async ({ page }) => {
+      await addFormView(false);
+      try {
+        await page.goto(`/boards/${IDS.roadmap}/views/${FORM_VIEW}`);
+        await formBuilderReady(page);
+        await shoot(page, `form-builder-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeFormView();
+      }
+    });
+
+    test('public form page', async ({ page }) => {
+      await addFormView(true);
+      try {
+        await page.goto(`/forms/${IDS.roadmap}/${FORM_VIEW}`);
+        await formPageReady(page);
+        await shoot(page, `form-public-${theme}`);
+      } finally {
+        await removeFormView();
       }
     });
 

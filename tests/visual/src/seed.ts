@@ -973,6 +973,56 @@ export async function removeChartView(): Promise<void> {
     .delete();
 }
 
+/** Id of the shared Form view the Form screens add to the roadmap board (and remove again). */
+export const FORM_VIEW = 'view-roadmap-form';
+
+/** A shared Form view on the roadmap board with five questions; `accepting` decides whether its public link is open. */
+export async function addFormView(accepting: boolean): Promise<void> {
+  await adminDb()
+    .collection('boards')
+    .doc(IDS.roadmap)
+    .collection('views')
+    .doc(FORM_VIEW)
+    .set({
+      name: 'Form',
+      type: 'form',
+      position: 'a1',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        form: {
+          title: 'Request a feature',
+          description: 'Tell us what you would like to see in Atrium.',
+          thankYou: 'Thanks, your request was recorded.',
+          targetGroupId: 'roadmap-p0',
+          questions: [
+            { columnId: 'name', label: 'What do you need?', required: true },
+            { columnId: 'scope', label: 'More details', help: 'Links help.', required: false },
+            { columnId: 'area', label: 'Which area?', required: false },
+            { columnId: 'status', label: 'How urgent is it?', required: false },
+            { columnId: 'date', label: 'Needed by', required: false },
+            { columnId: 'budget', label: 'Budget', required: true },
+          ],
+          acceptingResponses: accepting,
+        },
+      },
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeFormView(): Promise<void> {
+  await adminDb().collection('boards').doc(IDS.roadmap).collection('views').doc(FORM_VIEW).delete();
+}
+
 /** Forget every recently visited board, so Home shows its "No boards visited yet" state. */
 export async function clearRecents(): Promise<void> {
   const stale = await adminDb()
