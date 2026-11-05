@@ -10,5 +10,9 @@
   --atrium-automation-run-recipe-width: 200px;
   --atrium-automation-run-item-width: 160px;
   --atrium-automation-run-status-width: 88px;
+  --atrium-automation-sidebar-width: 200px; /* Create tab categories column */
+  --atrium-automation-card-min-width: 260px;
+  --atrium-automation-card-min-height: 132px;
+  --atrium-automation-create-search-width: 360px;
   --atrium-automation-field-min-width: 160px; /* recipe builder pickers wrap below this */
 }

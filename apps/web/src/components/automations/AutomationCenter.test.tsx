@@ -115,7 +115,7 @@ describe('Center shell', () => {
     expect(screen.getByRole('dialog', { name: `Automations: ${board.name}` })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Manage' })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-    expect(screen.getByText(/Template catalog coming in the next step/)).toBeInTheDocument();
+    expect(screen.getByText('Start with the basics')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Run history' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Manage' }));
     expect(screen.getByRole('tab', { name: 'Run history' })).toBeInTheDocument();
