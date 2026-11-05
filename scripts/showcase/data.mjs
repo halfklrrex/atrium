@@ -1753,6 +1753,50 @@ export function buildShowcase({
   });
   summary.views += 1;
 
+  // ---- A shared Form "Request intake": a few questions, switched off so the link stays closed ----
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-request-form`,
+    data: boardViewSchema.parse({
+      name: 'Request intake',
+      type: 'form',
+      position: 'a8',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        form: {
+          title: 'Request a page or a change',
+          description: 'Tell us what you need on the website and when you need it.',
+          thankYou: 'Thanks, your request was recorded. We will get back to you soon.',
+          targetGroupId: 'backlog',
+          questions: [
+            { columnId: 'name', label: 'What do you need?', required: true },
+            {
+              columnId: 'brief',
+              label: 'More details',
+              help: 'Links and examples help.',
+              required: false,
+            },
+            { columnId: 'area', label: 'Which area is it for?', required: false },
+            { columnId: 'due', label: 'Needed by', required: false },
+            { columnId: 'contact_email', label: 'Your email', required: true },
+          ],
+          acceptingResponses: false,
+        },
+      },
+      createdAt: ago(2 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
+
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
   const sideBoardColumns = columns

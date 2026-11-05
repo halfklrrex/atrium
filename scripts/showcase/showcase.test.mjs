@@ -10,6 +10,7 @@ import {
   boardSchema,
   boardViewSchema,
   columnRegistry,
+  formPublishProblems,
   favoriteSchema,
   itemSchema,
   itemUpdateSchema,
@@ -714,8 +715,8 @@ test('re-running keeps the item numbers the function assigned', async () => {
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
   const { docs, summary } = build();
   const views = docs.filter((d) => /^boards\/showcase-main\/views\/[^/]+$/.test(d.path));
-  assert.equal(summary.views, 7);
-  assert.equal(views.length, 7);
+  assert.equal(summary.views, 8);
+  assert.equal(views.length, 8);
   const view = views.find((v) => v.data.name === 'Due this week').data;
   assert.equal(view.name, 'Due this week');
   assert.equal(view.type, 'table');
@@ -911,4 +912,17 @@ test('the main board has shared Chart views: "Budget by owner" (sum per person) 
   const donut = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-status-mix').data;
   assert.equal(donut.settings.chart.chartType, 'donut');
   assert.equal(board.columns.find((c) => c.id === donut.settings.chart.xColumnId).type, 'status');
+});
+
+test('the main board has a shared, closed Form view whose questions the form rules accept', () => {
+  const { docs } = build();
+  const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const view = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-request-form').data;
+  assert.equal(view.type, 'form');
+  assert.equal(view.ownerId, null);
+  assert.equal(view.settings.form.acceptingResponses, false);
+  assert.equal(view.settings.form.questions[0].columnId, 'name');
+  assert.ok(view.settings.form.questions.length >= 4);
+  // Every question maps to a real column of an allowed type, and the group exists.
+  assert.deepEqual(formPublishProblems(view.settings.form, board), []);
 });
