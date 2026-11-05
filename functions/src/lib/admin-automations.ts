@@ -1,8 +1,19 @@
-import { automationSchema, automationTriggerSchema, type WorkspaceRole } from '@atrium/shared';
+import {
+  automationRunSchema,
+  automationSchema,
+  automationTriggerSchema,
+  type WorkspaceRole,
+} from '@atrium/shared';
 import { Timestamp, type Firestore, type Transaction } from 'firebase-admin/firestore';
 import { adminColumnActionsTx } from './admin';
 import type { MatchColumn } from './automations/match';
-import type { AutomationDoc, AutomationRunTx, AutomationStore, RunRecord } from './automations/run';
+import type {
+  AutomationDoc,
+  AutomationRunTx,
+  AutomationStore,
+  PendingDelivery,
+  RunRecord,
+} from './automations/run';
 
 const boardRef = (firestore: Firestore, boardId: string) =>
   firestore.collection('boards').doc(boardId);
@@ -128,8 +139,28 @@ export function adminAutomationStore(firestore: Firestore): AutomationStore {
       const columns: unknown = snap.get('columns');
       return Array.isArray(columns) ? (columns as MatchColumn[]) : [];
     },
-    async noteRun(boardId, runId, note) {
-      await runRef(firestore, boardId, runId).update({ note });
+    async listPendingDeliveries(boardId, eventId) {
+      const snap = await boardRef(firestore, boardId)
+        .collection('automationRuns')
+        .where('eventId', '==', eventId)
+        .where('delivered', '==', false)
+        .get();
+      const pending: PendingDelivery[] = [];
+      for (const d of snap.docs) {
+        const delivery = automationRunSchema.shape.delivery.safeParse(d.get('delivery'));
+        if (!delivery.success || !delivery.data) continue;
+        const error: unknown = d.get('error');
+        pending.push({
+          runId: d.id,
+          itemId: typeof d.get('itemId') === 'string' ? (d.get('itemId') as string) : null,
+          delivery: delivery.data,
+          ...(typeof error === 'string' ? { error } : {}),
+        });
+      }
+      return pending;
+    },
+    async markDelivered(boardId, runId) {
+      await runRef(firestore, boardId, runId).update({ delivered: true });
     },
   };
 }

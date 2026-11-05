@@ -3,14 +3,11 @@ import {
   resolveBoardRole,
   type AutomationCondition,
   type AutomationTrigger,
+  type AutomationRunDelivery,
   type ButtonAction,
 } from '@atrium/shared';
 import { actorOf, activityDoc } from '../activity';
-import {
-  runActionsInTransaction,
-  type ButtonNotifyPlan,
-  type ColumnActionsTx,
-} from '../column-actions';
+import { runActionsInTransaction, type ColumnActionsTx } from '../column-actions';
 import {
   deliverAutomationDisabled,
   deliverAutomationNotifications,
@@ -79,6 +76,18 @@ export interface RunRecord {
   startedAtMs: number;
   durationMs: number;
   expiresAtMs: number;
+  /** Notifications still to send after the commit; written with `delivered: false`. */
+  delivery?: AutomationRunDelivery;
+  delivered?: boolean;
+}
+
+/** A committed run whose notifications have not gone out yet (found again when its event retries). */
+export interface PendingDelivery {
+  runId: string;
+  itemId: string | null;
+  delivery: AutomationRunDelivery;
+  /** The run's error text; the circuit-breaker notice is built from it. */
+  error?: string;
 }
 
 /** What a run transaction reads and writes; the item and board access comes from `ColumnActionsTx`. */
@@ -99,8 +108,10 @@ export interface AutomationStore {
   listEnabledAutomations(boardId: string, limit: number): Promise<AutomationDoc[]>;
   /** The board's columns (status labels live in their settings); `[]` when the board is gone. */
   getColumns(boardId: string): Promise<MatchColumn[]>;
-  /** Best effort note on a finished run (a notification that could not be delivered). */
-  noteRun(boardId: string, runId: string, note: string): Promise<void>;
+  /** Runs of this event that committed but still owe their notifications (`delivered === false`). */
+  listPendingDeliveries(boardId: string, eventId: string): Promise<PendingDelivery[]>;
+  /** Marks a run's notifications as sent. */
+  markDelivered(boardId: string, runId: string): Promise<void>;
 }
 
 export interface RunRequest {
@@ -111,6 +122,8 @@ export interface RunRequest {
   itemId: string;
   /** Depth of the chain that caused the run; a user action is 0. */
   depth: number;
+  /** The item's name on the activity entry (for the circuit-breaker notice). */
+  itemName?: string;
 }
 
 export type RunOutcome =
@@ -120,8 +133,7 @@ export type RunOutcome =
       status: 'ok';
       automation: AutomationDoc;
       runId: string;
-      itemName: string;
-      notify?: ButtonNotifyPlan;
+      delivery?: AutomationRunDelivery;
     }
   | { status: 'skipped'; automation: AutomationDoc; runId: string; reason: string }
   | {
@@ -131,6 +143,7 @@ export type RunOutcome =
       error: string;
       /** True when this failure was the one that switched the recipe off. */
       disabled: boolean;
+      delivery?: AutomationRunDelivery;
     };
 
 const clip = (value: string, max = 200): string =>
@@ -269,6 +282,15 @@ async function executeInTransaction(
   // A good run ends a streak of failures ("consecutive").
   if (automation.consecutiveFailures > 0) autoUpdate.consecutiveFailures = 0;
   tx.setCounter(boardId, { hourBucket: counter.hourBucket, runs: counter.runs + 1 });
+  const delivery: AutomationRunDelivery | undefined = result.notify
+    ? {
+        kind: 'notify',
+        creatorUid: automation.runAs,
+        recipeName: recipeNameOf(automation),
+        itemName: clip(result.notify.itemName, ITEM_NAME_MAX),
+        targets: result.notify.targets.map(({ uid, message }) => ({ uid, message })),
+      }
+    : undefined;
   tx.createRun(boardId, runId, {
     automationId,
     eventId: req.eventId,
@@ -279,6 +301,7 @@ async function executeInTransaction(
     startedAtMs: startedMs,
     durationMs: Math.max(0, tx.nowMs() - startedMs),
     expiresAtMs: runExpiresAtMs(startedMs),
+    ...(delivery ? { delivery, delivered: false } : {}),
   });
   await tx.appendActivity(
     boardId,
@@ -297,8 +320,7 @@ async function executeInTransaction(
     status: 'ok',
     automation,
     runId,
-    itemName: result.notify?.itemName ?? item.name,
-    ...(result.notify ? { notify: result.notify } : {}),
+    ...(delivery ? { delivery } : {}),
   };
 }
 
@@ -325,6 +347,14 @@ async function recordFailureInTransaction(
     fields.enabled = false;
     fields.disabledReason = clip(disabledReasonOf(text));
   }
+  const delivery: AutomationRunDelivery | undefined = disabled
+    ? {
+        kind: 'disabled',
+        creatorUid: automation.runAs,
+        recipeName: recipeNameOf(automation),
+        itemName: clip(req.itemName ?? '', ITEM_NAME_MAX),
+      }
+    : undefined;
   tx.createRun(req.boardId, runId, {
     automationId: req.automationId,
     eventId: req.eventId,
@@ -336,10 +366,21 @@ async function recordFailureInTransaction(
     startedAtMs: startedMs,
     durationMs: 0,
     expiresAtMs: runExpiresAtMs(startedMs),
+    ...(delivery ? { delivery, delivered: false } : {}),
   });
   tx.updateAutomation(req.boardId, req.automationId, fields);
-  return { status: 'failed', automation, runId, error: text, disabled };
+  return {
+    status: 'failed',
+    automation,
+    runId,
+    error: text,
+    disabled,
+    ...(delivery ? { delivery } : {}),
+  };
 }
+
+const ITEM_NAME_MAX = 500;
+const recipeNameOf = (automation: AutomationDoc): string => automation.name.trim() || 'Automation';
 
 const disabledReasonOf = (lastError: string): string =>
   `Turned off after ${CIRCUIT_BREAKER_FAILURES} failed runs in a row. Last error: ${lastError}`;
@@ -378,7 +419,8 @@ export interface HandleEventDeps {
 
 /**
  * `onActivityCreated`: runs every enabled recipe of the board that the entry starts. Returns the
- * outcomes (for tests and logging). Notifications go out after each commit, best effort.
+ * outcomes (for tests and logging). Notifications go out after each commit and are marked delivered;
+ * a delivery error is thrown so the event retries and sends them again.
  */
 export async function handleActivityEvent(
   deps: HandleEventDeps,
@@ -390,6 +432,11 @@ export async function handleActivityEvent(
   if (!(TRIGGER_KINDS as readonly string[]).includes(activity.kind)) return [];
   const depth = Math.min(activity.data?.depth ?? 0, MAX_DEPTH);
 
+  // A retried event first sends what an earlier attempt committed but did not deliver (this covers a
+  // recipe that attempt switched off, which the enabled list below no longer returns).
+  for (const pending of await deps.store.listPendingDeliveries(event.boardId, event.eventId)) {
+    await deliver(deps, event.boardId, pending);
+  }
   const automations = await deps.store.listEnabledAutomations(
     event.boardId,
     MAX_AUTOMATIONS_CONSIDERED,
@@ -419,51 +466,58 @@ export async function handleActivityEvent(
         eventId: event.eventId,
         itemId,
         depth,
+        itemName: activity.itemName ?? '',
       },
       deps.serverTimestamp,
     );
     outcomes.push(outcome);
-    await deliverAfterCommit(deps, event, outcome, activity.itemName ?? '', itemId);
+    if ((outcome.status === 'ok' || outcome.status === 'failed') && outcome.delivery) {
+      await deliver(deps, event.boardId, {
+        runId: outcome.runId,
+        itemId,
+        delivery: outcome.delivery,
+        ...(outcome.status === 'failed' ? { error: outcome.error } : {}),
+      });
+    }
   }
   return outcomes;
 }
 
-async function deliverAfterCommit(
+/**
+ * Sends a committed run's notifications, then marks the run delivered. Errors are thrown so the
+ * platform retries the event: the retry finds the run still undelivered and sends again, which is
+ * safe because notification ids are deterministic (`kind-runId-uid`).
+ */
+async function deliver(
   deps: HandleEventDeps,
-  event: { eventId: string; boardId: string },
-  outcome: RunOutcome,
-  itemName: string,
-  itemId: string,
+  boardId: string,
+  pending: PendingDelivery,
 ): Promise<void> {
+  const { delivery, runId } = pending;
+  const base = {
+    eventId: runId,
+    boardId,
+    itemId: pending.itemId ?? '',
+    creatorUid: delivery.creatorUid,
+    recipeName: delivery.recipeName,
+    itemName: delivery.itemName,
+  };
   try {
-    if (outcome.status === 'ok' && outcome.notify) {
+    if (delivery.kind === 'notify') {
       await deliverAutomationNotifications(deps.notifications, {
-        eventId: outcome.runId,
-        boardId: event.boardId,
-        itemId,
-        creatorUid: outcome.automation.runAs,
-        recipeName: outcome.automation.name.trim() || 'Automation',
-        itemName: outcome.itemName,
-        targets: outcome.notify.targets,
+        ...base,
+        targets: delivery.targets ?? [],
       });
-    } else if (outcome.status === 'failed' && outcome.disabled) {
+    } else {
       await deliverAutomationDisabled(deps.notifications, {
-        eventId: outcome.runId,
-        boardId: event.boardId,
-        itemId,
-        creatorUid: outcome.automation.runAs,
-        recipeName: outcome.automation.name.trim() || 'Automation',
-        itemName,
-        reason: disabledReasonOf(outcome.error),
+        ...base,
+        reason: disabledReasonOf(pending.error ?? ''),
       });
     }
+    await deps.store.markDelivered(boardId, runId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    deps.log?.('Automation notification failed', { boardId: event.boardId, error: message });
-    if ('runId' in outcome) {
-      await deps.store
-        .noteRun(event.boardId, outcome.runId, clip(`Notification not delivered: ${message}`))
-        .catch(() => undefined);
-    }
+    deps.log?.('Automation notification failed', { boardId, runId, error: message });
+    throw error;
   }
 }
