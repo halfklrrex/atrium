@@ -93,6 +93,24 @@ export const automationRunStatusSchema = z.enum(AUTOMATION_RUN_STATUSES);
 export type AutomationRunStatus = z.infer<typeof automationRunStatusSchema>;
 
 /**
+ * What a run still owes after its transaction committed: the notifications of its `notify` actions
+ * (`kind: 'notify'`) or the circuit-breaker notice to the creator (`kind: 'disabled'`; the text is
+ * built from the run's `error`). Written with the run; the run's `delivered` flag says whether it
+ * went out, so a retried event can deliver again (notification ids are deterministic).
+ */
+export const automationRunDeliverySchema = z.object({
+  kind: z.enum(['notify', 'disabled']),
+  creatorUid: uidSchema,
+  recipeName: z.string().max(AUTOMATION_LIMITS.name),
+  itemName: z.string().max(500),
+  targets: z
+    .array(z.object({ uid: uidSchema, message: z.string().max(BUTTON_LIMITS.maxNotifyMessage) }))
+    .max(BUTTON_LIMITS.maxNotifyUids * BUTTON_LIMITS.maxActions)
+    .optional(),
+});
+export type AutomationRunDelivery = z.infer<typeof automationRunDeliverySchema>;
+
+/**
  * `boards/{boardId}/automationRuns/{automationId}-{eventId}`. Written only by Cloud Functions, read
  * by board owners. The deterministic id makes a retried trigger idempotent.
  */
@@ -109,6 +127,10 @@ export const automationRunSchema = z.object({
   actions: z.array(z.string().max(40)).max(AUTOMATION_LIMITS.maxActions),
   startedAt: timestampSchema,
   durationMs: z.number().int().min(0),
+  /** Notifications the run still owed after it committed; absent when it owed none. */
+  delivery: automationRunDeliverySchema.optional(),
+  /** Server-written: `false` while `delivery` is undelivered, `true` once it went out. */
+  delivered: z.boolean().optional(),
   /** Depth of the chain that caused the run; a user action is 0. */
   depth: z.number().int().min(0).max(AUTOMATION_LIMITS.maxDepth),
   expiresAt: timestampSchema,

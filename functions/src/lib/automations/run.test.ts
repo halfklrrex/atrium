@@ -130,7 +130,20 @@ function makeStore(w: World): AutomationStore {
     async getColumns() {
       return w.board.columns;
     },
-    async noteRun() {},
+    async listPendingDeliveries(_b, eventId) {
+      return [...w.runs.entries()]
+        .filter(([, r]) => r.eventId === eventId && r.delivered === false && r.delivery)
+        .map(([runId, r]) => ({
+          runId,
+          itemId: r.itemId,
+          delivery: r.delivery!,
+          ...(r.error ? { error: r.error } : {}),
+        }));
+    },
+    async markDelivered(_b, runId) {
+      const r = w.runs.get(runId);
+      if (r) w.runs.set(runId, { ...r, delivered: true });
+    },
   };
 }
 
@@ -487,6 +500,71 @@ describe('handleActivityEvent', () => {
       snippet: 'Look at this',
     });
     expect(w.notifications[0]?.id).toMatch(/^automation-a1-e1-/);
+  });
+
+  it('re-delivers on a retried event when delivery failed, and marks the run delivered', async () => {
+    const w = makeWorld();
+    w.automations.set(
+      'a1',
+      automation({ actions: [{ type: 'notify', uids: ['pal'], message: 'Look at this' }] }),
+    );
+    const good = makeNotifications(w);
+    let fail = true;
+    const flaky: NotificationStore = {
+      ...good,
+      async createNotification(uid, id, data) {
+        if (fail) throw new Error('unavailable');
+        return good.createNotification(uid, id, data);
+      },
+    };
+    const event = { eventId: 'e1', boardId: 'b1', activity: created };
+    await expect(handleActivityEvent({ ...deps(w), notifications: flaky }, event)).rejects.toThrow(
+      'unavailable',
+    );
+    expect(w.runs.get('a1-e1')).toMatchObject({ status: 'ok', delivered: false });
+    expect(w.notifications).toHaveLength(0);
+
+    // The platform retries the event: the run exists, yet the notification goes out.
+    fail = false;
+    await handleActivityEvent({ ...deps(w), notifications: flaky }, event);
+    expect(w.notifications.map((n) => n.uid)).toEqual(['pal']);
+    expect(w.runs.get('a1-e1')).toMatchObject({ delivered: true });
+    expect(w.itemPatches).toHaveLength(1);
+
+    // A third delivery of the same event sends nothing more.
+    await handleActivityEvent({ ...deps(w), notifications: flaky }, event);
+    expect(w.notifications).toHaveLength(1);
+  });
+
+  it('re-delivers the breaker notice on retry even though the recipe is already off', async () => {
+    const w = makeWorld();
+    w.automations.set(
+      'a1',
+      automation({
+        actions: [{ type: 'set_value', columnId: 'gone', value: 'x' }],
+        consecutiveFailures: CIRCUIT_BREAKER_FAILURES - 1,
+      }),
+    );
+    const good = makeNotifications(w);
+    let fail = true;
+    const flaky: NotificationStore = {
+      ...good,
+      async createNotification(uid, id, data) {
+        if (fail) throw new Error('unavailable');
+        return good.createNotification(uid, id, data);
+      },
+    };
+    const event = { eventId: 'e1', boardId: 'b1', activity: created };
+    await expect(
+      handleActivityEvent({ ...deps(w), notifications: flaky }, event),
+    ).rejects.toThrow();
+    expect(w.automations.get('a1')?.enabled).toBe(false);
+    fail = false;
+    await handleActivityEvent({ ...deps(w), notifications: flaky }, event);
+    const notices = w.notifications.filter((n) => n.data.kind === 'automation_disabled');
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.data.snippet).toContain('10 failed runs');
+    expect(w.runs.get('a1-e1')).toMatchObject({ delivered: true });
   });
 
   it('sends exactly one automation_disabled notice when the breaker trips', async () => {

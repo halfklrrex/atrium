@@ -144,6 +144,22 @@ describe('automationRunSchema', () => {
     expect(ok({ status: 'failed', error: 'column locked' })).toBe(true);
   });
 
+  it('accepts a pending and a delivered notification record', () => {
+    const delivery = {
+      kind: 'notify',
+      creatorUid: 'u1',
+      recipeName: 'Ship it',
+      itemName: 'Task',
+      targets: [{ uid: 'u2', message: 'Look' }],
+    };
+    expect(ok({ delivery, delivered: false })).toBe(true);
+    expect(
+      ok({ delivery: { ...delivery, kind: 'disabled', targets: undefined }, delivered: true }),
+    ).toBe(true);
+    expect(ok({ delivery: { ...delivery, kind: 'sms' } })).toBe(false);
+    expect(ok({ delivered: 'yes' })).toBe(false);
+  });
+
   it('refuses an unknown status, depth over 3 and over-long text', () => {
     expect(ok({ status: 'running' })).toBe(false);
     expect(ok({ depth: 4 })).toBe(false);
