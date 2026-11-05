@@ -7,7 +7,7 @@
 //                (without --yes it only prints a dry-run; it authenticates with `gcloud`)
 //
 // Safety: the script only ever creates, updates or deletes the documents it owns (see
-// `isOwnedPath` in data.mjs): the `showcase-*` boards with their items, updates, replies and views, the `showcase-dashboard` dashboard, and the
+// `isOwnedPath` in data.mjs): the `showcase-*` boards with their items, updates, replies, views and automations (never `automationRuns`), the `showcase-dashboard` dashboard, and the
 // owner's favourite/recent entries for them, her 3 `showcase-notification-*` notifications, plus the 3 fake members' `members` profile docs. It refuses to run when the workspace is missing or the
 // owner is not a member, and aborts if a write would fall outside that allow-list.
 //
@@ -207,11 +207,15 @@ async function collectTree(client, docPath) {
   return paths;
 }
 
-/** The items, updates, replies and saved views of a board (the part of it this script keeps in sync). */
+/** The items, updates, replies, saved views and automations of a board (the part of it this script keeps in sync). */
 async function collectContent(client, boardId) {
   const paths = [];
   for (const viewId of await client.listDocIds(`boards/${boardId}/views`)) {
     paths.push(`boards/${boardId}/views/${viewId}`);
+  }
+  // Recipes only; `automationRuns` are written by Cloud Functions and never touched here.
+  for (const automationId of await client.listDocIds(`boards/${boardId}/automations`)) {
+    paths.push(`boards/${boardId}/automations/${automationId}`);
   }
   for (const itemId of await client.listDocIds(`boards/${boardId}/items`)) {
     const item = `boards/${boardId}/items/${itemId}`;
