@@ -2,6 +2,12 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Merged 2026-11-05 (live)
+
+- **Automations (#90 engine, #97 center, #100 builder):** on the showcase board open **Automate**. Check the two seeded recipes ("Heads-up on new items" on, "File finished items" off with a reason). Create a recipe from a starter or from scratch (for example "When Status changes to Done, then notify me"), save it, set an item's Status to Done and open the **Run history** tab: an `ok` run should appear within seconds and the notify action should reach the bell. Also try an off switch, Edit, Duplicate and Delete. Light and dark. Not verified in a browser by the agent (Chrome was not connected).
+- **Dashboards (#96, #99, #102):** open the "📊 Showcase overview" dashboard in the sidebar. Check the five widgets (Numbers, Battery, Chart, Table, Workload), adding and editing a widget, dragging and resizing, **Share**, and that a deleted dashboard appears in Trash and can be restored. Light and dark.
+- **Forms (#98, #101):** open the "Request intake" Form view on the showcase board. Check the builder (questions, required, thank-you text) and the public form page; its link is closed by default (Accepting responses off), so switch it on to test a submission.
+
 ## Merged 2026-11-04 (feature push, live)
 
 - **Gantt view (#83, #88):** on the showcase board add or open a Gantt view. Check the dependency arrows, the baseline bars, the critical path highlight (red arrows) and that the label on a bar stays readable. Drag a bar to move it. Light and dark.
