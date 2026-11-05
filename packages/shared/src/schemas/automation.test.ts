@@ -54,6 +54,10 @@ describe('automationTriggerSchema', () => {
       { type: 'status_changed', columnId: 'stat' },
       { type: 'status_changed', columnId: 'stat', toLabelId: 0 },
       { type: 'button_clicked', columnId: 'btn' },
+      { type: 'item_moved' },
+      { type: 'item_moved', groupId: 'g1' },
+      { type: 'person_assigned', columnId: 'who' },
+      { type: 'person_assigned', columnId: 'who', uid: 'u2' },
     ]) {
       expect(automationTriggerSchema.safeParse(t).success).toBe(true);
     }
@@ -67,6 +71,12 @@ describe('automationTriggerSchema', () => {
       { type: 'item_created', columnId: 'x' },
       { type: 'status_changed', columnId: 'stat', toLabelId: -1 },
       { type: 'status_changed', columnId: 'stat', toLabelId: 'Done' },
+      { type: 'item_moved', groupId: 'g 1' },
+      { type: 'item_moved', columnId: 'x' },
+      { type: 'person_assigned' },
+      { type: 'person_assigned', uid: 'u2' },
+      { type: 'person_assigned', columnId: 'who', uid: '' },
+      { type: 'person_assigned', columnId: 'who', extra: 1 },
     ]) {
       expect(automationTriggerSchema.safeParse(t).success).toBe(false);
     }
@@ -208,9 +218,11 @@ describe('validateAutomation', () => {
       }),
       col('btn', 'button'),
       col('calc', 'formula'),
+      col('who', 'people'),
     ],
     groups: [{ id: 'g1' }],
     columnLocks: [],
+    memberUids: ['u1', 'u2'],
   };
   const base = () => ({
     trigger: { type: 'status_changed' as const, columnId: 'stat', toLabelId: 1 },
@@ -240,6 +252,78 @@ describe('validateAutomation', () => {
     ]) {
       expect(validateAutomation(withTrigger(trigger), board).ok).toBe(false);
     }
+  });
+
+  it('validates the item_moved and person_assigned triggers', () => {
+    for (const trigger of [
+      { type: 'item_moved' },
+      { type: 'item_moved', groupId: 'g1' },
+      { type: 'person_assigned', columnId: 'who' },
+      { type: 'person_assigned', columnId: 'who', uid: 'u2' },
+    ]) {
+      expect(validateAutomation(withTrigger(trigger), board)).toEqual({ ok: true });
+    }
+    for (const trigger of [
+      { type: 'item_moved', groupId: 'gone' },
+      { type: 'person_assigned', columnId: 'text' },
+      { type: 'person_assigned', columnId: 'nope' },
+      { type: 'person_assigned', columnId: 'who', uid: 'stranger' },
+    ]) {
+      const r = validateAutomation(withTrigger(trigger), board);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.message).toMatch(/^Trigger/);
+    }
+    // Without a member list the uid cannot be checked (the settings-time check).
+    const { memberUids: _members, ...noMembers } = board;
+    expect(
+      validateAutomation(
+        withTrigger({ type: 'person_assigned', columnId: 'who', uid: 'stranger' }),
+        noMembers,
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('accepts create_item and post_update, with the index of a bad one', () => {
+    expect(
+      validateAutomation(
+        {
+          ...base(),
+          actions: [
+            { type: 'create_item', name: '{name} follow-up', groupId: 'g1', values: { text: 'x' } },
+            { type: 'post_update', text: 'Moved' },
+          ] as never[],
+        },
+        board,
+        'owner',
+      ),
+    ).toEqual({ ok: true });
+    const bad = validateAutomation(
+      {
+        ...base(),
+        actions: [
+          { type: 'post_update', text: 'ok' },
+          { type: 'create_item', name: 'x', groupId: 'gone' },
+        ] as never[],
+      },
+      board,
+    );
+    expect(bad).toMatchObject({ ok: false, index: 1 });
+  });
+
+  it('allows one create_item per recipe', () => {
+    expect(AUTOMATION_LIMITS.maxCreatedPerRun).toBe(1);
+    const r = validateAutomation(
+      {
+        ...base(),
+        actions: [
+          { type: 'create_item', name: 'a' },
+          { type: 'create_item', name: 'b' },
+        ] as never[],
+      },
+      board,
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toContain('Create item');
   });
 
   it('rejects conditions on missing, button or calculated columns, and a missing value on is', () => {

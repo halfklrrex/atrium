@@ -28,6 +28,7 @@ export function getButtonActionErrors(
   actions: readonly ButtonAction[],
   columns: readonly ColumnView[],
   groups: readonly Pick<GroupDef, 'id'>[],
+  options: { automation?: boolean } = {},
 ): (string | null)[] {
   const board = { columns: columns.map((c) => c.def), groups };
   return actions.map((action) => {
@@ -41,7 +42,7 @@ export function getButtonActionErrors(
     if (action.type === 'rename_item' && action.template.trim() === '') {
       return 'Enter a new name';
     }
-    const checked = validateButtonActions([action], board);
+    const checked = validateButtonActions([action], board, undefined, columnRegistry, options);
     if (checked.ok) return null;
     const at = checked.message.indexOf('): ');
     const reason = at === -1 ? checked.message : checked.message.slice(at + 3);

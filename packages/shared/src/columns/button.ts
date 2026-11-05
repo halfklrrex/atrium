@@ -3,7 +3,16 @@ import { slugIdSchema } from '../schemas/board';
 import { hexColorSchema, idSchema, uidSchema } from '../schemas/common';
 import { defineColumnType } from './registry';
 
-export const BUTTON_LIMITS = { maxActions: 5, maxNotifyUids: 10, maxNotifyMessage: 140 } as const;
+export const BUTTON_LIMITS = {
+  maxActions: 5,
+  maxNotifyUids: 10,
+  maxNotifyMessage: 140,
+  /** `create_item`: values it may set (P5c). */
+  maxCreateValues: 10,
+  /** `create_item` name and `post_update` text (the update body limit). */
+  maxCreateName: 500,
+  maxUpdateText: 2000,
+} as const;
 
 /**
  * One step a button runs on its item. Plain data (`{ type, ...params }`) so P5 automations can
@@ -21,6 +30,27 @@ export const buttonActionSchema = z.discriminatedUnion('type', [
       message: z.string().max(BUTTON_LIMITS.maxNotifyMessage).optional(),
     })
     .strict(),
+  /** Automation-only (P5c). `name` takes the `{name}` / `{date}` tokens of `renderRenameTemplate`. */
+  z
+    .object({
+      type: z.literal('create_item'),
+      name: z.string().min(1).max(BUTTON_LIMITS.maxCreateName),
+      groupId: slugIdSchema.optional(),
+      values: z
+        .record(idSchema, z.unknown())
+        .refine((v) => Object.keys(v).length <= BUTTON_LIMITS.maxCreateValues, {
+          message: `At most ${BUTTON_LIMITS.maxCreateValues} values`,
+        })
+        .optional(),
+    })
+    .strict(),
+  /** Automation-only (P5c). Plain text, same tokens as `create_item`'s name. */
+  z
+    .object({
+      type: z.literal('post_update'),
+      text: z.string().min(1).max(BUTTON_LIMITS.maxUpdateText),
+    })
+    .strict(),
 ]);
 export type ButtonAction = z.infer<typeof buttonActionSchema>;
 
@@ -30,7 +60,22 @@ export const BUTTON_ACTION_LABELS: Record<ButtonAction['type'], string> = {
   move_to_group: 'Move to group',
   archive_item: 'Archive item',
   notify: 'Notify people',
+  create_item: 'Create item',
+  post_update: 'Post an update',
 };
+
+/**
+ * Actions only automations may run: a button column refuses them (`validateButtonActions` without
+ * `automation: true`, and `buttonSettingsSchema`) and the button editor does not offer them.
+ */
+export const AUTOMATION_ONLY_ACTION_TYPES = [
+  'create_item',
+  'post_update',
+] as const satisfies readonly ButtonAction['type'][];
+
+export function isAutomationOnlyAction(type: ButtonAction['type']): boolean {
+  return (AUTOMATION_ONLY_ACTION_TYPES as readonly string[]).includes(type);
+}
 
 /** Longest item name a click may produce (the item name limit). */
 export const BUTTON_RENAME_MAX_LENGTH = 500;
@@ -54,7 +99,13 @@ export const buttonSettingsSchema = z
     /** Button color matching Atrium's status/group palette. */
     color: hexColorSchema.default('#579bfc'),
     /** Steps run in order, all or nothing, when the button is clicked. Empty: record the click only. */
-    actions: z.array(buttonActionSchema).max(BUTTON_LIMITS.maxActions).default([]),
+    actions: z
+      .array(buttonActionSchema)
+      .max(BUTTON_LIMITS.maxActions)
+      .refine((list) => !list.some((a) => isAutomationOnlyAction(a.type)), {
+        message: 'Create item and Post an update are only available in automations',
+      })
+      .default([]),
   })
   .strict();
 export type ButtonSettings = z.infer<typeof buttonSettingsSchema>;

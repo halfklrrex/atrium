@@ -1,6 +1,11 @@
 import type { BoardRole } from '../roles';
 import type { ColumnDef, ColumnDefInput } from '../schemas/board';
-import { BUTTON_ACTION_LABELS, BUTTON_LIMITS, type ButtonAction } from './button';
+import {
+  BUTTON_ACTION_LABELS,
+  BUTTON_LIMITS,
+  isAutomationOnlyAction,
+  type ButtonAction,
+} from './button';
 import { canEditColumn } from './column-locks';
 import { columnRegistry } from './index';
 import type { ColumnTypeRegistry } from './registry';
@@ -235,42 +240,52 @@ export interface ButtonActionsBoard {
  * Checks a button's actions against a board: target columns exist and are plain writable types
  * (not derived, server-managed, button or migrating), values pass `registry.validateCell`, move
  * targets exist and, when `role` is given, the role may edit each target column. Returns the
- * first failure with its 0-based `index` and a message naming the action.
+ * first failure with its 0-based `index` and a message naming the action. The automation-only
+ * actions (`create_item`, `post_update`) are refused unless `options.automation` is set.
  */
 export function validateButtonActions(
   actions: readonly ButtonAction[],
   board: ButtonActionsBoard,
   role?: BoardRole | null,
   registry: ColumnTypeRegistry = columnRegistry,
+  options: { automation?: boolean } = {},
 ): { ok: true } | { ok: false; index: number; message: string } {
+  /** Why `value` cannot be written to the column (null when it can): the `set_value` rules. */
+  const checkWritableCell = (columnId: string, value: unknown): string | null => {
+    const col = board.columns.find((c) => c.id === columnId);
+    if (!col) return 'the column no longer exists';
+    if (col.type === 'button') return 'a button column cannot be set';
+    if (!registry.has(col.type)) return `unknown column type "${col.type}"`;
+    if (registry.isDerived(col.type)) return 'the column is calculated';
+    if (registry.isServerManaged(col.type)) return 'the column is managed by Atrium';
+    if (col.migrating) return 'the column is changing type';
+    if (role !== undefined && !canEditColumn(role, board, col.id)) {
+      return 'the column is locked to board owners';
+    }
+    const checked = registry.validateCell(
+      {
+        id: col.id,
+        type: col.type,
+        title: col.title ?? col.id,
+        position: 'a0',
+        settings: (col.settings ?? {}) as Record<string, unknown>,
+      },
+      value,
+    );
+    return checked.ok ? null : checked.message;
+  };
   for (const [index, action] of actions.entries()) {
     const fail = (reason: string) => ({
       ok: false as const,
       index,
       message: `Action ${index + 1} (${BUTTON_ACTION_LABELS[action.type]}): ${reason}`,
     });
+    if (isAutomationOnlyAction(action.type) && !options.automation) {
+      return fail('only available in automations');
+    }
     if (action.type === 'set_value') {
-      const col = board.columns.find((c) => c.id === action.columnId);
-      if (!col) return fail('the column no longer exists');
-      if (col.type === 'button') return fail('a button column cannot be set');
-      if (!registry.has(col.type)) return fail(`unknown column type "${col.type}"`);
-      if (registry.isDerived(col.type)) return fail('the column is calculated');
-      if (registry.isServerManaged(col.type)) return fail('the column is managed by Atrium');
-      if (col.migrating) return fail('the column is changing type');
-      if (role !== undefined && !canEditColumn(role, board, col.id)) {
-        return fail('the column is locked to board owners');
-      }
-      const checked = registry.validateCell(
-        {
-          id: col.id,
-          type: col.type,
-          title: col.title ?? col.id,
-          position: 'a0',
-          settings: (col.settings ?? {}) as Record<string, unknown>,
-        },
-        action.value,
-      );
-      if (!checked.ok) return fail(checked.message);
+      const reason = checkWritableCell(action.columnId, action.value);
+      if (reason) return fail(reason);
     } else if (action.type === 'notify') {
       if (action.uids.length < 1 || action.uids.length > BUTTON_LIMITS.maxNotifyUids) {
         return fail(`choose 1 to ${BUTTON_LIMITS.maxNotifyUids} people`);
@@ -286,6 +301,18 @@ export function validateButtonActions(
     } else if (action.type === 'move_to_group') {
       if (!board.groups.some((g) => g.id === action.groupId)) {
         return fail('the group no longer exists');
+      }
+    } else if (action.type === 'create_item') {
+      if (action.groupId !== undefined && !board.groups.some((g) => g.id === action.groupId)) {
+        return fail('the group no longer exists');
+      }
+      const entries = Object.entries(action.values ?? {});
+      if (entries.length > BUTTON_LIMITS.maxCreateValues) {
+        return fail(`at most ${BUTTON_LIMITS.maxCreateValues} values`);
+      }
+      for (const [columnId, value] of entries) {
+        const reason = checkWritableCell(columnId, value);
+        if (reason) return fail(reason);
       }
     }
   }

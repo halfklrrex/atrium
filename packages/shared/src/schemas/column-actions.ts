@@ -58,7 +58,16 @@ export const clickButtonResultSchema = z
       .array(
         z
           .object({
-            type: z.enum(['set_value', 'rename_item', 'move_to_group', 'archive_item', 'notify']),
+            type: z.enum([
+              'set_value',
+              'rename_item',
+              'move_to_group',
+              'archive_item',
+              'notify',
+              // Automation-only types share the type; a button never reports them.
+              'create_item',
+              'post_update',
+            ]),
           })
           .strict(),
       )
