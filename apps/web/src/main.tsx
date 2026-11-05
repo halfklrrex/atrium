@@ -11,6 +11,7 @@ import './theme/calendar-tokens.css';
 import './theme/timeline-tokens.css';
 import './theme/gantt-tokens.css';
 import './theme/workload-tokens.css';
+import './theme/automation-tokens.css';
 import './theme/chart-tokens.css';
 import './theme/form-tokens.css';
 import './theme/dashboard-tokens.css';

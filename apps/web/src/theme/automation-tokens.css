@@ -1,0 +1,14 @@
+/*
+ * Automation center tokens (P5b). Geometry only: colours come from Vibe variables.
+ */
+
+:root {
+  --atrium-automation-min-height: 420px; /* keeps the dialog steady between its tabs */
+  --atrium-automation-max-height: 60vh; /* long lists scroll inside the dialog */
+  --atrium-automation-row-min-height: 56px;
+  --atrium-automation-filter-width: 220px;
+  --atrium-automation-run-time-width: 120px;
+  --atrium-automation-run-recipe-width: 200px;
+  --atrium-automation-run-item-width: 160px;
+  --atrium-automation-run-status-width: 88px;
+}
