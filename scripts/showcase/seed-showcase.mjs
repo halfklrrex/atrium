@@ -7,7 +7,7 @@
 //                (without --yes it only prints a dry-run; it authenticates with `gcloud`)
 //
 // Safety: the script only ever creates, updates or deletes the documents it owns (see
-// `isOwnedPath` in data.mjs): the `showcase-*` boards with their items, updates, replies and views, and the
+// `isOwnedPath` in data.mjs): the `showcase-*` boards with their items, updates, replies and views, the `showcase-dashboard` dashboard, and the
 // owner's favourite/recent entries for them, her 3 `showcase-notification-*` notifications, plus the 3 fake members' `members` profile docs. It refuses to run when the workspace is missing or the
 // owner is not a member, and aborts if a write would fall outside that allow-list.
 //
@@ -21,6 +21,7 @@ import {
   buildShowcase,
   isOwnedPath,
   SHOWCASE_BOARD_IDS,
+  SHOWCASE_DASHBOARD_IDS,
   SHOWCASE_MEMBER_UIDS,
   SHOWCASE_NOTIFICATION_PREFIX,
   anchorOf,
@@ -268,6 +269,15 @@ export async function runSeed({
     }
   }
 
+  for (const dashboardId of SHOWCASE_DASHBOARD_IDS) {
+    const existing = await client.getDoc(`dashboards/${dashboardId}`);
+    if (existing && existing.workspaceId !== workspaceId) {
+      throw new SeedError(
+        `Dashboard "${dashboardId}" already exists in another workspace ("${existing.workspaceId}"). Refusing to touch it.`,
+      );
+    }
+  }
+
   // ---- 2. Build the documents (throws if anything is invalid) ----
   const profile = await client.getDoc(`users/${ownerUid}`);
   const { docs, summary } = buildShowcase({
@@ -308,6 +318,13 @@ export async function runSeed({
       }
     }
   }
+  // A reset recreates the dashboard too (it has no sub-collections).
+  if (reset) {
+    for (const dashboardId of SHOWCASE_DASHBOARD_IDS) {
+      if (await client.getDoc(`dashboards/${dashboardId}`))
+        deletes.add(`dashboards/${dashboardId}`);
+    }
+  }
   // Showcase notifications the content no longer has (the owner may also have deleted some: they
   // are simply written again). Her own notifications from the app are never listed here.
   for (const id of await client.listDocIds(`users/${ownerUid}/notifications`)) {
@@ -345,10 +362,11 @@ export async function runSeed({
   log(
     `  content    ${summary.items} active items (+${summary.subitems} subitems), ${summary.archived} archived, ${summary.trashed} trashed, ` +
       `${summary.updates} updates, ${summary.replies} replies, ${summary.notifications} notifications, ${SHOWCASE_BOARD_IDS.length} boards, ` +
-      `${summary.members} fake member profiles`,
+      `${summary.members} fake member profiles, ${summary.dashboards} dashboard`,
   );
   log(`  documents  ${writeCount} to write, ${deleteCount} to delete`);
   for (const boardId of SHOWCASE_BOARD_IDS) log(`  board      boards/${boardId}`);
+  for (const id of SHOWCASE_DASHBOARD_IDS) log(`  dashboard  dashboards/${id}`);
 
   // ---- 5. Apply ----
   if (!dryRun) {

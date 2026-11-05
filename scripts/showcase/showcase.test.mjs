@@ -11,6 +11,7 @@ import {
   boardViewSchema,
   columnRegistry,
   formPublishProblems,
+  dashboardSchema,
   favoriteSchema,
   itemSchema,
   itemUpdateSchema,
@@ -24,6 +25,7 @@ import {
   PENDING_TYPES,
   SHOWCASE_BOARD_IDS,
   SHOWCASE_COLUMN_TYPES,
+  SHOWCASE_DASHBOARD_ID,
   SHOWCASE_LINKED_ID,
   SHOWCASE_MEMBERS,
   SHOWCASE_MEMBER_UIDS,
@@ -67,6 +69,7 @@ test('every document re-validates against its shared schema', () => {
   const { docs } = build();
   const byPattern = [
     [/^boards\/[^/]+$/, boardSchema],
+    [/^dashboards\/[^/]+$/, dashboardSchema],
     [/^boards\/[^/]+\/views\/[^/]+$/, boardViewSchema],
     [/^boards\/[^/]+\/items\/[^/]+$/, itemSchema],
     [/^boards\/[^/]+\/items\/[^/]+\/updates\/[^/]+$/, itemUpdateSchema],
@@ -469,6 +472,10 @@ test('ownership allow-list', () => {
   assert.ok(isOwnedPath('boards/showcase-main/items/x/updates/y/replies/z', OWNER));
   assert.ok(isOwnedPath(`users/${OWNER}/favorites/showcase-main`, OWNER));
   assert.ok(isOwnedPath(`users/${OWNER}/recents/showcase-trashed-demo`, OWNER));
+  assert.ok(isOwnedPath(`dashboards/${SHOWCASE_DASHBOARD_ID}`, OWNER));
+  assert.ok(!isOwnedPath('dashboards/real-dashboard', OWNER));
+  assert.ok(!isOwnedPath(`dashboards/${SHOWCASE_DASHBOARD_ID}/x`, OWNER));
+  assert.ok(!isOwnedPath('dashboards', OWNER));
   assert.ok(!isOwnedPath('boards/real-board', OWNER));
   assert.ok(!isOwnedPath('boards/showcase-other', OWNER));
   assert.ok(!isOwnedPath('boards', OWNER));
@@ -609,6 +616,7 @@ const baseWorld = () => ({
   [`users/${OWNER}/notifications/n1`]: { text: 'hello' },
   'workspaces/other': { name: 'Other', memberIds: ['x'], roles: { x: 'owner' } },
   'boards/other-board': { workspaceId: 'other', name: 'Other board' },
+  'dashboards/real-dashboard': { workspaceId: WORKSPACE, name: 'My real dashboard' },
 });
 
 const quiet = () => {};
@@ -625,6 +633,7 @@ const snapshot = (client) =>
   JSON.stringify([...client.store.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
 const isShowcasePath = (p) =>
   /^boards\/showcase-/.test(p) ||
+  /^dashboards\/showcase-/.test(p) ||
   /\/(favorites|recents)\/showcase-/.test(p) ||
   /\/notifications\/showcase-notification-/.test(p) ||
   /^workspaces\/[^/]+\/members\/showcase-user-/.test(p);
@@ -646,6 +655,29 @@ test('refuses to take over a showcase board that lives in another workspace', as
   });
   await assert.rejects(seed(client), /another workspace/);
   assert.equal(client.commits.length, 0);
+});
+
+test('refuses to take over a showcase dashboard that lives in another workspace', async () => {
+  const client = fakeFirestore({
+    ...baseWorld(),
+    'dashboards/showcase-dashboard': { workspaceId: 'other' },
+  });
+  await assert.rejects(seed(client), /another workspace/);
+  assert.equal(client.commits.length, 0);
+});
+
+test('the showcase dashboard has one widget of each type over the showcase boards', () => {
+  const { docs } = build();
+  const doc = docs.find((d) => d.path === `dashboards/${SHOWCASE_DASHBOARD_ID}`);
+  assert.ok(doc, 'dashboard missing');
+  assert.deepEqual(doc.data.widgets.map((w) => w.type).sort(), [
+    'battery',
+    'chart',
+    'numbers',
+    'table',
+    'workload',
+  ]);
+  assert.deepEqual(doc.data.boardIds, [SHOWCASE_MAIN_ID, SHOWCASE_LINKED_ID]);
 });
 
 test('a dry run writes nothing', async () => {
