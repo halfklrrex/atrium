@@ -1,4 +1,4 @@
-/* The update / reply composer: one bordered box. Collapsed = placeholder only; open = toolbar, editor, footer. */
+/* The update / reply composer: one bordered box. Collapsed = placeholder only; open = toolbar, editor, bottom row. */
 .composerBox {
   background: var(--primary-background-color);
   border: var(--border-width) solid var(--layout-border-color);
@@ -16,10 +16,12 @@
 
 .toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--atrium-editor-tool-gap);
+  min-width: 0;
   padding: var(--space-4) var(--space-8) 0;
+  overflow: hidden;
   background: var(--primary-background-color);
 }
 
@@ -38,6 +40,15 @@
   transition:
     background 0.15s ease,
     color 0.15s ease;
+}
+
+.toolbar > * {
+  flex: none;
+}
+
+.toolButton:disabled {
+  opacity: var(--disabled-component-opacity);
+  cursor: default;
 }
 
 .toolButton svg {
@@ -85,6 +96,7 @@
 }
 
 .content {
+  position: relative;
   max-height: 40vh;
   overflow-y: auto;
   background: var(--primary-background-color);
@@ -101,7 +113,7 @@
 }
 
 .contentExpanded :global(.ProseMirror) {
-  min-height: var(--atrium-composer-expanded-height);
+  min-height: var(--atrium-composer-min-height);
 }
 
 .reply .content {
@@ -215,17 +227,78 @@
   color: var(--secondary-text-color);
 }
 
-.footer {
+.bottomRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-8) var(--space-12);
+  padding: var(--atrium-composer-bottom-padding);
   background: var(--primary-background-color);
 }
 
-.hints {
-  font: var(--atrium-meta-font);
-  color: var(--secondary-text-color);
+.insertTools {
+  display: flex;
+  align-items: center;
+  gap: var(--atrium-editor-tool-gap);
+}
+
+.content :global(.ProseMirror h2) {
+  margin: 0;
+  font: var(--atrium-doc-h2-font);
+}
+
+.content :global(.ProseMirror > * + h2) {
+  margin-top: var(--space-16);
+}
+
+.content :global(.ProseMirror pre) {
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--border-radius-4);
+  background: var(--allgrey-background-color);
+  font: var(--atrium-doc-code-font);
+  overflow-x: auto;
+}
+
+.content :global(.ProseMirror pre code) {
+  padding: 0;
+  background: transparent;
+}
+
+.content :global(.ProseMirror hr) {
+  height: var(--border-width);
+  margin-block: var(--space-12);
+  border: 0;
+  background: var(--layout-border-color);
+}
+
+.content :global(.ProseMirror hr.ProseMirror-selectednode) {
+  background: var(--primary-color);
+}
+
+.content :global(.ProseMirror table) {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+}
+
+.content :global(.ProseMirror th),
+.content :global(.ProseMirror td) {
+  position: relative;
+  min-width: calc(var(--space-32) * 3);
+  padding: var(--space-8);
+  border: var(--border-width) solid var(--layout-border-color);
+  vertical-align: top;
+}
+
+.content :global(.ProseMirror th) {
+  background: var(--allgrey-background-color);
+  font-weight: var(--font-weight-bold);
+  text-align: start;
+}
+
+.content :global(.ProseMirror td > *),
+.content :global(.ProseMirror th > *) {
+  margin: 0;
 }
 
 /* What shows while the editor chunk loads (and what a reply shows until it is opened). */
