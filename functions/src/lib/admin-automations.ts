@@ -1,11 +1,5 @@
-import {
-  automationConditionSchema,
-  automationTriggerSchema,
-  buttonActionSchema,
-  type WorkspaceRole,
-} from '@atrium/shared';
+import { automationSchema, automationTriggerSchema, type WorkspaceRole } from '@atrium/shared';
 import { Timestamp, type Firestore, type Transaction } from 'firebase-admin/firestore';
-import { z } from 'zod';
 import { adminColumnActionsTx } from './admin';
 import type { MatchColumn } from './automations/match';
 import type { AutomationDoc, AutomationRunTx, AutomationStore, RunRecord } from './automations/run';
@@ -19,11 +13,16 @@ const runRef = (firestore: Firestore, boardId: string, runId: string) =>
 const counterRef = (firestore: Firestore, boardId: string) =>
   boardRef(firestore, boardId).collection('counters').doc('automations');
 
-/** Reads a recipe document; a stored shape that no longer parses comes back with `invalid` set. */
+/**
+ * Reads a recipe document; a stored shape that no longer parses comes back with `invalid` set. The
+ * action and condition lists are parsed with the shared caps (1 to 5 actions, at most 3 conditions):
+ * a recipe the builder would refuse must not run, as its activity and run documents would not
+ * satisfy their schemas either.
+ */
 export function toAutomationDoc(id: string, data: FirebaseFirestore.DocumentData): AutomationDoc {
   const trigger = automationTriggerSchema.safeParse(data.trigger);
-  const conditions = z.array(automationConditionSchema).safeParse(data.conditions ?? []);
-  const actions = z.array(buttonActionSchema).safeParse(data.actions ?? []);
+  const conditions = automationSchema.shape.conditions.safeParse(data.conditions ?? []);
+  const actions = automationSchema.shape.actions.safeParse(data.actions ?? []);
   const base = {
     id,
     name: typeof data.name === 'string' ? data.name : '',
@@ -48,6 +47,19 @@ export function toAutomationDoc(id: string, data: FirebaseFirestore.DocumentData
     conditions: conditions.data,
     actions: actions.data,
   };
+}
+
+/** How many enabled recipe documents one event reads at most (a board should hold 20). */
+const SCAN_LIMIT = 100;
+
+/**
+ * Up to `limit` valid recipes plus every invalid one: an invalid recipe must still reach the runner
+ * so its failure is recorded (and the circuit breaker switches it off with a reason), and it must
+ * not use up one of the `limit` slots.
+ */
+export function pickAutomations(docs: readonly AutomationDoc[], limit: number): AutomationDoc[] {
+  let valid = 0;
+  return docs.filter((a) => a.invalid !== undefined || ++valid <= limit);
 }
 
 /** Adapts an Admin SDK transaction to the run transaction port. */
@@ -104,11 +116,12 @@ export function adminAutomationStore(firestore: Firestore): AutomationStore {
       const snap = await boardRef(firestore, boardId)
         .collection('automations')
         .where('enabled', '==', true)
-        .limit(limit)
+        .limit(Math.max(limit, SCAN_LIMIT))
         .get();
-      return snap.docs
-        .map((d) => toAutomationDoc(d.id, d.data()))
-        .filter((a) => a.invalid === undefined);
+      return pickAutomations(
+        snap.docs.map((d) => toAutomationDoc(d.id, d.data())),
+        limit,
+      );
     },
     async getColumns(boardId) {
       const snap = await boardRef(firestore, boardId).get();
