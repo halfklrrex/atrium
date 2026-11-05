@@ -45,7 +45,7 @@ export interface NumbersModel {
 const lower = (text: string): string => text.trim().toLowerCase();
 
 /** Lower-cased texts of the filter labels, taken from whichever board defines the filter column. */
-function filterTexts(
+export function filterTexts(
   boards: readonly WidgetBoardData[],
   filter: NonNullable<NumbersSettings['filter']>,
 ): Set<string> {

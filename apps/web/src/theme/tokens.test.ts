@@ -60,6 +60,8 @@ describe('design tokens', () => {
       '--tl-today-idx',
       // Chart view: the colour of a bar, slice or segment.
       '--chart-color',
+      // Dashboard Table widget: the grid template of its rows.
+      '--table-columns',
     ]);
     const missing = [...references.keys()].filter(
       (name) => !known.has(name) && !local.has(name) && !inline.has(name),
