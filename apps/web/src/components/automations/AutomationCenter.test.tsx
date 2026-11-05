@@ -254,6 +254,81 @@ describe('Recipes tab', () => {
     ).toEqual(['Choose a column', 'Status']);
   });
 
+  it('reads the builder as a sentence with When, and only if and then parts', () => {
+    open('owner');
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    expect(within(form).getByText('When')).toBeInTheDocument();
+    expect(within(form).getByText('then')).toBeInTheDocument();
+    expect(within(form).getByRole('combobox', { name: 'When' })).toBeInTheDocument();
+    fireEvent.click(within(form).getByRole('button', { name: '+ Add condition' }));
+    expect(within(form).getByText('and only if')).toBeInTheDocument();
+    expect(
+      within(form).getByText('Fill in the highlighted parts to finish the sentence.'),
+    ).toBeInTheDocument();
+  });
+
+  it('removes conditions one at a time and re-enables adding', () => {
+    open('owner');
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    const add = within(form).getByRole('button', { name: '+ Add condition' });
+    fireEvent.click(add);
+    fireEvent.click(add);
+    fireEvent.click(add);
+    expect(within(form).getByText('3/3')).toBeInTheDocument();
+    expect(within(form).getByText('At most 3 conditions.')).toBeInTheDocument();
+    fireEvent.click(within(form).getByRole('button', { name: 'Remove condition 2' }));
+    expect(within(form).getAllByRole('group', { name: /^Condition / })).toHaveLength(2);
+    expect(within(form).getByText('2/3')).toBeInTheDocument();
+    expect(add).toHaveAttribute('aria-disabled', 'false');
+    fireEvent.click(within(form).getByRole('button', { name: 'Remove condition 1' }));
+    fireEvent.click(within(form).getByRole('button', { name: 'Remove condition 1' }));
+    expect(within(form).queryByRole('group', { name: /^Condition / })).toBeNull();
+    expect(within(form).getByText(/matches the trigger/)).toBeInTheDocument();
+  });
+
+  it('adds up to five actions, then blocks more, and removing one frees a slot', () => {
+    open('owner');
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    const addAction = () =>
+      fireEvent.change(within(form).getByRole('combobox', { name: 'Add action' }), {
+        target: { value: 'move_to_group' },
+      });
+    for (let i = 0; i < 5; i++) addAction();
+    expect(within(form).getAllByRole('group', { name: /^Action / })).toHaveLength(5);
+    expect(within(form).getByText('5/5 actions')).toBeInTheDocument();
+    expect(within(form).getByRole('combobox', { name: 'Add action' })).toBeDisabled();
+    fireEvent.click(within(form).getAllByRole('button', { name: 'Remove' })[0]!);
+    expect(within(form).getAllByRole('group', { name: /^Action / })).toHaveLength(4);
+    expect(within(form).getByRole('combobox', { name: 'Add action' })).toBeEnabled();
+  });
+
+  it('shows a condition problem inside that condition and keeps Save off', () => {
+    open('owner');
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    fireEvent.change(within(form).getByRole('combobox', { name: 'Add action' }), {
+      target: { value: 'move_to_group' },
+    });
+    const save = within(form).getByRole('button', { name: 'Save' });
+    expect(save).toHaveAttribute('aria-disabled', 'false');
+    fireEvent.click(within(form).getByRole('button', { name: '+ Add condition' }));
+    const condition = within(form).getByRole('group', { name: 'Condition 1' });
+    // A fresh "Status is ..." has no label yet, so the engine refuses it right there.
+    fireEvent.change(within(condition).getByRole('combobox', { name: 'Column' }), {
+      target: { value: 'status' },
+    });
+    expect(within(condition).getByRole('alert')).toBeInTheDocument();
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.change(within(condition).getByRole('combobox', { name: 'Value' }), {
+      target: { value: '1' },
+    });
+    expect(within(condition).queryByRole('alert')).toBeNull();
+    expect(save).toHaveAttribute('aria-disabled', 'false');
+  });
+
   it('a starter opens the builder prefilled', () => {
     open('owner');
     fireEvent.click(screen.getByRole('button', { name: /notify the board owner/ }));

@@ -15,4 +15,11 @@
   --atrium-automation-card-min-height: 132px;
   --atrium-automation-create-search-width: 360px;
   --atrium-automation-field-min-width: 160px; /* recipe builder pickers wrap below this */
+
+  /* Sentence builder (P5e R3) */
+  --atrium-automation-keyword-width: 96px; /* the "When" / "and only if" / "then" column */
+  --atrium-automation-sentence-indent: 104px; /* sub-rows line up under the first token */
+  --atrium-automation-sentence-line-height: 40px;
+  --atrium-automation-token-height: 32px;
+  --atrium-automation-token-input-width: 160px;
 }

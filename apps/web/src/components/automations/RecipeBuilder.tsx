@@ -1,17 +1,19 @@
 import {
   AUTOMATION_LIMITS,
   AUTOMATION_TRIGGER_LABELS,
+  BUTTON_LIMITS,
   type AutomationCondition,
   type AutomationTrigger,
   type BoardRole,
   type ButtonAction,
   type ColumnDef,
 } from '@atrium/shared';
-import { Button, TextField } from '@vibe/core';
+import { Button, IconButton, TextField } from '@vibe/core';
+import { CloseSmall } from '@vibe/icons';
+import classNames from 'classnames';
 import { useId, useMemo, useState } from 'react';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
 import { automationWrites, type AutomationDoc, type AutomationInput } from '../../data/automations';
-import popups from '../../columns/popups.module.css';
 import type { BoardDoc } from '../../data/model';
 import { buildColumnViews } from '../board-table/table-model';
 import { ButtonActionsEditor } from '../board-table/ButtonActionsEditor';
@@ -28,6 +30,7 @@ import {
   newCondition,
   triggerColumns,
 } from './recipe-draft';
+import { describeAutomation } from './describe-automation';
 import styles from './RecipeBuilder.module.css';
 
 export interface RecipeBuilderProps {
@@ -63,26 +66,33 @@ function labelsOf(column: ColumnDef | undefined): Label[] {
   return Array.isArray(labels) ? labels : [];
 }
 
-function Field({
+/** A native select styled as a sentence token; `label` is its accessible name. */
+function TokenSelect({
   label,
-  htmlFor,
+  value,
+  onChange,
   children,
 }: {
   label: string;
-  htmlFor?: string;
+  value: string | number;
+  onChange: (value: string) => void;
   children: React.ReactNode;
 }) {
   return (
-    <label className={popups.field} htmlFor={htmlFor}>
-      <span className={popups.fieldLabel}>{label}</span>
+    <select
+      className={styles.token}
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    >
       {children}
-    </label>
+    </select>
   );
 }
 
 function Problem({ message }: { message: string | null }) {
   return message ? (
-    <p role="alert" className={popups.error}>
+    <p role="alert" className={styles.problem}>
       {message}
     </p>
   ) : null;
@@ -101,22 +111,16 @@ function ColumnSelect({
 }) {
   const known = columns.some((c) => c.id === value);
   return (
-    <Field label={label}>
-      <select
-        className={popups.input}
-        value={known ? value : ''}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="" disabled>
-          {value && !known ? 'Deleted column' : 'Choose a column'}
+    <TokenSelect label={label} value={known ? value : ''} onChange={onChange}>
+      <option value="" disabled>
+        {value && !known ? 'Deleted column' : 'Choose a column'}
+      </option>
+      {columns.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.title}
         </option>
-        {columns.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.title}
-          </option>
-        ))}
-      </select>
-    </Field>
+      ))}
+    </TokenSelect>
   );
 }
 
@@ -132,24 +136,19 @@ function AssigneeSelect({
   const lookup = useUserLookup();
   const known = value === undefined || members.some((m) => m.id === value);
   return (
-    <Field label="Assigned person">
-      <select
-        className={popups.input}
-        value={value ?? ''}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">Anyone</option>
-        {known ? null : <option value={value}>Former member</option>}
-        {members.map((m) => (
-          <option key={m.id} value={m.id}>
-            {lookup(m.id)?.name ?? UNKNOWN_PERSON_NAME}
-          </option>
-        ))}
-      </select>
-    </Field>
+    <TokenSelect label="Assigned person" value={value ?? ''} onChange={onChange}>
+      <option value="">anyone</option>
+      {known ? null : <option value={value}>Former member</option>}
+      {members.map((m) => (
+        <option key={m.id} value={m.id}>
+          {lookup(m.id)?.name ?? UNKNOWN_PERSON_NAME}
+        </option>
+      ))}
+    </TokenSelect>
   );
 }
 
+/** The trigger part of the sentence, after "When". */
 function TriggerFields({
   board,
   trigger,
@@ -176,37 +175,30 @@ function TriggerFields({
 
   return (
     <>
-      <Field label="When">
-        <select
-          className={popups.input}
-          value={trigger.type}
-          onChange={(event) =>
-            onChange(defaultTrigger(event.target.value as AutomationTrigger['type'], board))
-          }
-        >
-          {TRIGGER_TYPES.map((type) => (
-            <option key={type} value={type} disabled={!fits(type) && type !== trigger.type}>
-              {AUTOMATION_TRIGGER_LABELS[type]}
-              {fits(type) ? '' : missing[type]}
-            </option>
-          ))}
-        </select>
-      </Field>
+      <TokenSelect
+        label="When"
+        value={trigger.type}
+        onChange={(type) => onChange(defaultTrigger(type as AutomationTrigger['type'], board))}
+      >
+        {TRIGGER_TYPES.map((type) => (
+          <option key={type} value={type} disabled={!fits(type) && type !== trigger.type}>
+            {AUTOMATION_TRIGGER_LABELS[type]}
+            {fits(type) ? '' : missing[type]}
+          </option>
+        ))}
+      </TokenSelect>
 
       {trigger.type === 'item_created' || trigger.type === 'item_moved' ? (
-        <Field label={trigger.type === 'item_moved' ? 'Moved to group' : 'In group'}>
-          <select
-            className={popups.input}
+        <>
+          <span className={styles.word}>{trigger.type === 'item_moved' ? 'to' : 'in'}</span>
+          <TokenSelect
+            label={trigger.type === 'item_moved' ? 'Moved to group' : 'In group'}
             value={trigger.groupId ?? ''}
-            onChange={(event) =>
-              onChange(
-                event.target.value
-                  ? { type: trigger.type, groupId: event.target.value }
-                  : { type: trigger.type },
-              )
+            onChange={(groupId) =>
+              onChange(groupId ? { type: trigger.type, groupId } : { type: trigger.type })
             }
           >
-            <option value="">Any group</option>
+            <option value="">any group</option>
             {trigger.groupId && !board.groups.some((g) => g.id === trigger.groupId) ? (
               <option value={trigger.groupId}>Deleted group</option>
             ) : null}
@@ -215,43 +207,44 @@ function TriggerFields({
                 {g.title}
               </option>
             ))}
-          </select>
-        </Field>
+          </TokenSelect>
+        </>
       ) : null}
 
       {trigger.type === 'status_changed' ? (
         <>
+          <span className={styles.word}>on</span>
           <ColumnSelect
             label="Status column"
             columns={triggerColumns(board, 'status')}
             value={trigger.columnId}
             onChange={(columnId) => onChange({ type: 'status_changed', columnId })}
           />
-          <Field label="Changes to">
-            <select
-              className={popups.input}
-              value={trigger.toLabelId ?? ''}
-              onChange={(event) =>
-                onChange({
-                  type: 'status_changed',
-                  columnId: trigger.columnId,
-                  ...(event.target.value === '' ? {} : { toLabelId: Number(event.target.value) }),
-                })
-              }
-            >
-              <option value="">Any status</option>
-              {labelsOf(board.columns.find((c) => c.id === trigger.columnId)).map((l) => (
-                <option key={l.index} value={l.index}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <span className={styles.word}>to</span>
+          <TokenSelect
+            label="Changes to"
+            value={trigger.toLabelId ?? ''}
+            onChange={(next) =>
+              onChange({
+                type: 'status_changed',
+                columnId: trigger.columnId,
+                ...(next === '' ? {} : { toLabelId: Number(next) }),
+              })
+            }
+          >
+            <option value="">any status</option>
+            {labelsOf(board.columns.find((c) => c.id === trigger.columnId)).map((l) => (
+              <option key={l.index} value={l.index}>
+                {l.label}
+              </option>
+            ))}
+          </TokenSelect>
         </>
       ) : null}
 
       {trigger.type === 'person_assigned' ? (
         <>
+          <span className={styles.word}>in</span>
           <ColumnSelect
             label="People column"
             columns={triggerColumns(board, 'people')}
@@ -264,6 +257,7 @@ function TriggerFields({
               })
             }
           />
+          <span className={styles.word}>is</span>
           <AssigneeSelect
             value={trigger.uid}
             onChange={(uid) =>
@@ -278,12 +272,15 @@ function TriggerFields({
       ) : null}
 
       {trigger.type === 'button_clicked' ? (
-        <ColumnSelect
-          label="Button column"
-          columns={triggerColumns(board, 'button')}
-          value={trigger.columnId}
-          onChange={(columnId) => onChange({ type: 'button_clicked', columnId })}
-        />
+        <>
+          <span className={styles.word}>in</span>
+          <ColumnSelect
+            label="Button column"
+            columns={triggerColumns(board, 'button')}
+            value={trigger.columnId}
+            onChange={(columnId) => onChange({ type: 'button_clicked', columnId })}
+          />
+        </>
       ) : null}
     </>
   );
@@ -302,63 +299,54 @@ function ConditionValue({
   if (column.type === 'status') {
     const current = (value as { index?: number } | undefined)?.index;
     return (
-      <Field label="Value">
-        <select
-          className={popups.input}
-          value={current ?? ''}
-          onChange={(event) =>
-            onChange(event.target.value === '' ? undefined : { index: Number(event.target.value) })
-          }
-        >
-          <option value="" disabled>
-            Choose a label
+      <TokenSelect
+        label="Value"
+        value={current ?? ''}
+        onChange={(next) => onChange(next === '' ? undefined : { index: Number(next) })}
+      >
+        <option value="" disabled>
+          Choose a label
+        </option>
+        {labelsOf(column).map((l) => (
+          <option key={l.index} value={l.index}>
+            {l.label}
           </option>
-          {labelsOf(column).map((l) => (
-            <option key={l.index} value={l.index}>
-              {l.label}
-            </option>
-          ))}
-        </select>
-      </Field>
+        ))}
+      </TokenSelect>
     );
   }
   if (column.type === 'dropdown') {
     const current = (value as { ids?: number[] } | undefined)?.ids?.[0];
     return (
-      <Field label="Value">
-        <select
-          className={popups.input}
-          value={current ?? ''}
-          onChange={(event) =>
-            onChange(event.target.value === '' ? undefined : { ids: [Number(event.target.value)] })
-          }
-        >
-          <option value="" disabled>
-            Choose an option
+      <TokenSelect
+        label="Value"
+        value={current ?? ''}
+        onChange={(next) => onChange(next === '' ? undefined : { ids: [Number(next)] })}
+      >
+        <option value="" disabled>
+          Choose an option
+        </option>
+        {labelsOf(column).map((l) => (
+          <option key={String(l.id)} value={l.id}>
+            {l.label}
           </option>
-          {labelsOf(column).map((l) => (
-            <option key={String(l.id)} value={l.id}>
-              {l.label}
-            </option>
-          ))}
-        </select>
-      </Field>
+        ))}
+      </TokenSelect>
     );
   }
   if (column.type === 'numbers') {
     const current = typeof value === 'number' ? String(value) : '';
     return (
-      <Field label="Value">
-        <input
-          className={popups.input}
-          type="number"
-          value={current}
-          onChange={(event) => {
-            const parsed = event.target.valueAsNumber;
-            onChange(event.target.value === '' || !Number.isFinite(parsed) ? undefined : parsed);
-          }}
-        />
-      </Field>
+      <input
+        className={styles.tokenInput}
+        aria-label="Value"
+        type="number"
+        value={current}
+        onChange={(event) => {
+          const parsed = event.target.valueAsNumber;
+          onChange(event.target.value === '' || !Number.isFinite(parsed) ? undefined : parsed);
+        }}
+      />
     );
   }
   // text and long text
@@ -369,18 +357,18 @@ function ConditionValue({
         ? value
         : '';
   return (
-    <Field label="Value">
-      <input
-        className={popups.input}
-        value={text}
-        maxLength={1000}
-        onChange={(event) => {
-          const next = event.target.value;
-          if (next === '') onChange(undefined);
-          else onChange(column.type === 'long_text' ? { text: next } : next);
-        }}
-      />
-    </Field>
+    <input
+      className={styles.tokenInput}
+      aria-label="Value"
+      placeholder="a value"
+      value={text}
+      maxLength={1000}
+      onChange={(event) => {
+        const next = event.target.value;
+        if (next === '') onChange(undefined);
+        else onChange(column.type === 'long_text' ? { text: next } : next);
+      }}
+    />
   );
 }
 
@@ -403,8 +391,9 @@ function ConditionRow({
   const column = board.columns.find((c) => c.id === condition.columnId);
   const ops = column ? conditionOps(column.type) : [];
   return (
-    <li role="group" aria-label={`Condition ${index + 1}`} className={styles.condition}>
-      <div className={styles.conditionFields}>
+    <li role="group" aria-label={`Condition ${index + 1}`} className={styles.item}>
+      <div className={styles.line}>
+        <span className={styles.keyword}>and only if</span>
         <ColumnSelect
           label="Column"
           columns={columns}
@@ -412,28 +401,26 @@ function ConditionRow({
           onChange={(columnId) => onChange(newCondition(columns.find((c) => c.id === columnId)))}
         />
         {column ? (
-          <Field label="Operator">
-            <select
-              className={popups.input}
-              value={condition.op}
-              onChange={(event) => {
-                const op = event.target.value as AutomationCondition['op'];
-                onChange({
-                  columnId: condition.columnId,
-                  op,
-                  ...(needsValue(op) && condition.value !== undefined
-                    ? { value: condition.value }
-                    : {}),
-                });
-              }}
-            >
-              {ops.map((o) => (
-                <option key={o.op} value={o.op}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <TokenSelect
+            label="Operator"
+            value={condition.op}
+            onChange={(next) => {
+              const op = next as AutomationCondition['op'];
+              onChange({
+                columnId: condition.columnId,
+                op,
+                ...(needsValue(op) && condition.value !== undefined
+                  ? { value: condition.value }
+                  : {}),
+              });
+            }}
+          >
+            {ops.map((o) => (
+              <option key={o.op} value={o.op}>
+                {o.label}
+              </option>
+            ))}
+          </TokenSelect>
         ) : null}
         {column && needsValue(condition.op) ? (
           <ConditionValue
@@ -448,14 +435,13 @@ function ConditionRow({
             }
           />
         ) : null}
-        <Button
+        <IconButton
+          icon={CloseSmall}
           kind="tertiary"
-          size="small"
-          onClick={onRemove}
+          size="xxs"
           aria-label={`Remove condition ${index + 1}`}
-        >
-          Remove
-        </Button>
+          onClick={onRemove}
+        />
       </div>
       <Problem message={problem} />
     </li>
@@ -463,9 +449,10 @@ function ConditionRow({
 }
 
 /**
- * The recipe builder: "When [trigger] [params], and [conditions], then [actions]". Save stays
- * disabled until the draft would pass `validateAutomation`; the first failure shows next to the
- * part it is about. Rendered inside the Automation center's dialog.
+ * The recipe builder as one sentence: "When [trigger], and only if [condition], then [action]".
+ * Each part is an inline picker. Save stays disabled until the draft would pass
+ * `validateAutomation`; the first failure shows next to the part it is about. Rendered inside the
+ * Automation center's shell.
  */
 export function RecipeBuilder({
   board,
@@ -502,6 +489,9 @@ export function RecipeBuilder({
   const takesOver = automation !== null && automation.runAs !== uid;
   const eligible = conditionColumns(board);
   const atConditionCap = conditions.length >= AUTOMATION_LIMITS.maxConditions;
+  const reads = isDraftOk(problems, actions.length)
+    ? describeAutomation({ trigger, conditions, actions }, board)
+    : 'Fill in the highlighted parts to finish the sentence.';
 
   const save = async () => {
     if (!canSave) return;
@@ -534,75 +524,82 @@ export function RecipeBuilder({
         void save();
       }}
     >
-      <TextField
-        id="recipe-name"
-        title="Name (optional)"
-        inputAriaLabel="Name"
-        value={name}
-        onChange={(value: string) => setName(value)}
-        maxLength={AUTOMATION_LIMITS.name}
-        placeholder="Shown instead of the sentence"
-        size="medium"
-        autoFocus
-      />
+      <div className={styles.sentence}>
+        <section className={styles.part} aria-label="Trigger">
+          <div className={styles.line}>
+            <span className={classNames(styles.keyword, styles.keywordStrong)}>When</span>
+            <TriggerFields board={board} trigger={trigger} onChange={setTrigger} />
+          </div>
+          <Problem message={problems.trigger} />
+        </section>
 
-      <section className={styles.part} aria-label="Trigger">
-        <TriggerFields board={board} trigger={trigger} onChange={setTrigger} />
-        <Problem message={problems.trigger} />
-      </section>
-
-      <section className={styles.part} aria-label="Conditions">
-        <span className={popups.fieldLabel}>Only if</span>
-        {conditions.length > 0 ? (
-          <ol className={styles.list} aria-label="Conditions">
-            {conditions.map((condition, i) => (
-              <ConditionRow
-                key={i}
-                index={i}
-                condition={condition}
-                board={board}
-                problem={problems.conditions[i] ?? null}
-                onChange={(next) => setConditions(conditions.map((c, j) => (j === i ? next : c)))}
-                onRemove={() => setConditions(conditions.filter((_, j) => j !== i))}
-              />
-            ))}
-          </ol>
-        ) : (
-          <p className={popups.muted}>Every {board.itemTerminology} that matches the trigger.</p>
-        )}
-        <div>
-          <Button
-            kind="tertiary"
-            size="small"
-            disabled={atConditionCap || eligible.length === 0}
-            onClick={() => setConditions([...conditions, newCondition(eligible[0])])}
-          >
-            + Add condition
-          </Button>
-          {atConditionCap ? (
-            <span className={popups.muted}>
-              {` At most ${AUTOMATION_LIMITS.maxConditions} conditions.`}
+        <section className={styles.part} aria-label="Conditions">
+          {conditions.length > 0 ? (
+            <ol className={styles.list} aria-label="Conditions">
+              {conditions.map((condition, i) => (
+                <ConditionRow
+                  key={i}
+                  index={i}
+                  condition={condition}
+                  board={board}
+                  problem={problems.conditions[i] ?? null}
+                  onChange={(next) => setConditions(conditions.map((c, j) => (j === i ? next : c)))}
+                  onRemove={() => setConditions(conditions.filter((_, j) => j !== i))}
+                />
+              ))}
+            </ol>
+          ) : (
+            <p className={styles.hint}>Every {board.itemTerminology} that matches the trigger.</p>
+          )}
+          <div className={styles.addRow}>
+            <Button
+              kind="tertiary"
+              size="small"
+              disabled={atConditionCap || eligible.length === 0}
+              onClick={() => setConditions([...conditions, newCondition(eligible[0])])}
+            >
+              + Add condition
+            </Button>
+            <span className={styles.count}>
+              {conditions.length}/{AUTOMATION_LIMITS.maxConditions}
             </span>
-          ) : null}
-          {eligible.length === 0 ? (
-            <span className={popups.muted}> No column here can be used in a condition.</span>
-          ) : null}
-        </div>
-      </section>
+            {atConditionCap ? (
+              <span className={styles.count}>
+                {`At most ${AUTOMATION_LIMITS.maxConditions} conditions.`}
+              </span>
+            ) : null}
+            {eligible.length === 0 ? (
+              <span className={styles.count}>No column here can be used in a condition.</span>
+            ) : null}
+          </div>
+        </section>
 
-      <section className={styles.part} aria-label="Actions">
-        <ButtonActionsEditor
-          actions={actions}
-          errors={problems.actions}
-          columns={columnViews}
-          groups={board.groups}
-          boardId={board.id}
-          allowAutomationOnly
-          emptyHint="Add at least one action: what should happen."
-          onChange={setActions}
-        />
-        <Problem message={problems.general} />
-      </section>
+        <section className={styles.part} aria-label="Actions">
+          <div className={styles.line}>
+            <span className={classNames(styles.keyword, styles.keywordStrong)}>then</span>
+            <span className={styles.count}>
+              {actions.length}/{BUTTON_LIMITS.maxActions} actions
+            </span>
+          </div>
+          <div className={styles.actions}>
+            <ButtonActionsEditor
+              actions={actions}
+              errors={problems.actions}
+              columns={columnViews}
+              groups={board.groups}
+              boardId={board.id}
+              allowAutomationOnly
+              emptyHint="Add at least one action: what should happen."
+              onChange={setActions}
+            />
+          </div>
+          <Problem message={problems.general} />
+        </section>
+      </div>
+
+      <p className={styles.reads} aria-live="polite">
+        <span className={styles.readsLabel}>Reads as</span> {reads}
+      </p>
 
       {takesOver ? (
         <p id={noteId} className={styles.note} role="note">
@@ -611,6 +608,18 @@ export function RecipeBuilder({
       ) : null}
 
       <div className={styles.footer}>
+        <div className={styles.nameField}>
+          <TextField
+            id="recipe-name"
+            title="Name (optional)"
+            inputAriaLabel="Name"
+            value={name}
+            onChange={(value: string) => setName(value)}
+            maxLength={AUTOMATION_LIMITS.name}
+            placeholder="Shown instead of the sentence"
+            size="medium"
+          />
+        </div>
         <Button kind="tertiary" size="medium" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
