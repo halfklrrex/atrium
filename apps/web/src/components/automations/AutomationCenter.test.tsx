@@ -109,6 +109,19 @@ beforeEach(() => {
   mocks.writes.remove.mockResolvedValue(undefined);
 });
 
+describe('Center shell', () => {
+  it('is titled with the board name and toggles between Manage and Create', () => {
+    open('owner');
+    expect(screen.getByRole('dialog', { name: `Automations: ${board.name}` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Manage' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(screen.getByText(/Template catalog coming in the next step/)).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Run history' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Manage' }));
+    expect(screen.getByRole('tab', { name: 'Run history' })).toBeInTheDocument();
+  });
+});
+
 describe('Recipes tab', () => {
   it('shows the empty state with Create for an owner, and a plain note for others', () => {
     open('owner');

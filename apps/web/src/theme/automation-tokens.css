@@ -3,8 +3,7 @@
  */
 
 :root {
-  --atrium-automation-min-height: 420px; /* keeps the dialog steady between its tabs */
-  --atrium-automation-max-height: 60vh; /* long lists scroll inside the dialog */
+  --atrium-automation-min-height: 420px; /* keeps the full-screen center steady between its views */
   --atrium-automation-row-min-height: 56px;
   --atrium-automation-filter-width: 220px;
   --atrium-automation-run-time-width: 120px;
