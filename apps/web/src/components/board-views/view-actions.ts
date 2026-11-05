@@ -38,6 +38,7 @@ const LABELS: Record<ViewType, string> = {
   gantt: 'Gantt',
   workload: 'Workload',
   chart: 'Chart',
+  form: 'Form',
 };
 
 /** The settings a new view of a type starts with. */
@@ -45,6 +46,7 @@ function newViewSettings(type: ViewType): ViewSettings {
   const base = defaultViewSettings();
   switch (type) {
     case 'table':
+    case 'form': // the form builder (PR F2) sets its own settings
       return base;
     case 'kanban':
       return { ...base, kanban: defaultKanbanSettings() };

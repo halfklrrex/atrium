@@ -139,6 +139,8 @@ function ViewBody({ board }: { board: BoardDoc }) {
       return <WorkloadView board={board} />;
     case 'chart':
       return <ChartView board={board} />;
+    case 'form':
+      return null; // the form builder arrives with PR F2
     default: {
       const unhandled: never = type;
       return unhandled;

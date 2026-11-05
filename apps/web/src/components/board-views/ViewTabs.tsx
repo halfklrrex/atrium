@@ -56,6 +56,8 @@ const VIEW_ICONS = {
   gantt: Gantt,
   workload: Team,
   chart: Chart,
+  // Placeholder until the form builder lands (PR F2); no menu entry creates a form view yet.
+  form: Table,
 } as const;
 
 const SOON_VIEWS = [{ title: 'Map', icon: Pin }] as const;
