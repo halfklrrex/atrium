@@ -39,4 +39,9 @@
   --atrium-dashboard-battery-height: 24px;
   --atrium-dashboard-battery-gap: var(--space-4);
   --atrium-dashboard-note-bg: var(--ui-background-color);
+
+  /* ---- Workload widget ---- */
+  --atrium-dashboard-workload-person-width: 120px;
+  --atrium-dashboard-workload-cell-width: 64px;
+  --atrium-dashboard-workload-row-height: 36px;
 }

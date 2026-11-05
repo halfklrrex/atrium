@@ -33,6 +33,7 @@ import { BatteryWidget } from './widgets/BatteryWidget';
 import { ChartWidget } from './widgets/ChartWidget';
 import { TableWidget } from './widgets/TableWidget';
 import { NumbersWidget } from './widgets/NumbersWidget';
+import { WorkloadWidget } from './widgets/WorkloadWidget';
 
 type WidgetDialogState = { mode: 'add' } | { mode: 'edit'; widgetId: string } | null;
 
@@ -127,8 +128,8 @@ function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdi
         return <ChartWidget {...data} settings={widget.settings} userName={userName} />;
       case 'table':
         return <TableWidget {...data} settings={widget.settings} />;
-      default:
-        return <div className={styles.widgetNote}>This widget type is coming soon.</div>;
+      case 'workload':
+        return <WorkloadWidget {...data} settings={widget.settings} userName={userName} />;
     }
   };
 

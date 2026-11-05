@@ -36,13 +36,59 @@ beforeEach(() => {
 });
 
 describe('AddWidgetDialog', () => {
-  it('lists Numbers, Battery, Chart and Table and marks Workload as coming soon', () => {
+  it('lists all five widget types as available', () => {
     open();
-    for (const name of [/Numbers/, /Battery/, /Chart/, /Table/]) {
+    for (const name of [/Numbers/, /Battery/, /Chart/, /Table/, /Workload/]) {
       expect(screen.getByRole('radio', { name })).toBeEnabled();
     }
-    expect(screen.getByRole('radio', { name: /Workload/ })).toBeDisabled();
-    expect(screen.getAllByText('Coming soon')).toHaveLength(1);
+    expect(screen.queryByText('Coming soon')).toBeNull();
+  });
+
+  it('adds a Workload widget with its columns, period and boards', async () => {
+    render(
+      <AddWidgetDialog
+        dashboard={dashboard}
+        boards={[
+          makeBoard({
+            id: 'b1',
+            columns: [column('who', 'people', 'Owner'), column('when', 'timeline', 'Dates')],
+          }),
+        ]}
+        onClose={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole('radio', { name: /Workload/ }));
+    expect(screen.getByLabelText('Widget title')).toHaveValue('Workload');
+    await userEvent.selectOptions(screen.getByLabelText('People column'), 'who');
+    await userEvent.selectOptions(screen.getByLabelText('Date column'), 'when');
+    await userEvent.selectOptions(screen.getByLabelText('Period'), 'month');
+    await userEvent.click(screen.getByRole('button', { name: 'Add widget' }));
+    await waitFor(() => expect(mocks.addWidget).toHaveBeenCalled());
+    expect(mocks.addWidget).toHaveBeenCalledWith('d1', {
+      type: 'workload',
+      title: 'Workload',
+      boardIds: [],
+      settings: { peopleColumnId: 'who', dateColumnId: 'when', bucket: 'month' },
+    });
+  });
+
+  it('edits a Workload widget without changing its type', async () => {
+    open({
+      id: 'w1',
+      type: 'workload',
+      title: 'Team load',
+      layout: { x: 0, y: 0, w: 12, h: 6 },
+      boardIds: [],
+      settings: { peopleColumnId: null, dateColumnId: null, bucket: 'week' },
+    });
+    expect(screen.queryByRole('radiogroup', { name: 'Widget type' })).toBeNull();
+    await userEvent.selectOptions(screen.getByLabelText('Period'), 'month');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.updateWidget).toHaveBeenCalled());
+    expect(mocks.updateWidget.mock.calls[0]?.[2]).toMatchObject({
+      title: 'Team load',
+      settings: { bucket: 'month' },
+    });
   });
 
   it('adds a Chart widget with its type, axes, measure and boards', async () => {

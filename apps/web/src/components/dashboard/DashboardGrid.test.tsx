@@ -104,6 +104,21 @@ describe('DashboardGrid', () => {
     expect(props.onLayoutChange).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps a Table widget at its minimum size when resized with the keyboard', () => {
+    const table = {
+      ...widget('t', { x: 0, y: 0, w: 5, h: 4 }),
+      type: 'table',
+      settings: defaultWidgetSettings('table'),
+    } as DashboardWidget;
+    setup({ widgets: [table] });
+    for (let i = 0; i < 8; i += 1) {
+      fireEvent.keyDown(resizer('t'), { key: 'ArrowLeft' });
+      fireEvent.keyDown(resizer('t'), { key: 'ArrowUp' });
+    }
+    expect(cardOf('t').style.gridColumn).toBe('1 / span 4');
+    expect(cardOf('t').style.gridRow).toBe('1 / span 3');
+  });
+
   it('announces the new position for screen readers', () => {
     setup();
     fireEvent.keyDown(handle('a'), { key: 'ArrowDown' });
