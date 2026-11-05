@@ -1,6 +1,7 @@
 import {
   defaultCalendarSettings,
   defaultChartSettings,
+  defaultFormSettings,
   defaultGanttSettings,
   defaultWorkloadSettings,
   defaultKanbanSettings,
@@ -21,6 +22,8 @@ export interface ViewActionCtx {
   canEdit: boolean;
   /** Tabs in order, `main` first. */
   views: readonly BoardViewDoc[];
+  /** The board's first group (where a new form's responses go); missing only on a board with none. */
+  firstGroupId?: string;
   /** Go to a view's URL. */
   goTo: (viewId: string, options?: { replace?: boolean }) => void;
 }
@@ -42,12 +45,13 @@ const LABELS: Record<ViewType, string> = {
 };
 
 /** The settings a new view of a type starts with. */
-function newViewSettings(type: ViewType): ViewSettings {
+function newViewSettings(type: ViewType, firstGroupId?: string): ViewSettings {
   const base = defaultViewSettings();
   switch (type) {
     case 'table':
-    case 'form': // the form builder (PR F2) sets its own settings
       return base;
+    case 'form':
+      return { ...base, form: defaultFormSettings(firstGroupId ?? 'main') };
     case 'kanban':
       return { ...base, kanban: defaultKanbanSettings() };
     case 'calendar':
@@ -80,6 +84,16 @@ function positionAfter(views: readonly BoardViewDoc[], view: BoardViewDoc): stri
 export const viewActions = {
   /** "+ Add view": a new view named after its type, last in the row, opened at once. */
   async add(ctx: ViewActionCtx, type: ViewType): Promise<void> {
+    // Forms are shared views only: the callables treat a personal form view as unavailable.
+    if (type === 'form' && (!ctx.canEdit || !ctx.firstGroupId)) {
+      showToast(
+        ctx.canEdit
+          ? 'Add a group to the board before adding a form.'
+          : 'Only editors can add a form.',
+        { type: 'negative' },
+      );
+      return;
+    }
     try {
       const id = await viewWrites.create(ctx.boardId, ctx.uid, {
         type,
@@ -89,7 +103,7 @@ export const viewActions = {
         ),
         ownerId: newViewOwner(ctx.uid, ctx.canEdit),
         position: positionAfterAll(ctx.views.filter((v) => v.id !== 'main')),
-        settings: newViewSettings(type),
+        settings: newViewSettings(type, ctx.firstGroupId),
       });
       ctx.goTo(id);
     } catch (error) {
@@ -109,6 +123,14 @@ export const viewActions = {
 
   /** A copy right after the original, with the same settings. Personal stays personal. */
   async duplicate(ctx: ViewActionCtx, view: BoardViewDoc, settings?: ViewSettings): Promise<void> {
+    const isForm = view.type === 'form';
+    if (isForm && !ctx.canEdit) return;
+    const source = settings ?? view.settings;
+    // A copied form starts closed and shared: nobody should receive responses by surprise.
+    const copied: ViewSettings =
+      isForm && source.form
+        ? { ...source, form: { ...source.form, acceptingResponses: false } }
+        : source;
     try {
       const id = await viewWrites.create(ctx.boardId, ctx.uid, {
         type: view.type,
@@ -116,9 +138,13 @@ export const viewActions = {
           `${view.name} copy`.slice(0, 60),
           ctx.views.map((v) => v.name),
         ),
-        ownerId: view.ownerId === null ? newViewOwner(ctx.uid, ctx.canEdit) : ctx.uid,
+        ownerId: isForm
+          ? null
+          : view.ownerId === null
+            ? newViewOwner(ctx.uid, ctx.canEdit)
+            : ctx.uid,
         position: positionAfter(ctx.views, view),
-        settings: settings ?? view.settings,
+        settings: copied,
       });
       ctx.goTo(id);
     } catch (error) {

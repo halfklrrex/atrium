@@ -60,9 +60,13 @@ export function BoardViewsProvider({
       void navigate(boardViewPath(boardId, viewId), { replace: options?.replace ?? false }),
     [navigate, boardId],
   );
+  const firstGroupId = useMemo(
+    () => [...board.groups].sort((a, b) => (a.position < b.position ? -1 : 1))[0]?.id,
+    [board.groups],
+  );
   const actions = useMemo<ViewActionCtx>(
-    () => ({ boardId, uid, canEdit, views, goTo }),
-    [boardId, uid, canEdit, views, goTo],
+    () => ({ boardId, uid, canEdit, views, firstGroupId, goTo }),
+    [boardId, uid, canEdit, views, firstGroupId, goTo],
   );
   const permissions = useMemo(() => viewPermissions(view, uid, canEdit), [view, uid, canEdit]);
 

@@ -18,6 +18,7 @@ import {
   Delete,
   Duplicate,
   Edit,
+  Form,
   Gantt,
   MoreActions,
   Person,
@@ -56,8 +57,7 @@ const VIEW_ICONS = {
   gantt: Gantt,
   workload: Team,
   chart: Chart,
-  // Placeholder until the form builder lands (PR F2); no menu entry creates a form view yet.
-  form: Table,
+  form: Form,
 } as const;
 
 const SOON_VIEWS = [{ title: 'Map', icon: Pin }] as const;
@@ -237,12 +237,14 @@ export function ViewTabs() {
             }}
           />
         ) : null}
-        <MenuItem
-          title="Duplicate"
-          icon={Duplicate}
-          onClick={() => void viewActions.duplicate(actions, view)}
-        />
-        {perms.canChangeScope ? (
+        {view.type !== 'form' || actions.canEdit ? (
+          <MenuItem
+            title="Duplicate"
+            icon={Duplicate}
+            onClick={() => void viewActions.duplicate(actions, view)}
+          />
+        ) : null}
+        {perms.canChangeScope && view.type !== 'form' ? (
           <MenuItem
             title={view.ownerId === null ? 'Make personal' : 'Make shared'}
             icon={Person}
@@ -341,6 +343,13 @@ export function ViewTabs() {
             icon={Chart}
             onClick={() => void viewActions.add(actions, 'chart')}
           />
+          {actions.canEdit ? (
+            <MenuItem
+              title="Form"
+              icon={Form}
+              onClick={() => void viewActions.add(actions, 'form')}
+            />
+          ) : null}
           {SOON_VIEWS.map((soon) => (
             <MenuItem
               key={soon.title}

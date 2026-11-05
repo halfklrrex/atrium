@@ -1,0 +1,209 @@
+.root {
+  display: flex;
+  flex: 1;
+  gap: var(--space-24);
+  min-height: 0;
+  padding: var(--space-16) var(--atrium-board-gutter);
+  overflow: auto;
+}
+
+.state {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-24);
+}
+
+.editor {
+  display: flex;
+  flex: 0 0 var(--atrium-form-editor-width);
+  flex-direction: column;
+  gap: var(--space-16);
+  min-width: 0;
+}
+
+.previewPane {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: flex-start;
+  min-width: 0;
+  padding: var(--space-24);
+  border-radius: var(--atrium-form-card-radius);
+  background: var(--atrium-form-canvas-bg);
+}
+
+.readOnly {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border: var(--border-width) var(--border-style) var(--atrium-form-card-border);
+  border-radius: var(--atrium-form-card-radius);
+  background: var(--atrium-form-card-bg);
+}
+
+.sectionTitle {
+  margin: 0;
+  font: var(--atrium-form-section-font);
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font: var(--font-text1-normal);
+}
+
+.hint {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--atrium-form-help-font);
+}
+
+.problems,
+.problemsBlocked {
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--border-radius-small);
+  border: var(--border-width) var(--border-style) var(--atrium-form-warning);
+  font: var(--font-text2-normal);
+}
+
+.problemsBlocked {
+  border-color: var(--atrium-form-error);
+}
+
+.problemsTitle {
+  margin: 0 0 var(--space-4);
+  font: var(--font-text2-medium);
+}
+
+.problems ul,
+.problemsBlocked ul {
+  margin: 0;
+  padding-inline-start: var(--space-16);
+}
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.linkRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.fieldLabel {
+  font: var(--atrium-form-label-font);
+}
+
+.questionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.question {
+  display: flex;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border: var(--border-width) var(--border-style) var(--atrium-form-card-border);
+  border-radius: var(--border-radius-medium);
+  background: var(--atrium-form-card-bg);
+}
+
+.dragging {
+  position: relative;
+  z-index: var(--atrium-z-raised);
+  opacity: 0.8;
+}
+
+.handle,
+.handleSpacer {
+  flex: 0 0 var(--atrium-form-handle-size);
+  width: var(--atrium-form-handle-size);
+  height: var(--atrium-form-handle-size);
+}
+
+.handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--secondary-text-color);
+  cursor: grab;
+}
+
+.handle:focus-visible {
+  outline: var(--atrium-focus-ring);
+  border-radius: var(--border-radius-small);
+}
+
+.questionBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.questionKind {
+  color: var(--secondary-text-color);
+  font: var(--atrium-form-help-font);
+  text-transform: capitalize;
+}
+
+.questionFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font: var(--font-text2-normal);
+}
+
+.removeButton {
+  margin-inline-start: auto;
+}
+
+@media (width < 900px) {
+  .root {
+    flex-direction: column;
+    padding-inline: var(--space-16);
+  }
+
+  .editor {
+    flex-basis: auto;
+  }
+}
+
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font: var(--font-text2-medium);
+}

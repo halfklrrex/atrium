@@ -6,6 +6,8 @@ import {
   CREATE_INVITE_CALLABLE,
   DECLINE_INVITE_CALLABLE,
   FINALIZE_DESCRIPTION_IMAGE_CALLABLE,
+  GET_FORM_CALLABLE,
+  SUBMIT_FORM_CALLABLE,
   GET_DESCRIPTION_IMAGE_URL_CALLABLE,
   GET_INVITE_STATUS_CALLABLE,
   LEAVE_BOARD_CALLABLE,
@@ -31,6 +33,10 @@ import {
   finalizeFileUploadRequestSchema,
   finalizeFileUploadResultSchema,
   getDescriptionImageUrlResultSchema,
+  getFormRequestSchema,
+  getFormResultSchema,
+  submitFormRequestSchema,
+  submitFormResultSchema,
   getFileDownloadUrlRequestSchema,
   getFileDownloadUrlResultSchema,
   getInviteStatusResultSchema,
@@ -69,6 +75,10 @@ import {
   type FinalizeFileUploadResult,
   type GetDescriptionImageUrlRequest,
   type GetDescriptionImageUrlResult,
+  type GetFormRequest,
+  type GetFormResult,
+  type SubmitFormRequest,
+  type SubmitFormResult,
   type GetFileDownloadUrlRequest,
   type GetFileDownloadUrlResult,
   type GetInviteStatusRequest,
@@ -262,6 +272,20 @@ export const callDeleteFileAttachment = validatedCallable<
   (r) => deleteFileAttachmentRequestSchema.parse(r),
   (d) => deleteFileAttachmentResultSchema.parse(d),
 );
+
+/** Public forms (P7): any signed-in user reads an open form and submits to it. */
+export const formCalls = {
+  get: validatedCallable<GetFormRequest, GetFormResult>(
+    GET_FORM_CALLABLE,
+    (r) => getFormRequestSchema.parse(r),
+    (d) => getFormResultSchema.parse(d),
+  ),
+  submit: validatedCallable<SubmitFormRequest, SubmitFormResult>(
+    SUBMIT_FORM_CALLABLE,
+    (r) => submitFormRequestSchema.parse(r),
+    (d) => submitFormResultSchema.parse(d),
+  ),
+};
 
 export const columnActionCalls = {
   clickButton: callClickButton,
