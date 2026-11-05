@@ -143,6 +143,23 @@ export async function chartReady(page: Page, title: string, marks: number): Prom
   await expect(page.locator('svg [class*="mark"]')).toHaveCount(marks);
 }
 
+/** The seeded roadmap as a Form view: the share panel, the editor sections and the live preview. */
+export async function formBuilderReady(page: Page): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('heading', { name: 'Share', level: 3 })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Questions' })).toBeVisible();
+  const preview = page.getByRole('region', { name: 'Form preview' });
+  await expect(preview.getByRole('heading', { name: 'Request a feature' })).toBeVisible();
+  await expect(preview.getByText('What do you need?')).toBeVisible();
+}
+
+/** The public form page (no app shell): the title and the first question. */
+export async function formPageReady(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Request a feature' })).toBeVisible();
+  await expect(page.getByText('What do you need?')).toBeVisible();
+  await expect(page.getByText('Loading form…')).toHaveCount(0);
+}
+
 /** Home with all four seeded boards and both workspaces rendered (snapshots arrive separately). */
 export async function homeReady(page: Page): Promise<void> {
   await appReady(page);
