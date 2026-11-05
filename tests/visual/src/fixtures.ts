@@ -135,6 +135,16 @@ export async function ganttReady(page: Page, bars: number, arrows: number): Prom
   await expect(page.locator('[data-edge]')).toHaveCount(arrows);
 }
 
+/** The seeded dashboard: the grid with all five widgets drawn from the roadmap board. */
+export async function dashboardReady(page: Page): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('group', { name: 'Dashboard widgets' })).toBeVisible();
+  await expect(page.getByRole('grid', { name: /^Table of 18 items/ })).toBeVisible();
+  await expect(page.getByRole('grid', { name: /^Workload of/ })).toBeVisible();
+  await expect(page.getByRole('img', { name: /Bar chart/ })).toBeVisible();
+  await expect(page.getByText('Loading…')).toHaveCount(0);
+}
+
 /** The seeded roadmap as a Chart view: the title, the drawing and its screen-reader summary. */
 export async function chartReady(page: Page, title: string, marks: number): Promise<void> {
   await appReady(page);
