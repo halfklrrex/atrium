@@ -1,5 +1,7 @@
 import { defaultChartSettings } from '@atrium/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { ChartWidget } from './ChartWidget';
@@ -62,6 +64,32 @@ describe('TableWidget', () => {
     const link = screen.getByRole('link', { name: 'i1' });
     expect(link.getAttribute('href')).toContain('i1');
     expect(screen.getAllByText('Sales').length).toBeGreaterThan(0);
+  });
+
+  it('renders every item as its own row with name, board and a status cell inside a grid cell', () => {
+    render(
+      <MemoryRouter>
+        <TableWidget {...base} settings={settings} />
+      </MemoryRouter>,
+    );
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(6);
+    const first = rows[0] as HTMLElement;
+    expect(within(first).getByRole('link')).toBeInTheDocument();
+    expect(within(first).getAllByRole('gridcell').length).toBeGreaterThanOrEqual(5);
+    // The status fill is absolutely positioned, so it must sit in a cell, never loose in the row.
+    for (const label of screen.getAllByText(/^(Done|Working on it|Stuck)$/)) {
+      expect(label.closest('[role="gridcell"]')).not.toBeNull();
+    }
+  });
+
+  it('gives rows a fixed token height and positions cells so a status fill stays in its cell', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src/components/dashboard/dashboard.module.css'),
+      'utf8',
+    );
+    expect(css).toMatch(/\.tableRow \{[^}]*height: var\(--atrium-dashboard-table-row-height\)/);
+    expect(css).toMatch(/\.tableCell \{[^}]*position: relative/);
   });
 
   it('says how many rows are hidden', () => {
