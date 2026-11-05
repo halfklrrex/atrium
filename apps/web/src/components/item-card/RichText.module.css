@@ -76,3 +76,66 @@
   border-inline-start: var(--space-4) solid var(--layout-border-color);
   color: var(--secondary-text-color);
 }
+
+.root h2 {
+  margin: 0;
+  font: var(--atrium-doc-h2-font);
+  white-space: pre-wrap;
+}
+
+.root > * + h2 {
+  margin-top: var(--space-16);
+}
+
+.root pre {
+  margin: 0;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--border-radius-4);
+  background: var(--allgrey-background-color);
+  font: var(--atrium-doc-code-font);
+  overflow-x: auto;
+}
+
+.root pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.root hr {
+  height: var(--border-width);
+  margin-block: var(--space-12);
+  border: 0;
+  background: var(--layout-border-color);
+}
+
+.tableScroll {
+  composes: atrium-scroll from global;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.root table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+}
+
+.root th,
+.root td {
+  min-width: calc(var(--space-32) * 3);
+  padding: var(--space-8);
+  border: var(--border-width) solid var(--layout-border-color);
+  vertical-align: top;
+}
+
+.root th {
+  background: var(--allgrey-background-color);
+  font-weight: var(--font-weight-bold);
+  text-align: start;
+}
+
+.root td > *,
+.root th > * {
+  margin: 0;
+}

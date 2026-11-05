@@ -1,4 +1,4 @@
-import { useEditorState, type ChainedCommands, type Editor } from '@tiptap/react';
+import { useEditorState, type Editor } from '@tiptap/react';
 import { Button, Menu, MenuDivider, MenuItem, TextField, Tooltip } from '@vibe/core';
 import {
   Bold,
@@ -44,6 +44,7 @@ import {
 import { currentColors, marks } from './editor-marks';
 import { FONTS, type ColorKey } from './editor-palette';
 import { parseLinkUrl } from './link-url';
+import { TEXT_STYLES, type StyleKey } from './text-styles';
 import { toolsThatFit } from './toolbar-fit';
 import styles from './DescriptionEditor.module.css';
 
@@ -53,48 +54,6 @@ const SHIFT = IS_MAC ? '⇧' : 'Shift+';
 /** A shortcut label for a tooltip: "Ctrl+B" (or the Mac symbols). */
 const mod = (key: string) => `${MOD}${key}`;
 const modShift = (key: string) => `${MOD}${SHIFT}${key}`;
-
-type StyleKey = 'normal' | 'h1' | 'h2' | 'h3' | 'quote' | 'code';
-
-/** The text-style menu: each row previews its own style (`preview` names a class). */
-const TEXT_STYLES: {
-  key: StyleKey;
-  name: string;
-  preview: 'styleNormal' | 'styleH1' | 'styleH2' | 'styleH3' | 'styleQuote' | 'styleCode';
-  apply: (chain: ChainedCommands) => void;
-}[] = [
-  {
-    key: 'normal',
-    name: 'Normal text',
-    preview: 'styleNormal',
-    apply: (c) => c.setParagraph().run(),
-  },
-  {
-    key: 'h1',
-    name: 'Heading 1',
-    preview: 'styleH1',
-    apply: (c) => c.setNode('heading', { level: 1 }).run(),
-  },
-  {
-    key: 'h2',
-    name: 'Heading 2',
-    preview: 'styleH2',
-    apply: (c) => c.setNode('heading', { level: 2 }).run(),
-  },
-  {
-    key: 'h3',
-    name: 'Heading 3',
-    preview: 'styleH3',
-    apply: (c) => c.setNode('heading', { level: 3 }).run(),
-  },
-  { key: 'quote', name: 'Quote', preview: 'styleQuote', apply: (c) => c.toggleBlockquote().run() },
-  {
-    key: 'code',
-    name: 'Code block',
-    preview: 'styleCode',
-    apply: (c) => c.toggleCodeBlock().run(),
-  },
-];
 
 /** Titles in the More menu where the button's label carries a value ("Font: Default"). */
 const MORE_TITLES: Record<string, string> = {

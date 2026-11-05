@@ -94,6 +94,13 @@
   --atrium-editor-body-font: 400 16px / var(--atrium-editor-line-height) var(--font-family);
   --atrium-editor-body-padding: 16px 18px;
 
+  /* ---- Update composer (VF9): font sizes and the bottom row ---- */
+  --atrium-text-size-small: 13px;
+  --atrium-text-size-large: 20px;
+  --atrium-text-size-huge: 28px;
+  --atrium-composer-min-height: 72px; /* about three lines of body text */
+  --atrium-composer-bottom-padding: 8px 12px;
+
   /* ---- Images ---- */
   --atrium-image-min-width: 25%;
   --atrium-image-handle-size: 12px;
@@ -239,4 +246,30 @@ mark[class*='atrium-highlight-'] {
 
 .atrium-font-caveat {
   font-family: var(--atrium-font-caveat);
+}
+
+/* ---- Update composer (VF9): size, alignment and direction classes ---- */
+
+.atrium-size-small {
+  font-size: var(--atrium-text-size-small);
+}
+
+.atrium-size-large {
+  font-size: var(--atrium-text-size-large);
+}
+
+.atrium-size-huge {
+  font-size: var(--atrium-text-size-huge);
+}
+
+.atrium-align-left {
+  text-align: left;
+}
+
+.atrium-align-center {
+  text-align: center;
+}
+
+.atrium-align-right {
+  text-align: right;
 }

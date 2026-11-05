@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { RichText } from './RichText';
 import { safeLinkHref } from './safe-link';
@@ -150,6 +150,135 @@ describe('RichText', () => {
   it('renders nothing harmful for a malformed doc', () => {
     const { container } = render(<RichText doc={{ type: 'doc', content: [null, 4, 'x', {}] }} />);
     expect(container.textContent).toBe('');
+  });
+});
+
+describe('RichText: composer blocks', () => {
+  const cell = (type: 'tableCell' | 'tableHeader', ...content: unknown[]) => ({
+    type,
+    attrs: { colspan: 1, rowspan: 1, colwidth: null },
+    content: [para(...content)],
+  });
+
+  it('renders a level 2 heading, a code block and a divider', () => {
+    const { container } = render(
+      <RichText
+        doc={doc(
+          { type: 'heading', attrs: { level: 2 }, content: [text('Title')] },
+          { type: 'codeBlock', content: [text('const a = 1;\nconst b = <i>2</i>;')] },
+          { type: 'horizontalRule' },
+        )}
+      />,
+    );
+    expect(container.querySelector('h2')).toHaveTextContent('Title');
+    expect(container.querySelector('pre > code')?.textContent).toBe(
+      'const a = 1;\nconst b = <i>2</i>;',
+    );
+    expect(container.querySelector('pre i')).toBeNull();
+    expect(container.querySelector('hr')).not.toBeNull();
+  });
+
+  it('renders a table with a header row and cell content', () => {
+    const { container } = render(
+      <RichText
+        doc={doc({
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [cell('tableHeader', text('Name')), cell('tableHeader', text('Role'))],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                cell('tableCell', text('Avery', mark('bold'))),
+                cell('tableCell', text('Lead')),
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+    expect(container.querySelectorAll('th')).toHaveLength(2);
+    expect(container.querySelectorAll('td')).toHaveLength(2);
+    expect(container.querySelector('td strong')).toHaveTextContent('Avery');
+    expect(
+      within(container.querySelector('table')!).getByText('Role').closest('th'),
+    ).not.toBeNull();
+  });
+
+  it('keeps a javascript: link in a table cell from becoming a link', () => {
+    render(
+      <RichText
+        doc={doc({
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                cell('tableCell', text('evil', mark('link', { href: 'javascript:alert(1)' }))),
+                cell('tableCell', text('fine', mark('link', { href: 'https://example.com' }))),
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByText('evil').closest('a')).toBeNull();
+    expect(screen.getByRole('link', { name: 'fine' })).toHaveAttribute(
+      'href',
+      'https://example.com/',
+    );
+  });
+
+  it('renders the size, align and direction keys as classes and dir', () => {
+    const { container } = render(
+      <RichText
+        doc={doc(
+          {
+            type: 'paragraph',
+            attrs: { align: 'center', dir: 'rtl' },
+            content: [text('big', mark('textStyle', { fontSize: 'huge' }))],
+          },
+          {
+            type: 'heading',
+            attrs: { level: 2, align: 'right' },
+            content: [text('head')],
+          },
+        )}
+      />,
+    );
+    const p = container.querySelector('p')!;
+    expect(p).toHaveClass('atrium-align-center');
+    expect(p).toHaveAttribute('dir', 'rtl');
+    expect(screen.getByText('big')).toHaveClass('atrium-size-huge');
+    expect(container.querySelector('h2')).toHaveClass('atrium-align-right');
+  });
+
+  it('ignores an unknown size, align or dir key', () => {
+    const { container } = render(
+      <RichText
+        doc={doc({
+          type: 'paragraph',
+          attrs: { align: 'justify; color: red', dir: 'auto' },
+          content: [text('plain', mark('textStyle', { fontSize: '99px' }))],
+        })}
+      />,
+    );
+    const p = container.querySelector('p')!;
+    expect(p.getAttribute('class')).toBeNull();
+    expect(p).not.toHaveAttribute('dir');
+    expect(screen.getByText('plain').tagName).toBe('P');
+  });
+
+  it('shows a heading of another level as its text only', () => {
+    const { container } = render(
+      <RichText
+        doc={doc({ type: 'heading', attrs: { level: 3 }, content: [text('small head')] })}
+      />,
+    );
+    expect(container.querySelector('h2, h3')).toBeNull();
+    expect(container).toHaveTextContent('small head');
   });
 });
 
