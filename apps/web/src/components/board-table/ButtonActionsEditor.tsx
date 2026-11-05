@@ -5,7 +5,7 @@ import {
   type ButtonAction,
   type GroupDef,
 } from '@atrium/shared';
-import { IconButton } from '@vibe/core';
+import { Button, IconButton } from '@vibe/core';
 import { Delete, DropdownChevronDown, DropdownChevronUp } from '@vibe/icons';
 import classNames from 'classnames';
 import { useContext, useState } from 'react';
@@ -192,6 +192,140 @@ function NotifyFields({
   );
 }
 
+/** The new item a `create_item` action makes: its name, optional group and up to 10 values. */
+function CreateItemFields({
+  action,
+  columns,
+  groups,
+  boardId,
+  onChange,
+}: {
+  action: Extract<ButtonAction, { type: 'create_item' }>;
+  columns: readonly ColumnView[];
+  groups: readonly GroupDef[];
+  boardId?: string;
+  onChange: (action: ButtonAction) => void;
+}) {
+  const writable = columns.filter(isWritableByButton);
+  const values = action.values ?? {};
+  const entries = Object.entries(values);
+  const free = writable.filter((c) => !(c.def.id in values));
+  const set = (next: Record<string, unknown>) => {
+    const { values: _old, ...rest } = action;
+    onChange(Object.keys(next).length > 0 ? { ...rest, values: next } : rest);
+  };
+  const setGroup = (groupId: string) => {
+    const { groupId: _old, ...rest } = action;
+    onChange(groupId ? { ...rest, groupId } : rest);
+  };
+  // Swapping a row's column keeps its place in the list and clears its value.
+  const replaceKey = (from: string, to: string) =>
+    Object.fromEntries(entries.map(([k, v]) => (k === from ? [to, undefined] : [k, v])));
+
+  return (
+    <>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>Name</span>
+        <input
+          className={popups.input}
+          value={action.name}
+          maxLength={BUTTON_LIMITS.maxCreateName}
+          onChange={(event) => onChange({ ...action, name: event.target.value })}
+        />
+        <span className={styles.helper}>
+          Use {'{name}'} for the current name and {'{date}'} for today (YYYY-MM-DD).
+        </span>
+      </label>
+      <label className={popups.field}>
+        <span className={popups.fieldLabel}>In group</span>
+        <select
+          className={popups.input}
+          value={action.groupId ?? ''}
+          onChange={(event) => setGroup(event.target.value)}
+        >
+          <option value="">Default group</option>
+          {action.groupId && !groups.some((g) => g.id === action.groupId) ? (
+            <option value={action.groupId}>Deleted group</option>
+          ) : null}
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      {entries.map(([columnId, value], i) => {
+        const target = columns.find((c) => c.def.id === columnId);
+        return (
+          <div
+            key={columnId}
+            role="group"
+            aria-label={`Value ${i + 1}`}
+            className={styles.valueRow}
+          >
+            <label className={popups.field}>
+              <span className={popups.fieldLabel}>Column</span>
+              <select
+                className={popups.input}
+                value={target ? columnId : ''}
+                onChange={(event) => set(replaceKey(columnId, event.target.value))}
+              >
+                {target ? null : (
+                  <option value="" disabled>
+                    Deleted column
+                  </option>
+                )}
+                {target ? <option value={columnId}>{target.def.title}</option> : null}
+                {free
+                  .filter((c) => c.def.id !== columnId)
+                  .map((c) => (
+                    <option key={c.def.id} value={c.def.id}>
+                      {c.def.title}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            {target ? (
+              <ValueField
+                key={columnId}
+                column={target}
+                value={value}
+                boardId={boardId}
+                onChange={(next) => set({ ...values, [columnId]: next })}
+              />
+            ) : null}
+            <div>
+              <Button
+                kind="tertiary"
+                size="small"
+                aria-label={`Remove value ${i + 1}`}
+                onClick={() => set(Object.fromEntries(entries.filter(([k]) => k !== columnId)))}
+              >
+                Remove value
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+      <div>
+        <Button
+          kind="tertiary"
+          size="small"
+          disabled={entries.length >= BUTTON_LIMITS.maxCreateValues || free.length === 0}
+          onClick={() => set({ ...values, [free[0]!.def.id]: undefined })}
+        >
+          + Add value
+        </Button>
+        {entries.length >= BUTTON_LIMITS.maxCreateValues ? (
+          <span
+            className={styles.helper}
+          >{` At most ${BUTTON_LIMITS.maxCreateValues} values.`}</span>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 function ActionRow({
   action,
   index,
@@ -331,6 +465,32 @@ function ActionRow({
 
       {action.type === 'notify' ? <NotifyFields action={action} onChange={onChange} /> : null}
 
+      {action.type === 'create_item' ? (
+        <CreateItemFields
+          action={action}
+          columns={columns}
+          groups={groups}
+          boardId={boardId}
+          onChange={onChange}
+        />
+      ) : null}
+
+      {action.type === 'post_update' ? (
+        <label className={popups.field}>
+          <span className={popups.fieldLabel}>Update text</span>
+          <textarea
+            className={popups.input}
+            rows={3}
+            value={action.text}
+            maxLength={BUTTON_LIMITS.maxUpdateText}
+            onChange={(event) => onChange({ type: 'post_update', text: event.target.value })}
+          />
+          <span className={styles.helper}>
+            Posted as &quot;Automations&quot;. Use {'{name}'} and {'{date}'} like in a rename.
+          </span>
+        </label>
+      ) : null}
+
       {action.type === 'archive_item' ? (
         <p className={styles.helper}>The item moves to the archive.</p>
       ) : null}
@@ -382,7 +542,7 @@ export function ButtonActionsEditor({
   boardId?: string;
   /** Shown while the list is empty (a recipe needs at least one action). */
   emptyHint?: string;
-  /** Offer `create_item` / `post_update`; only a recipe may (their rows arrive with P5c-3). */
+  /** Offer `create_item` / `post_update`; only a recipe may. */
   allowAutomationOnly?: boolean;
   onChange: (actions: ButtonAction[]) => void;
 }) {

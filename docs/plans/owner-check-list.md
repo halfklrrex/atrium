@@ -2,6 +2,10 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## P5c: more triggers and actions (web + showcase)
+
+- **New triggers and actions in the recipe builder:** on the showcase board open **Automate**. Check the two new seeded recipes ("Say it when work lands in Done" on the Item moved trigger with a Post an update action, and "Follow-up for new owners" on the Person assigned trigger with a Create item action). Then create one recipe per new type yourself: a trigger "Item moved" (with a group and with "Any group"), a trigger "Person assigned" (People column, with and without a chosen person), an action "Create item" (name with `{name}` / `{date}`, a group, up to 10 values) and an action "Post an update". Trigger each (move an item to Done, add a person to the Owner cell), then open **Run history** and see an `ok` run; the new item should appear, and the update should show the author "Automations". Check that these two actions are NOT offered in a Button column's settings. Light and dark. The Functions side (P5c-2) must be live for the runs to appear.
+
 ## Merged 2026-11-05 (live)
 
 - **Automations (#90 engine, #97 center, #100 builder):** on the showcase board open **Automate**. Check the two seeded recipes ("Heads-up on new items" on, "File finished items" off with a reason). Create a recipe from a starter or from scratch (for example "When Status changes to Done, then notify me"), save it, set an item's Status to Done and open the **Run history** tab: an `ok` run should appear within seconds and the notify action should reach the bell. Also try an off switch, Edit, Duplicate and Delete. Light and dark. Not verified in a browser by the agent (Chrome was not connected).

@@ -164,9 +164,11 @@ export function isDraftOk(problems: DraftProblems, actionCount: number): boolean
   );
 }
 
-/** Triggers the builder offers; `item_moved` / `person_assigned` get their pickers in P5c-3. */
+/** Triggers the builder offers. */
 export const TRIGGER_TYPES: AutomationTrigger['type'][] = [
   'item_created',
+  'item_moved',
+  'person_assigned',
   'status_changed',
   'button_clicked',
 ];

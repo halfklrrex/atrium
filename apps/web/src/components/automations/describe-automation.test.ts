@@ -157,4 +157,63 @@ describe('describeAutomation', () => {
         'then set a deleted column to a value and move the item to a deleted group',
     );
   });
+
+  it('describes item_moved and person_assigned triggers', () => {
+    const base = { conditions: [], actions: [{ type: 'archive_item' as const }] };
+    const people = { id: 'who', type: 'people', title: 'Owner', settings: {} };
+    const withPeople = { ...board, columns: [...board.columns, people] };
+    expect(
+      describeAutomation({ ...base, trigger: { type: 'item_moved', groupId: 'g-done' } }, board),
+    ).toBe('When an item is moved to Done items, then archive the item');
+    expect(describeAutomation({ ...base, trigger: { type: 'item_moved' } }, board)).toBe(
+      'When an item is moved, then archive the item',
+    );
+    expect(
+      describeAutomation(
+        { ...base, trigger: { type: 'person_assigned', columnId: 'who' } },
+        withPeople,
+      ),
+    ).toBe('When someone is assigned to Owner, then archive the item');
+    expect(
+      describeAutomation(
+        { ...base, trigger: { type: 'person_assigned', columnId: 'who', uid: 'u1' } },
+        withPeople,
+      ),
+    ).toBe('When someone is assigned to Owner, then archive the item');
+  });
+
+  it('describes create_item and post_update, with deleted groups and columns', () => {
+    const text = describeAutomation(
+      {
+        trigger: { type: 'item_moved', groupId: 'gone' },
+        conditions: [],
+        actions: [
+          {
+            type: 'create_item',
+            name: '{name} follow-up',
+            groupId: 'g-new',
+            values: { notes: 'x' },
+          },
+          { type: 'create_item', name: 'Plain' },
+          { type: 'create_item', name: 'Lost', groupId: 'gone-group' },
+          { type: 'post_update', text: 'Moved on {date}' },
+        ],
+      },
+      board,
+    );
+    expect(text).toBe(
+      'When an item is moved to a deleted group, then create an item "{name} follow-up" in New, ' +
+        'create an item "Plain", create an item "Lost" in a deleted group and post an update "Moved on {date}"',
+    );
+    expect(
+      describeAutomation(
+        {
+          trigger: { type: 'person_assigned', columnId: 'gone' },
+          conditions: [],
+          actions: [{ type: 'post_update', text: 'Hi' }],
+        },
+        board,
+      ),
+    ).toBe('When someone is assigned to a deleted column, then post an update "Hi"');
+  });
 });
