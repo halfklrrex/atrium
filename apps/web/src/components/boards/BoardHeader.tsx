@@ -1,7 +1,7 @@
 import { canEditBoard, resolveBoardRole } from '@atrium/shared';
 import { AvatarGroup, Button, EditableHeading, IconButton, Tooltip } from '@vibe/core';
 import { Bolt, DropdownChevronDown, DropdownChevronUp, Integrations } from '@vibe/icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { useWorkspace, type BoardDoc } from '../../data';
@@ -13,6 +13,7 @@ import { showComingSoon } from '../toast-store';
 import { UserAvatar } from '../UserAvatar';
 import { ViewTabs } from '../board-views/ViewTabs';
 import { BoardActivityPanel } from '../activity/BoardActivityPanel';
+import { AutomationCenter } from '../automations/AutomationCenter';
 import { PresenceAvatars } from '../presence';
 import { boardActions } from './board-actions';
 import { BoardMenu } from './BoardMenu';
@@ -30,6 +31,8 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
   const canEdit = canEditBoard(role);
   const [infoOpen, setInfoOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [automationOpen, setAutomationOpen] = useState(false);
+  const automateRef = useRef<HTMLButtonElement>(null);
   const openDialog = useUiStore((s) => s.openDialog);
   const openActivityPanel = useUiStore((s) => s.openActivityPanel);
 
@@ -116,16 +119,16 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
               Integrate
             </Button>
           </Tooltip>
-          <Tooltip content="Coming soon">
-            <Button
-              kind="tertiary"
-              size="small"
-              leftIcon={Bolt}
-              onClick={() => showComingSoon('Automations')}
-            >
-              Automate
-            </Button>
-          </Tooltip>
+          <Button
+            ref={automateRef}
+            kind="tertiary"
+            size="small"
+            leftIcon={Bolt}
+            aria-haspopup="dialog"
+            onClick={() => setAutomationOpen(true)}
+          >
+            Automate
+          </Button>
           <PresenceAvatars boardId={board.id} />
           <AvatarGroup max={3} size="small" type="img">
             {memberIds.map((id) => (
@@ -148,6 +151,18 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
           <FavoriteStar board={board} />
         </div>
       </div>
+
+      {automationOpen ? (
+        <AutomationCenter
+          board={board}
+          role={role}
+          onClose={() => {
+            setAutomationOpen(false);
+            // Give focus back to the button that opened the center.
+            requestAnimationFrame(() => automateRef.current?.focus());
+          }}
+        />
+      ) : null}
 
       <ViewTabs />
       <BoardActivityPanel board={board} />
