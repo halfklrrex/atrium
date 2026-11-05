@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { idSchema } from './common';
 import { slugIdSchema } from './board';
 
 /**
@@ -101,11 +100,16 @@ export function defaultFormSettings(targetGroupId: string): FormSettings {
   };
 }
 
+/** A board or view id as it appears in a document path (no slash can sneak in). */
+const pathIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/, 'Expected an id');
+
 /** Name of the callables, shared so client and server cannot drift. */
 export const GET_FORM_CALLABLE = 'getForm';
 export const SUBMIT_FORM_CALLABLE = 'submitForm';
 
-export const getFormRequestSchema = z.object({ boardId: idSchema, viewId: idSchema }).strict();
+export const getFormRequestSchema = z
+  .object({ boardId: pathIdSchema, viewId: pathIdSchema })
+  .strict();
 export type GetFormRequest = z.infer<typeof getFormRequestSchema>;
 
 /** One question as a visitor sees it: how to draw the input, nothing about the board. */
@@ -131,8 +135,8 @@ export type GetFormResult = z.infer<typeof getFormResultSchema>;
 
 export const submitFormRequestSchema = z
   .object({
-    boardId: idSchema,
-    viewId: idSchema,
+    boardId: pathIdSchema,
+    viewId: pathIdSchema,
     /** Cell values keyed by column id; `name` is the item name. */
     answers: z.record(z.string().min(1).max(128), z.unknown()),
   })
