@@ -1,6 +1,8 @@
 import { Icon } from '@vibe/core';
 import {
   Board,
+  Dashboard as DashboardIcon,
+  DashboardPrivate,
   BoardPrivate,
   BoardShareable,
   ClassicFolder as FolderIcon,
@@ -9,7 +11,14 @@ import {
 import classNames from 'classnames';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { buildTree, flattenTree, type BoardDoc, type FolderDoc, type TreeRow } from '../../data';
+import {
+  buildTree,
+  flattenTree,
+  type BoardDoc,
+  type DashboardDoc,
+  type FolderDoc,
+  type TreeRow,
+} from '../../data';
 import { formatUpdated } from '../../lib/format';
 import { BoardMenu } from '../boards/BoardMenu';
 import { FavoriteStar } from '../boards/FavoriteStar';
@@ -29,12 +38,14 @@ const iconFor = (kind: BoardDoc['kind']) =>
 export function WorkspaceContentList({
   folders,
   boards,
+  dashboards = [],
 }: {
   folders: readonly FolderDoc[];
   boards: readonly BoardDoc[];
+  dashboards?: readonly DashboardDoc[];
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const tree = useMemo(() => buildTree(folders, boards), [folders, boards]);
+  const tree = useMemo(() => buildTree(folders, boards, dashboards), [folders, boards, dashboards]);
   const rows = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
 
   const toggle = (id: string) =>
@@ -107,6 +118,35 @@ function ContentRow({
         </span>
         <span role="cell">
           <UserAvatar uid={folder.createdBy} size="xs" />
+        </span>
+        <span role="cell" />
+      </div>
+    );
+  }
+
+  if (node.type === 'dashboard') {
+    const { dashboard } = node;
+    return (
+      <div role="row" className={classNames(styles.grid, styles.row)} style={style}>
+        <span role="cell" className={styles.nameCell}>
+          <Link to={`/dashboards/${dashboard.id}`} className={styles.nameButton}>
+            <span className={styles.chevronSpacer} />
+            <Icon
+              icon={dashboard.kind === 'main' ? DashboardIcon : DashboardPrivate}
+              size={20}
+              className={styles.boardIcon}
+            />
+            <span className={styles.name}>{dashboard.name}</span>
+          </Link>
+        </span>
+        <span role="cell" className={styles.muted}>
+          Dashboard
+        </span>
+        <span role="cell" className={styles.muted}>
+          {formatUpdated(dashboard.updatedAt)}
+        </span>
+        <span role="cell">
+          <UserAvatar uid={dashboard.createdBy} size="xs" />
         </span>
         <span role="cell" />
       </div>

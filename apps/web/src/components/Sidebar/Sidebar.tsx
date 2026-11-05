@@ -12,9 +12,10 @@ import classNames from 'classnames';
 import { useCallback, useMemo, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
-import { useBoards, useFolders } from '../../data';
+import { useBoards, useFolders, useWorkspaceDashboards } from '../../data';
 import type { DropResult } from '../../data/treeDnd';
 import { boardActions, folderActions } from '../boards/board-actions';
+import { dashboardActions } from '../dashboard/dashboard-actions';
 import { useUiStore } from '../AppShell/ui-store';
 import { useCurrentWorkspace } from '../AppShell/useCurrentWorkspace';
 import { AddMenu } from './AddMenu';
@@ -82,9 +83,15 @@ export function Sidebar() {
   const { workspace, workspaces, loading } = useCurrentWorkspace();
   const { data: folders } = useFolders(workspace?.id);
   const { data: boards, error: boardsError } = useBoards(workspace?.id, uid);
+  const { data: dashboards } = useWorkspaceDashboards(workspace?.id, uid);
   const boardMatch = useMatch('/boards/:boardId/*');
   const activeBoardId = boardMatch?.params.boardId ?? null;
-  const activeFolderId = boards.find((b) => b.id === activeBoardId)?.folderId ?? null;
+  const dashboardMatch = useMatch('/dashboards/:dashboardId');
+  const activeDashboardId = dashboardMatch?.params.dashboardId ?? null;
+  const activeFolderId =
+    boards.find((b) => b.id === activeBoardId)?.folderId ??
+    dashboards.find((d) => d.id === activeDashboardId)?.folderId ??
+    null;
   const { expanded, toggle, expand } = useExpandedFolders(workspace?.id ?? null, activeFolderId);
 
   // Search mode belongs to one workspace: switching workspace leaves it (derived, no effect).
@@ -111,6 +118,11 @@ export function Sidebar() {
       if (!board) return;
       if (drop.folderId) expand(drop.folderId);
       void boardActions.moveTo(board, { folderId: drop.folderId, position: drop.position });
+    } else if (drop.type === 'dashboard') {
+      const dashboard = dashboards.find((d) => d.id === drop.dashboardId);
+      if (!dashboard) return;
+      if (drop.folderId) expand(drop.folderId);
+      void dashboardActions.moveTo(dashboard, { folderId: drop.folderId, position: drop.position });
     } else if (canManageFolders) {
       void folderActions.reorder(workspace.id, drop.folderId, drop.position);
     }
@@ -206,13 +218,18 @@ export function Sidebar() {
                 workspaceId={workspace.id}
                 folders={folders}
                 boards={boards}
+                dashboards={dashboards}
                 activeBoardId={activeBoardId}
+                activeDashboardId={activeDashboardId}
                 canManageFolders={canManageFolders}
                 canReorder={canCreateBoards}
                 filter={filter}
                 expanded={expanded}
                 onToggleFolder={toggle}
                 onRenameBoard={(board, name) => void boardActions.rename(board, name)}
+                onRenameDashboard={(dashboard, name) =>
+                  void dashboardActions.rename(dashboard, name)
+                }
                 onRenameFolder={(folder, name) =>
                   void folderActions.rename(workspace.id, folder, name)
                 }

@@ -20,19 +20,21 @@ import { BOARD_KIND_OPTIONS } from '../boards/kinds';
 import styles from './dialogs.module.css';
 import { submitOnEnter } from './submitOnEnter';
 
-function KindOptions({
+export function KindOptions({
   value,
   onChange,
   name,
+  label = 'Board type',
 }: {
   value: BoardKind;
   onChange: (kind: BoardKind) => void;
   name: string;
+  label?: string;
 }) {
   return (
     <div role="radiogroup" aria-labelledby={`${name}-label`}>
       <span id={`${name}-label`} className={styles.fieldLabel}>
-        Board type
+        {label}
       </span>
       <div className={styles.options}>
         {BOARD_KIND_OPTIONS.map((option) => (

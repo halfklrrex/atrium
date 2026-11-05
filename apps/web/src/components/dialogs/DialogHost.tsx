@@ -2,6 +2,8 @@ import { useUiStore } from '../AppShell/ui-store';
 import { AboutDialog } from './AboutDialog';
 import { ShareBoardDialog } from '../boards/ShareBoardDialog';
 import { NewBoardDialog } from './BoardDialogs';
+import { NewDashboardDialog } from './DashboardDialogs';
+import { DashboardBoardsDialog } from '../dashboard/DashboardBoardsDialog';
 import { MembersDialog } from '../membership/MembersDialog';
 import { DeleteFolderDialog, FolderDialog } from './FolderDialogs';
 import { SaveAsTemplateDialog } from '../templates/SaveAsTemplateDialog';
@@ -29,6 +31,17 @@ export function DialogHost() {
           onClose={close}
         />
       );
+    case 'newDashboard':
+      return (
+        <NewDashboardDialog
+          workspaceId={dialog.workspaceId}
+          folderId={dialog.folderId}
+          initialKind={dialog.kind}
+          onClose={close}
+        />
+      );
+    case 'dashboardBoards':
+      return <DashboardBoardsDialog dashboardId={dialog.dashboardId} onClose={close} />;
     case 'saveTemplate':
       return <SaveAsTemplateDialog boardId={dialog.boardId} onClose={close} />;
     case 'folder':
