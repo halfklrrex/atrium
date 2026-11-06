@@ -1,3 +1,4 @@
+import type { AccountStatus } from '@atrium/shared';
 import type { User } from 'firebase/auth';
 import { createContext, useContext } from 'react';
 
@@ -15,6 +16,13 @@ export interface AuthContextValue {
   user: User | null;
   /** Workspace to open when landing on `/`; kept current as the user switches workspaces. */
   lastWorkspaceId: string | null;
+  /**
+   * Account approval state from `bootstrapUser` (ADMIN-3). `null` when the server did not report one
+   * (the approval switch is off), which behaves like `approved`.
+   */
+  accountStatus: AccountStatus | null;
+  /** Force-refresh the ID token and re-run bootstrap (used when a pending account gets approved). */
+  refreshAccount: () => Promise<void>;
   /** The `bootstrapUser` failure while `status` is `error`. */
   error: Error | null;
   /** A failed sign-in that finished after a redirect (popup fallback); cleared on the next attempt. */

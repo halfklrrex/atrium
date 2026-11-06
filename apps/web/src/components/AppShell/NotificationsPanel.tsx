@@ -139,6 +139,12 @@ export function NotificationsPanel() {
   const openNotification = (n: NotificationDoc) => {
     if (n.readAt === null) markRead(n);
     setOpen(false);
+    // Account notifications carry placeholder board and item ids: never open a board for them.
+    if (n.kind === 'account_approved') return;
+    if (n.kind === 'account_request') {
+      void navigate('/admin');
+      return;
+    }
     void navigate(itemViewPath(n.boardId, n.itemId), {
       state: n.updateId ? { updateId: n.updateId, replyId: n.replyId } : undefined,
     });

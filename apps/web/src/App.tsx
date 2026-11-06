@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell/AppShell';
 import { DashboardPage } from './components/dashboard/DashboardPage';
+import { AdminPage } from './pages/admin/AdminPage';
 import { BoardPage } from './pages/BoardPage';
 import { FormPage } from './pages/FormPage';
 import { HomePage } from './pages/HomePage';
@@ -22,6 +23,7 @@ export function App() {
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />
           <Route path="invite/:workspaceId/:inviteId" element={<InvitePage />} />
+          <Route path="admin" element={<AdminPage />} />
           <Route path="my-work" element={<MyWorkPage />} />
           <Route path="workspaces" element={<WorkspacesPage />} />
           <Route path="workspaces/:workspaceId" element={<WorkspacePage />} />

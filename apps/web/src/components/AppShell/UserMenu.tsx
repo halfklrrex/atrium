@@ -1,6 +1,8 @@
 import { Avatar, Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
-import { Check, Info, LogOut } from '@vibe/icons';
+import { Check, Info, LogOut, Team } from '@vibe/icons';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
+import { useIsSiteAdmin } from '../../auth/useIsSiteAdmin';
 import { THEME_OPTIONS, useThemeStore } from '../../theme/theme';
 import { useUiStore } from './ui-store';
 
@@ -40,6 +42,8 @@ export function UserMenu() {
   const setPreference = useThemeStore((s) => s.setPreference);
   const openDialog = useUiStore((s) => s.openDialog);
   const name = displayNameOf(user);
+  const isSiteAdmin = useIsSiteAdmin();
+  const navigate = useNavigate();
 
   return (
     <MenuButton
@@ -61,6 +65,9 @@ export function UserMenu() {
         ))}
         <MenuDivider />
         <MenuItem title="About Atrium" icon={Info} onClick={() => openDialog({ type: 'about' })} />
+        {isSiteAdmin ? (
+          <MenuItem title="Site admin" icon={Team} onClick={() => void navigate('/admin')} />
+        ) : null}
         <MenuItem title="Sign out" icon={LogOut} onClick={() => void signOut()} />
       </Menu>
     </MenuButton>

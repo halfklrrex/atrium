@@ -10,6 +10,8 @@ function authValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue 
     status: 'signedOut',
     user: null,
     lastWorkspaceId: null,
+    accountStatus: null,
+    refreshAccount: vi.fn(),
     error: null,
     redirectError: null,
     signInWithGoogle: vi.fn().mockResolvedValue(undefined),

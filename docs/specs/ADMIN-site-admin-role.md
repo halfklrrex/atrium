@@ -1,6 +1,6 @@
 # ADMIN: Site admin role, with account approval and blocking
 
-Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: item "Feature: site admin role, with account approval and blocking" · Origin: bug inbox request, 2026-11-05 · Status: **ADMIN-1a merged, ADMIN-2 in review (behind ACCOUNT_APPROVAL_REQUIRED, default off). ADMIN-1b and ADMIN-3 not started.** Defaults confirmed by the owner on 2026-11-06 (see Decisions); the technical choices below are mine and the owner can change them.
+Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: item "Feature: site admin role, with account approval and blocking" · Origin: bug inbox request, 2026-11-05 · Status: **ADMIN-1a merged, ADMIN-2 in review (behind ACCOUNT_APPROVAL_REQUIRED, default off). ADMIN-3 in review. ADMIN-1b not started.** Defaults confirmed by the owner on 2026-11-06 (see Decisions); the technical choices below are mine and the owner can change them.
 
 ## Goal
 

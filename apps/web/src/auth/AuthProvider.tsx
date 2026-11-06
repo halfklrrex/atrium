@@ -1,3 +1,4 @@
+import type { AccountStatus } from '@atrium/shared';
 import {
   getRedirectResult,
   GoogleAuthProvider,
@@ -26,6 +27,7 @@ interface BootstrapOutcome {
   /** `${session}:${attempt}` this outcome belongs to. */
   key: string;
   workspaceId: string | null;
+  accountStatus: AccountStatus | null;
   error: Error | null;
 }
 
@@ -65,13 +67,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!key) return;
     let cancelled = false;
     callBootstrapUser().then(
-      ({ workspaceId }) => {
-        if (!cancelled) setOutcome({ key, workspaceId: workspaceId ?? null, error: null });
+      ({ workspaceId, accountStatus }) => {
+        if (!cancelled) {
+          setOutcome({
+            key,
+            workspaceId: workspaceId ?? null,
+            accountStatus: accountStatus ?? null,
+            error: null,
+          });
+        }
       },
       (e: unknown) => {
         if (cancelled) return;
         console.error('bootstrapUser failed', getErrorCode(e) ?? '', toError(e).message);
-        setOutcome({ key, workspaceId: null, error: toError(e) });
+        setOutcome({ key, workspaceId: null, accountStatus: null, error: toError(e) });
       },
     );
     return () => {
@@ -112,6 +121,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const retryBootstrap = useCallback(() => setAttempt((n) => n + 1), []);
 
+  // A pending account was approved: the new claim only applies after a token refresh.
+  const refreshAccount = useCallback(async () => {
+    await user?.getIdToken(true);
+    setAttempt((n) => n + 1);
+  }, [user]);
+
   const rememberWorkspace = useCallback(
     (workspaceId: string) => {
       if (!uid) return;
@@ -129,6 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       lastWorkspaceId,
+      accountStatus: current?.accountStatus ?? null,
+      refreshAccount,
       error: current?.error ?? null,
       redirectError,
       signInWithGoogle,
@@ -140,6 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       lastWorkspaceId,
+      current?.accountStatus,
+      refreshAccount,
       current?.error,
       redirectError,
       signInWithGoogle,

@@ -29,10 +29,13 @@ vi.mock('../lib/callables', () => ({ callBootstrapUser: mocks.callBootstrapUser 
 vi.mock('../data/firestore', () => ({ writes: { updateUserProfile: vi.fn() } }));
 
 function Probe() {
-  const { status, redirectError, signInWithGoogle, retryBootstrap } = useAuth();
+  const { status, accountStatus, refreshAccount, redirectError, signInWithGoogle, retryBootstrap } =
+    useAuth();
   return (
     <div>
       <p data-testid="status">{status}</p>
+      <p data-testid="account">{accountStatus ?? 'none'}</p>
+      <button onClick={() => void refreshAccount()}>refresh</button>
       <p data-testid="redirect-error">{String((redirectError as Error | null)?.message ?? '')}</p>
       <button onClick={() => void signInWithGoogle().catch(() => {})}>sign in</button>
       <button onClick={retryBootstrap}>retry</button>
@@ -40,7 +43,8 @@ function Probe() {
   );
 }
 
-const fakeUser = { uid: 'u1' } as User;
+const getIdToken = vi.fn();
+const fakeUser = { uid: 'u1', getIdToken } as unknown as User;
 const signInAs = () => act(() => mocks.authListener?.(fakeUser));
 
 beforeEach(() => {
@@ -97,6 +101,27 @@ describe('AuthProvider', () => {
     await userEvent.click(screen.getByRole('button', { name: 'sign in' }));
     await waitFor(() => expect(mocks.signInWithPopup).toHaveBeenCalled());
     expect(mocks.signInWithRedirect).not.toHaveBeenCalled();
+  });
+
+  it('reports no account status when the server does not send one', async () => {
+    renderProvider();
+    await signInAs();
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
+    expect(screen.getByTestId('account')).toHaveTextContent('none');
+  });
+
+  it('refreshAccount force-refreshes the token and re-bootstraps a pending account', async () => {
+    mocks.callBootstrapUser.mockResolvedValueOnce({ accountStatus: 'pending' });
+    getIdToken.mockResolvedValue('token');
+    renderProvider();
+    await signInAs();
+    await waitFor(() => expect(screen.getByTestId('account')).toHaveTextContent('pending'));
+
+    await userEvent.click(screen.getByRole('button', { name: 'refresh' }));
+    await waitFor(() => expect(getIdToken).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(mocks.callBootstrapUser).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
+    expect(screen.getByTestId('account')).toHaveTextContent('none');
   });
 
   it('exposes a failed redirect result on load', async () => {

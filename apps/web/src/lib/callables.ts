@@ -1,4 +1,14 @@
 import {
+  LIST_ACCOUNTS_CALLABLE,
+  SET_ACCOUNT_STATUS_CALLABLE,
+  listAccountsRequestSchema,
+  listAccountsResultSchema,
+  setAccountStatusRequestSchema,
+  setAccountStatusResultSchema,
+  type ListAccountsRequest,
+  type ListAccountsResult,
+  type SetAccountStatusRequest,
+  type SetAccountStatusResult,
   ACCEPT_INVITE_CALLABLE,
   DELETE_UPDATE_ATTACHMENT_CALLABLE,
   FINALIZE_UPDATE_ATTACHMENT_CALLABLE,
@@ -244,6 +254,20 @@ function validatedCallable<Req, Res>(
     return parseRes(data);
   };
 }
+
+/** Site admin screen (ADMIN-2 callables; admin only, checked on the server). */
+export const accountAdminCalls = {
+  list: validatedCallable<ListAccountsRequest, ListAccountsResult>(
+    LIST_ACCOUNTS_CALLABLE,
+    (r) => listAccountsRequestSchema.parse(r),
+    (d) => listAccountsResultSchema.parse(d),
+  ),
+  setStatus: validatedCallable<SetAccountStatusRequest, SetAccountStatusResult>(
+    SET_ACCOUNT_STATUS_CALLABLE,
+    (r) => setAccountStatusRequestSchema.parse(r),
+    (d) => setAccountStatusResultSchema.parse(d),
+  ),
+};
 
 export const callClickButton = validatedCallable<ClickButtonRequest, ClickButtonResult>(
   'clickButton',

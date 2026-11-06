@@ -62,10 +62,14 @@ export function NotificationCard({
           ) : null}
           <span className={styles.meta}>
             {formatUpdated(n.createdAt)}
-            {' • '}
-            <Highlight text={n.itemName} term={term} />
-            {' · '}
-            <Highlight text={n.boardName} term={term} />
+            {n.kind === 'account_request' || n.kind === 'account_approved' ? null : (
+              <>
+                {' • '}
+                <Highlight text={n.itemName} term={term} />
+                {' · '}
+                <Highlight text={n.boardName} term={term} />
+              </>
+            )}
           </span>
         </span>
       </button>
