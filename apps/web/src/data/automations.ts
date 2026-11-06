@@ -10,7 +10,9 @@
  */
 import {
   AUTOMATION_LIMITS,
+  isScheduledTrigger,
   validateAutomation,
+  validateScheduledLimit,
   type Automation,
   type AutomationRun,
   type BoardRole,
@@ -70,6 +72,8 @@ export interface AutomationInput {
   trigger: AutomationTrigger;
   conditions: AutomationCondition[];
   actions: ButtonAction[];
+  /** IANA zone of a scheduled recipe (`date_arrives`, `recurring`); absent for event triggers. */
+  timezone?: string;
 }
 
 /** The board facts the write helpers validate against. */
@@ -132,17 +136,28 @@ function plain<T>(value: T): T {
  * rules cannot count, so the cap lives here); pass `null` for an edit.
  */
 export function checkAutomation(
-  input: Pick<AutomationInput, 'trigger' | 'conditions' | 'actions'>,
+  input: Pick<AutomationInput, 'trigger' | 'conditions' | 'actions' | 'timezone'>,
   board: AutomationBoard,
   role: BoardRole | null,
   existingCount: number | null,
+  /** The board's other recipes (leave out the one being edited); enables the scheduled cap. */
+  others?: ReadonlyArray<Pick<Automation, 'trigger'>>,
 ): string | null {
   if (existingCount !== null && existingCount >= AUTOMATION_LIMITS.maxPerBoard) {
     return `A board can have at most ${AUTOMATION_LIMITS.maxPerBoard} automations.`;
   }
   const checked = validateAutomation(input, board, role);
-  return checked.ok ? null : checked.message;
+  if (!checked.ok) return checked.message;
+  if (others) {
+    const limit = validateScheduledLimit(input, others);
+    if (!limit.ok) return limit.message;
+  }
+  return null;
 }
+
+/** `{ timezone }` for a scheduled recipe, nothing for an event-driven one. */
+const timezoneOf = (input: Pick<AutomationInput, 'trigger' | 'timezone'>) =>
+  isScheduledTrigger(input.trigger) && input.timezone ? { timezone: input.timezone } : {};
 
 function assertName(name: string): void {
   if (name.length > AUTOMATION_LIMITS.name) {
@@ -162,6 +177,7 @@ export function buildAutomationCreate(uid: string, input: AutomationInput, enabl
     trigger: plain(input.trigger),
     conditions: plain(input.conditions),
     actions: plain(input.actions),
+    ...timezoneOf(input),
     runAs: uid,
     disabledReason: null,
     createdBy: uid,
@@ -178,6 +194,7 @@ export function buildAutomationUpdate(uid: string, input: AutomationInput) {
     trigger: plain(input.trigger),
     conditions: plain(input.conditions),
     actions: plain(input.actions),
+    ...timezoneOf(input),
     runAs: uid,
     updatedBy: uid,
     updatedAt: serverTimestamp(),
@@ -207,10 +224,10 @@ export const automationWrites = {
     ctx: AutomationWriteContext,
     input: AutomationInput,
     existingCount: number,
-    options: { enabled?: boolean } = {},
+    options: { enabled?: boolean; others?: ReadonlyArray<Pick<Automation, 'trigger'>> } = {},
   ): Promise<string> {
     assertName(input.name);
-    const problem = checkAutomation(input, ctx.board, ctx.role, existingCount);
+    const problem = checkAutomation(input, ctx.board, ctx.role, existingCount, options.others);
     if (problem) throw new Error(problem);
     const ref = doc(automationsCollection(ctx.boardId));
     await setDoc(ref, buildAutomationCreate(ctx.uid, input, options.enabled ?? true));
@@ -218,9 +235,14 @@ export const automationWrites = {
   },
 
   /** Save an edited recipe. The writer becomes the person it runs as. */
-  async update(ctx: AutomationWriteContext, automationId: string, input: AutomationInput) {
+  async update(
+    ctx: AutomationWriteContext,
+    automationId: string,
+    input: AutomationInput,
+    others?: ReadonlyArray<Pick<Automation, 'trigger'>>,
+  ) {
     assertName(input.name);
-    const problem = checkAutomation(input, ctx.board, ctx.role, null);
+    const problem = checkAutomation(input, ctx.board, ctx.role, null, others);
     if (problem) throw new Error(problem);
     await updateDoc(
       automationDoc(ctx.boardId, automationId),
@@ -234,7 +256,7 @@ export const automationWrites = {
    */
   async setEnabled(
     ctx: AutomationWriteContext,
-    automation: Pick<AutomationDoc, 'id' | 'trigger' | 'conditions' | 'actions'>,
+    automation: Pick<AutomationDoc, 'id' | 'trigger' | 'conditions' | 'actions' | 'timezone'>,
     enabled: boolean,
   ) {
     if (enabled) {
@@ -260,12 +282,13 @@ export function duplicateAutomationName(name: string): string {
 
 /** The editable part of a stored recipe. */
 export function automationInputOf(
-  automation: Pick<Automation, 'name' | 'trigger' | 'conditions' | 'actions'>,
+  automation: Pick<Automation, 'name' | 'trigger' | 'conditions' | 'actions' | 'timezone'>,
 ): AutomationInput {
   return {
     name: automation.name,
     trigger: automation.trigger,
     conditions: automation.conditions,
     actions: automation.actions,
+    ...(automation.timezone ? { timezone: automation.timezone } : {}),
   };
 }

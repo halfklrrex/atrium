@@ -1,5 +1,6 @@
 import {
   columnRegistry,
+  isScheduledTrigger,
   type Automation,
   type AutomationCondition,
   type AutomationTrigger,
@@ -22,7 +23,9 @@ export interface DescribeOptions {
 const DELETED_COLUMN = 'a deleted column';
 const DELETED_GROUP = 'a deleted group';
 
-type Recipe = Pick<Automation, 'trigger' | 'conditions' | 'actions'>;
+type Recipe = Pick<Automation, 'trigger' | 'conditions' | 'actions'> & { timezone?: string };
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const columnOf = (board: DescribeBoard, id: string) => board.columns.find((c) => c.id === id);
 const columnTitle = (board: DescribeBoard, id: string) =>
@@ -51,8 +54,19 @@ function valueText(board: DescribeBoard, columnId: string, value: unknown): stri
   return text === '' ? 'a value' : text;
 }
 
-/** "item created" etc.: the trigger half of the sentence, without "When". */
-export function describeTrigger(trigger: AutomationTrigger, board: DescribeBoard): string {
+const withZone = (time: string, timezone: string | undefined): string =>
+  timezone ? `${time} (${timezone})` : time;
+
+/**
+ * "item created" etc.: the trigger half of the sentence, without "When". A scheduled trigger reads
+ * as its own lead-in instead ("Every Monday at 09:00 (Europe/Madrid)"); `isScheduledTrigger` tells
+ * the two apart. `timezone` is the recipe's zone.
+ */
+export function describeTrigger(
+  trigger: AutomationTrigger,
+  board: DescribeBoard,
+  timezone?: string,
+): string {
   switch (trigger.type) {
     case 'item_created':
       return trigger.groupId === undefined
@@ -75,11 +89,26 @@ export function describeTrigger(trigger: AutomationTrigger, board: DescribeBoard
         : `an item is moved to ${groupTitle(board, trigger.groupId)}`;
     case 'person_assigned':
       return `someone is assigned to ${columnTitle(board, trigger.columnId)}`;
-    // Placeholder sentences; P5d-4 adds the time zone and the builder.
-    case 'date_arrives':
-      return `${columnTitle(board, trigger.columnId)} arrives`;
-    case 'recurring':
-      return `it is time (every ${trigger.every} at ${trigger.at})`;
+    case 'date_arrives': {
+      const title = columnTitle(board, trigger.columnId);
+      const time = trigger.at
+        ? `at ${withZone(trigger.at, timezone)}`
+        : `at its own time or ${withZone('09:00', timezone)}`;
+      const days = Math.abs(trigger.offsetDays);
+      if (trigger.offsetDays === 0) return `On the day ${title} arrives ${time}`;
+      const unit = days === 1 ? 'day' : 'days';
+      return `${days} ${unit} ${trigger.offsetDays < 0 ? 'before' : 'after'} ${title} ${time}`;
+    }
+    case 'recurring': {
+      const time = `at ${withZone(trigger.at, timezone)}`;
+      if (trigger.every === 'week') {
+        return `Every ${WEEKDAYS[trigger.weekday ?? 1] ?? 'week'} ${time}`;
+      }
+      if (trigger.every === 'month') {
+        return `Every month on day ${trigger.dayOfMonth ?? 1} ${time}`;
+      }
+      return `Every day ${time}`;
+    }
   }
 }
 
@@ -143,9 +172,10 @@ export function describeAutomation(
   board: DescribeBoard,
   options: DescribeOptions = {},
 ): string {
-  const trigger = describeTrigger(automation.trigger, board);
+  const trigger = describeTrigger(automation.trigger, board, automation.timezone);
   const conditions = automation.conditions.map((c) => describeCondition(c, board));
   const when = conditions.length > 0 ? `${trigger} and ${joinAnd(conditions)}` : trigger;
   const then = automation.actions.map((a) => describeAction(a, board, options));
-  return `When ${when}, then ${joinAnd(then)}`;
+  const lead = isScheduledTrigger(automation.trigger) ? when : `When ${when}`;
+  return `${lead}, then ${joinAnd(then)}`;
 }

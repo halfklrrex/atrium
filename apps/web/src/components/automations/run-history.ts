@@ -39,3 +39,36 @@ export function runDetail(run: Pick<AutomationRunDoc, 'status' | 'reason' | 'err
   if (run.status === 'failed') return run.error ?? run.reason ?? '';
   return run.reason ?? run.error ?? '';
 }
+
+export interface ScheduledRunInfo {
+  kind: 'recurring' | 'date';
+  /** "Scheduled for ..." with the instant (recurring) or the date (date arrives) the run was for. */
+  label: string;
+}
+
+/**
+ * Whether the scheduler started this run (P5d) and for when. Scheduler runs have deterministic ids
+ * `recurring:<automationId>:<scheduledForISO>` and `date:<automationId>:<itemId>:<YYYY-MM-DD>`
+ * (the same text may sit in `eventId`). Anything that does not parse still reads "Scheduled".
+ */
+export function scheduledRunInfo(
+  run: Pick<AutomationRunDoc, 'id' | 'eventId'>,
+): ScheduledRunInfo | null {
+  const key = [run.id, run.eventId].find((v) => /^(recurring|date):/.test(v ?? ''));
+  if (!key) return null;
+  if (key.startsWith('recurring:')) {
+    const iso = key.split(':').slice(2).join(':');
+    const at = new Date(iso);
+    return {
+      kind: 'recurring',
+      label: Number.isNaN(at.getTime())
+        ? 'Scheduled'
+        : `Scheduled for ${at.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`,
+    };
+  }
+  const day = key.split(':').at(-1) ?? '';
+  return {
+    kind: 'date',
+    label: /^\d{4}-\d{2}-\d{2}$/.test(day) ? `Scheduled for ${day}` : 'Scheduled',
+  };
+}

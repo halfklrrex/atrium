@@ -113,12 +113,13 @@ describe('template catalog', () => {
     },
   };
   const owner = { id: 'owner', type: 'people', title: 'Owner', settings: {} };
-  const board: StarterBoard = { columns: [stuckStatus, priority, button, owner], groups };
+  const due = { id: 'due', type: 'date', title: 'Due date', settings: {} };
+  const board: StarterBoard = { columns: [stuckStatus, priority, button, owner, due], groups };
 
-  it('has about 19 entries, 13 of them ready, with unique ids', () => {
+  it('has about 19 entries, 16 of them ready, with unique ids', () => {
     expect(TEMPLATE_CATALOG.length).toBeGreaterThanOrEqual(19);
     expect(TEMPLATE_CATALOG.length).toBeLessThanOrEqual(21);
-    expect(templatesByAvailability('ready')).toHaveLength(13);
+    expect(templatesByAvailability('ready')).toHaveLength(16);
     expect(new Set(TEMPLATE_CATALOG.map((t) => t.id)).size).toBe(TEMPLATE_CATALOG.length);
   });
 
@@ -140,7 +141,7 @@ describe('template catalog', () => {
       const input = buildTemplateInput(t, board, 'u1');
       expect(input, t.id).not.toBeNull();
       const checked = validateAutomation(
-        input!,
+        { ...input!, timezone: 'Europe/Madrid' },
         { ...board, columns: board.columns, memberUids: ['u1'] },
         'owner',
       );
@@ -203,8 +204,59 @@ describe('template catalog', () => {
     expect(build('stuck-posts-update', { columns: [status], groups })).toBeNull();
   });
 
+  const dated = board;
+  const noDate: StarterBoard = { columns: [stuckStatus], groups };
+  const checkDated = (input: NonNullable<ReturnType<typeof build>>) =>
+    validateAutomation(
+      { ...input, timezone: 'Europe/Madrid' },
+      { ...board, columns: board.columns, memberUids: ['u1'] },
+      'owner',
+    );
+
+  it('date-arrives-notify notifies on the day the first date column arrives', () => {
+    const input = build('date-arrives-notify', dated)!;
+    expect(input.trigger).toEqual({
+      type: 'date_arrives',
+      columnId: 'due',
+      offsetDays: 0,
+      at: '09:00',
+    });
+    expect(input.actions).toEqual([{ type: 'notify', uids: ['u1'] }]);
+    expect(checkDated(input)).toEqual({ ok: true });
+    expect(build('date-arrives-notify', noDate)).toBeNull();
+    expect(build('date-arrives-notify', dated, '')).toBeNull();
+  });
+
+  it('weekly-create-item creates an item every Monday in the first group', () => {
+    const input = build('weekly-create-item', board)!;
+    expect(input.trigger).toEqual({ type: 'recurring', every: 'week', weekday: 1, at: '09:00' });
+    expect(input.actions).toEqual([
+      { type: 'create_item', name: 'Weekly review {date}', groupId: 'g1' },
+    ]);
+    expect(checkDated(input)).toEqual({ ok: true });
+    expect(build('weekly-create-item', { columns: [], groups: [] })).toBeNull();
+  });
+
+  it('overdue-notify fires a day after the date unless the status is Done', () => {
+    const input = build('overdue-notify', dated)!;
+    expect(input.trigger).toEqual({
+      type: 'date_arrives',
+      columnId: 'due',
+      offsetDays: 1,
+      at: '09:00',
+    });
+    expect(input.conditions).toEqual([{ columnId: 'status', op: 'is_not', value: { index: 1 } }]);
+    expect(checkDated(input)).toEqual({ ok: true });
+    expect(build('overdue-notify', noDate)).toBeNull();
+    expect(build('overdue-notify', { columns: [due], groups })).toBeNull();
+  });
+
   it('filters by category and by availability', () => {
-    expect(templatesByCategory('dates').map((t) => t.availability)).toEqual(['p5d', 'p5d', 'p5d']);
+    expect(templatesByCategory('dates').map((t) => t.availability)).toEqual([
+      'ready',
+      'ready',
+      'ready',
+    ]);
     expect(templatesByCategory('recommended').every((t) => t.recommended)).toBe(true);
     expect(templatesByCategory('sync').every((t) => t.availability === 'p9')).toBe(true);
     expect(plainSentence(TEMPLATE_CATALOG[0]!)).not.toContain('*');

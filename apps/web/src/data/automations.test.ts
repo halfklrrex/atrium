@@ -83,6 +83,46 @@ const ctx = { boardId: 'b1', uid: 'u1', board, role: 'owner' as const };
 
 beforeEach(() => vi.clearAllMocks());
 
+describe('scheduled recipes (P5d)', () => {
+  const dateBoard = {
+    ...board,
+    columns: [...board.columns, { id: 'due', type: 'date', title: 'Due', settings: {} }],
+  };
+  const scheduled: AutomationInput = {
+    name: '',
+    trigger: { type: 'date_arrives', columnId: 'due', offsetDays: -3, at: '09:00' },
+    conditions: [],
+    actions: [{ type: 'notify', uids: ['u1'] }],
+    timezone: 'Europe/Madrid',
+  };
+
+  it('writes the timezone for scheduled triggers only', () => {
+    expect(buildAutomationCreate('u1', scheduled).timezone).toBe('Europe/Madrid');
+    expect(buildAutomationUpdate('u1', scheduled).timezone).toBe('Europe/Madrid');
+    const event = { ...input, timezone: 'Europe/Madrid' };
+    expect(buildAutomationCreate('u1', event)).not.toHaveProperty('timezone');
+    expect(buildAutomationUpdate('u1', event)).not.toHaveProperty('timezone');
+  });
+
+  it('checks the zone, the column and the cap of five', () => {
+    expect(checkAutomation(scheduled, dateBoard, 'owner', 0)).toBeNull();
+    expect(checkAutomation({ ...scheduled, timezone: undefined }, dateBoard, 'owner', 0)).toMatch(
+      /time zone/,
+    );
+    const five = Array.from({ length: 5 }, () => ({ trigger: scheduled.trigger }));
+    expect(checkAutomation(scheduled, dateBoard, 'owner', 5, five)).toBe(
+      'A board can have at most 5 scheduled automations',
+    );
+    expect(checkAutomation(scheduled, dateBoard, 'owner', 5, five.slice(1))).toBeNull();
+    expect(checkAutomation(input, board, 'owner', 5, five)).toBeNull();
+  });
+
+  it('keeps the zone when a stored recipe becomes an input', () => {
+    expect(automationInputOf({ ...scheduled, timezone: 'Asia/Tokyo' }).timezone).toBe('Asia/Tokyo');
+    expect(automationInputOf(input)).not.toHaveProperty('timezone');
+  });
+});
+
 describe('automation write shapes mirror the rules', () => {
   it('a create has exactly the allowed keys, with the writer as runAs, createdBy and updatedBy', () => {
     const doc = buildAutomationCreate('u1', input);

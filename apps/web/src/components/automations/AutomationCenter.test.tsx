@@ -16,10 +16,12 @@ const mocks = vi.hoisted(() => ({
     remove: vi.fn(),
   },
   openItem: vi.fn(),
+  timezone: 'Europe/Madrid' as string | null,
 }));
 
 vi.mock('../../auth/auth-context', () => ({ useAuth: () => ({ user: { uid: 'u1' } }) }));
 vi.mock('../../lib/firebase', () => ({ db: {}, auth: {} }));
+vi.mock('../../data/user-timezone', () => ({ useUserTimezone: () => mocks.timezone }));
 vi.mock('../../data/members-store', () => ({
   UNKNOWN_PERSON_NAME: 'Board member',
   useUserLookup: () => () => undefined,
@@ -103,6 +105,7 @@ beforeEach(() => {
   mocks.automations = { data: [], loading: false, error: null };
   mocks.runs = { data: [], loading: false, error: null };
   mocks.runsEnabled = [];
+  mocks.timezone = 'Europe/Madrid';
   mocks.items = [makeItem({ id: 'i1', name: 'Write brief' })];
   mocks.writes.create.mockResolvedValue('new');
   mocks.writes.setEnabled.mockResolvedValue(undefined);
@@ -443,7 +446,127 @@ describe('Recipes tab', () => {
     const [, input, count, options] = mocks.writes.create.mock.calls[0]!;
     expect(input.name).toBe('Tidy (copy)');
     expect(count).toBe(1);
-    expect(options).toEqual({ enabled: false });
+    expect(options).toMatchObject({ enabled: false });
+  });
+});
+
+describe('Scheduled triggers in the builder', () => {
+  const dated = makeBoard({
+    ...board,
+    columns: [
+      ...board.columns,
+      { id: 'due', type: 'date', title: 'Due date', position: 'a1', settings: {} },
+    ],
+  });
+  const openBuilder = () => {
+    render(<AutomationCenter board={dated} role="owner" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
+    return screen.getByRole('form', { name: 'New automation' });
+  };
+  const addCreateItem = (form: HTMLElement) => {
+    fireEvent.change(within(form).getByRole('combobox', { name: 'Add action' }), {
+      target: { value: 'create_item' },
+    });
+    const row = within(form).getByRole('group', { name: 'Action 1: Create item' });
+    fireEvent.change(within(row).getAllByRole('textbox')[0]!, {
+      target: { value: 'Weekly review {date}' },
+    });
+  };
+  const pick = (form: HTMLElement, name: string, value: string) =>
+    fireEvent.change(within(form).getByRole('combobox', { name }), { target: { value } });
+
+  it('creates a "Date arrives" recipe with the creator zone', async () => {
+    const form = openBuilder();
+    pick(form, 'When', 'date_arrives');
+    pick(form, 'Date column', 'due');
+    pick(form, 'When relative to the date', 'before');
+    fireEvent.change(within(form).getByLabelText('Days'), { target: { value: '3' } });
+    fireEvent.change(within(form).getByLabelText('Time of day'), { target: { value: '08:30' } });
+    addCreateItem(form);
+    expect(within(form).getByText(/Reads as/).parentElement).toHaveTextContent(
+      '3 days before Due date at 08:30 (Europe/Madrid)',
+    );
+    expect(within(form).getAllByText('(Europe/Madrid)').length).toBeGreaterThan(0);
+  });
+
+  it('offers only a Date column for "Date arrives" and disables it without one', () => {
+    render(<AutomationCenter board={board} role="owner" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    const option = within(within(form).getByRole('combobox', { name: 'When' })).getByRole(
+      'option',
+      { name: /Date arrives/ },
+    );
+    expect(option).toBeDisabled();
+    expect(option).toHaveTextContent('(no Date column)');
+  });
+
+  it('builds a weekly recurring recipe and limits actions to create item and notify', async () => {
+    const form = openBuilder();
+    pick(form, 'When', 'recurring');
+    pick(form, 'Repeat', 'week');
+    pick(form, 'Weekday', '5');
+    fireEvent.change(within(form).getByLabelText('Time of day'), { target: { value: '17:00' } });
+    const add = within(form).getByRole('combobox', { name: 'Add action' });
+    expect(
+      within(add)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Add action', 'Notify people', 'Create item']);
+    addCreateItem(form);
+    expect(within(form).getByText(/Reads as/).parentElement).toHaveTextContent(
+      'Every Friday at 17:00 (Europe/Madrid), then create an item',
+    );
+  });
+
+  it('saves a scheduled recipe with the timezone', async () => {
+    const form = openBuilder();
+    pick(form, 'When', 'recurring');
+    pick(form, 'Repeat', 'month');
+    pick(form, 'Day of month', '15');
+    addCreateItem(form);
+    const save = within(form).getByRole('button', { name: 'Save' });
+    await waitFor(() => expect(save).toHaveAttribute('aria-disabled', 'false'));
+    fireEvent.click(save);
+    await waitFor(() => expect(mocks.writes.create).toHaveBeenCalledTimes(1));
+    const input = mocks.writes.create.mock.calls[0]![1];
+    expect(input.timezone).toBe('Europe/Madrid');
+    expect(input.trigger).toEqual({
+      type: 'recurring',
+      every: 'month',
+      dayOfMonth: 15,
+      at: '09:00',
+    });
+  });
+
+  it('falls back to the browser zone when the profile has none', async () => {
+    mocks.timezone = null;
+    const browser = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const form = openBuilder();
+    pick(form, 'When', 'recurring');
+    expect(within(form).getAllByText(/^\(/)[0]).toBeInTheDocument();
+    expect(browser).toBeTruthy();
+  });
+
+  it('shows the scheduled cap message when the board already has five', () => {
+    mocks.automations = {
+      data: Array.from({ length: 5 }, (_, i) =>
+        recipe({
+          id: `s${i}`,
+          trigger: { type: 'recurring', every: 'day', at: '09:00' },
+          timezone: 'UTC',
+          actions: [{ type: 'notify', uids: ['u1'] }],
+        }),
+      ),
+      loading: false,
+      error: null,
+    };
+    const form = openBuilder();
+    pick(form, 'When', 'recurring');
+    addCreateItem(form);
+    expect(within(form).getByRole('alert')).toHaveTextContent(
+      'A board can have at most 5 scheduled automations',
+    );
   });
 });
 
@@ -480,6 +603,26 @@ describe('Run history tab', () => {
     expect(screen.getByText('Deleted item')).toBeInTheDocument();
     expect(screen.getByText('Deleted automation')).toBeInTheDocument();
     expect(screen.getByText(/Showing the latest 200 runs/)).toBeInTheDocument();
+  });
+
+  it('shows scheduler runs as Scheduled instead of an item link', () => {
+    mocks.automations = { data: [recipe({ id: 'a1', name: 'Tidy' })], loading: false, error: null };
+    mocks.runs = {
+      data: [
+        runDoc({ id: 'recurring:a1:2026-11-09T08:00:00.000Z', itemId: null, eventId: 'x' }),
+        runDoc({ id: 'recurring:a1:garbage', itemId: null, eventId: 'y' }),
+        runDoc({ id: 'r9', itemId: null, eventId: 'z' }),
+        runDoc({ id: 'date:a1:i1:2026-11-09', itemId: 'i1', eventId: 'w' }),
+      ],
+      loading: false,
+      error: null,
+    };
+    open();
+    fireEvent.click(screen.getByRole('tab', { name: 'Run history' }));
+    expect(screen.getByText(/^Scheduled for .*2026/)).toBeInTheDocument();
+    expect(screen.getAllByText('Scheduled')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: /Write brief/ })).toBeInTheDocument();
+    expect(screen.queryByText('No item')).toBeNull();
   });
 
   it('clicking a row of an existing item closes the center and opens the item', () => {

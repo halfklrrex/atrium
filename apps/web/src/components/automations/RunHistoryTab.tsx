@@ -16,7 +16,7 @@ import {
   type DescribeBoard,
   type DescribeOptions,
 } from './describe-automation';
-import { RUN_STATUS_LABELS, filterRuns, runDetail } from './run-history';
+import { RUN_STATUS_LABELS, filterRuns, runDetail, scheduledRunInfo } from './run-history';
 import styles from './AutomationCenter.module.css';
 
 type Option = { value: string; label: string };
@@ -182,14 +182,22 @@ function OwnerRunHistory({
           <ul className={styles.list} aria-label="Run history">
             {filtered.map((run) => {
               const itemName = run.itemId ? itemNames.get(run.itemId) : undefined;
+              const scheduled = scheduledRunInfo(run);
               const cells = (
                 <>
-                  <span className={styles.cell} title={run.startedAt.toDate().toLocaleString()}>
+                  <span
+                    className={styles.cell}
+                    title={
+                      scheduled
+                        ? `${scheduled.label}. Ran ${run.startedAt.toDate().toLocaleString()}`
+                        : run.startedAt.toDate().toLocaleString()
+                    }
+                  >
                     {formatUpdated(run.startedAt)}
                   </span>
                   <span className={styles.cell}>{recipeName(run.automationId)}</span>
                   <span className={styles.cell}>
-                    {run.itemId ? (itemName ?? 'Deleted item') : 'No item'}
+                    {run.itemId ? (itemName ?? 'Deleted item') : (scheduled?.label ?? 'Scheduled')}
                   </span>
                   <span>
                     <Label

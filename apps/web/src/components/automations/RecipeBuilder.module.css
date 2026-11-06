@@ -162,3 +162,8 @@
     transition: none;
   }
 }
+
+.tokenNumber {
+  composes: tokenInput;
+  width: var(--atrium-automation-token-number-width);
+}

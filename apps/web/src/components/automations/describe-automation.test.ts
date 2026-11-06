@@ -1,3 +1,4 @@
+import type { ButtonAction } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import { describeAutomation, type DescribeBoard } from './describe-automation';
 
@@ -215,5 +216,74 @@ describe('describeAutomation', () => {
         board,
       ),
     ).toBe('When someone is assigned to a deleted column, then post an update "Hi"');
+  });
+});
+
+describe('describeAutomation: scheduled triggers (P5d)', () => {
+  const withDue: DescribeBoard = {
+    ...board,
+    columns: [...board.columns, { id: 'due', type: 'date', title: 'Due date', settings: {} }],
+  };
+  const create: ButtonAction = { type: 'create_item', name: 'Weekly review {date}' };
+  const notify: ButtonAction = { type: 'notify', uids: ['u1', 'u2', 'u3'] };
+  const zone = 'Europe/Madrid';
+  const sentence = (
+    trigger: Parameters<typeof describeAutomation>[0]['trigger'],
+    actions: Parameters<typeof describeAutomation>[0]['actions'],
+    timezone: string | undefined = zone,
+    conditions: Parameters<typeof describeAutomation>[0]['conditions'] = [],
+  ) => describeAutomation({ trigger, conditions, actions, timezone }, withDue);
+
+  it('describes a weekly recurrence with the weekday, time and zone', () => {
+    expect(sentence({ type: 'recurring', every: 'week', weekday: 1, at: '09:00' }, [create])).toBe(
+      'Every Monday at 09:00 (Europe/Madrid), then create an item "Weekly review {date}"',
+    );
+    expect(sentence({ type: 'recurring', every: 'week', weekday: 0, at: '18:30' }, [create])).toBe(
+      'Every Sunday at 18:30 (Europe/Madrid), then create an item "Weekly review {date}"',
+    );
+  });
+
+  it('describes daily and monthly recurrences', () => {
+    expect(sentence({ type: 'recurring', every: 'day', at: '07:15' }, [notify])).toBe(
+      'Every day at 07:15 (Europe/Madrid), then notify 3 people',
+    );
+    expect(
+      sentence({ type: 'recurring', every: 'month', dayOfMonth: 15, at: '09:00' }, [notify]),
+    ).toBe('Every month on day 15 at 09:00 (Europe/Madrid), then notify 3 people');
+  });
+
+  it('describes a date arriving before, on and after the date', () => {
+    expect(
+      sentence({ type: 'date_arrives', columnId: 'due', offsetDays: -3, at: '09:00' }, [notify]),
+    ).toBe('3 days before Due date at 09:00 (Europe/Madrid), then notify 3 people');
+    expect(
+      sentence({ type: 'date_arrives', columnId: 'due', offsetDays: -1, at: '09:00' }, [notify]),
+    ).toBe('1 day before Due date at 09:00 (Europe/Madrid), then notify 3 people');
+    expect(
+      sentence({ type: 'date_arrives', columnId: 'due', offsetDays: 0, at: '08:00' }, [notify]),
+    ).toBe('On the day Due date arrives at 08:00 (Europe/Madrid), then notify 3 people');
+    expect(
+      sentence({ type: 'date_arrives', columnId: 'due', offsetDays: 2, at: '09:00' }, [notify]),
+    ).toBe('2 days after Due date at 09:00 (Europe/Madrid), then notify 3 people');
+  });
+
+  it("says the date's own time applies when no time is chosen", () => {
+    expect(sentence({ type: 'date_arrives', columnId: 'due', offsetDays: 0 }, [notify])).toBe(
+      'On the day Due date arrives at its own time or 09:00 (Europe/Madrid), then notify 3 people',
+    );
+  });
+
+  it('joins conditions with "and" and survives a deleted column and a missing zone', () => {
+    expect(
+      sentence(
+        { type: 'date_arrives', columnId: 'due', offsetDays: 1, at: '09:00' },
+        [notify],
+        '',
+        [{ columnId: 'status', op: 'is', value: { index: 0 } }],
+      ),
+    ).toBe('1 day after Due date at 09:00 and Status is Working on it, then notify 3 people');
+    expect(
+      sentence({ type: 'date_arrives', columnId: 'gone', offsetDays: 0, at: '09:00' }, [notify]),
+    ).toBe('On the day a deleted column arrives at 09:00 (Europe/Madrid), then notify 3 people');
   });
 });
