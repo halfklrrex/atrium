@@ -300,9 +300,65 @@ describe('dashboards: update widgets and name', () => {
   });
 });
 
-describe('dashboards: access, kind and delete are owner-only', () => {
-  it('owner may change kind and access, keeping accessUids in step', async () => {
+describe('dashboards: access and kind are server-only, state and delete are owner-only', () => {
+  const shared = { ...sharedAccess, [USERS.admin]: 'owner' };
+  const sharingPayloads = (): Record<string, Record<string, unknown>> => ({
+    'kind only': { kind: 'main' },
+    'access with accessUids': { access: shared, accessUids: Object.keys(shared) },
+    'access alone': { access: shared },
+    'accessUids alone': { accessUids: Object.keys(shared) },
+    'a promotion to owner': {
+      access: { ...sharedAccess, [USERS.member]: 'owner', [USERS.viewer]: 'owner' },
+      accessUids: Object.keys(sharedAccess),
+    },
+    'a demotion': {
+      access: { ...sharedAccess, [USERS.owner]: 'viewer' },
+      accessUids: Object.keys(sharedAccess),
+    },
+    'kind with access': { kind: 'main', access: shared, accessUids: Object.keys(shared) },
+  });
+
+  it.each([USERS.owner, USERS.member, USERS.viewer])(
+    'refuses %s writing kind, access or accessUids directly',
+    async (uid) => {
+      await seed('d1', { kind: 'shareable', access: sharedAccess });
+      for (const [label, extra] of Object.entries(sharingPayloads())) {
+        await assertFails(updateDoc(ref(as(uid), 'd1'), touch(uid, extra))).catch((e) => {
+          throw new Error(`${uid}: ${label} was allowed (${String(e)})`);
+        });
+      }
+    },
+  );
+
+  it('refuses a workspace admin on a main dashboard writing sharing fields', async () => {
     await seed('d1');
+    await assertFails(
+      updateDoc(
+        ref(as(USERS.admin), 'd1'),
+        touch(USERS.admin, {
+          kind: 'private',
+          access: { [USERS.admin]: 'owner' },
+          accessUids: [USERS.admin],
+        }),
+      ),
+    );
+  });
+
+  it('still lets owner and editor edit content when the sharing fields are untouched', async () => {
+    await seed('d1', { kind: 'shareable', access: sharedAccess });
+    await assertSucceeds(
+      updateDoc(ref(as(USERS.owner), 'd1'), touch(USERS.owner, { name: 'A', widgets: [] })),
+    );
+    await assertSucceeds(
+      updateDoc(
+        ref(as(USERS.member), 'd1'),
+        touch(USERS.member, { name: 'B', icon: null, position: 'a1', boardIds: ['x'] }),
+      ),
+    );
+  });
+
+  it('allows a same-value write of the sharing fields (no change), as a no-op', async () => {
+    await seed('d1', { kind: 'shareable', access: sharedAccess });
     await assertSucceeds(
       updateDoc(
         ref(as(USERS.owner), 'd1'),
@@ -310,42 +366,9 @@ describe('dashboards: access, kind and delete are owner-only', () => {
           kind: 'shareable',
           access: sharedAccess,
           accessUids: Object.keys(sharedAccess),
+          name: 'Same sharing',
         }),
       ),
-    );
-  });
-
-  it('refuses an accessUids that differs from the access keys', async () => {
-    await seed('d1');
-    await assertFails(
-      updateDoc(
-        ref(as(USERS.owner), 'd1'),
-        touch(USERS.owner, { access: sharedAccess, accessUids: [USERS.owner] }),
-      ),
-    );
-  });
-
-  it('refuses an owner removing their own ownership', async () => {
-    await seed('d1', { kind: 'shareable', access: sharedAccess });
-    await assertFails(
-      updateDoc(
-        ref(as(USERS.owner), 'd1'),
-        touch(USERS.owner, {
-          access: { [USERS.member]: 'editor' },
-          accessUids: [USERS.member],
-        }),
-      ),
-    );
-  });
-
-  it('refuses editors and viewers changing kind or access', async () => {
-    await seed('d1', { kind: 'shareable', access: sharedAccess });
-    const next = { ...sharedAccess, [USERS.admin]: 'owner' };
-    const change = (uid: string) => touch(uid, { access: next, accessUids: Object.keys(next) });
-    await assertFails(updateDoc(ref(as(USERS.member), 'd1'), change(USERS.member)));
-    await assertFails(updateDoc(ref(as(USERS.viewer), 'd1'), change(USERS.viewer)));
-    await assertFails(
-      updateDoc(ref(as(USERS.member), 'd1'), touch(USERS.member, { kind: 'main' })),
     );
   });
 

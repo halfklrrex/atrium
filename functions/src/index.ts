@@ -28,6 +28,7 @@ export { removeMember } from './callable/removeMember';
 export { leaveWorkspace } from './callable/leaveWorkspace';
 export { setBoardAccess } from './callable/setBoardAccess';
 export { setBoardKind } from './callable/setBoardKind';
+export { setDashboardAccess } from './callable/setDashboardAccess';
 export { leaveBoard } from './callable/leaveBoard';
 export { purgeTrash } from './scheduled/purgeTrash';
 export { purgeOrphanUploads } from './scheduled/purgeOrphanUploads';
