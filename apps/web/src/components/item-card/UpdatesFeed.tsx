@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { createUpdate, deleteUpdate, toggleLikeUpdate, useItemUpdates } from '../../data/updates';
 import { formatRelativeShort } from '../../lib/format';
+import { authorLabel, isAutomationActor } from '../../lib/automation-actor';
 import { UserAvatar } from '../UserAvatar';
 import { MentionedText } from './MentionedText';
 import { LazyUpdateComposer } from './LazyUpdateComposer';
@@ -93,7 +94,7 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
         <div className={styles.updatesList}>
           {updates.map((update) => {
             const isLiked = uid ? update.likes.includes(uid) : false;
-            const canDelete = uid && update.authorId === uid;
+            const canDelete = uid && update.authorId === uid && !isAutomationActor(update.authorId);
             const isFocused = update.id === focusUpdateId;
             const showReplies = expandedReplies[update.id] ?? (isFocused && !!focusReplyId);
 
@@ -115,7 +116,7 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
                       />
                     </div>
                     <span className={styles.authorName}>
-                      {update.authorName ?? (update.authorId === uid ? 'You' : 'Member')}
+                      {authorLabel(update.authorId, update.authorName, uid)}
                     </span>
                     <span className={styles.timestamp}>
                       {formatRelativeShort(update.createdAt)}

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { createReply, deleteReply, toggleLikeReply, useUpdateReplies } from '../../data/updates';
 import { formatRelativeShort } from '../../lib/format';
+import { authorLabel, isAutomationActor } from '../../lib/automation-actor';
 import { UserAvatar } from '../UserAvatar';
 import { MentionedText } from './MentionedText';
 import { LazyUpdateComposer } from './LazyUpdateComposer';
@@ -65,7 +66,7 @@ export function UpdateReplies({
         <div className={styles.replyList}>
           {replies.map((reply) => {
             const isLiked = uid ? reply.likes.includes(uid) : false;
-            const canDelete = uid && reply.authorId === uid;
+            const canDelete = uid && reply.authorId === uid && !isAutomationActor(reply.authorId);
 
             return (
               <div
@@ -88,7 +89,7 @@ export function UpdateReplies({
                   <div className={styles.replyBubble}>
                     <div className={styles.replyHeader}>
                       <span className={styles.authorName}>
-                        {reply.authorName ?? (reply.authorId === uid ? 'You' : 'Member')}
+                        {authorLabel(reply.authorId, reply.authorName, uid)}
                       </span>
                       <span className={styles.timestamp}>
                         {formatRelativeShort(reply.createdAt)}

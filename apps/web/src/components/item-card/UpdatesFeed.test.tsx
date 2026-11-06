@@ -270,6 +270,30 @@ describe('UpdatesFeed', () => {
     expect(screen.getByText('Plain old text')).toBeInTheDocument();
   });
 
+  it('shows an automation update as Automations with the automation avatar and no Delete', () => {
+    mockUpdatesData = [
+      makeUpdate({
+        id: 'auto',
+        authorId: 'automation:abc',
+        authorName: undefined,
+        authorPhotoUrl: 'https://example.com/x.png',
+        content: 'Status changed to Done',
+      }),
+    ];
+    const { container } = render(<UpdatesFeed boardId="b1" itemId="i1" />);
+    expect(screen.getByText('Automations')).toBeInTheDocument();
+    expect(screen.getByText('Status changed to Done')).toBeInTheDocument();
+    expect(screen.getByTestId('avatar-content').tagName.toLowerCase()).toBe('svg');
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete update' })).not.toBeInTheDocument();
+  });
+
+  it('still offers Delete on the signed-in user own update', () => {
+    mockUpdatesData = [makeUpdate({ id: 'mine', authorId: 'u1', authorName: 'Ada Lovelace' })];
+    render(<UpdatesFeed boardId="b1" itemId="i1" />);
+    expect(screen.getByRole('button', { name: 'Delete update' })).toBeInTheDocument();
+  });
+
   it('renders updates with author name, content, and like button', async () => {
     mockUpdatesData = [
       makeUpdate({
