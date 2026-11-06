@@ -1,9 +1,10 @@
-import { canEditBoard, canManageBoard, resolveBoardRole } from '@atrium/shared';
+import { canEditBoard, canManageBoard, csvFileName, resolveBoardRole } from '@atrium/shared';
 import { Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
 import {
   Archive,
   Check,
   Delete,
+  Download,
   Duplicate,
   Edit,
   Favorite,
@@ -16,10 +17,23 @@ import {
 } from '@vibe/icons';
 import { useMatch, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
-import { useBoards, useFavorites, useFolders, useWorkspace, type BoardDoc } from '../../data';
+import {
+  useBoards,
+  useFavorites,
+  useFolders,
+  useItems,
+  useUserLookup,
+  useWorkspace,
+  type BoardDoc,
+} from '../../data';
+import { useBoardFilter, useHiddenColumnIds } from '../board-filters';
+import { buildColumnViews, buildGroupModels } from '../board-table/table-model';
+import { useTableStore } from '../board-table/table-store';
+import { showToast } from '../toast-store';
 import { useUiStore } from '../AppShell/ui-store';
 import { FavoriteFilled } from './FavoriteStar';
 import { boardActions } from './board-actions';
+import { boardCsvText, buildBoardCsvRows, downloadCsv } from './board-export';
 import { canLeaveBoard } from './board-sharing';
 import { folderChoices } from './folder-choices';
 
@@ -29,6 +43,12 @@ interface BoardMenuProps {
   onRename?: () => void;
   /** Opens the board's Activity log panel. The entry is hidden when omitted (only the header has the panel). */
   onActivityLog?: () => void;
+  /**
+   * True when the menu belongs to the open board view (the header): "Export to CSV" then exports
+   * the rows that view shows (filters, search, sort, hidden columns). Otherwise it exports every
+   * active item in group order.
+   */
+  exportOpenView?: boolean;
   size?: 'xxs' | 'xs' | 'small';
   className?: string;
   onMenuShow?: () => void;
@@ -40,6 +60,7 @@ export function BoardMenu({
   board,
   onRename,
   onActivityLog,
+  exportOpenView = false,
   size = 'xs',
   className,
   onMenuShow,
@@ -54,7 +75,12 @@ export function BoardMenu({
       onMenuShow={onMenuShow}
       onMenuHide={onMenuHide}
     >
-      <BoardMenuContent board={board} onRename={onRename} onActivityLog={onActivityLog} />
+      <BoardMenuContent
+        board={board}
+        onRename={onRename}
+        onActivityLog={onActivityLog}
+        exportOpenView={exportOpenView}
+      />
     </MenuButton>
   );
 }
@@ -64,7 +90,8 @@ function BoardMenuContent({
   board,
   onRename,
   onActivityLog,
-}: Pick<BoardMenuProps, 'board' | 'onRename' | 'onActivityLog'>) {
+  exportOpenView,
+}: Pick<BoardMenuProps, 'board' | 'onRename' | 'onActivityLog' | 'exportOpenView'>) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const navigate = useNavigate();
@@ -74,6 +101,11 @@ function BoardMenuContent({
   const { data: boards } = useBoards(board.workspaceId, uid);
   const { data: folders } = useFolders(board.workspaceId);
   const { data: favorites } = useFavorites(uid);
+  const { data: items, loading: itemsLoading } = useItems(board.id);
+  const memberLookup = useUserLookup(board.workspaceId);
+  const { filterState } = useBoardFilter(board.id);
+  const viewHiddenIds = useHiddenColumnIds(board.id);
+  const search = useTableStore((s) => s.search);
 
   const role = resolveBoardRole(board, uid, workspace?.roles[uid]);
   const canEdit = canEditBoard(role);
@@ -84,6 +116,37 @@ function BoardMenuContent({
   const leaveIfOpen = () => {
     if (openBoardMatch?.params.boardId === board.id) {
       void navigate(`/workspaces/${board.workspaceId}`);
+    }
+  };
+
+  const exportCsv = () => {
+    try {
+      const allColumns = buildColumnViews(board.columns);
+      const models = buildGroupModels({
+        groups: board.groups,
+        items,
+        columns: allColumns,
+        subitemColumns: buildColumnViews(board.subitemColumns ?? []),
+        search: exportOpenView ? search.trim() : '',
+        filterState: exportOpenView ? filterState : undefined,
+        userLookup: (id) => memberLookup(id)?.name,
+      });
+      const rows = buildBoardCsvRows({
+        board,
+        items: models.flatMap((m) => m.items),
+        subitems: items.filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
+        columns: board.columns,
+        subitemColumns: board.subitemColumns ?? [],
+        hiddenColumnIds: exportOpenView ? viewHiddenIds : [],
+        groups: board.groups,
+        personNames: (id) => memberLookup(id)?.name,
+      });
+      downloadCsv(csvFileName(board.name), boardCsvText(rows));
+      const count = rows.length - 1;
+      showToast(`Exported ${count} ${count === 1 ? 'item' : 'items'}`, { type: 'positive' });
+    } catch (error) {
+      console.error('Could not export the board', error);
+      showToast('Could not export the board', { type: 'negative' });
     }
   };
 
@@ -108,6 +171,7 @@ function BoardMenuContent({
         disabled={!workspace || workspace.roles[uid] === 'viewer'}
         onClick={() => openDialog({ type: 'saveTemplate', boardId: board.id })}
       />
+      <MenuItem title="Export to CSV" icon={Download} disabled={itemsLoading} onClick={exportCsv} />
       {canEdit ? (
         <MenuItem title="Move to folder" icon={Move}>
           <Menu id={`move-menu-${board.id}`} size="medium">

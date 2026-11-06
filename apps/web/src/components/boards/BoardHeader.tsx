@@ -145,6 +145,7 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
           <BoardMenu
             board={board}
             size="small"
+            exportOpenView
             onRename={() => setRenaming(true)}
             onActivityLog={() => openActivityPanel(board.id)}
           />
