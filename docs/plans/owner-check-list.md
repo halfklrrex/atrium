@@ -2,6 +2,10 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Required columns as a hard rule (REQ-3, web)
+
+- **Required is now enforced:** on the showcase board the Status column is required. (1) Clear a required cell (select it and press Delete, or pick the empty option): the edit is refused with a toast like "Owner is required" and the cell snaps back. (2) Open a column's menu: under "Required column" a note says how many items are empty ("3 items are empty; they stay as they are but can't be saved empty again"). (3) On an item with an empty required cell, set Status to a Done label: the web app refuses with "Fill in Owner, Due date before setting Status to Done". (4) Optional, needs a second client or the MCP connector: set Done from outside the table; the item should flip to Done for a moment and then be reverted, with an "Atrium" entry in the board's Activity log explaining why (the revert is eventual, not atomic). (5) Mark 10 columns Required, then try an 11th: it is blocked with a warning, because the security rules only check 10. Light and dark. Item creation stays exempt (quick add still works).
+
 ## P5c: more triggers and actions (web + showcase)
 
 - **New triggers and actions in the recipe builder:** on the showcase board open **Automate**. Check the two new seeded recipes ("Say it when work lands in Done" on the Item moved trigger with a Post an update action, and "Follow-up for new owners" on the Person assigned trigger with a Create item action). Then create one recipe per new type yourself: a trigger "Item moved" (with a group and with "Any group"), a trigger "Person assigned" (People column, with and without a chosen person), an action "Create item" (name with `{name}` / `{date}`, a group, up to 10 values) and an action "Post an update". Trigger each (move an item to Done, add a person to the Owner cell), then open **Run history** and see an `ok` run; the new item should appear, and the update should show the author "Automations". Check that these two actions are NOT offered in a Button column's settings. Light and dark. The Functions side (P5c-2) must be live for the runs to appear.
@@ -54,4 +58,4 @@ Live checks only the owner can do, collected per feature while agents build ahea
 ## Decisions waiting for the owner (older, now answered above where noted)
 
 - **Button column:** answered (configurable multi-step actions). Slice B, "notify people", is merged (#72); see its check above.
-- **Required columns:** I made "Required" a soft rule (a hint, nothing blocked). Tell me if you want a hard rule somewhere, for example when an item moves to Done.
+- **Required columns:** answered 2026-11-05/06 (hard rule: both rules, eventual revert, no bypass). See the REQ-3 check above.

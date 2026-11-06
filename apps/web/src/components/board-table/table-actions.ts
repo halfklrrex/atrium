@@ -45,6 +45,13 @@ import {
   type ColumnLockContext,
 } from './derived';
 import { defaultColumnTitle, duplicateColumnTitle } from './column-naming';
+import {
+  REQUIRED_CAP_MESSAGE,
+  checkRequiredWrite,
+  explainRequiredDenied,
+  wouldExceedRequiredCap,
+  type RequiredWriteError,
+} from './required-write';
 import { appendPositions, dropPosition, positionsAfter } from './move-math';
 import { clampWidth, withSubitemIds, type ColumnView } from './table-model';
 import { useTableStore } from './table-store';
@@ -70,6 +77,8 @@ export interface TableCtx {
   boardRole?: BoardRole | null;
   /** Live read of the board's active items (parents and subitems), so cascades find subitems. */
   getItems?: () => readonly ItemDoc[];
+  /** The board's server-maintained `requiredColumnIds` (for the rules' 10-column cap). */
+  requiredColumnIds?: readonly string[];
   /** Live read of the board's groups, so a new group can be shown before its write returns. */
   getGroups?: () => readonly GroupDef[];
 }
@@ -107,15 +116,33 @@ const columnsOf = (ctx: TableCtx, state: BoardStructureState): ColumnDef[] =>
 const columnsPatch = (ctx: TableCtx, columns: ColumnDef[]): StructurePatch =>
   ({ [columnsKey(ctx)]: columns }) as StructurePatch;
 
-async function attempt(task: () => Promise<unknown>, failure: string): Promise<boolean> {
+async function attempt(
+  task: () => Promise<unknown>,
+  failure: string,
+  explain?: () => string | null,
+): Promise<boolean> {
   try {
     await task();
     return true;
   } catch (error) {
     console.error(failure, error);
-    showToast(describeError(error, failure), { type: 'negative' });
+    const code = (error as { code?: string } | null)?.code;
+    const friendly = code === 'permission-denied' ? explain?.() : null;
+    showToast(friendly ?? describeError(error, failure), { type: 'negative' });
     return false;
   }
+}
+
+/** The required-columns hard rule for one cell write (rules 1 and 2); `null` when allowed. */
+function refusedByRequiredRule(
+  ctx: TableCtx,
+  itemId: string,
+  columnId: string,
+  value: unknown,
+  item?: ItemDoc,
+): RequiredWriteError | null {
+  const current = item ?? ctx.getItems?.().find((i) => i.id === itemId);
+  return checkRequiredWrite(ctx.columns, columnId, value, current);
 }
 
 /** Longest column description (`columnDefSchema`). */
@@ -253,12 +280,21 @@ export const tableActions = {
       return false;
     }
 
+    const refused = refusedByRequiredRule(ctx, itemId, columnId, value, item);
+    if (refused) {
+      showToast(refused.message, { type: 'negative' });
+      return false;
+    }
+    const explain = () =>
+      explainRequiredDenied(ctx.columns, ctx.requiredColumnIds, columnId, value);
+
     const col = ctx.columns.find((c) => c.id === columnId);
     if (col?.type === 'vote') {
       if (value === null || value === undefined) {
         return attempt(
           () => itemWrites.setValue(ctx.uid, ctx.boardId, itemId, columnId, null),
           'Could not save the change.',
+          explain,
         );
       }
       const requestedInVoters = Boolean(
@@ -270,6 +306,7 @@ export const tableActions = {
     return attempt(
       () => itemWrites.setValue(ctx.uid, ctx.boardId, itemId, columnId, value),
       'Could not save the change.',
+      explain,
     );
   },
 
@@ -297,9 +334,15 @@ export const tableActions = {
       showToast(check.message, { type: 'negative' });
       return false;
     }
+    const refused = refusedByRequiredRule(ctx, itemId, columnId, value, item);
+    if (refused) {
+      showToast(refused.message, { type: 'negative' });
+      return false;
+    }
     return attempt(
       () => itemWrites.setValueAndMove(ctx.uid, ctx.boardId, itemId, columnId, value, position),
       'Could not move the card.',
+      () => explainRequiredDenied(ctx.columns, ctx.requiredColumnIds, columnId, value),
     );
   },
 
@@ -654,6 +697,10 @@ export const tableActions = {
       >
     >,
   ): Promise<void> {
+    if (patch.required === true && wouldExceedRequiredCap(ctx.requiredColumnIds, columnId)) {
+      showToast(REQUIRED_CAP_MESSAGE, { type: 'negative' });
+      return;
+    }
     await attempt(
       () =>
         updateBoardStructure(ctx.boardId, (state) => {

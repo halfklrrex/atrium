@@ -1379,6 +1379,9 @@ export function buildShowcase({
       columnLocks: ['budget'],
       groups,
       serverManagedColumnIds: columnRegistry.serverManagedColumnIds(columns),
+      requiredColumnIds: [
+        ...columnRegistry.requiredColumnIds([...columns, ...subitemColumns]),
+      ].sort(),
       createdAt: ago(30 * DAY),
       updatedAt: ago(2 * HOUR),
     }),
