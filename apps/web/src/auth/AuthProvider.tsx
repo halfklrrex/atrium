@@ -8,11 +8,12 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { writes } from '../data/firestore';
 import { callBootstrapUser } from '../lib/callables';
 import { auth } from '../lib/firebase';
 import { getErrorCode, isSilentSignInError } from './auth-errors';
+import { ensureApprovedToken } from './ensure-approved-token';
 import { AuthContext, type AuthContextValue, type AuthStatus } from './auth-context';
 
 const toError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
@@ -62,12 +63,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const user = session?.user ?? null;
   const key = user && session ? `${session.id}:${attempt}` : null;
 
+  // The bootstrap effect reads the user and session through refs so it re-runs only per `key`.
+  const userRef = useRef<User | null>(null);
+  const sessionIdRef = useRef(0);
+  // Sessions whose ID token was already force-refreshed once for the account gate (loop guard).
+  const refreshedSessions = useRef(new Set<number>());
+  useEffect(() => {
+    userRef.current = user;
+    sessionIdRef.current = session?.id ?? 0;
+  }, [user, session?.id]);
+
   // Bootstrap whenever a session with a user starts, or the user retries.
   useEffect(() => {
     if (!key) return;
     let cancelled = false;
     callBootstrapUser().then(
-      ({ workspaceId, accountStatus }) => {
+      async ({ workspaceId, accountStatus }) => {
+        // Rules need the `acct` claim in the token before any data subscription starts. Once per
+        // session; a failure is logged inside and never blocks sign-in.
+        const current = userRef.current;
+        const sessionId = sessionIdRef.current;
+        if (current && !refreshedSessions.current.has(sessionId)) {
+          refreshedSessions.current.add(sessionId);
+          await ensureApprovedToken(current, accountStatus);
+        }
         if (!cancelled) {
           setOutcome({
             key,

@@ -66,6 +66,16 @@ describe('Storage security rules (strict deny: signed URLs only)', () => {
     }
   });
 
+  it('denies pending, blocked and claim-less accounts as well', async () => {
+    for (const claims of [{ acct: undefined }, { acct: 'blocked' }, { acct: 'pending' }]) {
+      const storage = testEnv.authenticatedContext(USERS.owner, claims).storage();
+      const path = 'boards/b1/items/i1/files/f_gate';
+
+      await assertFails(put(storage.ref(path), Buffer.from('x'), { contentType: 'text/plain' }));
+      await assertFails(storage.ref(path).getDownloadURL());
+    }
+  });
+
   it('denies all direct client deletes and updates', async () => {
     for (const uid of [USERS.owner, USERS.admin, USERS.member]) {
       const ctx = testEnv.authenticatedContext(uid);
