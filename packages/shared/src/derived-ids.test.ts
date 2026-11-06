@@ -3,9 +3,12 @@ import { columnRegistry, defineColumnType, textColumn } from './columns';
 import {
   computeColumnIdLists,
   computeDerivedColumnIds,
+  computeRequiredColumnIds,
+  REQUIRED_COLUMN_RULE_CAP,
   computeServerManagedColumnIds,
   nextColumnIdLists,
   nextDerivedColumnIds,
+  nextRequiredColumnIds,
   nextServerManagedColumnIds,
 } from './derived-ids';
 
@@ -112,6 +115,7 @@ describe('computeServerManagedColumnIds (FW2)', () => {
     expect(computeColumnIdLists({ columns })).toEqual({
       derivedColumnIds: ['d'],
       serverManagedColumnIds: ['m'],
+      requiredColumnIds: [],
     });
   });
 
@@ -143,30 +147,27 @@ describe('nextServerManagedColumnIds', () => {
 
 describe('nextColumnIdLists', () => {
   const columns = [col('d', 'test_derived'), col('m', 'test_managed')];
-  const both = { derivedColumnIds: ['d'], serverManagedColumnIds: ['m'] };
+  const both = { derivedColumnIds: ['d'], serverManagedColumnIds: ['m'], requiredColumnIds: [] };
+  const right = { derivedColumnIds: ['d'], serverManagedColumnIds: ['m'], requiredColumnIds: [] };
 
-  it('returns null only when both lists are right', () => {
-    expect(
-      nextColumnIdLists({ columns, derivedColumnIds: ['d'], serverManagedColumnIds: ['m'] }),
-    ).toBeNull();
+  it('returns null only when all lists are right', () => {
+    expect(nextColumnIdLists({ columns, ...right })).toBeNull();
   });
 
-  it('returns both lists when either one is wrong or missing', () => {
-    expect(
-      nextColumnIdLists({ columns, derivedColumnIds: ['d'], serverManagedColumnIds: [] }),
-    ).toEqual(both);
-    expect(
-      nextColumnIdLists({ columns, derivedColumnIds: [], serverManagedColumnIds: ['m'] }),
-    ).toEqual(both);
+  it('returns all lists when any one is wrong or missing', () => {
+    expect(nextColumnIdLists({ columns, ...right, serverManagedColumnIds: [] })).toEqual(both);
+    expect(nextColumnIdLists({ columns, ...right, derivedColumnIds: [] })).toEqual(both);
+    expect(nextColumnIdLists({ columns, ...right, requiredColumnIds: undefined })).toEqual(both);
     // A board from before FW2 has the FW1 field only.
     expect(nextColumnIdLists({ columns, derivedColumnIds: ['d'] })).toEqual(both);
     expect(nextColumnIdLists({ columns })).toEqual(both);
   });
 
-  it('backfills a board with no such columns to two empty lists', () => {
+  it('backfills a board with no such columns to empty lists', () => {
     expect(nextColumnIdLists({ columns: [col('t', 'text')], derivedColumnIds: [] })).toEqual({
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     });
   });
 });
@@ -178,6 +179,7 @@ describe('type change marks', () => {
       subitemColumns: [],
       derivedColumnIds: ['d'],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     };
     expect(nextColumnIdLists(base)).toBeNull();
     const migrating = {
@@ -207,10 +209,68 @@ describe('type change marks', () => {
       subitemColumns: [],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     };
     expect(nextColumnIdLists(board)).toEqual({
       derivedColumnIds: ['t'],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     });
+  });
+});
+
+describe('requiredColumnIds (REQ-1)', () => {
+  const req = (id: string, required?: boolean) => ({
+    ...col(id, 'text'),
+    ...(required === undefined ? {} : { required }),
+  });
+
+  it('computes the sorted ids of required columns and subitem columns', () => {
+    expect(
+      computeRequiredColumnIds({
+        columns: [req('z', true), req('t', false), req('u'), req('b', true)],
+        subitemColumns: [req('m', true), req('b', true)],
+      }),
+    ).toEqual(['b', 'm', 'z']);
+  });
+
+  it('is empty without required columns and tolerates malformed data', () => {
+    expect(computeRequiredColumnIds({ columns: [req('t', false), req('u')] })).toEqual([]);
+    expect(computeRequiredColumnIds({})).toEqual([]);
+    expect(computeRequiredColumnIds({ columns: 'oops', subitemColumns: [null] })).toEqual([]);
+  });
+
+  it('next returns null when right (any order), else the list', () => {
+    const columns = [req('b', true), req('a', true)];
+    expect(nextRequiredColumnIds({ columns, requiredColumnIds: ['b', 'a'] })).toBeNull();
+    expect(nextRequiredColumnIds({ columns })).toEqual(['a', 'b']);
+    expect(nextRequiredColumnIds({ columns, requiredColumnIds: null })).toEqual(['a', 'b']);
+    expect(nextRequiredColumnIds({ columns, requiredColumnIds: ['a'] })).toEqual(['a', 'b']);
+    expect(nextRequiredColumnIds({ columns, requiredColumnIds: ['a', 7] })).toEqual(['a', 'b']);
+    expect(nextRequiredColumnIds({ columns: [req('t')], requiredColumnIds: ['t'] })).toEqual([]);
+    expect(nextRequiredColumnIds({ columns: [req('t')] })).toEqual([]);
+  });
+
+  it('turning Required on or off changes the list', () => {
+    expect(
+      nextColumnIdLists({
+        columns: [req('t', true)],
+        derivedColumnIds: [],
+        serverManagedColumnIds: [],
+        requiredColumnIds: [],
+      })?.requiredColumnIds,
+    ).toEqual(['t']);
+    expect(
+      nextColumnIdLists({
+        columns: [req('t', false)],
+        derivedColumnIds: [],
+        serverManagedColumnIds: [],
+        requiredColumnIds: ['t'],
+      })?.requiredColumnIds,
+    ).toEqual([]);
+  });
+
+  it('exports the rules cap', () => {
+    expect(REQUIRED_COLUMN_RULE_CAP).toBe(10);
   });
 });

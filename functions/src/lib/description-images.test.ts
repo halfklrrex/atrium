@@ -42,6 +42,7 @@ function makeBoard(uid: string): Board {
     subitemColumns: [],
     derivedColumnIds: [],
     serverManagedColumnIds: [],
+    requiredColumnIds: [],
     groups: [],
     itemTerminology: 'item',
     state: 'active',

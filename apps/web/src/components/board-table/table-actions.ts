@@ -735,9 +735,12 @@ export const tableActions = {
     if (!removed) return false;
     // A derived column has no stored values to clean up, and the rules refuse client writes to
     // server-managed ones or to locked columns when the caller is not a board owner (their leftover
-    // values are harmless and invisible without the column).
+    // values are harmless and invisible without the column). A required column is skipped too: until
+    // the onBoardColumnsWritten function drops it from `requiredColumnIds`, the rules refuse
+    // emptying its cells (REQ-1), and the leftover values are just as harmless.
     if (
       !isClientReadOnlyType(column.type) &&
+      column.required !== true &&
       !(ctx.boardRole !== 'owner' && ctx.board?.columnLocks?.includes(column.id))
     )
       await attempt(

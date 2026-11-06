@@ -397,6 +397,7 @@ describe('diffBoardActivity', () => {
       accessUids: ['u1'],
       derivedColumnIds: ['a'],
       serverManagedColumnIds: [],
+      requiredColumnIds: ['b'],
       updatedBy: 'u9',
     };
     expect(diffBoardActivity({ ...board, kind: 'main' } as never, after as never)).toEqual([]);

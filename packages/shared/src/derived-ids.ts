@@ -2,10 +2,11 @@ import type { ColumnDef } from './schemas/board';
 import { columnRegistry } from './columns';
 
 /**
- * `boards/{id}.derivedColumnIds` (FW1) and `boards/{id}.serverManagedColumnIds` (FW2): which columns
- * of a board are derived (computed, never stored) or server-managed (written only by Cloud
- * Functions). Firestore rules refuse client writes to those `values.<id>`, and the
- * `onBoardColumnsWritten` Cloud Function is the only writer of both fields. The pure computation
+ * `boards/{id}.derivedColumnIds` (FW1), `boards/{id}.serverManagedColumnIds` (FW2) and
+ * `boards/{id}.requiredColumnIds` (REQ-1): which columns of a board are derived (computed, never
+ * stored), server-managed (written only by Cloud Functions) or required (never emptied). Firestore
+ * rules refuse client writes to the first two lists' `values.<id>` and refuse emptying the third's,
+ * and the `onBoardColumnsWritten` Cloud Function is the only writer of all three fields. The pure computation
  * lives here so the Function and the backfill migration share it (and a test can pin it down).
  */
 
@@ -15,12 +16,22 @@ export interface BoardColumnsData {
   subitemColumns?: unknown;
   derivedColumnIds?: unknown;
   serverManagedColumnIds?: unknown;
+  requiredColumnIds?: unknown;
 }
 
-/** The two server-maintained lists of a board. */
+/**
+ * How many required columns the Firestore rules check by value (REQ-1). Rules cannot loop, so
+ * `firestore.rules` unrolls the check over the first 10 entries of `requiredColumnIds`. A client
+ * write that touches the 21st or a later required column is refused (fail closed, never loosened).
+ * Keep this equal to the unrolled helper in `firestore.rules` (a rules test pins it).
+ */
+export const REQUIRED_COLUMN_RULE_CAP = 10;
+
+/** The three server-maintained lists of a board. */
 export interface ColumnIdLists {
   derivedColumnIds: string[];
   serverManagedColumnIds: string[];
+  requiredColumnIds: string[];
 }
 
 /** Column defs from a stored list; malformed entries (no string `id` and `type`) are skipped. */
@@ -52,11 +63,17 @@ export function computeServerManagedColumnIds(data: BoardColumnsData): string[] 
   return uniqueSorted(columnRegistry.serverManagedColumnIds(allColumnDefs(data)));
 }
 
-/** Both lists a board should carry. */
+/** Ids of every column and sub-item column marked `required: true` (REQ-1), sorted. */
+export function computeRequiredColumnIds(data: BoardColumnsData): string[] {
+  return uniqueSorted(columnRegistry.requiredColumnIds(allColumnDefs(data)));
+}
+
+/** All three lists a board should carry. */
 export function computeColumnIdLists(data: BoardColumnsData): ColumnIdLists {
   return {
     derivedColumnIds: computeDerivedColumnIds(data),
     serverManagedColumnIds: computeServerManagedColumnIds(data),
+    requiredColumnIds: computeRequiredColumnIds(data),
   };
 }
 
@@ -92,15 +109,22 @@ export function nextServerManagedColumnIds(data: BoardColumnsData): string[] | n
   return isRight(data.serverManagedColumnIds, wanted) ? null : wanted;
 }
 
+/** Like {@link nextDerivedColumnIds}, for `requiredColumnIds` (REQ-1). */
+export function nextRequiredColumnIds(data: BoardColumnsData): string[] | null {
+  const wanted = computeRequiredColumnIds(data);
+  return isRight(data.requiredColumnIds, wanted) ? null : wanted;
+}
+
 /**
- * What the `onBoardColumnsWritten` Function should write: both lists, or `null` when each is already
- * right (no write, so its own write stops re-triggering it). Both are written together whenever
- * either one is wrong, in one update.
+ * What the `onBoardColumnsWritten` Function should write: all three lists, or `null` when each is
+ * already right (no write, so its own write stops re-triggering it). All are written together
+ * whenever any one is wrong, in one update.
  */
 export function nextColumnIdLists(data: BoardColumnsData): ColumnIdLists | null {
   const wanted = computeColumnIdLists(data);
   return isRight(data.derivedColumnIds, wanted.derivedColumnIds) &&
-    isRight(data.serverManagedColumnIds, wanted.serverManagedColumnIds)
+    isRight(data.serverManagedColumnIds, wanted.serverManagedColumnIds) &&
+    isRight(data.requiredColumnIds, wanted.requiredColumnIds)
     ? null
     : wanted;
 }

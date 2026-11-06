@@ -417,12 +417,13 @@ service cloud.firestore {
                                  'accessUids', 'position', 'icon', 'columns', 'subitemColumns',
                                  'groups', 'itemTerminology', 'state', 'deletedAt', 'createdAt',
                                  'createdBy', 'updatedAt', 'derivedColumnIds',
-                                 'serverManagedColumnIds', 'columnLocks', 'updatedBy'])
+                                 'serverManagedColumnIds', 'requiredColumnIds', 'columnLocks',
+                                 'updatedBy'])
           && d.keys().hasAll(['workspaceId', 'folderId', 'name', 'description', 'kind', 'access',
                               'accessUids', 'position', 'icon', 'columns', 'subitemColumns',
                               'groups', 'itemTerminology', 'state', 'deletedAt', 'createdAt',
                               'createdBy', 'updatedAt', 'derivedColumnIds',
-                              'serverManagedColumnIds'])
+                              'serverManagedColumnIds', 'requiredColumnIds'])
           && d.workspaceId is string
           && canCreateInWs(d.workspaceId)
           && (d.folderId == null
@@ -437,6 +438,7 @@ service cloud.firestore {
           && d.columns is list && d.subitemColumns is list && d.groups is list
           && d.derivedColumnIds == []
           && d.serverManagedColumnIds == []
+          && d.requiredColumnIds == []
           && (!('columnLocks' in d) || d.columnLocks == [])
           && (!('updatedBy' in d) || d.updatedBy == uid())
           && d.itemTerminology is string && d.itemTerminology.size() >= 1
@@ -450,8 +452,9 @@ service cloud.firestore {
       // Editors may change structure (columns, groups, name...) and move the board (`folderId`,
       // `position`). Lifecycle state and `columnLocks` are owner-only; `access`, `accessUids` and
       // `kind` are written only by the setBoardAccess / setBoardKind / leaveBoard callables (P4b), so
-      // not even an owner can change them from a client; workspaceId, `icon`, `derivedColumnIds` and
-      // `serverManagedColumnIds` (both maintained by the onBoardColumnsWritten function) and audit
+      // not even an owner can change them from a client; workspaceId, `icon`, `derivedColumnIds`,
+      // `serverManagedColumnIds` and `requiredColumnIds` (REQ-1; all three maintained by the
+      // onBoardColumnsWritten function, so none is in `changed.hasOnly` below) and audit
       // fields are immutable for clients. `accessUids` must always be the key set of `access`.
       // Every client update must also send `updatedBy == uid()` (P4 activity log): the board trigger
       // attributes column and group changes to it.
@@ -722,6 +725,40 @@ service cloud.firestore {
           return board.get('derivedColumnIds', []).concat(board.get('serverManagedColumnIds', []));
         }
 
+        // Required columns (REQ-1): an item update may not empty a `values.<id>` listed in the
+        // board's `requiredColumnIds` (maintained by onBoardColumnsWritten; boards from before
+        // REQ-1 lack it, which reads as []). Item creation is exempt (an item starts with a name
+        // only), and a cell that is already empty may stay so: only keys the update touches count.
+        // "Empty" here is the generic case: missing (deleted), null, '', [] or {}; type-specific
+        // emptiness (a status without a label, ...) is the Functions' job (REQ-2).
+        // Rules cannot loop, so the check is unrolled over the first 10 entries of the list
+        // (REQUIRED_COLUMN_RULE_CAP in @atrium/shared mirrors that number). It looks at the list,
+        // not at the keys being written, so any number of written keys is covered. If an update
+        // touches a required column at position 11 or later it is refused (fail closed: never
+        // loosened). Cost: one set intersection when no required cell is touched (the usual case).
+        // Measured: a write touching all 20 entries exceeded the 1000-expression limit, so the cap
+        // is 10, which a test proves with every one of the 10 cells written at once.
+        function isEmptyCell(v) {
+          return v == null || v == '' || v == [] || v == {};
+        }
+
+        function requiredCellOk(req, i, touched, after) {
+          return req.size() <= i || !(req[i] in touched) || !isEmptyCell(after.get(req[i], null));
+        }
+
+        function requiredCellsOk(board) {
+          let req = board.get('requiredColumnIds', []);
+          let after = request.resource.data.values;
+          let touched = after.diff(resource.data.values).affectedKeys().intersection(req.toSet());
+          return touched.size() == 0
+            || ((req.size() <= 10 || !touched.hasAny(req[10:req.size()].toSet()))
+                && requiredCellOk(req, 0, touched, after) && requiredCellOk(req, 1, touched, after)
+                && requiredCellOk(req, 2, touched, after) && requiredCellOk(req, 3, touched, after)
+                && requiredCellOk(req, 4, touched, after) && requiredCellOk(req, 5, touched, after)
+                && requiredCellOk(req, 6, touched, after) && requiredCellOk(req, 7, touched, after)
+                && requiredCellOk(req, 8, touched, after) && requiredCellOk(req, 9, touched, after));
+        }
+
         function lockedColumnIds(board) {
           return board.get('columnLocks', []);
         }
@@ -790,6 +827,7 @@ service cloud.firestore {
             && (boardRole(board) == 'owner'
                 || !request.resource.data.values.diff(resource.data.values).affectedKeys()
                      .hasAny(lockedColumnIds(board)))
+            && requiredCellsOk(board)
             && request.resource.data.state in ['active', 'archived', 'deleted']
             && request.resource.data.updatedBy == uid()
             && request.resource.data.updatedAt == request.time;

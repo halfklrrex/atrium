@@ -83,6 +83,7 @@ test('createBoard builds the same document as the web app, without sample items'
   assert.deepEqual(stored.accessUids, [ME]);
   assert.deepEqual(stored.derivedColumnIds, []);
   assert.deepEqual(stored.serverManagedColumnIds, []);
+  assert.deepEqual(stored.requiredColumnIds, []);
   assert.equal(stored.workspaceId, WS);
   assert.equal(stored.folderId, null);
   assert.equal(stored.state, 'active');

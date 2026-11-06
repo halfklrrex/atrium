@@ -107,6 +107,7 @@ export function buildBoardDoc({
     ...structure,
     derivedColumnIds: [],
     serverManagedColumnIds: [],
+    requiredColumnIds: [],
     state: 'active',
     deletedAt: null,
     createdAt: stamp,

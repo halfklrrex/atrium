@@ -4,7 +4,7 @@
 // Safety rules enforced here (the Admin-style REST client bypasses security rules, so we do it):
 //   - only boards of `config.workspaceId`, only `state = active`, only where the configured user has
 //     a role (structure changes need `owner`, item changes `editor` or `owner`);
-//   - never writes derivedColumnIds / serverManagedColumnIds / seq / boardSeq / activity / notifications;
+//   - never writes derivedColumnIds / serverManagedColumnIds / requiredColumnIds / seq / boardSeq / activity / notifications;
 //   - no hard deletes; only the documents of one board are ever touched.
 import { boardRoleFromWorkspaceRole, columnRegistry } from '@atrium/shared';
 import {

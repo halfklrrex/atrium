@@ -187,6 +187,7 @@ export function boardDoc(overrides: Record<string, unknown> = {}) {
     subitemColumns: [],
     derivedColumnIds: [],
     serverManagedColumnIds: [],
+    requiredColumnIds: [],
     groups: [],
     itemTerminology: 'item',
     state: 'active',

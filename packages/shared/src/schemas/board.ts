@@ -108,6 +108,13 @@ export const boardSchema = z.object({
    */
   serverManagedColumnIds: z.array(slugIdSchema).default([]),
   /**
+   * Ids of the columns and subitemColumns with `required: true` (REQ-1). Same rules as
+   * `derivedColumnIds`: maintained only by the `onBoardColumnsWritten` Cloud Function, created as
+   * `[]`, never written by clients, and absent on older boards (reads as `[]`). Firestore rules use
+   * it to refuse emptying `values.<id>` on an item update.
+   */
+  requiredColumnIds: z.array(slugIdSchema).default([]),
+  /**
    * Ids of columns (and subitemColumns) locked so only board owners can edit their values.
    * Older boards may lack this field (reads as `[]`).
    */

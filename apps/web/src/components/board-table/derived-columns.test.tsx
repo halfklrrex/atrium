@@ -260,6 +260,24 @@ describe('server-managed columns in the board table (FW2)', () => {
     expect(await tableActions.duplicateColumn(ctx, view, [source])).toEqual(expect.any(String));
     expect(mocks.copyColumn).not.toHaveBeenCalled();
   });
+
+  it('does not try to clean up the cells of a required column (REQ-1: rules refuse emptying them)', async () => {
+    const required: ColumnDef = {
+      id: 'req',
+      type: 'text',
+      title: 'Req',
+      position: 'a3',
+      settings: {},
+      required: true,
+    };
+    expect(await tableActions.deleteColumn(ctx, required, ['i1'])).toBe(true);
+    expect(mocks.clearColumn).not.toHaveBeenCalled();
+    expect(useToastStore.getState().toasts.some((t) => t.type === 'negative')).toBe(false);
+
+    const plain = columns.find((c) => c.id === 'cap')!;
+    expect(await tableActions.deleteColumn(ctx, plain, ['i1'])).toBe(true);
+    expect(mocks.clearColumn).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('vote column in the board table', () => {
