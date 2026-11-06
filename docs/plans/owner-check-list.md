@@ -2,6 +2,11 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Site admin, web (ADMIN-3)
+
+- **Nothing is visible yet:** the waiting and blocked screens only appear for an account whose status is pending or blocked, and the admin screen and menu link only for an account with the `admin` claim. Until `ACCOUNT_APPROVAL_REQUIRED` is flipped, the backfill has run, the rules gate (ADMIN-1b) has shipped and `pnpm admin:grant` has been run for you, every account is approved and the app looks exactly as before. Check that first: sign in as usual and confirm there is no "Site admin" item in the account menu and nothing else changed.
+- **To try it once all of that is live:** (1) With the admin claim, open the account menu: "Site admin" opens `/admin` with every account (Pending first), search, the status tabs, Approve, Block (asks "Block <name>? ..." first) and Unblock. A non-admin who types `/admin` sees the "We couldn't find that page" screen. (2) Sign in with a second Google account: it shows "Waiting for approval" with its name and a Sign out button, and no app behind it. You get a bell notification "<name> asked for access" that opens `/admin`. (3) Approve that account in `/admin`: the waiting screen should move into the app within a few seconds without a reload, and that person gets "approved your account" in their bell (clicking it goes nowhere). (4) Block it: it must be signed out, and a new sign-in attempt is refused. Light and dark.
+
 ## P5d: time-based automations (web + showcase)
 
 - **Date arrives and Recurring in the builder:** on the showcase board open **Automate**, then Manage, and look at the two new seeded recipes "Due date heads-up" and "Monday review". Their sentences must name the zone, for example "Every Monday at 09:00 (UTC), then create an item ...". They are seeded **off** (with a reason) so nothing fires by surprise; switch one on to try it.

@@ -25,6 +25,8 @@ const mockAuthValue: AuthContextValue = {
     photoURL: null,
   } as unknown as AuthContextValue['user'],
   lastWorkspaceId: 'w1',
+  accountStatus: null,
+  refreshAccount: vi.fn(),
   error: null,
   redirectError: null,
   signInWithGoogle: vi.fn(),

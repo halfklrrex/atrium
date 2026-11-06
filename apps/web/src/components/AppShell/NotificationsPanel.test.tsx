@@ -192,6 +192,42 @@ describe('NotificationsPanel shell', () => {
   });
 });
 
+describe('NotificationsPanel account notifications', () => {
+  const accountNote = (id: string, kind: 'account_request' | 'account_approved') =>
+    note(id, {
+      kind,
+      actorName: 'Riley Chen',
+      workspaceId: 'account',
+      boardId: 'account',
+      boardName: '',
+      itemId: 'u9',
+      itemName: '',
+      updateId: null,
+      snippet: '',
+    });
+
+  it('shows the access request text and opens /admin, never a board', async () => {
+    mockList = [accountNote('a1', 'account_request')];
+    renderPanel();
+    setOpen(true);
+    expect(screen.getByText('asked for access')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Riley Chen'));
+    expect(screen.getByTestId('where')).toHaveTextContent('/admin');
+    expect(mockMarkRead).toHaveBeenCalledWith('u1', 'a1');
+    expect(useUiStore.getState().notificationsOpen).toBe(false);
+  });
+
+  it('shows the approval text and does not navigate', async () => {
+    mockList = [accountNote('a2', 'account_approved')];
+    renderPanel();
+    setOpen(true);
+    expect(screen.getByText('approved your account')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Riley Chen'));
+    expect(screen.getByTestId('where')).toHaveTextContent('/|');
+    expect(mockMarkRead).toHaveBeenCalledWith('u1', 'a2');
+  });
+});
+
 describe('NotificationsPanel list', () => {
   beforeEach(() => {
     mockList = sample();
