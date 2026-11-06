@@ -16,7 +16,7 @@ export type BootstrapUserRequest = z.infer<typeof bootstrapUserRequestSchema>;
 
 /**
  * `workspaceId` is absent only while the account waits for approval (ADMIN-2, behind the functions
- * param `ACCOUNT_APPROVAL_REQUIRED`). `accountStatus` is sent only when that param is on.
+ * environment variable `ACCOUNT_APPROVAL_REQUIRED`). `accountStatus` is sent only when that variable is on.
  */
 export const bootstrapUserResultSchema = z.object({
   workspaceId: idSchema.optional(),
