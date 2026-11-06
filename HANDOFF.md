@@ -31,17 +31,17 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 
 ## Open work (2026-11-06)
 
-- **Live today (2026-11-06):** the Automation center redesign is complete (R4 Manage table, #115), catalog templates ready (#117), automation updates shown as "Automations" (#118), the Windows flag emoji fallback (#119), and the **required-columns hard rule** (REQ-1 #116, REQ-2 #122, REQ-3 #123). Specs merged: P5d (#120) and site admin role (#121). P5d-1 shared is merged (#124).
+- **Live today (2026-11-06):** the Automation center redesign is complete (R4, #115), catalog templates ready (#117), automation updates shown as "Automations" (#118), the Windows flag emoji fallback (#119), the **required-columns hard rule** (#116, #122, #123), **time-based automations** (P5d-1 to P5d-4: #124, #126, #127, #128; showcase recipes are seeded switched off), the **dashboard sharing server-side check** (#130) and **attachments in item updates** (#132 backend, #133 web; the daily trash purge now also deletes stored files and updates). Specs merged: site admin role (#121), P5d (#120), update attachments (#131). **ADMIN-1a** (#129: account status types, claims backfill script, `pnpm admin:grant`; no gate, nothing run) is merged.
 - **Latest session note:** `docs/handoff/2026-11-06-ophelia-req-p5d-admin-spec.md` (what merged, decisions, gotchas, what's waiting).
-- **In flight:** P5d-2 (rules, indexes, `dateKeys` backfill) and P5d-3 (the scheduler Function); check the open PRs. Then P5d-4 (web builder, showcase).
+- **In flight:** nothing open. Everything below waits on the owner or on Chrome.
 - **Owner decisions, 2026-11-06:** site admin role defaults confirmed (existing accounts stay approved, waiting screen, bell notification); required columns defaults confirmed (both rules, eventual revert, no bypass).
-- **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Chrome extension was not connected today, so agents couldn't do the read-only ones); a go-ahead to apply two production writes whose dry runs are done: the `requiredColumnIds` backfill (8 boards) and the legacy-activity cleanup (1 doc). Three small open questions with defaults at the end of `docs/specs/ADMIN-site-admin-role.md` and five in the P5d spec.
+- **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Chrome extension was not connected today); **"go" on the site-admin item (3335038323)** to run the account-claims backfill (dry run first, apply, second dry run must show 0) and `admin:grant` for the owner's account, which unblocks ADMIN-1b (the gate), ADMIN-2 and ADMIN-3; go-aheads for three production writes whose dry runs are done or ready: the `requiredColumnIds` backfill (8 boards), the legacy-activity cleanup (1 doc) and the `dateKeys` backfill (not dry-run yet). Small open questions with defaults in the site-admin, P5d and update-attachments specs.
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
 - **Next, in this order:**
   1. Start-of-session routine (bug inbox, Actionable = Agents; filter by label id, Agents = 4, not the index).
-  2. Land P5d-2 and P5d-3, then P5d-4.
-  3. Site admin: ADMIN-1a (no gate), the backfill with the owner's go-ahead, then ADMIN-1b (the gate), ADMIN-2, ADMIN-3.
-  4. VF visual QA for the new screens (needs Chrome); the open "Dashboard sharing: server-side check" item.
+  2. Site admin after the owner's go: backfill, verify, ADMIN-1b (gate), ADMIN-2, ADMIN-3.
+  3. VF visual QA for the new screens (needs Chrome); apply the production backfills the owner approves; re-seed the showcase after visible changes.
+  4. Unstarted epics that need a spec first: Teams & user profiles, Email notifications, PWA and web push, Docs editor, Map and Files gallery views, Export and print, the P8 public API (plan an ultrareview checkpoint first).
 - **Local machine (Mac):** `gcloud` is installed and signed in; `PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` for `pnpm test:rules`; `LC_ALL=en_US.UTF-8 pnpm test` avoids 5 locale-only web test failures; typecheck one package at a time (`pnpm -r --workspace-concurrency=1 typecheck`).
 - Older plan and gotchas: `docs/plans/2026-11-03-autonomous-batch.md` and `docs/handoff/2026-11-03-ophelia-autonomous-batch.md`.
 
