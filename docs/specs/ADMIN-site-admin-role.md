@@ -1,6 +1,6 @@
 # ADMIN: Site admin role, with account approval and blocking
 
-Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: item "Feature: site admin role, with account approval and blocking" · Origin: bug inbox request, 2026-11-05 · Status: **draft for the owner to read. Defaults confirmed by the owner on 2026-11-06 (see Decisions); the technical choices below are mine and the owner can change them.**
+Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: item "Feature: site admin role, with account approval and blocking" · Origin: bug inbox request, 2026-11-05 · Status: **ADMIN-1a in progress (PR open; types, claim helpers, backfill script and users-rules tests, no gate). ADMIN-1b to 3 not started.** Defaults confirmed by the owner on 2026-11-06 (see Decisions); the technical choices below are mine and the owner can change them.
 
 ## Goal
 
@@ -84,6 +84,21 @@ A dry-run-by-default script (`scripts/migrations/`, patterned on the other backf
 ## Deploy gotcha
 
 The gate and the backfill are a pair. If the rules ship before every existing account has `acct: 'approved'`, everyone, including the owner, is locked out. So the gate ships **last and separately**: ADMIN-1a (types, claim helpers, backfill script, no gate), then the owner-approved backfill run and a check that every account has the claim, then ADMIN-1b (the gated `signedIn()` in both rule files). Until the gate ships nothing changes for anyone.
+
+### Running the backfill
+
+Only after ADMIN-1a is merged, and only with the owner's go-ahead. Needs `gcloud auth login` with a
+user that can administer Auth and Firestore in the project. Run from the repo root:
+
+1. **Dry run** (writes nothing; prints counts and the uids that would change, never emails or names):
+   `pnpm exec tsx scripts/migrations/2026-11-backfill-account-claims.mjs --project atrium-board`
+2. **Apply**, once the report looks right (every existing Auth user gets `acct: 'approved'`, other claims kept; profiles get `accountStatus: 'approved'`, `statusChangedAt`, `statusChangedBy: 'system:backfill'`; blocked accounts are left alone):
+   `pnpm exec tsx scripts/migrations/2026-11-backfill-account-claims.mjs --project atrium-board --apply`
+3. **Verify:** run the dry run again. It must report `to change 0`.
+4. **Then** the owner's own admin claim: `pnpm admin:grant --uid <uid> --project atrium-board` (dry run), then add `--apply`. The uid stays in `.private/project-ids.md`.
+5. **Only then** merge ADMIN-1b (the gate).
+
+The scripts call the Identity Toolkit REST API (`GET /v1/projects/{project}/accounts:batchGet`, `POST /v1/projects/{project}/accounts:update`) and the Firestore REST API with a `gcloud auth print-access-token` bearer token and the `x-goog-user-project: <project>` quota header (`--no-quota-project` drops it). Without `--project` they use the local emulators. Re-running is safe.
 
 ## Tests that must exist
 

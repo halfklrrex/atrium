@@ -272,17 +272,21 @@ export function createFirestoreRest({
             }
             for (const path of w.remove ?? []) fieldPaths.push(maskPath(path));
             const increments = Object.entries(w.increment ?? {});
+            // `serverTimestamp` lists dotted paths set to the commit's server time.
+            const transforms = [
+              ...increments.map(([field, by]) => ({
+                fieldPath: maskPath(field),
+                increment: { integerValue: String(by) },
+              })),
+              ...(w.serverTimestamp ?? []).map((field) => ({
+                fieldPath: maskPath(field),
+                setToServerValue: 'REQUEST_TIME',
+              })),
+            ];
             return {
               update: { name: `${root}/${w.path}`, fields },
               updateMask: { fieldPaths },
-              ...(increments.length > 0
-                ? {
-                    updateTransforms: increments.map(([field, by]) => ({
-                      fieldPath: maskPath(field),
-                      increment: { integerValue: String(by) },
-                    })),
-                  }
-                : {}),
+              ...(transforms.length > 0 ? { updateTransforms: transforms } : {}),
               currentDocument: w.precondition ?? { exists: true },
             };
           }

@@ -137,7 +137,7 @@ export function emulatorHost(env = process.env) {
   return host;
 }
 
-function gcloudAccessToken() {
+export function gcloudAccessToken() {
   try {
     return execFileSync('gcloud', ['auth', 'print-access-token'], {
       encoding: 'utf8',

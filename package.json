@@ -24,6 +24,7 @@
     "licenses:check": "node scripts/third-party-notices.mjs --check",
     "format": "prettier --write .",
     "showcase": "tsx scripts/showcase/seed-showcase.mjs",
+    "admin:grant": "tsx scripts/admin-grant.mjs",
     "mcp": "tsx scripts/mcp/atrium-mcp.mjs",
     "e2e:membership": "tsx scripts/e2e-membership.mjs"
   },
