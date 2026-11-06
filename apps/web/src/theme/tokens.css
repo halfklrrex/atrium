@@ -141,6 +141,8 @@
   --atrium-composer-expanded-height: 80px;
   --atrium-update-avatar-size: 40px;
   --atrium-reply-avatar-size: 32px;
+  --atrium-update-attachment-thumb-size: 32px; /* file chip thumbnail under an update */
+  --atrium-update-attachment-name-max: 200px;
 
   /* ---- Full item view (floating window) ---- */
   --atrium-scrim-light: rgba(0, 0, 0, 0.2); /* focus-mode scrim, lighter than the dialog one */

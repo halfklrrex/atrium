@@ -1,5 +1,25 @@
 import {
   ACCEPT_INVITE_CALLABLE,
+  DELETE_UPDATE_ATTACHMENT_CALLABLE,
+  FINALIZE_UPDATE_ATTACHMENT_CALLABLE,
+  GET_UPDATE_ATTACHMENT_URL_CALLABLE,
+  REQUEST_UPDATE_ATTACHMENT_UPLOAD_CALLABLE,
+  deleteUpdateAttachmentRequestSchema,
+  deleteUpdateAttachmentResultSchema,
+  finalizeUpdateAttachmentRequestSchema,
+  finalizeUpdateAttachmentResultSchema,
+  getUpdateAttachmentUrlRequestSchema,
+  getUpdateAttachmentUrlResultSchema,
+  requestUpdateAttachmentUploadRequestSchema,
+  requestUpdateAttachmentUploadResultSchema,
+  type DeleteUpdateAttachmentRequest,
+  type DeleteUpdateAttachmentResult,
+  type FinalizeUpdateAttachmentRequest,
+  type FinalizeUpdateAttachmentResult,
+  type GetUpdateAttachmentUrlRequest,
+  type GetUpdateAttachmentUrlResult,
+  type RequestUpdateAttachmentUploadRequest,
+  type RequestUpdateAttachmentUploadResult,
   CHANGE_COLUMN_TYPE_CALLABLE,
   BOOTSTRAP_USER_CALLABLE,
   CHANGE_MEMBER_ROLE_CALLABLE,
@@ -284,6 +304,33 @@ export const callDeleteFileAttachment = validatedCallable<
   (r) => deleteFileAttachmentRequestSchema.parse(r),
   (d) => deleteFileAttachmentResultSchema.parse(d),
 );
+
+/** Files on item updates and replies (P4): signed upload and download URLs, all through callables. */
+export const updateAttachmentCalls = {
+  requestUpload: validatedCallable<
+    RequestUpdateAttachmentUploadRequest,
+    RequestUpdateAttachmentUploadResult
+  >(
+    REQUEST_UPDATE_ATTACHMENT_UPLOAD_CALLABLE,
+    (r) => requestUpdateAttachmentUploadRequestSchema.parse(r),
+    (d) => requestUpdateAttachmentUploadResultSchema.parse(d),
+  ),
+  finalize: validatedCallable<FinalizeUpdateAttachmentRequest, FinalizeUpdateAttachmentResult>(
+    FINALIZE_UPDATE_ATTACHMENT_CALLABLE,
+    (r) => finalizeUpdateAttachmentRequestSchema.parse(r),
+    (d) => finalizeUpdateAttachmentResultSchema.parse(d),
+  ),
+  getUrl: validatedCallable<GetUpdateAttachmentUrlRequest, GetUpdateAttachmentUrlResult>(
+    GET_UPDATE_ATTACHMENT_URL_CALLABLE,
+    (r) => getUpdateAttachmentUrlRequestSchema.parse(r),
+    (d) => getUpdateAttachmentUrlResultSchema.parse(d),
+  ),
+  remove: validatedCallable<DeleteUpdateAttachmentRequest, DeleteUpdateAttachmentResult>(
+    DELETE_UPDATE_ATTACHMENT_CALLABLE,
+    (r) => deleteUpdateAttachmentRequestSchema.parse(r),
+    (d) => deleteUpdateAttachmentResultSchema.parse(d),
+  ),
+};
 
 /** Public forms (P7): any signed-in user reads an open form and submits to it. */
 export const formCalls = {
