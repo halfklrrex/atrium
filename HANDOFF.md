@@ -32,14 +32,14 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 ## Open work (2026-11-06)
 
 - **Live today (2026-11-06):** the Automation center redesign is complete (R4, #115), catalog templates ready (#117), automation updates shown as "Automations" (#118), the Windows flag emoji fallback (#119), the **required-columns hard rule** (#116, #122, #123), **time-based automations** (P5d-1 to P5d-4: #124, #126, #127, #128; showcase recipes are seeded switched off), the **dashboard sharing server-side check** (#130) and **attachments in item updates** (#132 backend, #133 web; the daily trash purge now also deletes stored files and updates). Specs merged: site admin role (#121), P5d (#120), update attachments (#131). **ADMIN-1a** (#129: account status types, claims backfill script, `pnpm admin:grant`; no gate, nothing run) is merged.
-- **Latest session note:** `docs/handoff/2026-11-06-ophelia-req-p5d-admin-spec.md` (what merged, decisions, gotchas, what's waiting).
-- **In flight:** nothing open. Everything below waits on the owner or on Chrome.
+- **Latest session notes:** `docs/handoff/2026-11-06-ophelia-export-bulk-edit-admin-iam.md` (evening) and `docs/handoff/2026-11-06-ophelia-req-p5d-admin-spec.md`.
+- **In flight:** PR #138 (ADMIN-1b, the account gate, draft, **do not merge without the owner's explicit "yes, ship the gate"**). Also live since the evening: Export to CSV (#139), bulk edit of selected rows (#141), 14px view tabs (#140). ADMIN-2 and ADMIN-3 are merged and live; the Functions account now has `roles/firebaseauth.admin` (owner ran it).
 - **Owner decisions, 2026-11-06:** site admin role defaults confirmed (existing accounts stay approved, waiting screen, bell notification); required columns defaults confirmed (both rules, eventual revert, no bypass).
 - **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Chrome extension was not connected today); **"go" on the site-admin item (3335038323)** to run the account-claims backfill (dry run first, apply, second dry run must show 0) and `admin:grant` for the owner's account, which unblocks ADMIN-1b (the gate), ADMIN-2 and ADMIN-3; go-aheads for three production writes whose dry runs are done or ready: the `requiredColumnIds` backfill (8 boards), the legacy-activity cleanup (1 doc) and the `dateKeys` backfill (not dry-run yet). Small open questions with defaults in the site-admin, P5d and update-attachments specs.
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
 - **Next, in this order:**
   1. Start-of-session routine (bug inbox, Actionable = Agents; filter by label id, Agents = 4, not the index).
-  2. Site admin after the owner's go: backfill, verify, ADMIN-1b (gate), ADMIN-2, ADMIN-3.
+  2. Site admin: the backfill and grant are done; ADMIN-1b (gate, #138) waits for the owner's explicit yes.
   3. VF visual QA for the new screens (needs Chrome); apply the production backfills the owner approves; re-seed the showcase after visible changes.
   4. Unstarted epics that need a spec first: Teams & user profiles, Email notifications, PWA and web push, Docs editor, Map and Files gallery views, Export and print, the P8 public API (plan an ultrareview checkpoint first).
 - **Local machine (Mac):** `gcloud` is installed and signed in; `PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` for `pnpm test:rules`; `LC_ALL=en_US.UTF-8 pnpm test` avoids 5 locale-only web test failures; typecheck one package at a time (`pnpm -r --workspace-concurrency=1 typecheck`).
@@ -63,6 +63,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - [2026-10-31 · Ophelia · Ava's queue, @mentions, Calendar, Timeline, Mirror, change column type](docs/handoff/2026-10-31-ophelia-ava-queue-and-p3.md)
 - [2026-10-31 · Ophelia · activity backend and polish batch 2 merged](docs/handoff/2026-10-31-ophelia-evening-activity-backend-merged.md)
 - [2026-11-01 · Claude · Atrium MCP connector (OPS3)](docs/handoff/2026-11-01-claude-atrium-mcp-connector.md)
+- [2026-11-06 · Ophelia · CSV export, bulk edit, admin IAM fix](docs/handoff/2026-11-06-ophelia-export-bulk-edit-admin-iam.md)
 - [2026-11-06 · Ophelia · required columns done, P5d under way, site admin specced](docs/handoff/2026-11-06-ophelia-req-p5d-admin-spec.md)
 - [2026-11-06 · Ophelia · in-flight inventory](docs/handoff/2026-11-06-ophelia-in-flight-inventory.md)
 - [2026-11-05 · Ophelia · P5c live, Automation center redesign R1 to R3](docs/handoff/2026-11-05-ophelia-p5c-p5e-live.md)
