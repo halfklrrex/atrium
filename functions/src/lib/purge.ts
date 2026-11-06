@@ -7,6 +7,8 @@ export interface PurgeTrashStore {
   findDeletedItems(cutoff: Date): Promise<readonly { id: string; boardId: string }[]>;
   purgeBoard(id: string): Promise<void>;
   deleteItems(items: readonly { id: string; boardId: string }[]): Promise<number>;
+  /** Deletes every Storage object whose name starts with `prefix` (always ends with `/`). */
+  deleteStoragePrefix(prefix: string): Promise<void>;
 }
 
 export const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -29,10 +31,17 @@ export async function purgeTrashLogic(
     store.findDeletedItems(cutoff),
   ]);
 
+  // Storage goes first: if it fails, the documents stay and the next run retries. An item's prefix
+  // covers its files, description images and update/reply attachments; a board's covers all items.
   for (const board of deletedBoards) {
+    await store.deleteStoragePrefix(`boards/${board.id}/`);
     await store.purgeBoard(board.id);
   }
 
+  for (const item of deletedItems) {
+    if (!item.boardId) continue;
+    await store.deleteStoragePrefix(`boards/${item.boardId}/items/${item.id}/`);
+  }
   if (deletedItems.length > 0) {
     await store.deleteItems(deletedItems);
   }

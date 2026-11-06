@@ -10,6 +10,7 @@ export * from './schemas/workspace';
 export * from './schemas/board';
 export * from './schemas/item';
 export * from './schemas/update';
+export * from './schemas/update-attachments';
 export * from './schemas/notification';
 export * from './schemas/activity';
 export * from './schemas/automation';

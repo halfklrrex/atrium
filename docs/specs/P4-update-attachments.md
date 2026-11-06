@@ -1,6 +1,6 @@
 # P4: Attachments in item updates
 
-Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: "Attachments in item updates (attach icon in the composer)" (item 3333534435) · Builds on: `P2-files-storage-upload.md`, `VF9-update-composer-fidelity.md` (Out of scope), the description images callables · Status: **approved by the owner's feature request (2026-11-05); the open questions below have defaults that stand.**
+Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: "Attachments in item updates (attach icon in the composer)" (item 3333534435) · Builds on: `P2-files-storage-upload.md`, `VF9-update-composer-fidelity.md` (Out of scope), the description images callables · Status: **PR 1 (backend) in review.** Approved by the owner's feature request (2026-11-05); the open questions below have defaults that stand.
 
 ## Goal
 

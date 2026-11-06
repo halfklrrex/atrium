@@ -23,6 +23,7 @@ describe('purgeTrashLogic', () => {
 
     const purgedBoards: string[] = [];
     const deletedItems: string[] = [];
+    const prefixes: string[] = [];
 
     const mockStore: PurgeTrashStore = {
       findDeletedBoards: async () => deletedBoardsList,
@@ -34,6 +35,9 @@ describe('purgeTrashLogic', () => {
         deletedItems.push(...items.map((it) => it.id));
         return items.length;
       },
+      deleteStoragePrefix: async (prefix) => {
+        prefixes.push(prefix);
+      },
     };
 
     const cutoff = new Date();
@@ -43,6 +47,32 @@ describe('purgeTrashLogic', () => {
     expect(result.itemsPurged).toBe(2);
     expect(purgedBoards).toEqual(['board-old']);
     expect(deletedItems).toEqual(['item-1', 'item-2']);
+    // Storage is cleared per board and per item: the item prefix covers files/, description/ and
+    // updates/ (update and reply attachments).
+    expect(prefixes).toEqual([
+      'boards/board-old/',
+      'boards/board-1/items/item-1/',
+      'boards/board-2/items/item-2/',
+    ]);
+  });
+
+  it('clears the Storage prefix before deleting documents, and keeps the documents when Storage fails', async () => {
+    const order: string[] = [];
+    const store: PurgeTrashStore = {
+      findDeletedBoards: async () => [],
+      findDeletedItems: async () => [{ id: 'i1', boardId: 'b1' }],
+      purgeBoard: async () => {},
+      deleteItems: async () => {
+        order.push('docs');
+        return 1;
+      },
+      deleteStoragePrefix: async (prefix) => {
+        order.push(prefix);
+        throw new Error('storage down');
+      },
+    };
+    await expect(purgeTrashLogic(store, new Date())).rejects.toThrow('storage down');
+    expect(order).toEqual(['boards/b1/items/i1/']);
   });
 
   it('skips delete when nothing is past the cutoff', async () => {
@@ -58,6 +88,7 @@ describe('purgeTrashLogic', () => {
         calledDeleteItems = true;
         return 0;
       },
+      deleteStoragePrefix: async () => {},
     };
 
     const result = await purgeTrashLogic(mockStore, new Date());

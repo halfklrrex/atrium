@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { mentionsSchema } from './notification';
 import { idSchema, timestampSchema, uidSchema, type WriteDoc } from './common';
+import { updateAttachmentsSchema } from './update-attachments';
 
 /** Largest `contentDoc` (JSON length) an update or reply may carry (spec P1d). */
 export const UPDATE_CONTENT_DOC_MAX_BYTES = 100_000;
@@ -53,6 +54,8 @@ export const itemUpdateSchema = z
     contentDoc: updateContentDocSchema.optional(),
     /** Uids mentioned with the @ picker (P4 notifications); set on create, never edited. */
     mentions: mentionsSchema.optional(),
+    /** Files on the post (spec P4 update attachments). Server-managed: only the finalize callable writes it. */
+    attachments: updateAttachmentsSchema.optional(),
     likes: z.array(uidSchema),
     repliesCount: z.number().int().nonnegative(),
     createdAt: timestampSchema,
@@ -60,7 +63,8 @@ export const itemUpdateSchema = z
   })
   .superRefine(refineContentDoc);
 export type ItemUpdate = z.infer<typeof itemUpdateSchema>;
-export type ItemUpdateWrite = WriteDoc<ItemUpdate>;
+/** Client update writes never carry `attachments` (rules refuse it; only Functions write it). */
+export type ItemUpdateWrite = Omit<WriteDoc<ItemUpdate>, 'attachments'>;
 
 /**
  * `boards/{boardId}/items/{itemId}/updates/{updateId}/replies/{replyId}`.
@@ -77,13 +81,16 @@ export const updateReplySchema = z
     contentDoc: updateContentDocSchema.optional(),
     /** Uids mentioned with the @ picker (P4 notifications); set on create, never edited. */
     mentions: mentionsSchema.optional(),
+    /** Files on the reply (spec P4 update attachments). Server-managed, like the update's. */
+    attachments: updateAttachmentsSchema.optional(),
     likes: z.array(uidSchema),
     createdAt: timestampSchema,
     updatedAt: timestampSchema,
   })
   .superRefine(refineContentDoc);
 export type UpdateReply = z.infer<typeof updateReplySchema>;
-export type UpdateReplyWrite = WriteDoc<UpdateReply>;
+/** Client reply writes never carry `attachments`. */
+export type UpdateReplyWrite = Omit<WriteDoc<UpdateReply>, 'attachments'>;
 
 /** Form input for creating or updating an update post. */
 export const createItemUpdateInputSchema = z

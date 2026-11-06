@@ -2,6 +2,7 @@ import * as logger from 'firebase-functions/logger';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { adminFileStorageBucket, db } from '../lib/admin';
 import { sweepOrphanUploads, type OrphanSweeperStore } from '../lib/file-storage';
+import { isUpdateAttachmentReferenced } from '../lib/update-attachments';
 
 export function adminOrphanSweeperStore(): OrphanSweeperStore {
   const firestore = db();
@@ -15,6 +16,23 @@ export function adminOrphanSweeperStore(): OrphanSweeperStore {
       return [];
     },
     async isStoragePathReferenced(boardId: string, itemId: string, storagePath: string) {
+      // Update and reply attachments (.../updates/{u}/{id}, .../updates/{u}/replies/{r}/{id}).
+      const postRef = (updateId: string, replyId?: string) => {
+        const update = firestore
+          .collection('boards')
+          .doc(boardId)
+          .collection('items')
+          .doc(itemId)
+          .collection('updates')
+          .doc(updateId);
+        return replyId === undefined ? update : update.collection('replies').doc(replyId);
+      };
+      const updateReferenced = await isUpdateAttachmentReferenced(storagePath, async (u, r) => {
+        const snap = await postRef(u, r).get();
+        return snap.exists ? { authorId: '', attachments: snap.get('attachments') } : null;
+      });
+      if (updateReferenced !== null) return updateReferenced;
+
       const itemSnap = await firestore
         .collection('boards')
         .doc(boardId)

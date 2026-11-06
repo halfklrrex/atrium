@@ -39,6 +39,7 @@ export interface FileStorageBucket {
   getSignedDownloadUrl(
     storagePath: string,
     expiresInSeconds: number,
+    options?: { contentDisposition?: string },
   ): Promise<{ downloadUrl: string; expiresAt: number }>;
   listUploadFiles?(prefix?: string): Promise<OrphanFileCandidate[]>;
 }
@@ -74,7 +75,8 @@ export interface OrphanSweeperStore {
 /**
  * Sweeps orphan storage objects older than cutoffMs (e.g. 1 hour old)
  * that have no corresponding reference in their item: a files cell for `.../files/{id}`, the
- * `descriptionImages` map for `.../description/{id}`.
+ * `descriptionImages` map for `.../description/{id}`, the update's or reply's `attachments` for
+ * `.../updates/{u}/{id}` and `.../updates/{u}/replies/{r}/{id}`.
  */
 export async function sweepOrphanUploads(
   store: OrphanSweeperStore,
@@ -83,7 +85,10 @@ export async function sweepOrphanUploads(
   const files = await store.listUploadFiles();
   let deleted = 0;
   for (const f of files) {
-    const match = /^boards\/([^/]+)\/items\/([^/]+)\/(?:files|description)\/([^/]+)$/.exec(f.name);
+    const match =
+      /^boards\/([^/]+)\/items\/([^/]+)\/(?:files|description|updates\/[^/]+(?:\/replies\/[^/]+)?)\/([^/]+)$/.exec(
+        f.name,
+      );
     if (!match) continue;
     const [, boardId, itemId] = match;
     const createdMs = new Date(f.timeCreated).getTime();
