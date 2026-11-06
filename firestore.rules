@@ -521,7 +521,10 @@ service cloud.firestore {
       // by the runner (extra automations are ignored). Trigger, condition and action contents are
       // validated by the same code, not here, so new trigger types need no rules change.
       // `consecutiveFailures` is written only by Functions (circuit breaker): it is in neither field
-      // list. `runAs` is the creator on create; an owner who edits a recipe may keep it or take it
+      // list. Likewise `nextRunAt` (P5d, the scheduler's next due time): in neither list, so a client
+      // can't create, change or remove it. `timezone` (P5d, the creator's IANA zone at save time) is
+      // client-written and in both lists (a string of at most 64 characters; the shared schema
+      // checks the zone itself). `runAs` is the creator on create; an owner who edits a recipe may keep it or take it
       // over (`runAs == uid()`), never name a third person. `createdBy` and `createdAt` never change.
       // -------------------------------------------------------------------
       match /automations/{automationId} {
@@ -531,12 +534,13 @@ service cloud.firestore {
             && d.trigger is map && d.trigger.get('type', null) is string && d.trigger.type.size() <= 40
             && d.conditions is list && d.conditions.size() <= 3
             && d.actions is list && d.actions.size() >= 1 && d.actions.size() <= 5
-            && (d.disabledReason == null || (d.disabledReason is string && d.disabledReason.size() <= 200));
+            && (d.disabledReason == null || (d.disabledReason is string && d.disabledReason.size() <= 200))
+            && (!d.keys().hasAny(['timezone']) || (d.timezone is string && d.timezone.size() <= 64));
         }
 
         function validAutomationCreate(d) {
           return d.keys().hasOnly(['name', 'enabled', 'trigger', 'conditions', 'actions', 'runAs',
-                                   'disabledReason', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+                                   'disabledReason', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'timezone'])
             && d.keys().hasAll(['name', 'enabled', 'trigger', 'conditions', 'actions', 'runAs',
                                 'disabledReason', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
             && validAutomationShape(d)
@@ -549,7 +553,7 @@ service cloud.firestore {
           let d = request.resource.data;
           let changed = d.diff(resource.data).affectedKeys();
           return changed.hasOnly(['name', 'enabled', 'trigger', 'conditions', 'actions', 'runAs',
-                                  'disabledReason', 'updatedBy', 'updatedAt'])
+                                  'disabledReason', 'updatedBy', 'updatedAt', 'timezone'])
             && validAutomationShape(d)
             && (d.runAs == resource.data.runAs || d.runAs == uid())
             && d.updatedBy == uid() && d.updatedAt == request.time;
@@ -777,6 +781,8 @@ service cloud.firestore {
         // `descriptionImages` (the map of description images by fileId, written by the
         // finalizeDescriptionImage Function only) is likewise in neither field list below, so clients
         // can't create, change or remove it. Storage objects behind it are reached through callables.
+        // `dateKeys` (P5d, "<columnId>:<YYYY-MM-DD>" per date cell, read by the scheduler) is
+        // server-maintained like `assigneeUids` and `nameTokens`: in neither field list below.
         // `seq` and `boardSeq` (server-assigned item numbers) are in neither field list below, so
         // `hasOnly` / `changed.hasOnly` already refuse a client that creates, changes or removes them;
         // only the onItemCreated function (Admin SDK) writes them. validUpdatesCountBump can't touch
