@@ -75,6 +75,11 @@ export function describeTrigger(trigger: AutomationTrigger, board: DescribeBoard
         : `an item is moved to ${groupTitle(board, trigger.groupId)}`;
     case 'person_assigned':
       return `someone is assigned to ${columnTitle(board, trigger.columnId)}`;
+    // Placeholder sentences; P5d-4 adds the time zone and the builder.
+    case 'date_arrives':
+      return `${columnTitle(board, trigger.columnId)} arrives`;
+    case 'recurring':
+      return `it is time (every ${trigger.every} at ${trigger.at})`;
   }
 }
 

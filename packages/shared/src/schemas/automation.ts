@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BUTTON_LIMITS, buttonActionSchema } from '../columns/button';
 import { validateButtonActions, type ButtonActionsBoard } from '../columns/column-validation';
+import { CANONICAL_TIMEZONES } from '../columns/canonical-timezones';
 import { columnRegistry } from '../columns/index';
 import type { BoardRole } from '../roles';
 import { slugIdSchema } from './board';
@@ -10,6 +11,8 @@ import { idSchema, timestampSchema, uidSchema, type WriteDoc } from './common';
 export const AUTOMATION_LIMITS = {
   /** Enforced by `validateAutomation` in the UI and the runner; rules cannot count documents. */
   maxPerBoard: 20,
+  /** Scheduled recipes (`date_arrives` or `recurring`) per board, inside `maxPerBoard` (P5d). */
+  maxScheduledPerBoard: 5,
   maxConditions: 3,
   maxActions: BUTTON_LIMITS.maxActions,
   /** `create_item` actions per recipe, so a recipe cannot fan out (P5c; no board item cap exists). */
@@ -24,6 +27,23 @@ export const AUTOMATION_LIMITS = {
   /** Characters of a run's `reason` / `error`. */
   runText: 200,
 } as const;
+
+/** `HH:MM`, 24 hours. */
+export const hhmmSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:MM');
+
+/** An IANA zone from `CANONICAL_TIMEZONES` (the same set on web, Functions and rules tests). */
+export const automationTimezoneSchema = z
+  .string()
+  .max(64)
+  .refine((tz) => CANONICAL_TIMEZONES.has(tz), 'Unknown time zone');
+
+/** Triggers run by the scheduler instead of by an item event. */
+export const SCHEDULED_TRIGGER_TYPES = ['date_arrives', 'recurring'] as const;
+export function isScheduledTrigger(trigger: {
+  type: string;
+}): trigger is Extract<AutomationTrigger, { type: 'date_arrives' | 'recurring' }> {
+  return trigger.type === 'date_arrives' || trigger.type === 'recurring';
+}
 
 /**
  * What starts a recipe. A discriminated union on `type`, each member strict; P5b/c add more types.
@@ -45,6 +65,32 @@ export const automationTriggerSchema = z.discriminatedUnion('type', [
   z
     .object({ type: z.literal('person_assigned'), columnId: idSchema, uid: uidSchema.optional() })
     .strict(),
+  /**
+   * Scheduler-driven (P5d), never an item event. `offsetDays` is days after the date (negative:
+   * before, 0: on the day). `at` (`HH:MM` in the recipe's `timezone`) defaults to the cell's own
+   * time, else 09:00.
+   */
+  z
+    .object({
+      type: z.literal('date_arrives'),
+      columnId: idSchema,
+      offsetDays: z.number().int().min(-30).max(30),
+      at: hhmmSchema.optional(),
+    })
+    .strict(),
+  /**
+   * Scheduler-driven (P5d). `weekday` (0 = Sunday .. 6 = Saturday) is required for `week` and
+   * `dayOfMonth` (1..28) for `month`; `validateAutomation` checks that.
+   */
+  z
+    .object({
+      type: z.literal('recurring'),
+      every: z.enum(['day', 'week', 'month']),
+      weekday: z.number().int().min(0).max(6).optional(),
+      dayOfMonth: z.number().int().min(1).max(28).optional(),
+      at: hhmmSchema,
+    })
+    .strict(),
 ]);
 export type AutomationTrigger = z.infer<typeof automationTriggerSchema>;
 
@@ -54,6 +100,8 @@ export const AUTOMATION_TRIGGER_LABELS: Record<AutomationTrigger['type'], string
   button_clicked: 'Button clicked',
   item_moved: 'Item moved',
   person_assigned: 'Person assigned',
+  date_arrives: 'Date arrives',
+  recurring: 'Recurring',
 };
 
 export const AUTOMATION_CONDITION_OPS = ['is', 'is_not', 'is_empty', 'is_not_empty'] as const;
@@ -83,6 +131,16 @@ export const automationSchema = z.object({
   conditions: z.array(automationConditionSchema).max(AUTOMATION_LIMITS.maxConditions),
   /** The button-action schema, reused. */
   actions: z.array(buttonActionSchema).min(1).max(AUTOMATION_LIMITS.maxActions),
+  /**
+   * IANA zone of a scheduled recipe (the creator's profile zone when it was saved); required by
+   * `validateAutomation` for `date_arrives` and `recurring`, absent otherwise.
+   */
+  timezone: automationTimezoneSchema.optional(),
+  /**
+   * Recurring only: UTC time of the next run. Server-maintained by Functions (P5d), never
+   * client-written; `null` or absent when not scheduled.
+   */
+  nextRunAt: timestampSchema.nullable().optional(),
   /** The uid whose permissions a run uses: the creator. */
   runAs: uidSchema,
   /** Why the automation is off (circuit breaker, creator lost access); `null` when it is not. */
@@ -95,8 +153,8 @@ export const automationSchema = z.object({
   updatedAt: timestampSchema,
 });
 export type Automation = z.infer<typeof automationSchema>;
-/** Client writes never carry the server-written counter. */
-export type AutomationWrite = Omit<WriteDoc<Automation>, 'consecutiveFailures'>;
+/** Client writes never carry the server-written counter or `nextRunAt`. */
+export type AutomationWrite = Omit<WriteDoc<Automation>, 'consecutiveFailures' | 'nextRunAt'>;
 
 export const AUTOMATION_RUN_STATUSES = ['ok', 'skipped', 'failed'] as const;
 export const automationRunStatusSchema = z.enum(AUTOMATION_RUN_STATUSES);
@@ -167,7 +225,7 @@ export type AutomationValidationResult =
  * Returns the first failure; an action failure carries its 0-based `index`.
  */
 export function validateAutomation(
-  automation: Pick<Automation, 'trigger' | 'conditions' | 'actions'>,
+  automation: Pick<Automation, 'trigger' | 'conditions' | 'actions'> & { timezone?: string },
   board: ButtonActionsBoard,
   role?: BoardRole | null,
 ): AutomationValidationResult {
@@ -178,13 +236,39 @@ export function validateAutomation(
     if (trigger.groupId !== undefined && !board.groups.some((g) => g.id === trigger.groupId)) {
       return fail('Trigger: the group no longer exists');
     }
+  } else if (trigger.type === 'recurring') {
+    if (trigger.every === 'week' && trigger.weekday === undefined) {
+      return fail('Trigger: choose a weekday');
+    }
+    if (trigger.every !== 'week' && trigger.weekday !== undefined) {
+      return fail('Trigger: a weekday only applies to "every week"');
+    }
+    if (trigger.every === 'month' && trigger.dayOfMonth === undefined) {
+      return fail('Trigger: choose a day of the month');
+    }
+    if (trigger.every !== 'month' && trigger.dayOfMonth !== undefined) {
+      return fail('Trigger: a day of the month only applies to "every month"');
+    }
+    // No item to act on: only actions that need none.
+    const bad = automation.actions.findIndex(
+      (a) => a.type !== 'create_item' && a.type !== 'notify',
+    );
+    if (bad >= 0) {
+      return {
+        ok: false,
+        message: 'A recurring recipe can only create an item or notify people',
+        index: bad,
+      };
+    }
   } else {
     const wanted =
       trigger.type === 'status_changed'
         ? 'status'
         : trigger.type === 'person_assigned'
           ? 'people'
-          : 'button';
+          : trigger.type === 'date_arrives'
+            ? 'date'
+            : 'button';
     const col = board.columns.find((c) => c.id === trigger.columnId);
     if (!col) return fail('Trigger: the column no longer exists');
     if (col.type !== wanted) {
@@ -198,6 +282,9 @@ export function validateAutomation(
     ) {
       return fail('Trigger: the chosen person is no longer a workspace member');
     }
+  }
+  if (isScheduledTrigger(trigger) && !CANONICAL_TIMEZONES.has(automation.timezone ?? '')) {
+    return fail('Trigger: a valid time zone is required');
   }
 
   if (automation.conditions.length > AUTOMATION_LIMITS.maxConditions) {
@@ -230,4 +317,22 @@ export function validateAutomation(
     automation: true,
   });
   return actions.ok ? { ok: true } : { ok: false, message: actions.message, index: actions.index };
+}
+
+/**
+ * At most `AUTOMATION_LIMITS.maxScheduledPerBoard` scheduled recipes per board. `existing` are the
+ * board's other recipes (leave out the one being edited); only the count of scheduled ones matters.
+ */
+export function validateScheduledLimit(
+  automation: Pick<Automation, 'trigger'>,
+  existing: ReadonlyArray<Pick<Automation, 'trigger'>>,
+): AutomationValidationResult {
+  if (!isScheduledTrigger(automation.trigger)) return { ok: true };
+  const others = existing.filter((a) => isScheduledTrigger(a.trigger)).length;
+  return others >= AUTOMATION_LIMITS.maxScheduledPerBoard
+    ? {
+        ok: false,
+        message: `A board can have at most ${AUTOMATION_LIMITS.maxScheduledPerBoard} scheduled automations`,
+      }
+    : { ok: true };
 }

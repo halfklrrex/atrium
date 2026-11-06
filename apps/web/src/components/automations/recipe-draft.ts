@@ -43,7 +43,7 @@ export function conditionColumns(board: BuilderBoard): ColumnDef[] {
 
 export const triggerColumns = (
   board: BuilderBoard,
-  type: 'status' | 'button' | 'people',
+  type: 'status' | 'button' | 'people' | 'date',
 ): ColumnDef[] => board.columns.filter((c) => c.type === type);
 
 /** The operators a column type offers, with their label. A checkbox has no value to compare. */
@@ -73,6 +73,11 @@ export function defaultTrigger(
   if (type === 'person_assigned') {
     return { type, columnId: triggerColumns(board, 'people')[0]?.id ?? '' };
   }
+  // Scheduled triggers are not offered by the builder yet (P5d-4); a plain default keeps this total.
+  if (type === 'date_arrives') {
+    return { type, columnId: triggerColumns(board, 'date')[0]?.id ?? '', offsetDays: 0 };
+  }
+  if (type === 'recurring') return { type, every: 'day', at: '09:00' };
   const columnId = triggerColumns(board, type === 'status_changed' ? 'status' : 'button')[0]?.id;
   return { type, columnId: columnId ?? '' };
 }
