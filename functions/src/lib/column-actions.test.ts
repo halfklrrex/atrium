@@ -1,4 +1,4 @@
-import type { BoardRole, TimeTrackingValue, WorkspaceRole } from '@atrium/shared';
+import type { BoardRole, ButtonAction, TimeTrackingValue, WorkspaceRole } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { describe, expect, it } from 'vitest';
 import type { NewActivity } from './activity';
@@ -1074,5 +1074,86 @@ describe('runActionsInTransaction', () => {
       applied: ['notify'],
       notify: { columnId: 'c', buttonLabel: 'L', targets: [{ uid: 'u_x', message: 'hey' }] },
     });
+  });
+});
+
+describe('runActionsInTransaction: required columns (REQ-2)', () => {
+  const labels = [
+    { id: 'w', index: 0, label: 'Working', color: '#fdab3d' },
+    { id: 'd', index: 1, label: 'Done', color: '#00c875', isDone: true },
+  ];
+  const board: BoardData = {
+    kind: 'main',
+    workspaceId: 'ws_1',
+    access: {},
+    columns: [
+      { id: 'st', type: 'status', title: 'Status', settings: { labels } },
+      { id: 'notes', type: 'text', title: 'Notes', settings: {}, required: true },
+    ],
+    groups: [{ id: 'g1' }],
+  };
+  const item = (values: Record<string, unknown>): ItemData => ({
+    id: 'item_1',
+    name: 'Task',
+    state: 'active',
+    values,
+  });
+  const run = async (actions: ButtonAction[], values: Record<string, unknown>) => {
+    const store: TestStore = {
+      board,
+      workspaceRoles: {},
+      item: item(values),
+      appendedActivities: [],
+      itemUpdates: [],
+      currentTimeMs: 1700000000000,
+      generatedSessionId: 's',
+    };
+    const out = runActionsInTransaction(
+      createFakeTx(store),
+      {
+        boardId: 'b_1',
+        item: item(values),
+        actions,
+        board,
+        role: 'editor' as BoardRole,
+        actorUid: 'u1',
+        nowMs: 1700000000000,
+      },
+      'TS',
+    );
+    return { out, store };
+  };
+
+  it('refuses a set_value that empties a required cell and writes nothing', async () => {
+    const { out, store } = await run([{ type: 'set_value', columnId: 'notes', value: '' }], {
+      notes: 'x',
+    });
+    await expect(out).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('Notes'),
+    });
+    expect(store.itemUpdates).toEqual([]);
+  });
+
+  it('refuses Done while a required cell is empty, and allows it once filled', async () => {
+    const done: ButtonAction[] = [{ type: 'set_value', columnId: 'st', value: { index: 1 } }];
+    const blocked = await run(done, { st: { index: 0 } });
+    await expect(blocked.out).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('Notes'),
+    });
+    expect(blocked.store.itemUpdates).toEqual([]);
+
+    const ok = await run(done, { st: { index: 0 }, notes: 'filled' });
+    await expect(ok.out).resolves.toMatchObject({ applied: ['set_value'] });
+  });
+
+  it('does not touch an item that was already Done or a patch without values', async () => {
+    const rename = await run([{ type: 'move_to_group', groupId: 'g1' }], {});
+    await expect(rename.out).resolves.toMatchObject({ applied: ['move_to_group'] });
+    const again = await run([{ type: 'set_value', columnId: 'st', value: { index: 1 } }], {
+      st: { index: 1 },
+    });
+    await expect(again.out).resolves.toMatchObject({ applied: ['set_value'] });
   });
 });

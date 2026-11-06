@@ -4,6 +4,7 @@ import {
   type ClickButtonRequest,
   type ButtonAction,
   type ClickButtonResult,
+  type ColumnDef,
   type StartTimeTrackingRequest,
   type StartTimeTrackingResult,
   type StopTimeTrackingRequest,
@@ -18,6 +19,7 @@ import {
   buttonSettingsSchema,
   canEditBoard,
   canEditColumn,
+  findRequiredViolation,
   renderRenameTemplate,
   resolveBoardRole,
   startTimer,
@@ -45,6 +47,8 @@ export interface BoardData {
     title?: string;
     settings?: unknown;
     migrating?: unknown;
+    /** Required columns (REQ): button / automation writes can't empty them or reach Done past them. */
+    required?: boolean;
   }>;
   groups?: Array<{ id: string; position?: string }>;
   columnLocks?: string[];
@@ -484,6 +488,7 @@ export async function runActionsInTransaction(
       `At most ${AUTOMATION_LIMITS.maxCreatedPerRun} Create item action per run`,
     );
   }
+  assertRequiredColumnsRespected(board.columns, item.values, patch);
   const notify = buildNotifyPlan(
     ctx.actions,
     ctx.notifyColumnId ?? '',
@@ -564,6 +569,40 @@ export async function runActionsInTransaction(
     );
   }
   return { applied: ctx.actions.map((a) => a.type), ...(notify ? { notify } : {}) };
+}
+
+/**
+ * The required-columns hard rule (REQ) for button and automation writes: the patch may not empty a
+ * required cell (rule 1) or move a Status into a done label while another required cell is empty
+ * (rule 2). Fails the whole run with a clear message; nothing is written. `create_item` is exempt
+ * (creating is, per the spec), so only the trigger item's patch is judged.
+ */
+function assertRequiredColumnsRespected(
+  columns: BoardData['columns'],
+  itemValues: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): void {
+  if (!columns.some((c) => c.required)) return;
+  const after = { ...itemValues };
+  const written: string[] = [];
+  for (const [key, value] of Object.entries(patch)) {
+    if (!key.startsWith('values.')) continue;
+    const id = key.slice('values.'.length);
+    after[id] = value;
+    written.push(id);
+  }
+  if (written.length === 0) return;
+  const violation = findRequiredViolation(columns as unknown as ColumnDef[], itemValues, after, {
+    written,
+  });
+  if (!violation) return;
+  const title = (id: string) => columns.find((c) => c.id === id)?.title ?? id;
+  throw new HttpsError(
+    'failed-precondition',
+    violation.kind === 'cleared'
+      ? `Required: ${violation.columnIds.map(title).join(', ')} cannot be emptied.`
+      : `Required: fill in ${violation.missingColumns.map(title).join(', ')} before this item can be set to Done.`,
+  );
 }
 
 /**

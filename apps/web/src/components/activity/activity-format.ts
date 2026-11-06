@@ -42,6 +42,8 @@ export function activityLabel(event: EventLike): string {
       return columnTitle ? `Clicked ${columnTitle}` : 'Button clicked';
     case 'automation_ran':
       return 'Automation ran';
+    case 'required_reverted':
+      return 'Change reverted';
     case 'column_added':
       return 'Column added';
     case 'column_renamed':
@@ -103,6 +105,10 @@ export function activitySentence(event: EventLike): string {
       return `${who} clicked ${columnTitle ? `the button ${columnTitle}` : 'a button'} on ${item}`;
     case 'automation_ran':
       return `${who} ran an automation on ${item}`;
+    case 'required_reverted': {
+      const missing = (data.missingTitles ?? []).join(', ') || 'required columns';
+      return `${who} put ${columnTitle ?? 'the status'} on ${item} back to ${to || 'empty'}: ${from || 'Done'} needs ${missing} filled in first`;
+    }
     case 'column_added':
       return `${who} added the column ${columnTitle ?? ''}`.trim();
     case 'column_renamed':

@@ -270,6 +270,13 @@ Decision (2026-10-25): some column types are written **only by Cloud Functions**
 - **Known limits:** the same moment of lag as derived columns after someone adds such a column, and the backfill must be re-run when a type becomes server-managed.
 - **Migration:** the same script as FW1 backfills both fields (dry run unless `--apply`): `pnpm exec tsx scripts/migrations/2026-10-backfill-derived-column-ids.mjs --project atrium-board`, then again with `--apply`. Boards that already hold `button` columns need `serverManagedColumnIds` set before the rules protect them.
 
+#### Required columns as a hard rule (REQ)
+
+Spec: `docs/specs/REQ-required-columns-hard-rule.md`. `boards.requiredColumnIds` is maintained by `onBoardColumnsWritten` (REQ-1), and Firestore rules refuse emptying a required `values.<id>` (cap `REQUIRED_COLUMN_RULE_CAP`). Rule 2 (a Status moved into a done label while another required cell is empty) can't live in rules, so it is enforced in two places (REQ-2):
+
+- **`onItemRequiredRevert`** (`onDocumentUpdated` on `boards/{boardId}/items/{itemId}`): when a write moved a Status into a label with `isDone` and any other required cell is empty (`findRequiredViolation` in `@atrium/shared`, using `isColumnValueEmpty`), it restores the previous Status value in a transaction, **only if the cell still holds what was just written**, and appends a `required_reverted` activity entry (actor "Atrium"). The revert is **eventual, not atomic**: the item shows Done for a moment, and the original write's own `value_changed` entry still exists. It writes only `values.<id>` (no `updatedAt`), and its own event is a move out of done, so it can't loop. Items already Done are never reverted for unrelated edits; boards without `requiredColumnIds` are never touched; creates are exempt.
+- **Server-side writers:** button actions and automations (`runActionsInTransaction`) judge their `set_value` patch with the same helper and fail the run with a `failed-precondition` message, writing nothing. Forms already refuse empty required answers. No MCP connector exists in this repository yet; when one does, it writes through rules like any client, so rule 1 applies and rule 2 is caught by the revert trigger.
+
 ## 7. Security model
 
 Helper functions in `firestore.rules`:

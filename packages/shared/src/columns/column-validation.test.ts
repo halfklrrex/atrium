@@ -8,6 +8,8 @@ import {
   defineColumnType,
   isColumnValueEmpty,
   validateColumnDef,
+  findRequiredViolation,
+  isDoneStatusValue,
   validateRequiredColumns,
 } from './index';
 
@@ -377,5 +379,100 @@ describe('P2 Column Validation & Defaults', () => {
       { id: 'n', type: 'text', title: 'N', position: '3', settings: {}, defaultValue: 'x' },
     ];
     expect(applyDefaultColumnValues(cols)).toEqual({ n: 'x' });
+  });
+
+  describe('findRequiredViolation (REQ hard rule)', () => {
+    const labels = [
+      { id: 'w', index: 0, label: 'Working', color: '#fdab3d' },
+      { id: 'd', index: 1, label: 'Done', color: '#00c875', isDone: true },
+      { id: 'd2', index: 2, label: 'Shipped', color: '#00c875', isDone: true },
+    ];
+    const col = (id: string, type: string, extra: Partial<ColumnDef> = {}): ColumnDef => ({
+      id,
+      type,
+      title: id,
+      position: '1',
+      settings: type === 'status' ? { labels } : {},
+      ...extra,
+    });
+    const status = col('st', 'status');
+    const owner = col('owner', 'people', { required: true });
+    const notes = col('notes', 'text', { required: true });
+    const cols = [status, owner, notes];
+    const full = { owner: { personsAndTeams: [{ id: 'u1', kind: 'person' }] }, notes: 'x' };
+
+    it('detects a done status label by index or label text', () => {
+      expect(isDoneStatusValue(status, { index: 1 })).toBe(true);
+      expect(isDoneStatusValue(status, { label: ' done ' })).toBe(true);
+      expect(isDoneStatusValue(status, { index: 0 })).toBe(false);
+      expect(isDoneStatusValue(status, { index: 99 })).toBe(false);
+      expect(isDoneStatusValue(status, null)).toBe(false);
+      expect(isDoneStatusValue(status, 'nope')).toBe(false);
+      expect(isDoneStatusValue(notes, { index: 1 })).toBe(false);
+      expect(isDoneStatusValue({ type: 'status', settings: {} }, { index: 1 })).toBe(false);
+    });
+
+    it('flags Done reached while a required cell is empty, for each emptiness case', () => {
+      const before = { st: { index: 0 } };
+      const done = { st: { index: 1 } };
+      const emptyCases: Array<Record<string, unknown>> = [
+        { ...full, owner: undefined },
+        { ...full, owner: null },
+        { ...full, owner: { personsAndTeams: [] } },
+        { ...full, notes: '' },
+        { ...full, notes: '   ' },
+      ];
+      for (const base of emptyCases) {
+        const v = findRequiredViolation(cols, before, { ...base, ...done });
+        expect(v).toMatchObject({ kind: 'done_with_empty', statusColumnIds: ['st'] });
+      }
+      const both = findRequiredViolation(cols, before, { st: { index: 1 } });
+      expect(both).toEqual({
+        kind: 'done_with_empty',
+        statusColumnIds: ['st'],
+        missingColumns: ['owner', 'notes'],
+      });
+    });
+
+    it('allows Done when every other required cell is filled', () => {
+      const after = { ...full, st: { index: 1 } };
+      expect(findRequiredViolation(cols, { st: { index: 0 } }, after)).toBe(null);
+    });
+
+    it('does not flag moving to a non-done label, or an item already Done', () => {
+      expect(findRequiredViolation(cols, { st: { index: 1 } }, { st: { index: 0 } })).toBe(null);
+      // Already Done before the write: an unrelated edit is never flagged.
+      const unrelated = { st: { index: 1 }, notes: 'a' };
+      expect(findRequiredViolation(cols, { st: { index: 1 } }, unrelated)).toBe(null);
+      // Between two done labels is not "reaching" Done.
+      expect(findRequiredViolation(cols, { st: { index: 1 } }, { st: { index: 2 } })).toBe(null);
+    });
+
+    it('does not count the Status itself, derived or server-managed columns as empty', () => {
+      const reqStatus = col('st', 'status', { required: true });
+      expect(findRequiredViolation([reqStatus], {}, { st: { index: 1 } })).toBe(null);
+      const derived = col('p', 'progress', { required: true });
+      const timer = col('t', 'time_tracking', { required: true });
+      const btn = col('b', 'button', { required: true });
+      const set = [status, derived, timer, btn];
+      expect(findRequiredViolation(set, {}, { st: { index: 1 } })).toBe(null);
+    });
+
+    it('returns null on a board without required columns', () => {
+      const set = [status, col('x', 'text')];
+      expect(findRequiredViolation(set, {}, { st: { index: 1 } })).toBe(null);
+    });
+
+    it('reports rule 1 for written required cells that end up empty (server-side writers)', () => {
+      const cleared = { ...full, notes: '' };
+      expect(findRequiredViolation(cols, full, cleared, { written: ['notes'] })).toEqual({
+        kind: 'cleared',
+        columnIds: ['notes'],
+      });
+      // Untouched empty cells are not "cleared"; only written ones are.
+      expect(findRequiredViolation(cols, {}, { owner: full.owner }, { written: ['owner'] })).toBe(
+        null,
+      );
+    });
   });
 });
