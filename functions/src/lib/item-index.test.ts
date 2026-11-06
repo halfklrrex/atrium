@@ -11,6 +11,8 @@ const board = {
   columns: [
     { id: 'owner', type: 'people' },
     { id: 'status', type: 'status' },
+    { id: 'due', type: 'date' },
+    { id: 'start', type: 'date' },
   ],
   subitemColumns: [{ id: 'sub_owner', type: 'people' }],
 };
@@ -48,18 +50,23 @@ describe('syncItemIndexFields', () => {
       {
         boardId: 'b1',
         itemId: 'i1',
-        fields: { assigneeUids: ['u1', 'u2'], nameTokens: ['pl', 'pla', 'plan', 'q3'] },
+        fields: {
+          assigneeUids: ['u1', 'u2'],
+          nameTokens: ['pl', 'pla', 'plan', 'q3'],
+          dateKeys: [],
+        },
         expected: 'v1',
       },
     ]);
     expect(store.boardReads).toBe(1);
   });
 
-  it('writes only the two index fields (never updatedAt or updatedBy)', async () => {
+  it('writes only the index fields (never updatedAt or updatedBy)', async () => {
     const store = new FakeStore();
     await syncItemIndexFields(store, change());
     expect(Object.keys(store.writes[0]?.fields as object).sort()).toEqual([
       'assigneeUids',
+      'dateKeys',
       'nameTokens',
     ]);
   });
@@ -76,11 +83,13 @@ describe('syncItemIndexFields', () => {
           values,
           assigneeUids: ['u1'],
           nameTokens: ['pl', 'pla', 'plan', 'q3'],
+          dateKeys: [],
         },
       }),
     );
     expect(store.boardReads).toBe(0);
     expect(store.writes[0]?.fields).toEqual({
+      dateKeys: [],
       assigneeUids: ['u1'],
       nameTokens: ['re', 'rev', 'revi', 'revie', 'review'],
     });
@@ -97,11 +106,13 @@ describe('syncItemIndexFields', () => {
           values: { owner: people('u3') },
           assigneeUids: ['u1'],
           nameTokens: ['pl', 'pla', 'plan'],
+          dateKeys: [],
         },
       }),
     );
     expect(store.boardReads).toBe(1);
     expect(store.writes[0]?.fields).toEqual({
+      dateKeys: [],
       assigneeUids: ['u3'],
       nameTokens: ['pl', 'pla', 'plan'],
     });
@@ -129,6 +140,7 @@ describe('syncItemIndexFields', () => {
       values: { owner: people('u1') },
       assigneeUids: ['u1'],
       nameTokens: ['pl', 'pla', 'plan', 'q3'],
+      dateKeys: [],
     };
     // Created and already indexed (a retried event).
     expect(await syncItemIndexFields(store, change({ after: synced }))).toBe(false);
@@ -153,7 +165,13 @@ describe('syncItemIndexFields', () => {
       store,
       change({
         before: { name: 'Plan', values },
-        after: { name: 'Plan', values, assigneeUids: ['u1'], nameTokens: ['pl', 'pla', 'plan'] },
+        after: {
+          name: 'Plan',
+          values,
+          assigneeUids: ['u1'],
+          nameTokens: ['pl', 'pla', 'plan'],
+          dateKeys: [],
+        },
       }),
     );
     expect(result).toBe(false);
@@ -171,13 +189,64 @@ describe('syncItemIndexFields', () => {
     expect(store.writes[0]?.fields).toEqual({
       assigneeUids: ['u1'],
       nameTokens: ['pl', 'pla', 'plan'],
+      dateKeys: [],
     });
   });
 
   it('stores empty arrays so a finished item is not revisited', async () => {
     const store = new FakeStore();
     await syncItemIndexFields(store, change({ after: { name: 'x', values: {} } }));
-    expect(store.writes[0]?.fields).toEqual({ assigneeUids: [], nameTokens: [] });
+    expect(store.writes[0]?.fields).toEqual({ assigneeUids: [], nameTokens: [], dateKeys: [] });
+  });
+
+  it('indexes the date cells as "<columnId>:<date>" and leaves subitems empty', async () => {
+    const store = new FakeStore();
+    const values = { due: { date: '2026-11-20' }, start: { date: '2026-11-02', time: '10:00:00' } };
+    await syncItemIndexFields(store, change({ after: { name: 'x', values } }));
+    expect(store.writes[0]?.fields).toMatchObject({
+      dateKeys: ['due:2026-11-20', 'start:2026-11-02'],
+    });
+    await syncItemIndexFields(store, change({ after: { name: 'x', values, parentItemId: 'p1' } }));
+    expect(store.writes[1]?.fields).toMatchObject({ dateKeys: [] });
+  });
+
+  it('a date edit rewrites dateKeys, and back again; the retrigger finds nothing to do', async () => {
+    const store = new FakeStore();
+    const base = { name: 'x', assigneeUids: [], nameTokens: [] };
+    const v1 = { due: { date: '2026-11-20' } };
+    const v2 = { due: { date: '2026-11-25' } };
+    await syncItemIndexFields(
+      store,
+      change({
+        before: { name: 'x', values: v1 },
+        after: { ...base, values: v2, dateKeys: ['due:2026-11-20'] },
+      }),
+    );
+    expect(store.writes[0]?.fields).toMatchObject({ dateKeys: ['due:2026-11-25'] });
+    // The retrigger of that write: values unchanged, dateKeys now right.
+    expect(
+      await syncItemIndexFields(
+        store,
+        change({
+          before: { name: 'x', values: v2 },
+          after: { ...base, values: v2, dateKeys: ['due:2026-11-25'] },
+        }),
+      ),
+    ).toBe(false);
+    expect(store.writes).toHaveLength(1);
+  });
+
+  it('heals an item that has the other fields but no dateKeys', async () => {
+    const store = new FakeStore();
+    const values = { due: { date: '2026-11-20' } };
+    await syncItemIndexFields(
+      store,
+      change({
+        before: { name: 'x', values },
+        after: { name: 'x', values, assigneeUids: [], nameTokens: [] },
+      }),
+    );
+    expect(store.writes[0]?.fields).toMatchObject({ dateKeys: ['due:2026-11-20'] });
   });
 
   it('skips deleted items and boards that are gone', async () => {
