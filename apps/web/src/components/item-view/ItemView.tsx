@@ -65,7 +65,8 @@ export function ItemView({ board, itemId }: ItemViewProps) {
 
   const { data: workspace } = useWorkspace(board.workspaceId);
   const { data: items, loading } = useItems(boardId);
-  const canEdit = canEditBoard(resolveBoardRole(board, uid, workspace?.roles[uid]));
+  const boardRole = resolveBoardRole(board, uid, workspace?.roles[uid]);
+  const canEdit = canEditBoard(boardRole);
   const item = useMemo(() => items.find((i) => i.id === itemId) ?? null, [items, itemId]);
   const group = useMemo(
     () => board.groups.find((g) => g.id === item?.groupId) ?? null,
@@ -213,6 +214,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
               itemId={item.id}
               focusUpdateId={routeState?.updateId}
               focusReplyId={routeState?.replyId}
+              canManage={boardRole === 'owner'}
             />
           </div>
         </section>

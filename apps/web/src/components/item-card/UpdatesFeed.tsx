@@ -11,6 +11,7 @@ import { MentionedText } from './MentionedText';
 import { LazyUpdateComposer } from './LazyUpdateComposer';
 import { RichText } from './RichText';
 import type { UpdateBody } from './update-doc';
+import { UpdateAttachments } from './UpdateAttachments';
 import { UpdateReplies } from './UpdateReplies';
 import styles from './UpdatesFeed.module.css';
 
@@ -21,9 +22,17 @@ interface UpdatesFeedProps {
   focusUpdateId?: string | null;
   /** With `focusUpdateId`: the reply to open, so its thread is expanded. */
   focusReplyId?: string | null;
+  /** The signed-in user owns the board and may remove anyone's attachments. */
+  canManage?: boolean;
 }
 
-export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: UpdatesFeedProps) {
+export function UpdatesFeed({
+  boardId,
+  itemId,
+  focusUpdateId,
+  focusReplyId,
+  canManage = false,
+}: UpdatesFeedProps) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const { data: updates, loading } = useItemUpdates(boardId, itemId);
@@ -48,9 +57,9 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
     }));
   };
 
-  const handlePostUpdate = async (body: UpdateBody) => {
+  const handlePostUpdate = async (body: UpdateBody): Promise<string | void> => {
     if (!uid) return;
-    await createUpdate({
+    return createUpdate({
       boardId,
       itemId,
       authorId: uid,
@@ -72,6 +81,7 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
           placeholder="Write an update and mention others with @"
           submitLabel="Update"
           onSubmit={handlePostUpdate}
+          attachTarget={(updateId) => ({ boardId, itemId, updateId })}
         />
       )}
 
@@ -152,6 +162,14 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
                   )}
                 </div>
 
+                <UpdateAttachments
+                  target={{ boardId, itemId, updateId: update.id }}
+                  attachments={update.attachments}
+                  canRemove={(file) =>
+                    !!uid && (canManage || file.uploadedBy === uid || update.authorId === uid)
+                  }
+                />
+
                 {update.likes.length > 0 && (
                   <div className={styles.reactionRow}>
                     <span className={styles.reactionChip}>
@@ -199,6 +217,7 @@ export function UpdatesFeed({ boardId, itemId, focusUpdateId, focusReplyId }: Up
                     updateId={update.id}
                     autoFocusComposer={showReplies && !isFocused}
                     focusReplyId={isFocused ? focusReplyId : null}
+                    canManage={canManage}
                   />
                 )}
               </article>

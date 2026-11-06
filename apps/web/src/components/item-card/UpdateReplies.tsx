@@ -9,6 +9,7 @@ import { authorLabel, isAutomationActor } from '../../lib/automation-actor';
 import { UserAvatar } from '../UserAvatar';
 import { MentionedText } from './MentionedText';
 import { LazyUpdateComposer } from './LazyUpdateComposer';
+import { UpdateAttachments } from './UpdateAttachments';
 import { RichText } from './RichText';
 import type { UpdateBody } from './update-doc';
 import styles from './UpdateReplies.module.css';
@@ -21,6 +22,8 @@ interface UpdateRepliesProps {
   autoFocusComposer?: boolean;
   /** Scroll this reply into view and mark it (opened from a notification). */
   focusReplyId?: string | null;
+  /** The signed-in user owns the board and may remove anyone's attachments. */
+  canManage?: boolean;
 }
 
 export function UpdateReplies({
@@ -29,6 +32,7 @@ export function UpdateReplies({
   updateId,
   autoFocusComposer = false,
   focusReplyId = null,
+  canManage = false,
 }: UpdateRepliesProps) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
@@ -43,9 +47,9 @@ export function UpdateReplies({
       ?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
   }, [focusReplyId, replies]);
 
-  const handleSubmit = async (body: UpdateBody) => {
+  const handleSubmit = async (body: UpdateBody): Promise<string | void> => {
     if (!uid) return;
-    await createReply({
+    return createReply({
       boardId,
       itemId,
       updateId,
@@ -102,6 +106,14 @@ export function UpdateReplies({
                         <MentionedText text={reply.content} mentions={reply.mentions} />
                       )}
                     </div>
+                    <UpdateAttachments
+                      compact
+                      target={{ boardId, itemId, updateId, replyId: reply.id }}
+                      attachments={reply.attachments}
+                      canRemove={(file) =>
+                        !!uid && (canManage || file.uploadedBy === uid || reply.authorId === uid)
+                      }
+                    />
                   </div>
 
                   <div className={styles.replyFooter}>
@@ -162,6 +174,7 @@ export function UpdateReplies({
                 autoFocus
                 submitLabel="Reply"
                 onSubmit={handleSubmit}
+                attachTarget={(replyId) => ({ boardId, itemId, updateId, replyId })}
               />
             ) : (
               <button

@@ -2,6 +2,7 @@ import { useEditorState, type Editor } from '@tiptap/react';
 import { Button, Menu, MenuItem, TextField, Tooltip } from '@vibe/core';
 import {
   AlignCenter,
+  Attach,
   AlignLeft,
   AlignRight,
   Bold,
@@ -699,9 +700,12 @@ export function ComposerToolbar({
 export function ComposerInsertTools({
   editor,
   onPopupChange,
+  onAttach,
 }: {
   editor: Editor;
   onPopupChange?: (open: boolean) => void;
+  /** Opens the file picker; without it the attach button is not shown. */
+  onAttach?: () => void;
 }) {
   const [emoji, setEmoji] = useState<HTMLElement | null>(null);
   useEffect(() => onPopupChange?.(emoji !== null), [emoji, onPopupChange]);
@@ -721,6 +725,7 @@ export function ComposerInsertTools({
   return (
     <div className={styles.insertTools}>
       <Tool label="Mention someone" shortcut="@" Icon={Mention} onClick={startMention} />
+      {onAttach ? <Tool label="Attach files" Icon={Attach} onClick={onAttach} /> : null}
       <Tool
         label="Emoji"
         Icon={EmojiIcon}
