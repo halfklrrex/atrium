@@ -119,8 +119,8 @@ export const TEMPLATE_CATEGORIES = [
 export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number]['id'];
 
 /**
- * `ready` works on today's engine. The rest are shown but cannot be used: `p5c` needs more triggers
- * and actions, `p5d` needs time-based triggers, `p9` needs integrations.
+ * `ready` works on today's engine. The rest are shown but cannot be used: `p5c` needs triggers
+ * and actions that are not built yet, `p5d` needs time-based triggers, `p9` needs integrations.
  */
 export type TemplateAvailability = 'ready' | 'p5c' | 'p5d' | 'p9';
 
@@ -313,33 +313,62 @@ export const TEMPLATE_CATALOG: readonly CatalogTemplate[] = [
     true,
     'p5c',
   ),
-  planned(
+  ready(
     'group-move-sets-status',
     'When an item moves to *a group* set *status* to *something*',
     'productivity',
     true,
-    'p5c',
+    (board) => {
+      const status = firstStatus(board);
+      const group = doneGroup(board.groups);
+      if (!status?.done || !group) return null;
+      return draftOf({ type: 'item_moved', groupId: group.id }, [
+        { type: 'set_value', columnId: status.column.id, value: { index: status.done.index } },
+      ]);
+    },
   ),
-  planned(
+  ready(
     'person-assigned-notify',
-    'When *a person* is assigned notify *them*',
+    'When *a person* is assigned notify *someone*',
     'communication',
     false,
-    'p5c',
+    (board, uid) => {
+      const people = board.columns.find((c) => c.type === 'people');
+      const actions = notifyActions(uid);
+      if (!people || !actions) return null;
+      return draftOf({ type: 'person_assigned', columnId: people.id }, actions);
+    },
   ),
-  planned(
+  ready(
     'status-creates-item',
     'When *status* changes to *something* create an item in *a group*',
     'productivity',
     false,
-    'p5c',
+    (board) => {
+      const status = firstStatus(board);
+      const group = board.groups[0];
+      if (!status?.done || !group) return null;
+      return draftOf(
+        { type: 'status_changed', columnId: status.column.id, toLabelId: status.done.index },
+        [{ type: 'create_item', name: 'Follow-up: {name}', groupId: group.id }],
+      );
+    },
   ),
-  planned(
+  ready(
     'stuck-posts-update',
     'When *status* changes to *Stuck* post *an update*',
     'communication',
     false,
-    'p5c',
+    (board) => {
+      const column = board.columns.find((c) => c.type === 'status');
+      const stuck = column
+        ? labelMatching(statusLabels(column), /\b(stuck|blocked)\b/i)
+        : undefined;
+      if (!column || !stuck) return null;
+      return draftOf({ type: 'status_changed', columnId: column.id, toLabelId: stuck.index }, [
+        { type: 'post_update', text: '{name} is stuck. Can someone help unblock it?' },
+      ]);
+    },
   ),
   planned(
     'weekly-create-item',

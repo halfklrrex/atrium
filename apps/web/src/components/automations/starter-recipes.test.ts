@@ -112,12 +112,13 @@ describe('template catalog', () => {
       ],
     },
   };
-  const board: StarterBoard = { columns: [stuckStatus, priority, button], groups };
+  const owner = { id: 'owner', type: 'people', title: 'Owner', settings: {} };
+  const board: StarterBoard = { columns: [stuckStatus, priority, button, owner], groups };
 
-  it('has about 19 entries, 9 of them ready, with unique ids', () => {
+  it('has about 19 entries, 13 of them ready, with unique ids', () => {
     expect(TEMPLATE_CATALOG.length).toBeGreaterThanOrEqual(19);
     expect(TEMPLATE_CATALOG.length).toBeLessThanOrEqual(21);
-    expect(templatesByAvailability('ready')).toHaveLength(9);
+    expect(templatesByAvailability('ready')).toHaveLength(13);
     expect(new Set(TEMPLATE_CATALOG.map((t) => t.id)).size).toBe(TEMPLATE_CATALOG.length);
   });
 
@@ -138,7 +139,11 @@ describe('template catalog', () => {
     for (const t of templatesByAvailability('ready')) {
       const input = buildTemplateInput(t, board, 'u1');
       expect(input, t.id).not.toBeNull();
-      const checked = validateAutomation(input!, { ...board, columns: board.columns }, 'owner');
+      const checked = validateAutomation(
+        input!,
+        { ...board, columns: board.columns, memberUids: ['u1'] },
+        'owner',
+      );
       expect(checked, t.id).toEqual({ ok: true });
     }
   });
@@ -150,6 +155,52 @@ describe('template catalog', () => {
     const bare: StarterBoard = { columns: [], groups: [] };
     const results = templatesByAvailability('ready').map((t) => buildTemplateInput(t, bare, 'u1'));
     expect(results.filter(Boolean)).toHaveLength(2); // notify on create, rename on create
+  });
+
+  const build = (id: string, b: StarterBoard, uid = 'u1') =>
+    buildTemplateInput(
+      TEMPLATE_CATALOG.find((t) => t.id === id)!,
+      b,
+      uid,
+    );
+  const check = (input: NonNullable<ReturnType<typeof build>>) =>
+    validateAutomation(input, { ...board, columns: board.columns, memberUids: ['u1'] }, 'owner');
+
+  it('group-move-sets-status sets Done when an item lands in the done group', () => {
+    const input = build('group-move-sets-status', board)!;
+    expect(input.trigger).toEqual({ type: 'item_moved', groupId: 'g2' });
+    expect(input.actions).toEqual([{ type: 'set_value', columnId: 'status', value: { index: 1 } }]);
+    expect(check(input)).toEqual({ ok: true });
+    expect(build('group-move-sets-status', { columns: [], groups })).toBeNull();
+  });
+
+  it('person-assigned-notify uses the first people column', () => {
+    const input = build('person-assigned-notify', board)!;
+    expect(input.trigger).toEqual({ type: 'person_assigned', columnId: 'owner' });
+    expect(input.actions).toEqual([{ type: 'notify', uids: ['u1'] }]);
+    expect(check(input)).toEqual({ ok: true });
+    expect(build('person-assigned-notify', { columns: [status], groups })).toBeNull();
+    expect(build('person-assigned-notify', board, '')).toBeNull();
+  });
+
+  it('status-creates-item makes a follow-up in the first group', () => {
+    const input = build('status-creates-item', board)!;
+    expect(input.trigger).toEqual({ type: 'status_changed', columnId: 'status', toLabelId: 1 });
+    expect(input.actions).toEqual([
+      { type: 'create_item', name: 'Follow-up: {name}', groupId: 'g1' },
+    ]);
+    expect(check(input)).toEqual({ ok: true });
+    expect(build('status-creates-item', { columns: [status], groups: [] })).toBeNull();
+  });
+
+  it('stuck-posts-update needs a Stuck or Blocked label', () => {
+    const input = build('stuck-posts-update', board)!;
+    expect(input.trigger).toEqual({ type: 'status_changed', columnId: 'status', toLabelId: 2 });
+    expect(input.actions).toEqual([
+      { type: 'post_update', text: '{name} is stuck. Can someone help unblock it?' },
+    ]);
+    expect(check(input)).toEqual({ ok: true });
+    expect(build('stuck-posts-update', { columns: [status], groups })).toBeNull();
   });
 
   it('filters by category and by availability', () => {
