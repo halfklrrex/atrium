@@ -29,23 +29,20 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **No open-PR limits** (owner, 2026-11-04). Pace is set by usage and the owner's availability; hot-spot PRs merge in order and rebase.
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
-## Open work (2026-11-05)
+## Open work (2026-11-06)
 
-- **Live today (2026-11-05):** the automations engine (#90, after an ultrareview and its 7 fixes), the Automation center (#97), the recipe builder and starter recipes (#100), and the dashboard Workload widget, sharing and trash (#102). Earlier on 11-04/05: Gantt, Workload view, templates, dashboards (Numbers, Battery, Chart, Table), forms (builder and public page), the rich-text composer. The showcase was re-seeded on 2026-11-05.
-- **Latest session note:** `docs/handoff/2026-11-05-ophelia-automations-merged-redesign.md` (what merged, gotchas, next steps). The plan it follows: `docs/plans/2026-11-04-feature-push.md`.
-- **Live since this evening:** P5c (item moved and person assigned triggers, create item and post update actions; #107, #108, #109) and the Automation center redesign R1 to R3 (#105 shell and catalog, #110 Create tab, #111 sentence builder). Newest note: `docs/handoff/2026-11-05-ophelia-p5c-p5e-live.md`.
-- **Open PRs:** #112 (R4, the Manage table with the Needs attention chip). Merge when CI is green. **Update 2026-11-06:** #112 is CONFLICTING with `main` and shows no checks; a rebased local copy `claude/p5e-r4-manage-tab-v2` is not pushed.
-- **Unfinished work found 2026-11-06:** four subagent worktrees hold uncommitted, unpushed work: Required columns REQ-1, the flag emoji fallback, the automation `post_update` author rendering, and the template relabel (Soon to ready). Each now has a Roadmap item (Building). Details, paths and what each needs: `docs/handoff/2026-11-06-ophelia-in-flight-inventory.md`. Read it first.
-- **Owner decision, 2026-11-05:** the Automation center gets redesigned to look more like monday's: **variant A plus two pieces of C** ("Hide coming soon" switch, "Needs attention" chip). Outline and five open questions with defaults: `docs/specs/P5e-automation-center-redesign.md`. Mockups: `.private/design/automation-center/` (gitignored).
-- **Live check:** Claude in Chrome now connects. Read-only checks of the Automate dialog and Create tab are done (dark mode). Still open: light mode and running a recipe (it writes data, so the owner or a go-ahead).
+- **Live today (2026-11-06):** the Automation center redesign is complete (R4 Manage table, #115), catalog templates ready (#117), automation updates shown as "Automations" (#118), the Windows flag emoji fallback (#119), and the **required-columns hard rule** (REQ-1 #116, REQ-2 #122, REQ-3 #123). Specs merged: P5d (#120) and site admin role (#121). P5d-1 shared is merged (#124).
+- **Latest session note:** `docs/handoff/2026-11-06-ophelia-req-p5d-admin-spec.md` (what merged, decisions, gotchas, what's waiting).
+- **In flight:** P5d-2 (rules, indexes, `dateKeys` backfill) and P5d-3 (the scheduler Function); check the open PRs. Then P5d-4 (web builder, showcase).
+- **Owner decisions, 2026-11-06:** site admin role defaults confirmed (existing accounts stay approved, waiting screen, bell notification); required columns defaults confirmed (both rules, eventual revert, no bypass).
+- **Waiting on the owner:** the live checks in `docs/plans/owner-check-list.md` (Chrome extension was not connected today, so agents couldn't do the read-only ones); a go-ahead to apply two production writes whose dry runs are done: the `requiredColumnIds` backfill (8 boards) and the legacy-activity cleanup (1 doc). Three small open questions with defaults at the end of `docs/specs/ADMIN-site-admin-role.md` and five in the P5d spec.
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
-- **Owner decisions, 2026-11-05:** Required columns are a **hard rule** (spec `docs/specs/REQ-required-columns-hard-rule.md`); the Windows flag emoji gets a **CDN picture fallback**; the legacy-activity migration gets a **dry run only**. Waiting on the owner: the live checks in `docs/plans/owner-check-list.md` and two questions on the site-admin-role request (Roadmap item 3335038323).
 - **Next, in this order:**
   1. Start-of-session routine (bug inbox, Actionable = Agents; filter by label id, Agents = 4, not the index).
-  2. Merge #112 (R4); then the VF visual QA for the Automation center.
-  3. Required columns (REQ-1 to REQ-3), the site admin role (after the owner's answers), the flag emoji fallback, then P5d (needs a spec).
-  4. Visual QA (VF) for the new screens; the open "Dashboard sharing: server-side check" item.
-- **Local machine (Mac):** `gcloud` is installed and signed in; `PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` for `pnpm test:rules`; `LC_ALL=en_US.UTF-8 pnpm test` avoids 5 locale-only web test failures.
+  2. Land P5d-2 and P5d-3, then P5d-4.
+  3. Site admin: ADMIN-1a (no gate), the backfill with the owner's go-ahead, then ADMIN-1b (the gate), ADMIN-2, ADMIN-3.
+  4. VF visual QA for the new screens (needs Chrome); the open "Dashboard sharing: server-side check" item.
+- **Local machine (Mac):** `gcloud` is installed and signed in; `PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH` for `pnpm test:rules`; `LC_ALL=en_US.UTF-8 pnpm test` avoids 5 locale-only web test failures; typecheck one package at a time (`pnpm -r --workspace-concurrency=1 typecheck`).
 - Older plan and gotchas: `docs/plans/2026-11-03-autonomous-batch.md` and `docs/handoff/2026-11-03-ophelia-autonomous-batch.md`.
 
 ## Notes index
@@ -66,6 +63,8 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - [2026-10-31 · Ophelia · Ava's queue, @mentions, Calendar, Timeline, Mirror, change column type](docs/handoff/2026-10-31-ophelia-ava-queue-and-p3.md)
 - [2026-10-31 · Ophelia · activity backend and polish batch 2 merged](docs/handoff/2026-10-31-ophelia-evening-activity-backend-merged.md)
 - [2026-11-01 · Claude · Atrium MCP connector (OPS3)](docs/handoff/2026-11-01-claude-atrium-mcp-connector.md)
+- [2026-11-06 · Ophelia · required columns done, P5d under way, site admin specced](docs/handoff/2026-11-06-ophelia-req-p5d-admin-spec.md)
+- [2026-11-06 · Ophelia · in-flight inventory](docs/handoff/2026-11-06-ophelia-in-flight-inventory.md)
 - [2026-11-05 · Ophelia · P5c live, Automation center redesign R1 to R3](docs/handoff/2026-11-05-ophelia-p5c-p5e-live.md)
 - [2026-11-03 · Ophelia · autonomous batch: activity UI, button actions, notify, favourites, rich-text backend, P5 design](docs/handoff/2026-11-03-ophelia-autonomous-batch.md)
 - [2026-11-04 · Ophelia · feature push (Gantt, Workload, templates, dashboards data, P5a pieces)](docs/handoff/2026-11-04-ophelia-feature-push.md)
