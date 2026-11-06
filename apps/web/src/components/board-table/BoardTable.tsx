@@ -36,6 +36,7 @@ import { useAuth } from '../../auth/auth-context';
 import { useItems, useUserLookup, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
 import { comparePositions, positionBeforeAll, positionBetween } from '../../lib/positions';
 import { BatchBar } from './BatchBar';
+import { BulkEditPopup } from './BulkEditPopup';
 import { BoardToolbar } from './BoardToolbar';
 import { GroupBlock } from './GroupBlock';
 import { ItemRowBody } from './ItemRow';
@@ -692,6 +693,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
           </div>
         </div>
         <BatchBar />
+        <BulkEditPopup />
       </div>
     </TableEnvContext.Provider>
   );

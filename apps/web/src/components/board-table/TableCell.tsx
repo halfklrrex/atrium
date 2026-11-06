@@ -20,6 +20,7 @@ import {
   derivedCellValue,
 } from './derived';
 import { CellSpinner } from './CellSpinner';
+import { bulkPeers, isBulkEditableType } from './bulk-edit';
 import { REQUIRED_HINT, isRequiredEmpty } from './required';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
@@ -85,9 +86,25 @@ export const TableCell = memo(function TableCell({
   const itemId = item.id;
   const onChange = useCallback(
     (next: unknown) => {
-      if (canEdit) void tableActions.setCell(ctx, itemId, columnId, next, item);
+      if (!canEdit) return;
+      void tableActions.setCell(ctx, itemId, columnId, next, item).then((written) => {
+        // Bulk edit: offer the change to the other selected rows once this row's write is out.
+        if (!written || !isBulkEditableType(column.def.type)) return;
+        const store = useTableStore.getState();
+        if (!store.selected.has(itemId)) return;
+        const peers = bulkPeers(ctx.getItems?.() ?? env.getItems(), store.selected, item);
+        if (peers.length === 0) return;
+        store.setBulkOffer({
+          ctx,
+          itemId,
+          columnId,
+          value: next,
+          previous: raw ?? null,
+          count: peers.length + 1,
+        });
+      });
     },
-    [canEdit, ctx, itemId, columnId, item],
+    [canEdit, ctx, env, itemId, columnId, item, raw, column.def.type],
   );
 
   if (!ui) {

@@ -1,6 +1,7 @@
 import type { GroupDef } from '@atrium/shared';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { BulkOffer } from './bulk-edit';
 
 export interface CellRef {
   itemId: string;
@@ -40,6 +41,8 @@ interface TableState {
   pendingGroups: readonly GroupDef[];
   /** The group whose title opens in edit mode when it mounts (a freshly added group). */
   renamingGroupId: string | null;
+  /** "Apply to N selected items" popup offered after a cell edit in a selected row. */
+  bulkOffer: BulkOffer | null;
 
   reset: (boardId: string | null) => void;
   setSelected: (ids: ReadonlySet<string>) => void;
@@ -59,6 +62,7 @@ interface TableState {
   addPendingGroup: (group: GroupDef) => void;
   removePendingGroup: (id: string) => void;
   setRenamingGroup: (id: string | null) => void;
+  setBulkOffer: (offer: BulkOffer | null) => void;
 }
 
 const NONE: ReadonlySet<string> = new Set();
@@ -78,6 +82,7 @@ export const useTableStore = create<TableState>()((set) => ({
   dropMarker: null,
   pendingGroups: [],
   renamingGroupId: null,
+  bulkOffer: null,
 
   reset: (boardId) =>
     set({
@@ -95,13 +100,15 @@ export const useTableStore = create<TableState>()((set) => ({
       dropMarker: null,
       pendingGroups: [],
       renamingGroupId: null,
+      bulkOffer: null,
     }),
-  setSelected: (selected) => set({ selected }),
+  // Any selection change closes the bulk-edit offer: it counted the old selection.
+  setSelected: (selected) => set({ selected, bulkOffer: null }),
   toggleSelected: (id) =>
     set((s) => {
       const next = new Set(s.selected);
       if (!next.delete(id)) next.add(id);
-      return { selected: next };
+      return { selected: next, bulkOffer: null };
     }),
   setGroupSelected: (ids, on) =>
     set((s) => {
@@ -110,9 +117,9 @@ export const useTableStore = create<TableState>()((set) => ({
         if (on) next.add(id);
         else next.delete(id);
       }
-      return { selected: next };
+      return { selected: next, bulkOffer: null };
     }),
-  clearSelection: () => set({ selected: NONE }),
+  clearSelection: () => set({ selected: NONE, bulkOffer: null }),
   setActive: (active) => set({ active }),
   setEditing: (editing) => set(editing ? { editing, active: editing } : { editing: null }),
   setRenamingItem: (renamingItemId) => set({ renamingItemId }),
@@ -137,6 +144,7 @@ export const useTableStore = create<TableState>()((set) => ({
       renamingGroupId: s.renamingGroupId === id ? null : s.renamingGroupId,
     })),
   setRenamingGroup: (renamingGroupId) => set({ renamingGroupId }),
+  setBulkOffer: (bulkOffer) => set({ bulkOffer }),
 }));
 
 /** Per-user table preferences that are not shared with the board: collapsed groups, name width. */
