@@ -41,6 +41,8 @@ export const ACTIVITY_KINDS = [
   'update_posted',
   'button_clicked',
   'automation_ran',
+  /** REQ-2: a Status moved to Done while required cells were empty; Functions put it back. */
+  'required_reverted',
 ] as const;
 export const activityKindSchema = z.enum(ACTIVITY_KINDS);
 export type ActivityKind = z.infer<typeof activityKindSchema>;
@@ -82,6 +84,8 @@ export const activityDataSchema = z.object({
   source: z.literal('form').optional(),
   /** `automation_ran` and entries an automation wrote: the automation id. */
   automationId: idSchema.optional(),
+  /** `required_reverted`: titles of the required columns that were empty (max 10). */
+  missingTitles: z.array(text).max(10).optional(),
 });
 export type ActivityData = z.infer<typeof activityDataSchema>;
 

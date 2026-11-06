@@ -34,6 +34,7 @@ export { purgeOrphanUploads } from './scheduled/purgeOrphanUploads';
 export { onBoardColumnsWritten } from './triggers/onBoardColumnsWritten';
 export { onItemCreated } from './triggers/onItemCreated';
 export { onItemWrittenActivity } from './triggers/onItemWrittenActivity';
+export { onItemRequiredRevert } from './triggers/onItemRequiredRevert';
 export { onBoardWrittenActivity } from './triggers/onBoardWrittenActivity';
 export { onItemPeopleAssigned } from './triggers/onItemPeopleAssigned';
 export { onUpdateCreated } from './triggers/onUpdateCreated';

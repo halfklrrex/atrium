@@ -9,6 +9,7 @@ import {
 import { canEditColumn } from './column-locks';
 import { columnRegistry } from './index';
 import type { ColumnTypeRegistry } from './registry';
+import { findStatusLabel, statusValueSchema, type StatusSettings } from './status';
 
 /**
  * Column types that never take a default value, whatever their registration. Derived and
@@ -185,6 +186,87 @@ export function validateRequiredColumns(
     valid: missingColumns.length === 0,
     missingColumns,
   };
+}
+
+/**
+ * True when `value` is a Status cell that points at a label marked done (`isDone`). A non-status
+ * column, an empty or malformed value, a label that no longer exists: false.
+ */
+export function isDoneStatusValue(
+  col: Pick<ColumnDef, 'type' | 'settings'>,
+  value: unknown,
+): boolean {
+  if (col.type !== 'status') return false;
+  const parsed = statusValueSchema.safeParse(value);
+  if (!parsed.success) return false;
+  const settings = col.settings as Partial<StatusSettings> | null | undefined;
+  if (!settings || !Array.isArray(settings.labels)) return false;
+  return findStatusLabel(parsed.data, settings as StatusSettings)?.isDone === true;
+}
+
+export type RequiredWriteViolation =
+  /** Rule 1: a written required cell ends up empty. */
+  | { kind: 'cleared'; columnIds: string[] }
+  /** Rule 2: a Status moved into a done label while other required cells are empty. */
+  | { kind: 'done_with_empty'; statusColumnIds: string[]; missingColumns: string[] };
+
+/**
+ * Required columns a client can fill: derived, server-managed and button columns never hold a
+ * client value, so they are not counted as "empty".
+ */
+function fillableRequired(
+  columns: readonly ColumnDef[],
+  registry: ColumnTypeRegistry,
+): ColumnDef[] {
+  return columns.filter(
+    (c) =>
+      c.required &&
+      c.type !== 'button' &&
+      !(registry.has(c.type) && (registry.isDerived(c.type) || registry.isServerManaged(c.type))),
+  );
+}
+
+/**
+ * Checks one item write against the required-columns hard rule
+ * (docs/specs/REQ-required-columns-hard-rule.md). `before` and `after` are the item's whole
+ * `values` maps. Creating an item is exempt: callers skip creates.
+ *
+ * - Rule 2 (`done_with_empty`): a Status column whose value was not a done label before and is one
+ *   after, while any required column other than that Status is empty in `after`. An item that was
+ *   already Done is never flagged for unrelated edits, and moving between two done labels is not
+ *   "reaching" Done.
+ * - Rule 1 (`cleared`): only when `options.written` is given (the column ids the write touched,
+ *   for server-side writers whose patch is known): a written required column that is empty after.
+ *
+ * Returns `null` when the write is allowed; rule 1 is reported first.
+ */
+export function findRequiredViolation(
+  columns: readonly ColumnDef[],
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  options: { written?: Iterable<string>; registry?: ColumnTypeRegistry } = {},
+): RequiredWriteViolation | null {
+  const registry = options.registry ?? columnRegistry;
+  const required = fillableRequired(columns, registry);
+  if (required.length === 0) return null;
+
+  if (options.written) {
+    const written = new Set(options.written);
+    const cleared = required
+      .filter((c) => written.has(c.id) && isColumnValueEmpty(c.type, after[c.id]))
+      .map((c) => c.id);
+    if (cleared.length > 0) return { kind: 'cleared', columnIds: cleared };
+  }
+
+  const reached = columns
+    .filter((c) => isDoneStatusValue(c, after[c.id]) && !isDoneStatusValue(c, before[c.id]))
+    .map((c) => c.id);
+  if (reached.length === 0) return null;
+  const missing = required
+    .filter((c) => reached.some((id) => id !== c.id) && isColumnValueEmpty(c.type, after[c.id]))
+    .map((c) => c.id);
+  if (missing.length === 0) return null;
+  return { kind: 'done_with_empty', statusColumnIds: reached, missingColumns: missing };
 }
 
 function cloneValue<T>(val: T): T {
