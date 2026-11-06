@@ -7,6 +7,7 @@ import {
   conditionOps,
   defaultTrigger,
   isDraftOk,
+  resolveRecipeTimezone,
   type BuilderBoard,
 } from './recipe-draft';
 
@@ -205,5 +206,81 @@ describe('triggers', () => {
       0,
     );
     expect(blank.trigger).toBe('Choose a People column');
+  });
+});
+
+describe('scheduled triggers (P5d)', () => {
+  const notify = [{ type: 'notify' as const, uids: ['u1'] }];
+  const recurring = { type: 'recurring' as const, every: 'day' as const, at: '09:00' };
+
+  it('offers Date arrives and Recurring, with fresh defaults', () => {
+    expect(TRIGGER_TYPES).toEqual(expect.arrayContaining(['date_arrives', 'recurring']));
+    expect(defaultTrigger('date_arrives', board)).toEqual({
+      type: 'date_arrives',
+      columnId: 'when',
+      offsetDays: 0,
+    });
+    expect(defaultTrigger('date_arrives', { ...board, columns: [] })).toMatchObject({
+      columnId: '',
+    });
+    expect(defaultTrigger('recurring', board)).toEqual(recurring);
+  });
+
+  it('needs a time zone and a Date column', () => {
+    const draft = { trigger: recurring, conditions: [], actions: notify };
+    expect(isDraftOk(checkDraft(draft, board, 'owner', 0, { timezone: 'Europe/Madrid' }), 1)).toBe(
+      true,
+    );
+    expect(checkDraft(draft, board, 'owner', 0, {}).trigger).toMatch(/time zone/);
+    const blank = checkDraft(
+      {
+        trigger: { type: 'date_arrives', columnId: '', offsetDays: 0 },
+        conditions: [],
+        actions: notify,
+      },
+      board,
+      'owner',
+      0,
+      { timezone: 'UTC' },
+    );
+    expect(blank.trigger).toBe('Choose a Date column');
+  });
+
+  it('refuses item actions on a recurring recipe, on the action row', () => {
+    const problems = checkDraft(
+      { trigger: recurring, conditions: [], actions: [{ type: 'archive_item' }] },
+      board,
+      'owner',
+      0,
+      { timezone: 'UTC' },
+    );
+    expect(problems.actions[0]).toMatch(/recurring recipe can only/);
+    expect(isDraftOk(problems, 1)).toBe(false);
+  });
+
+  it('shows the scheduled cap on the trigger only for a scheduled recipe', () => {
+    const others = Array.from({ length: 5 }, () => ({ trigger: recurring }));
+    const scheduled = checkDraft(
+      { trigger: recurring, conditions: [], actions: notify },
+      board,
+      'owner',
+      5,
+      { timezone: 'UTC', others },
+    );
+    expect(scheduled.trigger).toBe('A board can have at most 5 scheduled automations');
+    const event = checkDraft(
+      { trigger: { type: 'item_created' }, conditions: [], actions: notify },
+      board,
+      'owner',
+      5,
+      { timezone: 'UTC', others },
+    );
+    expect(event.trigger).toBeNull();
+  });
+
+  it('resolveRecipeTimezone prefers a known profile zone, then the browser, then UTC', () => {
+    expect(resolveRecipeTimezone('America/New_York')).toBe('America/New_York');
+    expect(resolveRecipeTimezone('Not/AZone')).toBe(resolveRecipeTimezone(undefined));
+    expect(resolveRecipeTimezone('')).toBe(resolveRecipeTimezone(null));
   });
 });

@@ -120,7 +120,8 @@ export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number]['id'];
 
 /**
  * `ready` works on today's engine. The rest are shown but cannot be used: `p5c` needs triggers
- * and actions that are not built yet, `p5d` needs time-based triggers, `p9` needs integrations.
+ * and actions that are not built yet, `p5d` was the time-based triggers (all built, no template
+ * uses it now), `p9` needs integrations.
  */
 export type TemplateAvailability = 'ready' | 'p5c' | 'p5d' | 'p9';
 
@@ -207,7 +208,21 @@ export const TEMPLATE_CATALOG: readonly CatalogTemplate[] = [
       );
     },
   ),
-  planned('date-arrives-notify', 'When a *date* arrives notify *someone*', 'dates', false, 'p5d'),
+  ready(
+    'date-arrives-notify',
+    'When a *date* arrives notify *someone*',
+    'dates',
+    false,
+    (board, uid) => {
+      const date = board.columns.find((c) => c.type === 'date');
+      const actions = notifyActions(uid);
+      if (!date || !actions) return null;
+      return draftOf(
+        { type: 'date_arrives', columnId: date.id, offsetDays: 0, at: '09:00' },
+        actions,
+      );
+    },
+  ),
   ready(
     'status-notify',
     'When *status* changes to *Done* notify *someone*',
@@ -370,19 +385,35 @@ export const TEMPLATE_CATALOG: readonly CatalogTemplate[] = [
       ]);
     },
   ),
-  planned(
+  ready(
     'weekly-create-item',
     'Every *Monday* create an item in *a group*',
     'dates',
     false,
-    'p5d',
+    (board) => {
+      const group = board.groups[0];
+      if (!group) return null;
+      return draftOf({ type: 'recurring', every: 'week', weekday: 1, at: '09:00' }, [
+        { type: 'create_item', name: 'Weekly review {date}', groupId: group.id },
+      ]);
+    },
   ),
-  planned(
+  ready(
     'overdue-notify',
     'When a *date* has passed and *status* is not *Done* notify *someone*',
     'dates',
     true,
-    'p5d',
+    (board, uid) => {
+      const date = board.columns.find((c) => c.type === 'date');
+      const status = firstStatus(board);
+      const actions = notifyActions(uid);
+      if (!date || !status?.done || !actions) return null;
+      return draftOf(
+        { type: 'date_arrives', columnId: date.id, offsetDays: 1, at: '09:00' },
+        actions,
+        [{ columnId: status.column.id, op: 'is_not', value: { index: status.done.index } }],
+      );
+    },
   ),
   planned(
     'connected-status-notify',

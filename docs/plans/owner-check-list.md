@@ -2,6 +2,14 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## P5d: time-based automations (web + showcase)
+
+- **Date arrives and Recurring in the builder:** on the showcase board open **Automate**, then Manage, and look at the two new seeded recipes "Due date heads-up" and "Monday review". Their sentences must name the zone, for example "Every Monday at 09:00 (UTC), then create an item ...". They are seeded **off** (with a reason) so nothing fires by surprise; switch one on to try it.
+- **Create a "Date arrives" recipe:** Automate > Create from scratch > When "Date arrives": pick Due date, "days before", 3, a time, add a Notify action, and check the "Reads as" sentence shows the zone (your profile zone, else the browser's). Save, then open Manage and check the sentence in the table.
+- **Create a "Recurring" recipe:** When "Recurring": try Every day, Every week (pick a weekday) and Every month (day 1 to 28). Check that "Add action" offers only Create item and Notify people, and that the sixth scheduled recipe on a board is refused with "A board can have at most 5 scheduled automations".
+- **After the scheduler runs (within 5 minutes of the set time, once the Functions PR is live):** open Manage > Run history. A recurring run shows "Scheduled for <date and time>" instead of an item; a date run shows the item it fired for. Check the created item or the notification arrived.
+- **Create tab:** the Dates & deadlines templates (date arrives, overdue, every Monday) are now "Ready" and open the builder prefilled; the "Planned · P5d" badge is gone.
+
 ## Required columns as a hard rule (REQ-3, web)
 
 - **Required is now enforced:** on the showcase board the Status column is required. (1) Clear a required cell (select it and press Delete, or pick the empty option): the edit is refused with a toast like "Owner is required" and the cell snaps back. (2) Open a column's menu: under "Required column" a note says how many items are empty ("3 items are empty; they stay as they are but can't be saved empty again"). (3) On an item with an empty required cell, set Status to a Done label: the web app refuses with "Fill in Owner, Due date before setting Status to Done". (4) Optional, needs a second client or the MCP connector: set Done from outside the table; the item should flip to Done for a moment and then be reverted, with an "Atrium" entry in the board's Activity log explaining why (the revert is eventual, not atomic). (5) Mark 10 columns Required, then try an 11th: it is blocked with a warning, because the security rules only check 10. Light and dark. Item creation stays exempt (quick add still works).

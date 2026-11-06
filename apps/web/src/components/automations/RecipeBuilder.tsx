@@ -2,6 +2,7 @@ import {
   AUTOMATION_LIMITS,
   AUTOMATION_TRIGGER_LABELS,
   BUTTON_LIMITS,
+  isScheduledTrigger,
   type AutomationCondition,
   type AutomationTrigger,
   type BoardRole,
@@ -13,6 +14,7 @@ import { CloseSmall } from '@vibe/icons';
 import classNames from 'classnames';
 import { useId, useMemo, useState } from 'react';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
+import { useUserTimezone } from '../../data/user-timezone';
 import { automationWrites, type AutomationDoc, type AutomationInput } from '../../data/automations';
 import type { BoardDoc } from '../../data/model';
 import { buildColumnViews } from '../board-table/table-model';
@@ -20,7 +22,9 @@ import { ButtonActionsEditor } from '../board-table/ButtonActionsEditor';
 import { describeError } from '../boards/board-actions';
 import { showToast } from '../toast-store';
 import {
+  RECURRING_ACTION_TYPES,
   TRIGGER_TYPES,
+  WEEKDAY_NAMES,
   checkDraft,
   conditionColumns,
   conditionOps,
@@ -28,6 +32,7 @@ import {
   isDraftOk,
   needsValue,
   newCondition,
+  resolveRecipeTimezone,
   triggerColumns,
 } from './recipe-draft';
 import { describeAutomation } from './describe-automation';
@@ -40,6 +45,8 @@ export interface RecipeBuilderProps {
   uid: string;
   /** Recipes already on the board (the cap is checked against it for a new one). */
   existingCount: number;
+  /** The board's recipes, for the cap on scheduled ones; the one being edited is left out. */
+  existing?: readonly AutomationDoc[];
   /** The recipe being edited, or `null` for a new one. */
   automation: AutomationDoc | null;
   /** A starter or other preset a new recipe begins from. */
@@ -152,12 +159,16 @@ function AssigneeSelect({
 function TriggerFields({
   board,
   trigger,
+  timezone,
   onChange,
 }: {
   board: BoardDoc;
   trigger: AutomationTrigger;
+  /** The zone a scheduled recipe will be saved with, shown next to its time. */
+  timezone: string;
   onChange: (trigger: AutomationTrigger) => void;
 }) {
+  const hasDate = triggerColumns(board, 'date').length > 0;
   const hasStatus = triggerColumns(board, 'status').length > 0;
   const hasButton = triggerColumns(board, 'button').length > 0;
   const hasPeople = triggerColumns(board, 'people').length > 0;
@@ -165,12 +176,14 @@ function TriggerFields({
     if (type === 'status_changed') return hasStatus;
     if (type === 'button_clicked') return hasButton;
     if (type === 'person_assigned') return hasPeople;
+    if (type === 'date_arrives') return hasDate;
     return true;
   };
   const missing: Partial<Record<AutomationTrigger['type'], string>> = {
     status_changed: ' (no Status column)',
     button_clicked: ' (no Button column)',
     person_assigned: ' (no People column)',
+    date_arrives: ' (no Date column)',
   };
 
   return (
@@ -268,6 +281,131 @@ function TriggerFields({
               })
             }
           />
+        </>
+      ) : null}
+
+      {trigger.type === 'date_arrives' ? (
+        <>
+          <span className={styles.word}>in</span>
+          <ColumnSelect
+            label="Date column"
+            columns={triggerColumns(board, 'date')}
+            value={trigger.columnId}
+            onChange={(columnId) => onChange({ ...trigger, columnId })}
+          />
+          <span className={styles.word}>:</span>
+          {trigger.offsetDays !== 0 ? (
+            <input
+              className={styles.tokenNumber}
+              aria-label="Days"
+              type="number"
+              min={1}
+              max={30}
+              value={Math.abs(trigger.offsetDays)}
+              onChange={(event) => {
+                const days = Math.min(30, Math.max(1, Math.trunc(event.target.valueAsNumber) || 1));
+                onChange({ ...trigger, offsetDays: trigger.offsetDays < 0 ? -days : days });
+              }}
+            />
+          ) : null}
+          <TokenSelect
+            label="When relative to the date"
+            value={trigger.offsetDays < 0 ? 'before' : trigger.offsetDays > 0 ? 'after' : 'on'}
+            onChange={(when) =>
+              onChange({
+                ...trigger,
+                offsetDays:
+                  when === 'on'
+                    ? 0
+                    : when === 'before'
+                      ? -Math.abs(trigger.offsetDays || 1)
+                      : Math.abs(trigger.offsetDays || 1),
+              })
+            }
+          >
+            <option value="on">on the day</option>
+            <option value="before">days before</option>
+            <option value="after">days after</option>
+          </TokenSelect>
+          <span className={styles.word}>at</span>
+          <input
+            className={styles.tokenInput}
+            aria-label="Time of day"
+            type="time"
+            value={trigger.at ?? ''}
+            onChange={(event) => {
+              const { at: _at, ...rest } = trigger;
+              onChange(event.target.value ? { ...rest, at: event.target.value } : rest);
+            }}
+          />
+          <span className={styles.word}>
+            {trigger.at ? `(${timezone})` : `(the date's own time, else 09:00, ${timezone})`}
+          </span>
+        </>
+      ) : null}
+
+      {trigger.type === 'recurring' ? (
+        <>
+          <span className={styles.word}>every</span>
+          <TokenSelect
+            label="Repeat"
+            value={trigger.every}
+            onChange={(every) => {
+              if (every === 'week')
+                onChange({ type: 'recurring', every, weekday: 1, at: trigger.at });
+              else if (every === 'month') {
+                onChange({ type: 'recurring', every, dayOfMonth: 1, at: trigger.at });
+              } else onChange({ type: 'recurring', every: 'day', at: trigger.at });
+            }}
+          >
+            <option value="day">day</option>
+            <option value="week">week</option>
+            <option value="month">month</option>
+          </TokenSelect>
+          {trigger.every === 'week' ? (
+            <>
+              <span className={styles.word}>on</span>
+              <TokenSelect
+                label="Weekday"
+                value={trigger.weekday ?? 1}
+                onChange={(weekday) => onChange({ ...trigger, weekday: Number(weekday) })}
+              >
+                {WEEKDAY_NAMES.map((name, i) => (
+                  <option key={name} value={i}>
+                    {name}
+                  </option>
+                ))}
+              </TokenSelect>
+            </>
+          ) : null}
+          {trigger.every === 'month' ? (
+            <>
+              <span className={styles.word}>on day</span>
+              <TokenSelect
+                label="Day of month"
+                value={trigger.dayOfMonth ?? 1}
+                onChange={(day) => onChange({ ...trigger, dayOfMonth: Number(day) })}
+              >
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </TokenSelect>
+            </>
+          ) : null}
+          <span className={styles.word}>at</span>
+          <input
+            className={styles.tokenInput}
+            aria-label="Time of day"
+            type="time"
+            value={trigger.at}
+            required
+            onChange={(event) => {
+              if (event.target.value) onChange({ ...trigger, at: event.target.value });
+            }}
+          />
+          <span className={styles.word}>({timezone})</span>
         </>
       ) : null}
 
@@ -459,6 +597,7 @@ export function RecipeBuilder({
   role,
   uid,
   existingCount,
+  existing = [],
   automation,
   initial,
   onCancel,
@@ -479,28 +618,49 @@ export function RecipeBuilder({
   const [saving, setSaving] = useState(false);
   const noteId = useId();
 
+  // A scheduled recipe keeps the zone it was saved with; saving it as someone else (or a new one)
+  // uses the saver's profile zone, else the browser's.
+  const profileZone = useUserTimezone(uid);
+  const timezone =
+    automation?.timezone && automation.runAs === uid
+      ? automation.timezone
+      : resolveRecipeTimezone(profileZone);
+  const others = useMemo(
+    () => existing.filter((a) => a.id !== automation?.id),
+    [existing, automation?.id],
+  );
+
   const columnViews = useMemo(() => buildColumnViews(board.columns), [board.columns]);
   const problems = useMemo(
     () =>
-      checkDraft({ trigger, conditions, actions }, board, role, automation ? null : existingCount),
-    [trigger, conditions, actions, board, role, automation, existingCount],
+      checkDraft({ trigger, conditions, actions }, board, role, automation ? null : existingCount, {
+        timezone,
+        others,
+      }),
+    [trigger, conditions, actions, board, role, automation, existingCount, timezone, others],
   );
   const canSave = isDraftOk(problems, actions.length) && !saving;
   const takesOver = automation !== null && automation.runAs !== uid;
   const eligible = conditionColumns(board);
   const atConditionCap = conditions.length >= AUTOMATION_LIMITS.maxConditions;
   const reads = isDraftOk(problems, actions.length)
-    ? describeAutomation({ trigger, conditions, actions }, board)
+    ? describeAutomation({ trigger, conditions, actions, timezone }, board)
     : 'Fill in the highlighted parts to finish the sentence.';
 
   const save = async () => {
     if (!canSave) return;
     setSaving(true);
-    const input: AutomationInput = { name: name.trim(), trigger, conditions, actions };
+    const input: AutomationInput = {
+      name: name.trim(),
+      trigger,
+      conditions,
+      actions,
+      ...(isScheduledTrigger(trigger) ? { timezone } : {}),
+    };
     const ctx = { boardId: board.id, uid, board, role };
     try {
-      if (automation) await automationWrites.update(ctx, automation.id, input);
-      else await automationWrites.create(ctx, input, existingCount);
+      if (automation) await automationWrites.update(ctx, automation.id, input, others);
+      else await automationWrites.create(ctx, input, existingCount, { others });
       showToast(automation ? 'Automation saved.' : 'Automation created.', { type: 'positive' });
       onSaved();
     } catch (error) {
@@ -528,7 +688,12 @@ export function RecipeBuilder({
         <section className={styles.part} aria-label="Trigger">
           <div className={styles.line}>
             <span className={classNames(styles.keyword, styles.keywordStrong)}>When</span>
-            <TriggerFields board={board} trigger={trigger} onChange={setTrigger} />
+            <TriggerFields
+              board={board}
+              trigger={trigger}
+              timezone={timezone}
+              onChange={setTrigger}
+            />
           </div>
           <Problem message={problems.trigger} />
         </section>
@@ -589,6 +754,7 @@ export function RecipeBuilder({
               groups={board.groups}
               boardId={board.id}
               allowAutomationOnly
+              allowedTypes={trigger.type === 'recurring' ? RECURRING_ACTION_TYPES : undefined}
               emptyHint="Add at least one action: what should happen."
               onChange={setActions}
             />

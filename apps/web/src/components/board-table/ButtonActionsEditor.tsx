@@ -532,6 +532,7 @@ export function ButtonActionsEditor({
   boardId,
   emptyHint = 'No actions: a click is only recorded in the activity log.',
   allowAutomationOnly = false,
+  allowedTypes,
   onChange,
 }: {
   actions: readonly ButtonAction[];
@@ -544,6 +545,8 @@ export function ButtonActionsEditor({
   emptyHint?: string;
   /** Offer `create_item` / `post_update`; only a recipe may. */
   allowAutomationOnly?: boolean;
+  /** Narrows the "Add action" list further (a recurring recipe has no item to act on). */
+  allowedTypes?: readonly ButtonAction['type'][];
   onChange: (actions: ButtonAction[]) => void;
 }) {
   const full = actions.length >= BUTTON_LIMITS.maxActions;
@@ -593,11 +596,13 @@ export function ButtonActionsEditor({
           }}
         >
           <option value="">Add action</option>
-          {(allowAutomationOnly ? ACTION_TYPES : BUTTON_ACTION_TYPES).map((type) => (
-            <option key={type} value={type}>
-              {BUTTON_ACTION_LABELS[type]}
-            </option>
-          ))}
+          {(allowAutomationOnly ? ACTION_TYPES : BUTTON_ACTION_TYPES)
+            .filter((type) => !allowedTypes || allowedTypes.includes(type))
+            .map((type) => (
+              <option key={type} value={type}>
+                {BUTTON_ACTION_LABELS[type]}
+              </option>
+            ))}
         </select>
         {full ? <span className={styles.helper}>{ADD_DISABLED_REASON}.</span> : null}
       </div>

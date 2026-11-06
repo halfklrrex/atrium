@@ -157,6 +157,7 @@ function CenterBody({
             role={role}
             uid={uid}
             existingCount={automations.data.length}
+            existing={automations.data}
             automation={editing}
             initial={builder.mode === 'create' ? builder.initial : undefined}
             onCancel={closeBuilder}
@@ -232,7 +233,7 @@ function CenterBody({
                     },
                     automations.data.length,
                     // The copy starts off so the board never runs the same recipe twice by surprise.
-                    { enabled: false },
+                    { enabled: false, others: automations.data },
                   );
                   showToast('Automation duplicated. The copy is switched off.', {
                     type: 'positive',

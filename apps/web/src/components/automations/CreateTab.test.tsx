@@ -103,10 +103,23 @@ describe('CreateTab', () => {
 
   it('disables templates that are not ready', () => {
     setup();
-    expect(useButton('When a date arrives notify someone')).toHaveAttribute(
+    expect(useButton('When an item is created send an email')).toHaveAttribute(
       'aria-disabled',
       'true',
     );
+  });
+
+  it('shows the time-based templates as ready and no P5d badge', () => {
+    setup();
+    expect(useButton('Every Monday create an item in a group')).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+    expect(useButton('When a date arrives notify someone')).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+    expect(screen.queryByText('Planned · P5d')).toBeNull();
   });
 
   it('is read-only for non-owners', () => {

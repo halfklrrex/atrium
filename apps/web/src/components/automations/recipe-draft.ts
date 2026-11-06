@@ -1,7 +1,11 @@
 import {
   AUTOMATION_LIMITS,
+  CANONICAL_TIMEZONES,
   columnRegistry,
+  isScheduledTrigger,
   validateAutomation,
+  validateScheduledLimit,
+  type Automation,
   type AutomationCondition,
   type AutomationTrigger,
   type BoardRole,
@@ -73,7 +77,6 @@ export function defaultTrigger(
   if (type === 'person_assigned') {
     return { type, columnId: triggerColumns(board, 'people')[0]?.id ?? '' };
   }
-  // Scheduled triggers are not offered by the builder yet (P5d-4); a plain default keeps this total.
   if (type === 'date_arrives') {
     return { type, columnId: triggerColumns(board, 'date')[0]?.id ?? '', offsetDays: 0 };
   }
@@ -112,6 +115,11 @@ export function checkDraft(
   board: BuilderBoard,
   role: BoardRole | null,
   existingCount: number | null,
+  scheduled: {
+    timezone?: string;
+    /** The board's other recipes (without the one being edited), for the scheduled cap. */
+    others?: ReadonlyArray<Pick<Automation, 'trigger'>>;
+  } = {},
 ): DraftProblems {
   const problems: DraftProblems = {
     trigger: null,
@@ -132,14 +140,20 @@ export function checkDraft(
         ? 'Status'
         : trigger.type === 'person_assigned'
           ? 'People'
-          : 'Button';
+          : trigger.type === 'date_arrives'
+            ? 'Date'
+            : 'Button';
     problems.trigger = `Choose a ${kind} column`;
   }
   draft.conditions.forEach((condition, i) => {
     if (condition.columnId === '') problems.conditions[i] = 'Choose a column';
   });
 
-  const checked = validateAutomation(draft, { ...board, columns: board.columns }, role);
+  const checked = validateAutomation(
+    { ...draft, timezone: scheduled.timezone },
+    { ...board, columns: board.columns },
+    role,
+  );
   if (!checked.ok) {
     const { message } = checked;
     if (checked.index !== undefined) {
@@ -155,7 +169,29 @@ export function checkDraft(
       problems.general ??= message;
     }
   }
+  if (problems.trigger === null && scheduled.others && isScheduledTrigger(trigger)) {
+    const limit = validateScheduledLimit(draft, scheduled.others);
+    if (!limit.ok) problems.trigger = limit.message;
+  }
   return problems;
+}
+
+/**
+ * The zone a scheduled recipe is saved with: the creator's profile zone, else the browser's, else
+ * UTC. Only zones the shared list knows are used (validation refuses others).
+ */
+export function resolveRecipeTimezone(profileZone: string | null | undefined): string {
+  const browser = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return '';
+    }
+  })();
+  for (const zone of [profileZone, browser]) {
+    if (zone && CANONICAL_TIMEZONES.has(zone)) return zone;
+  }
+  return 'UTC';
 }
 
 /** True when saving would be accepted. */
@@ -176,4 +212,19 @@ export const TRIGGER_TYPES: AutomationTrigger['type'][] = [
   'person_assigned',
   'status_changed',
   'button_clicked',
+  'date_arrives',
+  'recurring',
 ];
+
+export const WEEKDAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const;
+
+/** The actions a recipe with this trigger may use; a recurring recipe has no item to act on. */
+export const RECURRING_ACTION_TYPES = ['create_item', 'notify'] as const;

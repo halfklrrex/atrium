@@ -1807,7 +1807,7 @@ export function buildShowcase({
   });
   summary.views += 1;
 
-  // ---- Four recipes in the Automation center: two on and harmless, one off with its reason, and one of each P5c trigger and action ----
+  // ---- Six recipes in the Automation center: two on and harmless, one off with its reason, one of each P5c trigger and action, and one of each P5d trigger (off) ----
   // `runAs` is the owner. No `automationRuns` are seeded: only Cloud Functions write those.
   const recipeStamps = {
     runAs: ownerUid,
@@ -1871,7 +1871,37 @@ export function buildShowcase({
       ...recipeStamps,
     }),
   });
-  summary.automations += 4;
+  // One recipe of each P5d (scheduler-driven) type. Both are seeded OFF, with a reason: the
+  // scheduler fires enabled recipes in production, so the owner switches them on to try them.
+  const scheduledOffReason =
+    'Switched off so the showcase does not fire on a schedule. Turn it on to try it.';
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/automations/showcase-due-soon`,
+    data: automationSchema.parse({
+      name: 'Due date heads-up',
+      enabled: false,
+      trigger: { type: 'date_arrives', columnId: 'due', offsetDays: -3, at: '09:00' },
+      conditions: [{ columnId: 'status', op: 'is_not', value: { index: STATUS.done } }],
+      actions: [{ type: 'notify', uids: [ownerUid], message: 'Due in 3 days.' }],
+      timezone: 'UTC',
+      disabledReason: scheduledOffReason,
+      ...recipeStamps,
+    }),
+  });
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/automations/showcase-weekly-review`,
+    data: automationSchema.parse({
+      name: 'Monday review',
+      enabled: false,
+      trigger: { type: 'recurring', every: 'week', weekday: 1, at: '09:00' },
+      conditions: [],
+      actions: [{ type: 'create_item', name: 'Weekly review {date}', groupId: 'backlog' }],
+      timezone: 'UTC',
+      disabledReason: scheduledOffReason,
+      ...recipeStamps,
+    }),
+  });
+  summary.automations += 6;
 
   // ---- Two tiny boards so the workspace Archive & Trash page shows something ----
   // (Archived/deleted *items* have no screen yet; that page lists archived and deleted *boards*.)
