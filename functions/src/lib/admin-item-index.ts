@@ -12,10 +12,14 @@ export function adminItemIndexWriter(firestore: Firestore): Pick<ItemIndexStore,
     async setItemIndex(boardId, itemId, fields, expectedUpdateTime) {
       const ref = firestore.collection('boards').doc(boardId).collection('items').doc(itemId);
       try {
-        // Only these two fields, never `updatedAt` / `updatedBy`. The precondition keeps a late
+        // Only these index fields, never `updatedAt` / `updatedBy`. The precondition keeps a late
         // event from overwriting the index of a newer write (whose own event recomputes it).
         await ref.update(
-          { assigneeUids: fields.assigneeUids, nameTokens: fields.nameTokens },
+          {
+            assigneeUids: fields.assigneeUids,
+            nameTokens: fields.nameTokens,
+            dateKeys: fields.dateKeys,
+          },
           expectedUpdateTime
             ? { lastUpdateTime: expectedUpdateTime as Timestamp }
             : { exists: true },

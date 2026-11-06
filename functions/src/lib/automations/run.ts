@@ -1,5 +1,6 @@
 import {
   canEditBoard,
+  computeNextRunAt,
   resolveBoardRole,
   type AutomationCondition,
   type AutomationTrigger,
@@ -7,7 +8,7 @@ import {
   type ButtonAction,
 } from '@atrium/shared';
 import { actorOf, activityDoc } from '../activity';
-import { runActionsInTransaction, type ColumnActionsTx } from '../column-actions';
+import { runActionsInTransaction, type ColumnActionsTx, type ItemData } from '../column-actions';
 import {
   deliverAutomationDisabled,
   deliverAutomationNotifications,
@@ -62,6 +63,10 @@ export interface AutomationDoc {
   disabledReason: string | null;
   consecutiveFailures: number;
   invalid?: string;
+  /** IANA zone of a scheduled recipe (P5d). */
+  timezone?: string;
+  /** Recurring only: the stored `nextRunAt` in epoch ms; `null` or absent when not scheduled. */
+  nextRunAtMs?: number | null;
 }
 
 export interface RunRecord {
@@ -98,7 +103,10 @@ export interface AutomationRunTx extends ColumnActionsTx {
   setCounter(boardId: string, counter: RunCounter): void;
   /** Creates the run document; the id is `runIdOf(automationId, eventId)`. */
   createRun(boardId: string, runId: string, run: RunRecord): void;
-  /** Server-side fields only: `enabled`, `disabledReason`, `consecutiveFailures`. */
+  /**
+   * Server-side fields only: `enabled`, `disabledReason`, `consecutiveFailures`, and `nextRunAt`
+   * (epoch ms or `null`; the adapter stores a Timestamp).
+   */
   updateAutomation(boardId: string, automationId: string, fields: Record<string, unknown>): void;
 }
 
@@ -114,12 +122,29 @@ export interface AutomationStore {
   markDelivered(boardId: string, runId: string): Promise<void>;
 }
 
+/**
+ * A recurring run (P5d): there is no item, and the run claims the recipe's `nextRunAt` in the same
+ * transaction that writes the run record, so two overlapping ticks cannot both run it.
+ */
+export interface RecurringClaim {
+  /** The occurrence that is run (the latest one that was missed). */
+  scheduledForMs: number;
+  /** The `nextRunAt` the scheduler read; the claim fails when the recipe holds another value now. */
+  expectedNextRunAtMs: number;
+  /** True when the occurrence is older than the catch-up cap: only a `skipped` record, no actions. */
+  stale: boolean;
+}
+
 export interface RunRequest {
   boardId: string;
   automationId: string;
-  /** The activity entry id that started the run. */
+  /** The activity entry id that started the run (for scheduled runs: the scheduled instant). */
   eventId: string;
-  itemId: string;
+  /** `null` for a recurring run. */
+  itemId: string | null;
+  /** Overrides `runIdOf(automationId, eventId)`: the deterministic ids of scheduled runs (P5d). */
+  runId?: string;
+  recurring?: RecurringClaim;
   /** Depth of the chain that caused the run; a user action is 0. */
   depth: number;
   /** The item's name on the activity entry (for the circuit-breaker notice). */
@@ -145,6 +170,16 @@ export type RunOutcome =
       disabled: boolean;
       delivery?: AutomationRunDelivery;
     };
+
+/** The next occurrence of a recurring recipe after `nowMs`; `null` when its schedule cannot be computed. */
+export function nextRunAfter(automation: AutomationDoc, nowMs: number): number | null {
+  if (automation.trigger.type !== 'recurring' || !automation.timezone) return null;
+  try {
+    return computeNextRunAt(automation.trigger, automation.timezone, nowMs);
+  } catch {
+    return null;
+  }
+}
 
 const clip = (value: string, max = 200): string =>
   value.length > max ? value.slice(0, max) : value;
@@ -209,24 +244,42 @@ async function executeInTransaction(
   req: RunRequest,
   serverTimestamp: unknown,
 ): Promise<RunOutcome> {
-  const { boardId, automationId, itemId, depth } = req;
+  const { boardId, automationId, itemId, depth, recurring } = req;
   const startedMs = tx.nowMs();
-  const runId = runIdOf(automationId, req.eventId);
+  const runId = req.runId ?? runIdOf(automationId, req.eventId);
 
   // All reads first: Firestore transactions refuse a read after the first write.
   const automation = await tx.getAutomation(boardId, automationId);
   if (!automation || !automation.enabled) return { status: 'none', reason: 'disabled' };
+  // The claim: another tick (or an edit of the recipe) moved `nextRunAt` since it was listed.
+  if (recurring && (automation.nextRunAtMs ?? null) !== recurring.expectedNextRunAtMs) {
+    return { status: 'none', reason: 'already claimed' };
+  }
   if (await tx.runExists(boardId, runId)) return { status: 'none', reason: 'already ran' };
   if (automation.invalid) throw new InvalidAutomationError(automation.invalid);
+  if (recurring && automation.trigger.type !== 'recurring') {
+    throw new InvalidAutomationError('The automation is not a recurring one any more.');
+  }
   const board = await tx.getBoard(boardId);
   if (!board) return { status: 'none', reason: 'board gone' };
-  const item = await tx.getItem(boardId, itemId);
+  // A recurring run has no item: a stand-in that no action reads (only `create_item` and `notify`).
+  const item: ItemData | null =
+    itemId === null
+      ? { id: '', name: '', state: 'active', values: {} }
+      : await tx.getItem(boardId, itemId);
   const wsRole = await tx.getWorkspaceMemberRole(board.workspaceId, automation.runAs);
   const role = resolveBoardRole(board, automation.runAs, wsRole);
   const counter = counterForNow(await tx.getCounter(boardId), startedMs);
 
   // The owner switched a tripped recipe back on: start counting failures again.
   const autoUpdate: Record<string, unknown> = {};
+  if (recurring) {
+    // Every outcome that records a run moves the schedule on, or a skipped run would repeat forever.
+    if (!automation.timezone) throw new InvalidAutomationError('The automation has no time zone.');
+    const next = nextRunAfter(automation, startedMs);
+    if (next === null) throw new InvalidAutomationError('The schedule cannot be computed.');
+    autoUpdate.nextRunAt = next;
+  }
   if (automation.consecutiveFailures >= CIRCUIT_BREAKER_FAILURES) {
     autoUpdate.consecutiveFailures = 0;
     autoUpdate.disabledReason = null;
@@ -243,6 +296,7 @@ async function executeInTransaction(
     return { status: 'skipped', automation, runId, reason };
   };
 
+  if (recurring?.stale) return skip('missed during an outage');
   if (depth >= MAX_DEPTH) return skip('loop limit');
   if (!canEditBoard(role)) {
     autoUpdate.enabled = false;
@@ -251,14 +305,15 @@ async function executeInTransaction(
   }
   if (!item) return skip('item not found');
   if (item.state !== 'active') return skip('item not active');
-  if (!conditionsHold(automation.conditions, item, board.columns)) {
+  if (itemId !== null && !conditionsHold(automation.conditions, item, board.columns)) {
     flush();
     return { status: 'none', reason: 'conditions not met' };
   }
   if (rateLimited(counter)) return skip('rate limit');
 
   const result = await runActionsInTransaction(
-    tx,
+    // A recurring run must not stamp the stand-in item.
+    itemId === null ? { ...tx, updateItem: () => undefined } : tx,
     {
       boardId,
       item,
@@ -289,7 +344,10 @@ async function executeInTransaction(
         kind: 'notify',
         creatorUid: automation.runAs,
         recipeName: recipeNameOf(automation),
-        itemName: clip(result.notify.itemName, ITEM_NAME_MAX),
+        itemName: clip(
+          itemId === null ? recipeNameOf(automation) : result.notify.itemName,
+          ITEM_NAME_MAX,
+        ),
         targets: result.notify.targets.map(({ uid, message }) => ({ uid, message })),
       }
     : undefined;
@@ -312,7 +370,7 @@ async function executeInTransaction(
       'automation_ran',
       {
         itemId,
-        itemName: item.name,
+        itemName: itemId === null ? null : item.name,
         data: { automationId, depth: depth + 1, actions: result.applied },
       },
     ),
@@ -333,9 +391,12 @@ async function recordFailureInTransaction(
   error: unknown,
 ): Promise<RunOutcome> {
   const startedMs = tx.nowMs();
-  const runId = runIdOf(req.automationId, req.eventId);
+  const runId = req.runId ?? runIdOf(req.automationId, req.eventId);
   const automation = await tx.getAutomation(req.boardId, req.automationId);
   if (!automation) return { status: 'none', reason: 'automation gone' };
+  if (req.recurring && (automation.nextRunAtMs ?? null) !== req.recurring.expectedNextRunAtMs) {
+    return { status: 'none', reason: 'already claimed' };
+  }
   if (await tx.runExists(req.boardId, runId)) return { status: 'none', reason: 'already ran' };
 
   const text = errorText(error);
@@ -344,6 +405,8 @@ async function recordFailureInTransaction(
     automation.consecutiveFailures >= CIRCUIT_BREAKER_FAILURES ? 0 : automation.consecutiveFailures;
   const failures = before + 1;
   const fields: Record<string, unknown> = { consecutiveFailures: failures };
+  // A failed recurring run moves on too (or `null` when the schedule itself is broken).
+  if (req.recurring) fields.nextRunAt = nextRunAfter(automation, startedMs);
   const disabled = automation.enabled && failures >= CIRCUIT_BREAKER_FAILURES;
   if (disabled) {
     fields.enabled = false;
@@ -490,7 +553,7 @@ export async function handleActivityEvent(
  * platform retries the event: the retry finds the run still undelivered and sends again, which is
  * safe because notification ids are deterministic (`kind-runId-uid`).
  */
-async function deliver(
+export async function deliver(
   deps: HandleEventDeps,
   boardId: string,
   pending: PendingDelivery,
@@ -499,7 +562,8 @@ async function deliver(
   const base = {
     eventId: runId,
     boardId,
-    itemId: pending.itemId ?? '',
+    // A recurring run has no item: the notification points at the board instead.
+    itemId: pending.itemId ?? boardId,
     creatorUid: delivery.creatorUid,
     recipeName: delivery.recipeName,
     itemName: delivery.itemName,

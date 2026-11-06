@@ -42,6 +42,8 @@ export function toAutomationDoc(id: string, data: FirebaseFirestore.DocumentData
     disabledReason: typeof data.disabledReason === 'string' ? data.disabledReason : null,
     consecutiveFailures:
       typeof data.consecutiveFailures === 'number' ? data.consecutiveFailures : 0,
+    ...(typeof data.timezone === 'string' ? { timezone: data.timezone } : {}),
+    nextRunAtMs: data.nextRunAt instanceof Timestamp ? data.nextRunAt.toMillis() : null,
   };
   if (!trigger.success || !conditions.success || !actions.success || !base.runAs) {
     return {
@@ -121,7 +123,14 @@ export function adminAutomationTx(firestore: Firestore, tx: Transaction): Automa
       });
     },
     updateAutomation(boardId, automationId, fields) {
-      tx.update(automationRef(firestore, boardId, automationId), fields);
+      const { nextRunAt, ...rest } = fields;
+      tx.update(automationRef(firestore, boardId, automationId), {
+        ...rest,
+        // `nextRunAt` comes in as epoch ms (or `null`) and is stored as a Timestamp.
+        ...(nextRunAt === undefined
+          ? {}
+          : { nextRunAt: typeof nextRunAt === 'number' ? Timestamp.fromMillis(nextRunAt) : null }),
+      });
     },
   };
 }
