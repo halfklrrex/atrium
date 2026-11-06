@@ -222,10 +222,21 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       subitemColumns: subitemDefs,
       board: boardLocks,
       boardRole,
+      requiredColumnIds: board.requiredColumnIds,
       getItems,
       getGroups,
     }),
-    [boardId, uid, columnDefs, subitemDefs, boardLocks, boardRole, getItems, getGroups],
+    [
+      boardId,
+      uid,
+      columnDefs,
+      subitemDefs,
+      boardLocks,
+      boardRole,
+      board.requiredColumnIds,
+      getItems,
+      getGroups,
+    ],
   );
   // The same context for the cells of a subitem (what the keyboard writes to).
   const subitemCtx = useMemo<TableCtx>(

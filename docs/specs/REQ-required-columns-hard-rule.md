@@ -1,6 +1,6 @@
 # REQ: Required columns as a hard rule
 
-Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Status: **approved. The owner chose "hard rule" on 2026-11-05 and confirmed the defaults below on 2026-11-06. REQ-1 merged, REQ-2 in progress (branch `claude/req-2-functions`).**
+Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Status: **approved. The owner chose "hard rule" on 2026-11-05 and confirmed the defaults below on 2026-11-06. REQ-1 merged, REQ-2 merged, REQ-3 (web) in progress (branch `claude/req-3-web`).**
 
 ## Today
 

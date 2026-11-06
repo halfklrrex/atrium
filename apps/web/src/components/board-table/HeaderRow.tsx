@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Menu, MenuButton, MenuDivider, MenuItem } from '@vibe/core';
+import { Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
 import {
   Add,
   Check,
@@ -43,6 +43,12 @@ import { ChangeColumnTypeDialog } from './ChangeColumnTypeDialog';
 import { ColumnSettingsPopup } from './ColumnSettings';
 import { ConfirmDialog } from './ConfirmDialog';
 import { dragProps } from './drag-props';
+import {
+  REQUIRED_CAP_MESSAGE,
+  countEmptyCells,
+  requiredEmptyNote,
+  wouldExceedRequiredCap,
+} from './required-write';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import { NAME_COLUMN, SETTINGS_TYPES, type ColumnView } from './table-model';
@@ -352,6 +358,13 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
   const canBeRequired = !!column && !isClientReadOnlyType(column.def.type);
   // Rows this menu's column writes to: top-level items, or the subitems of the block.
   const scopeItems = () => env.getItems().filter((i) => subitems || !i.parentItemId);
+  // The Required switch's note: the cap block when turning it on would pass the rules' limit, else
+  // how many items are empty today (nothing is rewritten).
+  const requiredNote = !column
+    ? null
+    : column.def.required !== true && wouldExceedRequiredCap(env.ctx.requiredColumnIds, columnId)
+      ? REQUIRED_CAP_MESSAGE
+      : requiredEmptyNote(countEmptyCells(scopeItems(), column.def));
 
   // Changing the type: board owners and editors, owners only on a locked column. Types the column
   // can't become are not listed; types that lose its values carry a warning.
@@ -536,6 +549,9 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
                   })
                 }
               />
+            ) : null}
+            {column && env.canEdit && canBeRequired && requiredNote ? (
+              <MenuTitle caption={requiredNote} data-testid={`column-required-note-${columnId}`} />
             ) : null}
             {column && env.canEdit ? <MenuDivider /> : null}
             {column && env.canEdit ? (

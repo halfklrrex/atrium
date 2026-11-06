@@ -133,6 +133,10 @@ test('the main board has 4 coloured groups, 26 active items, and the required co
   assert.equal(board.kind, 'main');
   assert.deepEqual(board.accessUids, Object.keys(board.access));
   assert.equal(board.groups.length, 4);
+  assert.ok(
+    board.requiredColumnIds.includes('status'),
+    'the required Status is in requiredColumnIds',
+  );
   assert.equal(new Set(board.groups.map((g) => g.color)).size, 4);
 
   const items = docs.filter((d) => MAIN_ITEM.test(d.path) && d.data.parentItemId === null);
