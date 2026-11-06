@@ -28,6 +28,10 @@
 
 .name {
   white-space: nowrap;
+
+  /* monday's view tab label is 14px (Vibe's Tab renders 16px) */
+  font-size: var(--font-size-20);
+  line-height: var(--font-line-height-20);
 }
 
 .renameInput {
@@ -38,6 +42,8 @@
   background: var(--primary-background-color);
   color: var(--primary-text-color);
   font: inherit;
+  font-size: var(--font-size-20);
+  line-height: var(--font-line-height-20);
   outline: none;
 }
 
