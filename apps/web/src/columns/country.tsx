@@ -3,6 +3,7 @@ import { Country as CountryIcon } from '@vibe/icons';
 import classNames from 'classnames';
 import { useState } from 'react';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
+import { Emoji } from '../components/Emoji';
 import styles from './cells.module.css';
 import popups from './popups.module.css';
 import { defineColumnUi, type CellProps, type EditorProps } from './types';
@@ -68,7 +69,7 @@ function CountryCell({ value }: CellProps<CountryValue, CountrySettings>) {
     <div className={styles.root}>
       <span className={styles.countryCell} title={name}>
         <span className={styles.countryFlag} aria-hidden="true">
-          {flag}
+          <Emoji emoji={flag} />
         </span>
         <span className={styles.countryName}>{name}</span>
       </span>
@@ -122,7 +123,9 @@ function CountryEditor({
                 className={classNames(popups.listRow, isSelected && popups.listRowOn)}
                 onClick={() => handleSelect(c)}
               >
-                <span>{countryFlag(c.code)}</span>
+                <span>
+                  <Emoji emoji={countryFlag(c.code)} />
+                </span>
                 <span>{c.name}</span>
               </button>
             );

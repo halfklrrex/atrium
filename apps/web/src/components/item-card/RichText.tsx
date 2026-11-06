@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Emoji } from '../Emoji';
 import { isAlignKey, isDirKey, isFontSizeKey } from './composer-marks';
 import { DEFAULT_HIGHLIGHT, isColorKey } from '../item-view/editor-palette';
 import mentionStyles from './MentionTextarea.module.css';
@@ -54,7 +55,7 @@ function EmojiGlyph({ name }: { name: string }) {
       cancelled = true;
     };
   }, [glyph, name]);
-  return <span title={`:${name}:`}>{glyph ?? `:${name}:`}</span>;
+  return <span title={`:${name}:`}>{glyph ? <Emoji emoji={glyph} /> : `:${name}:`}</span>;
 }
 
 /** A text node with its marks. Only the marks the composer can make are known; others are dropped. */

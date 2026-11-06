@@ -46,7 +46,7 @@ Live checks only the owner can do, collected per feature while agents build ahea
 ## Owner decisions, 2026-11-05 (answered in the session; work not yet scheduled)
 
 - **Required columns:** a **hard rule** (the server refuses an empty required cell). Needs a spec: rules and `validateCell` changes, rules tests, and how it treats items on existing boards.
-- **Flag emoji on Windows:** add a **CDN picture fallback** (for example Twemoji). Needs a licence entry in `THIRD_PARTY_NOTICES.md` or `docs/PROVENANCE.md`, and a note that it makes an external request.
+- **Flag emoji on Windows (done in PR `claude/flag-emoji-fallback`, display components; the TipTap editor nodes are a follow-up):** add a **CDN picture fallback** (for example Twemoji). Needs a licence entry in `THIRD_PARTY_NOTICES.md` or `docs/PROVENANCE.md`, and a note that it makes an external request.
 - **Legacy-activity migration:** a **dry run only** is approved. Run it read-only, report what it would change, and wait for the owner's go-ahead before a real run.
 - **Live checks:** the agent checks what it can read-only in Chrome; the owner still does anything that writes data and the two-account notify check.
 - **Site admin role** (bug inbox, 2026-11-05, Roadmap item 3335038323): waiting on two questions on the item.

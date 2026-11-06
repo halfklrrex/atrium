@@ -33,3 +33,13 @@ Then update the "Source code" links in the app if the location changes.
 | Upstream project     | Repo URL                          | Commit SHA              | Upstream path(s)                          | Licence | Our path(s)                                        | What we changed                                                                         | Date       | Agent                      |
 | -------------------- | --------------------------------- | ----------------------- | ----------------------------------------- | ------- | -------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------- | -------------------------- |
 | Vibe (`@vibe/icons`) | https://github.com/mondaycom/vibe | npm `@vibe/icons@4.2.0` | `Favorite` icon (outer star subpath only) | MIT     | `apps/web/src/components/icons/FavoriteFilled.tsx` | Kept the outer star path, dropped the inner cutout and `clip-rule` so it renders filled | 2026-10-25 | Ava (row added by Ophelia) |
+
+## Assets loaded at runtime from a CDN
+
+Not copied into the repository, but shown to users, so they are credited here.
+
+| Upstream project          | Repo URL                           | Version / commit SHA                                   | Used                                                                     | Licence                                                          | Loaded by                                                                                                              | Date       | Agent                     |
+| ------------------------- | ---------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------- |
+| Twemoji (maintained fork) | https://github.com/jdecked/twemoji | `v17.0.3` / `b6b55fef1e8636b540a6d016a4729ca8cdf2e60b` | `assets/svg/<codepoints>.svg` for flag emoji only, fetched from jsDelivr | Graphics CC-BY 4.0 (`LICENSE-GRAPHICS`), code MIT (no code used) | `apps/web/src/lib/flag-emoji.ts`, `apps/web/src/components/Emoji.tsx`; only on platforms without flag glyphs (Windows) | 2026-11-05 | Ophelia (Sonnet subagent) |
+
+Attribution (CC-BY 4.0): flag pictures are Twemoji graphics, copyright 2020 Twitter, Inc and other contributors, maintained by the jdecked/twemoji project, licensed under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/). They are used unmodified.

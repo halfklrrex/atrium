@@ -1,0 +1,7 @@
+/* A flag picture sized like the text around it (one em square, sitting on the baseline like a glyph). */
+.image {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  vertical-align: -0.2em;
+}

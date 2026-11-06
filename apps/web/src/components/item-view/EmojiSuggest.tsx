@@ -3,6 +3,7 @@ import { exitSuggestion } from '@tiptap/suggestion';
 import type { Editor } from '@tiptap/react';
 import { useSyncExternalStore } from 'react';
 import { AnchoredPopup } from '../board-table/AnchoredPopup';
+import { Emoji } from '../Emoji';
 import type { EmojiSuggestController } from './emoji-data';
 import styles from './slash-menu/SlashMenu.module.css';
 
@@ -43,7 +44,7 @@ export function EmojiSuggestMenu({
             onClick={() => select(item)}
           >
             <span className={styles.icon} aria-hidden="true">
-              {item.emoji}
+              <Emoji emoji={item.emoji ?? ''} />
             </span>
             <span className={styles.title}>{item.name}</span>
           </div>
