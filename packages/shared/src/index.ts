@@ -1,4 +1,5 @@
 export * from './roles';
+export * from './account';
 export * from './callable';
 export * from './boards';
 export * from './forms';

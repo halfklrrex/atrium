@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { themePreferenceSchema } from '../roles';
+import { userAccountFieldsSchema } from '../account';
 import { notificationPrefsSchema } from './notification';
 import { idSchema, positionSchema, timestampSchema, type WriteDoc } from './common';
 
@@ -14,6 +15,8 @@ export const userSchema = z.object({
   theme: themePreferenceSchema,
   notificationPrefs: notificationPrefsSchema.optional(),
   createdAt: timestampSchema,
+  // Server-owned (Functions and scripts only); optional because existing users lack them.
+  ...userAccountFieldsSchema.shape,
 });
 export type User = z.infer<typeof userSchema>;
 export type UserWrite = WriteDoc<User>;
