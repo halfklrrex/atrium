@@ -15,6 +15,7 @@ import { getStorage } from 'firebase-admin/storage';
 import type { BootstrapTx } from './bootstrap';
 import type { FileStorageBucket, FileStorageTx, StorageFileMetadata } from './file-storage';
 import type { DescriptionImageTx } from './description-images';
+import type { UpdateAttachmentTx } from './update-attachments';
 import type { ColumnActionsTx } from './column-actions';
 import {
   DELETE_VALUE,
@@ -112,6 +113,35 @@ export function adminDescriptionImageTx(firestore: Firestore, tx: Transaction): 
   };
 }
 
+/** The files transaction plus reading an update or reply and replacing its `attachments`. */
+export function adminUpdateAttachmentTx(firestore: Firestore, tx: Transaction): UpdateAttachmentTx {
+  const postRef = (boardId: string, itemId: string, updateId: string, replyId?: string) => {
+    const update = firestore
+      .collection('boards')
+      .doc(boardId)
+      .collection('items')
+      .doc(itemId)
+      .collection('updates')
+      .doc(updateId);
+    return replyId === undefined ? update : update.collection('replies').doc(replyId);
+  };
+  return {
+    ...adminFileStorageTx(firestore, tx),
+    async getPost(boardId, itemId, updateId, replyId) {
+      const snap = await tx.get(postRef(boardId, itemId, updateId, replyId));
+      if (!snap.exists) return null;
+      const authorId: unknown = snap.get('authorId');
+      return {
+        authorId: typeof authorId === 'string' ? authorId : '',
+        attachments: snap.get('attachments'),
+      };
+    },
+    setAttachments(boardId, itemId, updateId, replyId, attachments) {
+      tx.update(postRef(boardId, itemId, updateId, replyId), { attachments });
+    },
+  };
+}
+
 /** Cloud Storage bucket adapter for file verification and cleanup. */
 export function adminFileStorageBucket(): FileStorageBucket {
   return {
@@ -163,6 +193,7 @@ export function adminFileStorageBucket(): FileStorageBucket {
     async getSignedDownloadUrl(
       storagePath: string,
       expiresInSeconds: number,
+      options?: { contentDisposition?: string },
     ): Promise<{ downloadUrl: string; expiresAt: number }> {
       const bucket = getStorage().bucket();
       const file = bucket.file(storagePath);
@@ -171,6 +202,7 @@ export function adminFileStorageBucket(): FileStorageBucket {
         version: 'v4',
         action: 'read',
         expires: expiresAt,
+        ...(options?.contentDisposition ? { responseDisposition: options.contentDisposition } : {}),
       });
       return { downloadUrl, expiresAt };
     },

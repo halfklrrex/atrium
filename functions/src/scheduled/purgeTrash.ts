@@ -1,5 +1,6 @@
 import * as logger from 'firebase-functions/logger';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { getStorage } from 'firebase-admin/storage';
 import { db } from '../lib/admin';
 import {
   getThirtyDayCutoff,
@@ -44,33 +45,22 @@ export function adminPurgeStore(): PurgeTrashStore {
 
     async deleteItems(items) {
       let totalDeleted = 0;
-      let batch = firestore.batch();
-      let batchCount = 0;
-
       for (const item of items) {
         if (!item.boardId) continue;
-        const itemRef = firestore
-          .collection('boards')
-          .doc(item.boardId)
-          .collection('items')
-          .doc(item.id);
-
-        batch.delete(itemRef);
-        batchCount++;
+        // recursiveDelete also removes the item's updates and replies (subcollections).
+        await firestore.recursiveDelete(
+          firestore.collection('boards').doc(item.boardId).collection('items').doc(item.id),
+        );
         totalDeleted++;
-
-        if (batchCount === 400) {
-          await batch.commit();
-          batch = firestore.batch();
-          batchCount = 0;
-        }
       }
-
-      if (batchCount > 0) {
-        await batch.commit();
-      }
-
       return totalDeleted;
+    },
+
+    async deleteStoragePrefix(prefix: string) {
+      if (!prefix.startsWith('boards/') || !prefix.endsWith('/')) {
+        throw new Error(`Refusing to delete an unsafe Storage prefix: ${prefix}`);
+      }
+      await getStorage().bucket().deleteFiles({ prefix });
     },
   };
 }
