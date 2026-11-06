@@ -8,7 +8,15 @@ service cloud.firestore {
     // ---------------------------------------------------------------------
     // Identity helpers
     // ---------------------------------------------------------------------
+    // Signed in AND approved (ADMIN-1b, docs/specs/ADMIN-site-admin-role.md). The `acct` claim is set
+    // only by Cloud Functions and scripts; a missing claim means pending, 'blocked' means blocked.
     function signedIn() {
+      return request.auth != null && request.auth.token.get('acct', '') == 'approved';
+    }
+
+    // Signed in with any account state. ONLY for a person reading their own `users/{uid}` document,
+    // so the app can show the waiting or blocked screen. Never use it for anything else.
+    function authed() {
       return request.auth != null;
     }
 
@@ -110,7 +118,7 @@ service cloud.firestore {
           && (!('automation' in p.keys()) || p.automation is bool);
       }
 
-      allow read: if signedIn() && uid() == userId;
+      allow read: if authed() && uid() == userId;
 
       allow update: if signedIn() && uid() == userId
         && request.resource.data.diff(resource.data).affectedKeys()

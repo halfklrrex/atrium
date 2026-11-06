@@ -244,3 +244,26 @@ export async function afterUserCreated(
     );
   }
 }
+
+/**
+ * ADMIN-1b self-heal: an existing account whose Auth user has no `acct` claim (it slipped through
+ * the backfill) gets `acct: approved` on its next sign-in. Only when the profile says `approved`, or
+ * has no status while approval is not required; never for pending or blocked profiles, never over an
+ * existing claim (a `blocked` claim stays), never for a disabled Auth user. Idempotent. Returns true
+ * when it wrote the claim. The caller logs failures and never lets them break sign-in.
+ */
+export async function healApprovedClaim(
+  deps: { auth: Pick<AccountAuth, 'getUser' | 'setClaims'> },
+  uid: string,
+  profileStatus: AccountStatus | null | undefined,
+  approvalRequired: boolean,
+): Promise<boolean> {
+  const profileApproved =
+    profileStatus === 'approved' || (profileStatus == null && !approvalRequired);
+  if (!profileApproved) return false;
+  const account = await deps.auth.getUser(uid);
+  if (!account || account.disabled) return false;
+  if (account.claims[ACCOUNT_CLAIM] !== undefined) return false;
+  await deps.auth.setClaims(uid, mergeAccountClaims(account.claims, 'approved'));
+  return true;
+}

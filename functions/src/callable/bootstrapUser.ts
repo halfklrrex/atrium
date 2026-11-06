@@ -1,10 +1,14 @@
-import { bootstrapUserRequestSchema, bootstrapUserResultSchema } from '@atrium/shared';
+import {
+  bootstrapUserRequestSchema,
+  bootstrapUserResultSchema,
+  type AccountStatus,
+} from '@atrium/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { actorFromRequest } from '../lib/actor';
 import { adminBootstrapTx, db } from '../lib/admin';
-import { afterUserCreated } from '../lib/account-admin';
+import { afterUserCreated, healApprovedClaim } from '../lib/account-admin';
 import { isApprovalRequired } from '../lib/account-flag';
 import { adminAccountAuth } from '../lib/admin-account';
 import { adminNotificationStore } from '../lib/admin-notifications';
@@ -70,6 +74,19 @@ export const bootstrapUser = onCall(async (request) => {
       );
     } catch (error) {
       logger.error('Account setup after sign-up failed', { uid, approvalRequired, error });
+    }
+  }
+
+  // Existing account whose token has no `acct` claim (it slipped through the backfill): give it the
+  // approved claim now, so it heals on this sign-in. Only for an approved (or status-less, flag off)
+  // profile; best effort, never breaks sign-in. The web app force-refreshes its token afterwards.
+  if (!created && token.acct === undefined) {
+    try {
+      const profile = await firestore.doc(`users/${uid}`).get();
+      const status = profile.get('accountStatus') as AccountStatus | undefined;
+      await healApprovedClaim({ auth: adminAccountAuth() }, uid, status, approvalRequired);
+    } catch (error) {
+      logger.error('Could not set the approved claim on sign-in', { uid, error });
     }
   }
 

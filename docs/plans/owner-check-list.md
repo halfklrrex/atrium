@@ -2,6 +2,14 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Site admin, the gate (ADMIN-1b) - DO NOT MERGE until you say so
+
+- **What it is:** the rules start refusing everyone whose sign-in token lacks the approved claim. Everyone already has it (backfill applied, verified), so nothing should change for you.
+- **Before the merge:** confirm the backfill dry run still says `to change 0`.
+- **After the merge and deploy:** (1) the Actions deploy is green; (2) sign out and in once and check the app loads your workspaces and boards as before; (3) if anything shows empty or errors, tell the agent to revert the PR (the claims stay harmless).
+- **Testing the pending screen with a second Google account:** add `ACCOUNT_APPROVAL_REQUIRED=true` to `functions/.env.atrium-board` and redeploy the Functions (the agent can do it on your go-ahead). Sign in with the second account: it must show "Waiting for approval" and nothing else. Approve it in `/admin`: it enters without a reload. Block it: it is signed out. Then decide whether to leave the flag on (the intended end state).
+- Full rollout order and rollback: `docs/specs/ADMIN-site-admin-role.md`, section "ADMIN-1b".
+
 ## Site admin, web (ADMIN-3)
 
 - **Nothing is visible yet:** the waiting and blocked screens only appear for an account whose status is pending or blocked, and the admin screen and menu link only for an account with the `admin` claim. Until `ACCOUNT_APPROVAL_REQUIRED` is flipped, the backfill has run, the rules gate (ADMIN-1b) has shipped and `pnpm admin:grant` has been run for you, every account is approved and the app looks exactly as before. Check that first: sign in as usual and confirm there is no "Site admin" item in the account menu and nothing else changed.

@@ -20,6 +20,13 @@ const RULES_PATH = fileURLToPath(new URL('../../../firestore.rules', import.meta
 const STORAGE_RULES_PATH = fileURLToPath(new URL('../../../storage.rules', import.meta.url));
 const PROJECT_ID = 'demo-atrium-rules';
 
+/**
+ * The default test user is an approved account: since ADMIN-1b `signedIn()` requires the
+ * `acct: 'approved'` claim. Pass `{ acct: 'pending' }`, `{ acct: undefined }` etc. to test the gate;
+ * explicit token options win over this default (set a key to `undefined` to drop it).
+ */
+export const APPROVED_CLAIMS = { acct: 'approved' } as const;
+
 type MockToken = string | Record<string, unknown> | undefined;
 
 /**
@@ -98,12 +105,11 @@ export async function createTestEnv(): Promise<RulesTestEnvironment> {
 
   // Only the members the suites use are replaced; everything else falls through to the library.
   const overrides: Partial<RulesTestEnvironment> = {
-    authenticatedContext: (uid, tokenOptions) =>
-      wrap(env.authenticatedContext(uid, tokenOptions), {
-        ...tokenOptions,
-        sub: uid,
-        user_id: uid,
-      }),
+    authenticatedContext: (uid, tokenOptions) => {
+      const claims: Record<string, unknown> = { ...APPROVED_CLAIMS, ...tokenOptions };
+      for (const key of Object.keys(claims)) if (claims[key] === undefined) delete claims[key];
+      return wrap(env.authenticatedContext(uid, claims), { ...claims, sub: uid, user_id: uid });
+    },
     unauthenticatedContext: () => wrap(env.unauthenticatedContext(), undefined),
     // The "owner" token makes the emulator skip the rules, exactly like the library's own.
     withSecurityRulesDisabled: (callback) =>

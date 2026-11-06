@@ -1,6 +1,6 @@
 # ADMIN: Site admin role, with account approval and blocking
 
-Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: item "Feature: site admin role, with account approval and blocking" · Origin: bug inbox request, 2026-11-05 · Status: **ADMIN-1a merged, ADMIN-2 in review (behind ACCOUNT_APPROVAL_REQUIRED, default off). ADMIN-3 in review. ADMIN-1b not started.** Defaults confirmed by the owner on 2026-11-06 (see Decisions); the technical choices below are mine and the owner can change them.
+Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: item "Feature: site admin role, with account approval and blocking" · Origin: bug inbox request, 2026-11-05 · Status: **ADMIN-1a merged, ADMIN-2 in review (behind ACCOUNT_APPROVAL_REQUIRED, default off). ADMIN-3 in review. ADMIN-1b (the gate) in review, DO NOT MERGE until the owner approves.** Defaults confirmed by the owner on 2026-11-06 (see Decisions); the technical choices below are mine and the owner can change them.
 
 ## Goal
 
@@ -109,6 +109,24 @@ user that can administer Auth and Firestore in the project. Run from the repo ro
 5. **Only then** merge ADMIN-1b (the gate).
 
 The scripts call the Identity Toolkit REST API (`GET /v1/projects/{project}/accounts:batchGet`, `POST /v1/projects/{project}/accounts:update`) and the Firestore REST API with a `gcloud auth print-access-token` bearer token and the `x-goog-user-project: <project>` quota header (`--no-quota-project` drops it). Without `--project` they use the local emulators. Re-running is safe.
+
+## ADMIN-1b: what the gate PR does, rollout order and rollback
+
+**What it changes.** `firestore.rules`: `signedIn()` is now "signed in and `request.auth.token.get('acct', '') == 'approved'`". The new `authed()` (signed in, any state) is used in exactly one place: reading your own `users/{uid}` document, so the app can show the waiting or blocked screen. Every other rule goes through `signedIn()`, and no inline `request.auth != null` is left. A pending person still cannot write their own `users/{uid}`. No `isSiteAdmin()` helper: the admin screen uses callables, so nothing in the rules needs the `admin` claim. `storage.rules` stay deny-all (no client access at all, so nothing to gate; a test pins it for pending and blocked tokens too). Callables and Functions use the Admin SDK and are unaffected, as are public forms (served through callables).
+
+**Also in the PR.** (1) The web app force-refreshes the ID token once per session when the bootstrap says approved (or reports no status) but the token has no `acct: 'approved'` claim, before data subscriptions start, so sessions that pre-date the claim keep working; a failure is logged and never blocks sign-in. (2) `bootstrapUser` heals an existing account whose token has no `acct` claim: it sets `acct: 'approved'` when the profile says approved, or has no status while the approval flag is off. It never touches pending or blocked profiles, an existing claim, or a disabled user. (3) The emulator users that visual and e2e scripts create now carry the approved claim.
+
+**Rollout order (do not skip a step).**
+
+1. The backfill has been applied and re-verified (`to change 0`), and the owner's account has `admin: true` (done).
+2. Owner says go; merge this PR (rebase merge). CI deploys the rules and Functions.
+3. Verify the deploy (the Actions run is green, the site loads).
+4. The owner signs out and in once. If the app shows nothing or an error, roll back (below).
+5. To test with a second Google account as pending: the flag is off, so a new sign-up would just be approved. Turn it on: add `ACCOUNT_APPROVAL_REQUIRED=true` to `functions/.env.atrium-board` and redeploy the Functions, then sign in with the second account (it should show "Waiting for approval"), approve it from `/admin`, then block and unblock it. Set the flag back to off (or leave it on, which is the intended end state) with another redeploy.
+
+**Rollback.** Revert this PR (rules and the other changes go back together) and let CI deploy. The claims on the accounts are harmless without the gate, so nothing else needs undoing. Because the rules are only the choke point, a revert takes effect immediately for new requests; clients holding a token keep working throughout.
+
+**Remaining risks (known).** (a) An approved person whose token lacks the claim and who is offline or whose refresh fails is refused until the token refreshes (at most an hour) or they sign in again. (b) A brand-new account created while the flag is off gets its claim from `bootstrapUser` a moment after sign-in; the web app's one-time token refresh covers that gap. (c) The one-hour token window on block described under "Honest limits" is unchanged.
 
 ## Tests that must exist
 

@@ -44,13 +44,17 @@ function Probe() {
 }
 
 const getIdToken = vi.fn();
-const fakeUser = { uid: 'u1', getIdToken } as unknown as User;
+const getIdTokenResult = vi.fn();
+const fakeUser = { uid: 'u1', getIdToken, getIdTokenResult } as unknown as User;
 const signInAs = () => act(() => mocks.authListener?.(fakeUser));
 
 beforeEach(() => {
   mocks.authListener = null;
   mocks.getRedirectResult.mockResolvedValue(null);
   mocks.callBootstrapUser.mockResolvedValue({ workspaceId: 'w1' });
+  getIdToken.mockReset();
+  getIdTokenResult.mockReset();
+  getIdTokenResult.mockResolvedValue({ claims: { acct: 'approved' } });
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -122,6 +126,40 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(mocks.callBootstrapUser).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
     expect(screen.getByTestId('account')).toHaveTextContent('none');
+  });
+
+  it('force-refreshes the token once when it lacks the approved claim, before status is ready', async () => {
+    getIdTokenResult.mockResolvedValue({ claims: {} });
+    getIdToken.mockResolvedValue('token');
+    renderProvider();
+    await signInAs();
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
+    expect(getIdToken).toHaveBeenCalledTimes(1);
+    expect(getIdToken).toHaveBeenCalledWith(true);
+
+    // A retry in the same session does not refresh again (loop guard).
+    await userEvent.click(screen.getByRole('button', { name: 'retry' }));
+    await waitFor(() => expect(mocks.callBootstrapUser).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
+    expect(getIdToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refresh when the token already has the claim or the account is pending', async () => {
+    mocks.callBootstrapUser.mockResolvedValueOnce({ accountStatus: 'pending' });
+    getIdTokenResult.mockResolvedValue({ claims: {} });
+    renderProvider();
+    await signInAs();
+    await waitFor(() => expect(screen.getByTestId('account')).toHaveTextContent('pending'));
+    expect(getIdToken).not.toHaveBeenCalled();
+  });
+
+  it('still signs in when the token refresh fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    getIdTokenResult.mockResolvedValue({ claims: {} });
+    getIdToken.mockRejectedValue(new Error('offline'));
+    renderProvider();
+    await signInAs();
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
   });
 
   it('exposes a failed redirect result on load', async () => {
