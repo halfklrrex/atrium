@@ -115,6 +115,10 @@ export function matchAutomation(
       const added = personUidsOf(to).filter((uid) => !before.has(uid));
       return trigger.uid === undefined ? added.length > 0 : added.includes(trigger.uid);
     }
+    case 'date_arrives':
+    case 'recurring':
+      // Scheduler-driven (P5d), never an item event.
+      return false;
   }
 }
 
