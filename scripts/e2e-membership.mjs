@@ -61,7 +61,13 @@ export async function runFlow(p = ports()) {
     // The emulator's admin token ("owner") may set the profile and mark the email verified.
     await authCall(
       'accounts:update',
-      { localId: signUp.localId, displayName: name, emailVerified: verified },
+      {
+        localId: signUp.localId,
+        displayName: name,
+        emailVerified: verified,
+        // The rules gate on this claim (ADMIN-1b): these are approved accounts.
+        customAttributes: JSON.stringify({ acct: 'approved' }),
+      },
       { authorization: 'Bearer owner' },
     );
     const signIn = await authCall('accounts:signInWithPassword', {

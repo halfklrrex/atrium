@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   afterUserCreated,
   assertAdminToken,
+  healApprovedClaim,
   listAccounts,
   setAccountStatus,
   type AccountAuditEntry,
@@ -303,5 +304,46 @@ describe('afterUserCreated (bootstrapUser side effects)', () => {
     // A retry leaves the existing notices alone.
     await afterUserCreated(deps, identity, true);
     expect(store.notes).toHaveLength(2);
+  });
+});
+
+describe('healApprovedClaim (ADMIN-1b self-heal on sign-in)', () => {
+  it('sets acct: approved on an approved profile that lacks the claim, keeping other claims', async () => {
+    const auth = new FakeAuth(account('h1', { claims: { admin: true } }));
+    expect(await healApprovedClaim({ auth }, 'h1', 'approved', true)).toBe(true);
+    expect(auth.users.get('h1')!.claims).toEqual({ admin: true, acct: 'approved' });
+  });
+
+  it('treats a profile without status as approved only while approval is not required', async () => {
+    const off = new FakeAuth(account('h1'));
+    expect(await healApprovedClaim({ auth: off }, 'h1', undefined, false)).toBe(true);
+    const on = new FakeAuth(account('h2'));
+    expect(await healApprovedClaim({ auth: on }, 'h2', undefined, true)).toBe(false);
+    expect(await healApprovedClaim({ auth: on }, 'h2', null, true)).toBe(false);
+    expect(on.users.get('h2')!.claims).toEqual({});
+  });
+
+  it('never touches pending or blocked profiles', async () => {
+    const auth = new FakeAuth(account('h1'));
+    expect(await healApprovedClaim({ auth }, 'h1', 'pending', false)).toBe(false);
+    expect(await healApprovedClaim({ auth }, 'h1', 'blocked', false)).toBe(false);
+    expect(auth.users.get('h1')!.claims).toEqual({});
+  });
+
+  it('leaves an existing claim, a disabled user and a missing user alone', async () => {
+    const auth = new FakeAuth(
+      account('b1', { claims: { acct: 'blocked' } }),
+      account('d1', { disabled: true }),
+    );
+    expect(await healApprovedClaim({ auth }, 'b1', 'approved', false)).toBe(false);
+    expect(auth.users.get('b1')!.claims).toEqual({ acct: 'blocked' });
+    expect(await healApprovedClaim({ auth }, 'd1', 'approved', false)).toBe(false);
+    expect(await healApprovedClaim({ auth }, 'nobody', 'approved', false)).toBe(false);
+  });
+
+  it('is idempotent', async () => {
+    const auth = new FakeAuth(account('h1'));
+    expect(await healApprovedClaim({ auth }, 'h1', 'approved', false)).toBe(true);
+    expect(await healApprovedClaim({ auth }, 'h1', 'approved', false)).toBe(false);
   });
 });

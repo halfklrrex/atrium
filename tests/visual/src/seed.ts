@@ -159,6 +159,8 @@ export async function seed(): Promise<void> {
     password: AVERY.password,
     displayName: AVERY.displayName,
   });
+  // The Firestore rules gate on this claim (ADMIN-1b): the seeded user is an approved account.
+  await auth.setCustomUserClaims(AVERY.uid, { acct: 'approved' });
 
   await clearSeededData(firestore);
 
