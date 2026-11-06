@@ -24,6 +24,7 @@ import {
   type SnapshotMeta,
 } from './column-type-change';
 import type { BoardSharingTx } from './board-sharing';
+import type { DashboardSharingTx } from './dashboard-sharing';
 import { actorOf, activityDoc } from './activity';
 import { appendActivityTx, getMemberProfilesTx, newActivityId } from './admin-activity';
 import { HttpsError } from 'firebase-functions/v2/https';
@@ -470,6 +471,37 @@ export function adminColumnTypeChangeStore(firestore: Firestore): ColumnTypeChan
 }
 
 /** Adapts an Admin SDK transaction to the narrow interface used by the board sharing callables. */
+/** Adapts an Admin SDK transaction to the dashboard sharing callable's narrow interface. */
+export function adminDashboardSharingTx(firestore: Firestore, tx: Transaction): DashboardSharingTx {
+  const dashboardRef = (id: string) => firestore.collection('dashboards').doc(id);
+  return {
+    async getDashboard(dashboardId) {
+      const snap = await tx.get(dashboardRef(dashboardId));
+      if (!snap.exists) return null;
+      return {
+        workspaceId: String(snap.get('workspaceId') ?? ''),
+        kind: snap.get('kind'),
+        access: (snap.get('access') as Record<string, BoardRole> | undefined) ?? {},
+        state: snap.get('state') ?? 'active',
+      };
+    },
+    async getWorkspaceRoles(workspaceId) {
+      const snap = await tx.get(firestore.collection('workspaces').doc(workspaceId));
+      if (!snap.exists) return null;
+      return (snap.get('roles') as Record<string, WorkspaceRole> | undefined) ?? {};
+    },
+    writeSharing(dashboardId, next, updatedBy) {
+      tx.update(dashboardRef(dashboardId), {
+        kind: next.kind,
+        access: next.access,
+        accessUids: Object.keys(next.access),
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy,
+      });
+    },
+  };
+}
+
 export function adminBoardSharingTx(firestore: Firestore, tx: Transaction): BoardSharingTx {
   const boardRef = (id: string) => firestore.collection('boards').doc(id);
   return {

@@ -12,7 +12,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { dashboardWrites, useDashboard, useWorkspace } from '../../data';
 import { UNKNOWN_PERSON_NAME, useWorkspaceMembers } from '../../data/members-store';
-import { describeError } from '../boards/board-actions';
+import { describeCallableError } from '../../lib/callables';
 import { defaultAddRole, isLastExplicitOwner, membersLosingAccess } from '../boards/board-sharing';
 import { BOARD_KIND_OPTIONS } from '../boards/kinds';
 import { AccessRow, PersonCell, type Person } from '../boards/ShareBoardDialog';
@@ -25,8 +25,8 @@ const LAST_OWNER_MESSAGE =
 
 /**
  * The Share dialog of a dashboard: its type and the people on it with their roles. Same patterns
- * as the board dialog (and its row components), but the owner writes the dashboard document
- * directly, as the rules allow (`dashboardWrites.setDashboardSharing`).
+ * as the board dialog (and its row components), but changes go through the server
+ * (`dashboardWrites.setDashboardSharing`, the `setDashboardAccess` callable).
  */
 export function ShareDashboardDialog({
   dashboardId,
@@ -75,7 +75,7 @@ export function ShareDashboardDialog({
       return true;
     } catch (e) {
       console.error(failure, e);
-      setError(describeError(e, failure));
+      setError(describeCallableError(e, failure));
       return false;
     } finally {
       setBusy(false);

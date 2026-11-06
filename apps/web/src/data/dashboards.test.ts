@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   update: vi.fn(),
   txUpdate: vi.fn(),
   txGet: vi.fn(),
+  setAccess: vi.fn(),
   ids: 0,
 }));
 
@@ -39,11 +40,11 @@ vi.mock('firebase/firestore', async (importOriginal) => {
       fn({ get: m.txGet, update: m.txUpdate }),
   };
 });
+vi.mock('../lib/callables', () => ({ dashboardSharingCalls: { setAccess: m.setAccess } }));
 vi.mock('../lib/firebase', () => ({ db: {}, auth: { currentUser: { uid: 'u1' } } }));
 
 import {
   activeDashboards,
-  applyDashboardSharing,
   deletedDashboards,
   assertValidWidgets,
   buildWidget,
@@ -300,50 +301,28 @@ describe('widget writes (transactions)', () => {
     ).rejects.toThrow(/at most 50/);
   });
 
-  it('writes the kind and a person role together with accessUids', async () => {
-    reads(dashboard({ id: 'd1', kind: 'private', access: { u1: 'owner' }, accessUids: ['u1'] }));
-    await dashboardWrites.setDashboardSharing('d1', { person: { uid: 'u2', role: 'editor' } });
-    expect(m.txUpdate.mock.calls[0]?.[1]).toMatchObject({
+  it('sends the kind and a person role to the callable, not to Firestore', async () => {
+    m.setAccess.mockResolvedValue({ kind: 'private', access: {} });
+    await dashboardWrites.setDashboardSharing('d1', {
       kind: 'private',
-      access: { u1: 'owner', u2: 'editor' },
-      accessUids: ['u1', 'u2'],
+      person: { uid: 'u2', role: 'editor' },
     });
-  });
-});
-
-describe('applyDashboardSharing', () => {
-  const priv = { kind: 'private' as const, access: { u1: 'owner', u2: 'viewer' } as const };
-
-  it('adds, changes and removes people', () => {
-    const added = applyDashboardSharing(priv, { person: { uid: 'u3', role: 'editor' } }, 'u1');
-    expect(added.access).toEqual({ u1: 'owner', u2: 'viewer', u3: 'editor' });
-    const removed = applyDashboardSharing(priv, { person: { uid: 'u2', role: null } }, 'u1');
-    expect(removed.access).toEqual({ u1: 'owner' });
+    expect(m.setAccess).toHaveBeenCalledWith({
+      dashboardId: 'd1',
+      kind: 'private',
+      person: { uid: 'u2', role: 'editor' },
+    });
+    expect(m.txUpdate).not.toHaveBeenCalled();
+    expect(m.update).not.toHaveBeenCalled();
   });
 
-  it('refuses to remove or demote the last owner of a private dashboard', () => {
-    expect(() => applyDashboardSharing(priv, { person: { uid: 'u1', role: null } }, 'u1')).toThrow(
-      /at least one owner/,
+  it('passes server refusals on to the caller', async () => {
+    m.setAccess.mockRejectedValue(
+      Object.assign(new Error('nope'), { code: 'failed-precondition' }),
     );
-    expect(() =>
-      applyDashboardSharing(priv, { person: { uid: 'u1', role: 'editor' } }, 'u1'),
-    ).toThrow(/at least one owner/);
-  });
-
-  it('keeps the caller as owner when a main dashboard becomes private', () => {
-    const next = applyDashboardSharing({ kind: 'main', access: {} }, { kind: 'private' }, 'u9');
-    expect(next).toEqual({ kind: 'private', access: { u9: 'owner' } });
-  });
-
-  it('refuses more people than the rules allow', () => {
-    const many = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`p${i}`, 'viewer']));
-    expect(() =>
-      applyDashboardSharing(
-        { kind: 'shareable', access: { u1: 'owner', ...many } },
-        { person: { uid: 'new', role: 'viewer' } },
-        'u1',
-      ),
-    ).toThrow(/at most 100/);
+    await expect(
+      dashboardWrites.setDashboardSharing('d1', { person: { uid: 'u2', role: null } }),
+    ).rejects.toThrow('nope');
   });
 });
 

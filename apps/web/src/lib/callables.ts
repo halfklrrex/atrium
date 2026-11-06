@@ -21,6 +21,8 @@ import {
   SET_BOARD_KIND_CALLABLE,
   acceptInviteResultSchema,
   boardSharingResultSchema,
+  SET_DASHBOARD_ACCESS_CALLABLE,
+  setDashboardAccessRequestSchema,
   bootstrapUserResultSchema,
   changeColumnTypeRequestSchema,
   changeColumnTypeResultSchema,
@@ -98,6 +100,7 @@ import {
   type RevokeInviteRequest,
   type SetBoardAccessRequest,
   type SetBoardKindRequest,
+  type SetDashboardAccessRequest,
   type StartTimeTrackingRequest,
   type StartTimeTrackingResult,
   type StopTimeTrackingRequest,
@@ -175,6 +178,15 @@ export const boardSharingCalls = {
   leave: validatedCallable<LeaveBoardRequest, BoardSharingResult>(
     LEAVE_BOARD_CALLABLE,
     (r) => leaveBoardRequestSchema.parse(r),
+    (d) => boardSharingResultSchema.parse(d),
+  ),
+};
+
+/** Dashboard sharing: the dashboard's kind and who can see and edit it. Clients cannot write these fields directly. */
+export const dashboardSharingCalls = {
+  setAccess: validatedCallable<SetDashboardAccessRequest, BoardSharingResult>(
+    SET_DASHBOARD_ACCESS_CALLABLE,
+    (r) => setDashboardAccessRequestSchema.parse(r),
     (d) => boardSharingResultSchema.parse(d),
   ),
 };

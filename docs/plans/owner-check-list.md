@@ -55,6 +55,8 @@ Live checks only the owner can do, collected per feature while agents build ahea
 - **Earlier:** two-account notifications and @mentions; drag and drop on Calendar and Timeline.
 - Signed off on 2026-11-04 and removed: board sharing and roles (#46, the owner will review it later with an ultrareview), saved views, change column type, Files column, Mirror, description editor passes.
 
+- **Dashboard sharing, server-side check (`claude/dashboard-access-callable`):** open a dashboard, **Share**, add a workspace member as editor, change their role, remove them, and switch the type between main, private and shareable. It should look and behave as before. Then try the limits: you cannot make the last owner leave a private dashboard, and a viewer-level workspace member cannot be made editor (a clear message appears). A person outside the workspace cannot be added (they are not in the list).
+
 ## Owner decisions, 2026-11-05 (answered in the session; work not yet scheduled)
 
 - **Required columns:** a **hard rule** (the server refuses an empty required cell). Needs a spec: rules and `validateCell` changes, rules tests, and how it treats items on existing boards.

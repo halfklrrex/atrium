@@ -43,6 +43,7 @@ import {
   normalizeWidgets,
   toGridItems,
 } from '../components/dashboard/dashboard-layout';
+import { dashboardSharingCalls } from '../lib/callables';
 import { requireUid } from './firestore';
 import type { DashboardDoc } from './model';
 import { useDocSnapshot, useQuerySnapshot, type SnapshotState } from './useSnapshot';
@@ -164,40 +165,6 @@ export interface DashboardSharingChange {
   person?: { uid: string; role: BoardRole | null };
 }
 
-const OWNER_REQUIRED = 'A dashboard needs at least one owner. Make someone else an owner first.';
-
-/**
- * The `kind` and `access` after a sharing change, by the owner `callerUid`. Pure. The caller
- * always stays an owner (they are added as owner when a main dashboard becomes private or
- * shareable), the last explicit owner of a private or shareable dashboard cannot be removed or
- * demoted, and the map keeps to the rules' size limit.
- */
-export function applyDashboardSharing(
-  current: Pick<Dashboard, 'kind' | 'access'>,
-  change: DashboardSharingChange,
-  callerUid: string,
-): { kind: BoardKind; access: Record<string, BoardRole> } {
-  const kind = change.kind ?? current.kind;
-  const access = { ...current.access };
-  const target = change.person;
-  if (target && target.uid === callerUid && target.role !== 'owner') {
-    const others = Object.entries(access).some(([id, r]) => id !== callerUid && r === 'owner');
-    throw new Error(
-      others ? "You can't remove or demote yourself here. Ask another owner." : OWNER_REQUIRED,
-    );
-  }
-  if (target) {
-    if (target.role) access[target.uid] = target.role;
-    else delete access[target.uid];
-  }
-  // The rules want the caller listed as owner whenever sharing changes.
-  access[callerUid] = 'owner';
-  if (Object.keys(access).length > DASHBOARD_LIMITS.accessEntries) {
-    throw new Error(`A dashboard can list at most ${DASHBOARD_LIMITS.accessEntries} people.`);
-  }
-  return { kind, access };
-}
-
 const stamp = () => ({ updatedAt: serverTimestamp(), updatedBy: requireUid() });
 
 /**
@@ -276,16 +243,13 @@ export const dashboardWrites = {
     });
   },
 
-  /** Change the kind and/or one person's role. Dashboard owners only (rules); see `applyDashboardSharing`. */
+  /**
+   * Change the kind and/or one person's role. Dashboard owners only, checked on the server (the
+   * `setDashboardAccess` callable: workspace members only, role capped by the workspace role, a
+   * live owner stays); the rules refuse direct client writes of `kind`, `access` and `accessUids`.
+   */
   async setDashboardSharing(dashboardId: string, change: DashboardSharingChange): Promise<void> {
-    const callerUid = requireUid();
-    const ref = dashboardRefs.dashboard(dashboardId);
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists()) throw new Error('This dashboard no longer exists.');
-      const next = applyDashboardSharing(snap.data(), change, callerUid);
-      tx.update(ref, { ...next, accessUids: Object.keys(next.access), ...stamp() });
-    });
+    await dashboardSharingCalls.setAccess({ dashboardId, ...change });
   },
 
   /**
