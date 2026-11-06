@@ -60,9 +60,14 @@ function memoryStore(initial: BoardColumnsData | null) {
   };
 }
 
-const lists = (derivedColumnIds: string[], serverManagedColumnIds: string[]): ColumnIdLists => ({
+const lists = (
+  derivedColumnIds: string[],
+  serverManagedColumnIds: string[],
+  requiredColumnIds: string[] = [],
+): ColumnIdLists => ({
   derivedColumnIds,
   serverManagedColumnIds,
+  requiredColumnIds,
 });
 
 describe('syncColumnIdLists', () => {
@@ -71,6 +76,7 @@ describe('syncColumnIdLists', () => {
       columns: [col('d', 'test_derived'), col('b', 'button'), col('t', 'text')],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     };
     const mem = memoryStore(board);
 
@@ -96,6 +102,7 @@ describe('syncColumnIdLists', () => {
       columns: [col('d', 'test_derived'), col('b', 'button')],
       derivedColumnIds: ['d'],
       serverManagedColumnIds: ['b'],
+      requiredColumnIds: [],
     };
     expect(await syncColumnIdLists(store, 'b1', board)).toEqual({ written: null });
     expect(calls).toBe(0);
@@ -106,6 +113,7 @@ describe('syncColumnIdLists', () => {
       columns: [col('d', 'test_derived'), col('b', 'button')],
       derivedColumnIds: ['d'],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     };
     const mem = memoryStore(board);
     expect(await syncColumnIdLists(mem.store, 'b1', board)).toEqual({
@@ -135,6 +143,7 @@ describe('syncColumnIdLists', () => {
       columns: [col('t', 'text')],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     };
     const mem = memoryStore(board);
     expect(await syncColumnIdLists(mem.store, 'b1', board)).toEqual({ written: null });
@@ -146,6 +155,7 @@ describe('syncColumnIdLists', () => {
       columns: [col('t', 'text')],
       derivedColumnIds: ['t'],
       serverManagedColumnIds: ['t'],
+      requiredColumnIds: [],
     });
     await syncColumnIdLists(mem.store, 'b1', mem.data!);
     expect(mem.data?.derivedColumnIds).toEqual([]);
@@ -165,6 +175,7 @@ describe('syncColumnIdLists', () => {
       columns: [col('m', 'mirror'), col('f', 'formula'), col('t', 'text'), col('b', 'button')],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     };
     const mem = memoryStore(board);
     expect((await syncColumnIdLists(mem.store, 'b1', board)).written).toEqual(
@@ -178,6 +189,7 @@ describe('syncColumnIdLists', () => {
       subitemColumns: [col('sb', 'button')],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     };
     const mem = memoryStore(board);
     expect((await syncColumnIdLists(mem.store, 'b1', board)).written).toEqual(lists([], ['sb']));
@@ -190,16 +202,52 @@ describe('syncColumnIdLists', () => {
       columns: [col('d', 'test_derived'), col('b', 'button')],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
     };
     const mem = memoryStore({
       columns: [col('t', 'text')],
       derivedColumnIds: ['d'],
       serverManagedColumnIds: ['b'],
+      requiredColumnIds: [],
     });
     const result = await syncColumnIdLists(mem.store, 'b1', stale);
     expect(result.written).toEqual(lists([], []));
     expect(mem.data?.derivedColumnIds).toEqual([]);
     expect(mem.data?.serverManagedColumnIds).toEqual([]);
+  });
+
+  it('writes when only the required list is wrong, and not when all three are right (REQ-1)', async () => {
+    const board: BoardColumnsData = {
+      columns: [{ ...col('r', 'text'), required: true }, col('t', 'text')],
+      derivedColumnIds: [],
+      serverManagedColumnIds: [],
+      requiredColumnIds: [],
+    };
+    const mem = memoryStore(board);
+    expect(await syncColumnIdLists(mem.store, 'b1', board)).toEqual({
+      written: lists([], [], ['r']),
+    });
+    expect(mem.writes).toBe(1);
+    expect(await syncColumnIdLists(mem.store, 'b1', mem.data!)).toEqual({ written: null });
+    expect(mem.writes).toBe(1);
+
+    // Turning Required off removes it again.
+    const off = mem.edit({ columns: [col('r', 'text')] });
+    expect((await syncColumnIdLists(mem.store, 'b1', off)).written).toEqual(lists([], [], []));
+  });
+
+  it('backfills a board from before REQ-1 that has the two older fields only', async () => {
+    const old: BoardColumnsData = {
+      columns: [{ ...col('r', 'text'), required: true }],
+      subitemColumns: [{ ...col('s', 'text'), required: true }],
+      derivedColumnIds: [],
+      serverManagedColumnIds: [],
+    };
+    const mem = memoryStore(old);
+    expect((await syncColumnIdLists(mem.store, 'b1', old)).written).toEqual(
+      lists([], [], ['r', 's']),
+    );
+    expect(mem.data?.requiredColumnIds).toEqual(['r', 's']);
   });
 
   it('does nothing for a deleted board', async () => {

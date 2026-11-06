@@ -1,8 +1,8 @@
 import { nextColumnIdLists, type BoardColumnsData, type ColumnIdLists } from '@atrium/shared';
 
 /**
- * Keeps `boards/{id}.derivedColumnIds` (FW1) and `boards/{id}.serverManagedColumnIds` (FW2) in step
- * with the board's columns. Clients can't write those fields (Firestore rules), so this is the only
+ * Keeps `boards/{id}.derivedColumnIds` (FW1), `boards/{id}.serverManagedColumnIds` (FW2) and
+ * `boards/{id}.requiredColumnIds` (REQ-1) in step with the board's columns. Clients can't write those fields (Firestore rules), so this is the only
  * writer; the Admin SDK bypasses rules. The computation itself is `nextColumnIdLists` in
  * `@atrium/shared`, shared with the backfill migration. What lives here is the trigger body, which
  * takes an injected store so it can be unit-tested.
@@ -23,8 +23,8 @@ export interface ColumnIdListsStore {
 
 /**
  * Trigger body. `after` is the board data from the event (`undefined` when the board was deleted).
- * Skips without any read when the event data is already consistent; otherwise recomputes both lists
- * against the current document inside the store's transaction and writes only if either differs.
+ * Skips without any read when the event data is already consistent; otherwise recomputes all three lists
+ * against the current document inside the store's transaction and writes only if any differs.
  */
 export async function syncColumnIdLists(
   store: ColumnIdListsStore,

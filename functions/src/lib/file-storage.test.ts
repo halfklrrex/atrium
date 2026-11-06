@@ -141,6 +141,7 @@ function makeBoard(uid: string, kind: 'main' | 'private' = 'main'): Board {
     subitemColumns: [],
     derivedColumnIds: [],
     serverManagedColumnIds: ['c_files'],
+    requiredColumnIds: [],
     columnLocks: [],
     groups: [],
     itemTerminology: 'item',

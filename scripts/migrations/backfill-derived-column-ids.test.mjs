@@ -45,6 +45,7 @@ function fakeClient(boards) {
         'subitemColumns',
         'derivedColumnIds',
         'serverManagedColumnIds',
+        'requiredColumnIds',
       ]);
       return [...store].map(([id, data]) => ({ id, data: structuredClone(data) }));
     },
@@ -64,7 +65,12 @@ function fakeClient(boards) {
 const legacy = { id: 'legacy', data: { columns: [col('t', 'text')] } };
 const ready = {
   id: 'ready',
-  data: { columns: [col('t', 'text')], derivedColumnIds: [], serverManagedColumnIds: [] },
+  data: {
+    columns: [col('t', 'text')],
+    derivedColumnIds: [],
+    serverManagedColumnIds: [],
+    requiredColumnIds: [],
+  },
 };
 const stale = {
   id: 'stale',
@@ -72,16 +78,26 @@ const stale = {
     columns: [col('d', 'test_derived'), col('t', 'text')],
     derivedColumnIds: [],
     serverManagedColumnIds: [],
+    requiredColumnIds: [],
   },
 };
 // FW2: `button` is server-managed. This board already has the FW1 field but not the FW2 one.
 const needsManaged = {
   id: 'needsManaged',
-  data: { columns: [col('b', 'button'), col('t', 'text')], derivedColumnIds: [] },
+  data: {
+    columns: [col('b', 'button'), col('t', 'text')],
+    derivedColumnIds: [],
+    requiredColumnIds: [],
+  },
 };
 const forged = {
   id: 'forged',
-  data: { columns: [col('t', 'text')], derivedColumnIds: ['t'], serverManagedColumnIds: ['t'] },
+  data: {
+    columns: [col('t', 'text')],
+    derivedColumnIds: ['t'],
+    serverManagedColumnIds: ['t'],
+    requiredColumnIds: [],
+  },
 };
 
 test('the plan only lists boards whose field is missing or wrong', () => {
@@ -90,6 +106,7 @@ test('the plan only lists boards whose field is missing or wrong', () => {
       id: 'legacy',
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
       had: undefined,
       hadServerManaged: undefined,
     },
@@ -97,6 +114,7 @@ test('the plan only lists boards whose field is missing or wrong', () => {
       id: 'stale',
       derivedColumnIds: ['d'],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
       had: [],
       hadServerManaged: [],
     },
@@ -104,6 +122,7 @@ test('the plan only lists boards whose field is missing or wrong', () => {
       id: 'forged',
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
       had: ['t'],
       hadServerManaged: ['t'],
     },
@@ -111,6 +130,7 @@ test('the plan only lists boards whose field is missing or wrong', () => {
       id: 'needsManaged',
       derivedColumnIds: [],
       serverManagedColumnIds: ['b'],
+      requiredColumnIds: [],
       had: [],
       hadServerManaged: undefined,
     },
@@ -133,6 +153,7 @@ test('--apply patches only the boards that need it, and a second run finds nothi
   await runBackfill({ client, apply: true, log: quiet });
   assert.deepEqual(client.store.get('legacy').derivedColumnIds, []);
   assert.deepEqual(client.store.get('legacy').serverManagedColumnIds, []);
+  assert.deepEqual(client.store.get('legacy').requiredColumnIds, []);
   assert.deepEqual(client.store.get('stale').derivedColumnIds, ['d']);
   assert.deepEqual(client.store.get('needsManaged').serverManagedColumnIds, ['b']);
   assert.deepEqual(

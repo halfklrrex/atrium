@@ -15,8 +15,8 @@
 //   Apply:         add --apply (to either)
 //
 // It authenticates like scripts/showcase: the emulator's bypass token, or `gcloud auth print-access-token`
-// for production. It changes only those two fields, on boards where either is missing or wrong (both
-// are written together, like the function does), and never creates a document. It uses the same computation as the Cloud Function, so the two always agree.
+// for production. It changes only the id-list fields (REQ-1 added requiredColumnIds, so the lists are
+// now three), on boards where any is missing or wrong (all are written together, like the function does), and never creates a document. It uses the same computation as the Cloud Function, so the two always agree.
 //
 // Run it through tsx (it imports the TypeScript in @atrium/shared).
 import { pathToFileURL } from 'node:url';
@@ -25,7 +25,13 @@ import { FIRESTORE_DATABASE_ID, nextColumnIdLists } from '@atrium/shared';
 import { SeedError, createClient } from '../showcase/seed-showcase.mjs';
 
 const BATCH_SIZE = 400; // Firestore allows 500 writes per commit.
-const FIELDS = ['columns', 'subitemColumns', 'derivedColumnIds', 'serverManagedColumnIds'];
+const FIELDS = [
+  'columns',
+  'subitemColumns',
+  'derivedColumnIds',
+  'serverManagedColumnIds',
+  'requiredColumnIds',
+];
 
 const HELP = `Backfill boards.derivedColumnIds (FW1) and boards.serverManagedColumnIds (FW2). Dry run unless --apply is given.
 
@@ -117,9 +123,11 @@ export async function runBackfill({ client, apply = false, log = console.log }) 
         changes.slice(i, i + BATCH_SIZE).map((c) => ({
           op: 'patch',
           path: `boards/${c.id}`,
+          // `next` carries all three lists (REQ-1 added requiredColumnIds), like the function writes.
           data: {
             derivedColumnIds: c.derivedColumnIds,
             serverManagedColumnIds: c.serverManagedColumnIds,
+            requiredColumnIds: c.requiredColumnIds,
           },
         })),
       );

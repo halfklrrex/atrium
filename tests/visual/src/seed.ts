@@ -136,6 +136,7 @@ function board(
     ...(structure ?? defaultBoardStructure(() => `${id}-g${++n}`)),
     derivedColumnIds: [],
     serverManagedColumnIds: [],
+    requiredColumnIds: [],
     columnLocks: [],
     state: 'active',
     deletedAt: null,

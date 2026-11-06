@@ -184,6 +184,7 @@ export async function runFlow(p = ports()) {
     subitemColumns: [],
     derivedColumnIds: [],
     serverManagedColumnIds: [],
+    requiredColumnIds: [],
     groups: [],
     itemTerminology: 'item',
     state: 'active',

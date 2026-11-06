@@ -477,7 +477,7 @@ export const writes = {
   /**
    * Create a board from a structure (columns, groups, terminology) and optional sample items, with
    * the caller as owner. `createBoard` (blank board) and `createBoardFromTemplate` both use it. The
-   * board is created with empty `derivedColumnIds` / `serverManagedColumnIds` (rules require it; the
+   * board is created with empty `derivedColumnIds` / `serverManagedColumnIds` / `requiredColumnIds` (rules require it; the
    * `onBoardColumnsWritten` Function fills them). Items go in a second write once the board exists.
    */
   async createBoardFromStructure(
@@ -503,6 +503,7 @@ export const writes = {
       ...structure,
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
       state: 'active',
       deletedAt: null,
       createdAt: serverTimestamp(),
@@ -634,6 +635,7 @@ export const writes = {
       itemTerminology: source.itemTerminology,
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
       state: 'active',
       deletedAt: null,
       createdAt: serverTimestamp(),

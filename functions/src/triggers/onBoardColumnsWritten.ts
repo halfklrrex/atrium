@@ -18,6 +18,7 @@ export function adminColumnIdListsStore(): ColumnIdListsStore {
         tx.update(ref, {
           derivedColumnIds: next.derivedColumnIds,
           serverManagedColumnIds: next.serverManagedColumnIds,
+          requiredColumnIds: next.requiredColumnIds,
         });
         return next;
       }),
@@ -25,8 +26,9 @@ export function adminColumnIdListsStore(): ColumnIdListsStore {
 }
 
 /**
- * Keeps `boards/{id}.derivedColumnIds` and `boards/{id}.serverManagedColumnIds` equal to the board's
- * derived and server-managed columns. It is the only writer of those fields (Firestore rules refuse
+ * Keeps `boards/{id}.derivedColumnIds`, `boards/{id}.serverManagedColumnIds` and
+ * `boards/{id}.requiredColumnIds` (REQ-1) equal to the board's derived, server-managed and required
+ * columns. It is the only writer of those fields (Firestore rules refuse
  * clients) and it writes, in one transaction, only when either value changes, so its own write
  * re-triggers it once and then stops. Idempotent: it also backfills older boards.
  */
@@ -41,9 +43,12 @@ export const onBoardColumnsWritten = onDocumentWritten(
       after?.exists ? (after.data() as BoardColumnsData) : undefined,
     );
     if (result.written) {
-      logger.info(`Updated derived/server-managed column ids of board ${event.params.boardId}`, {
-        ...result.written,
-      });
+      logger.info(
+        `Updated derived/server-managed/required column ids of board ${event.params.boardId}`,
+        {
+          ...result.written,
+        },
+      );
     }
   },
 );

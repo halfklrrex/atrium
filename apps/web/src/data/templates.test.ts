@@ -75,6 +75,7 @@ describe('createBoardFromStructure', () => {
       position: 'a5',
       derivedColumnIds: [],
       serverManagedColumnIds: [],
+      requiredColumnIds: [],
       state: 'active',
       itemTerminology: 'item',
     });

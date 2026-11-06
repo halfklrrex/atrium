@@ -427,7 +427,7 @@ export const boardActorId = (after: ActivityBoardDoc): string | undefined =>
 /**
  * Board-level entries from a board write: name, and the column and group id sets and titles. Column
  * `type` / `settings`, the `migrating` and `lastTypeChange` marks, `kind`, `access`, `accessUids`,
- * `derivedColumnIds` and `serverManagedColumnIds` are not looked at, so what a callable already
+ * `derivedColumnIds`, `serverManagedColumnIds` and `requiredColumnIds` are not looked at, so what a callable already
  * logged is never logged twice and `onBoardColumnsWritten`'s own write logs nothing.
  */
 export function diffBoardActivity(

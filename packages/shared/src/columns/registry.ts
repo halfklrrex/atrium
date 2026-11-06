@@ -112,6 +112,11 @@ export class ColumnTypeRegistry {
     return columns.filter((c) => this.isServerManaged(c.type)).map((c) => c.id);
   }
 
+  /** Ids of the columns marked `required: true` (order kept), ready for `boards/{id}.requiredColumnIds`. */
+  requiredColumnIds(columns: readonly ColumnDef[]): string[] {
+    return columns.filter((c) => c.required === true).map((c) => c.id);
+  }
+
   has(type: string): boolean {
     return this.types.has(type);
   }
