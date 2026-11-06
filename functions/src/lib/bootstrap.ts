@@ -2,6 +2,7 @@ import {
   normalizeEmail,
   personalWorkspaceName,
   type BootstrapUserRequest,
+  type AccountStatus,
   type BootstrapUserResult,
   type ServerTimestampSentinel,
   type UserWrite,
@@ -23,7 +24,9 @@ export interface Identity {
  * Contract: every read happens before the first write.
  */
 export interface BootstrapTx {
-  getUser(uid: string): Promise<{ lastWorkspaceId: string | null } | null>;
+  getUser(
+    uid: string,
+  ): Promise<{ lastWorkspaceId: string | null; accountStatus?: AccountStatus | null } | null>;
   workspaceHasMember(workspaceId: string, uid: string): Promise<boolean>;
   findMemberWorkspaceId(uid: string): Promise<string | null>;
   newWorkspaceId(): string;
@@ -44,6 +47,17 @@ export function workspaceIconFor(name: string): string {
   return first ? first.toUpperCase() : 'A';
 }
 
+export interface BootstrapOptions {
+  /**
+   * `ACCOUNT_APPROVAL_REQUIRED` (ADMIN-2). Off by default: a new user doc is created already
+   * `approved` and everything else is as before. On: a new user doc is `pending` and gets no
+   * workspace until an admin approves; an existing pending or blocked user gets none either.
+   */
+  approvalRequired?: boolean;
+  /** Called (inside the transaction body, once per attempt) when this call creates the user doc. */
+  onUserCreated?: () => void;
+}
+
 /**
  * Idempotent bootstrap (architecture section 8): ensure `users/{uid}` exists and that the user has a
  * workspace, creating a personal one with the caller as sole owner when they have none. Safe to call
@@ -54,13 +68,39 @@ export async function bootstrapUserInTransaction(
   identity: Identity,
   hints: BootstrapUserRequest,
   serverTimestamp: ServerTimestampSentinel,
+  options: BootstrapOptions = {},
 ): Promise<BootstrapUserResult> {
   const { uid } = identity;
+  const approvalRequired = options.approvalRequired === true;
   const user = await tx.getUser(uid);
+
+  if (approvalRequired) {
+    // Waiting (or blocked) accounts get no workspace; admins create it on approval.
+    if (!user) {
+      tx.createUser(uid, {
+        displayName: identity.displayName ?? identity.email ?? '',
+        email: identity.email ?? '',
+        photoURL: identity.photoURL,
+        timezone: hints.timezone ?? DEFAULT_TIMEZONE,
+        locale: hints.locale ?? DEFAULT_LOCALE,
+        lastWorkspaceId: null,
+        theme: 'system',
+        createdAt: serverTimestamp,
+        accountStatus: 'pending',
+        statusChangedAt: serverTimestamp as never,
+        statusChangedBy: 'system:bootstrap',
+      });
+      options.onUserCreated?.();
+      return { accountStatus: 'pending' };
+    }
+    if (user.accountStatus === 'pending' || user.accountStatus === 'blocked') {
+      return { accountStatus: user.accountStatus };
+    }
+  }
 
   // Fast path: the remembered workspace is still valid for this user.
   if (user?.lastWorkspaceId && (await tx.workspaceHasMember(user.lastWorkspaceId, uid))) {
-    return { workspaceId: user.lastWorkspaceId };
+    return withStatus({ workspaceId: user.lastWorkspaceId }, approvalRequired, user.accountStatus);
   }
 
   // Otherwise reuse any workspace the user already belongs to before creating a new one.
@@ -101,8 +141,22 @@ export async function bootstrapUserInTransaction(
       lastWorkspaceId: workspaceId,
       theme: 'system',
       createdAt: serverTimestamp,
+      // Accounts created before the gate ships are already approved (the claim is set after commit).
+      accountStatus: 'approved',
+      statusChangedAt: serverTimestamp as never,
+      statusChangedBy: 'system:bootstrap',
     });
+    options.onUserCreated?.();
   }
 
-  return { workspaceId };
+  return withStatus({ workspaceId }, approvalRequired, user ? user.accountStatus : 'approved');
+}
+
+/** Adds `accountStatus` to the result only when approval is required (flag off: result unchanged). */
+function withStatus(
+  result: BootstrapUserResult,
+  approvalRequired: boolean,
+  status: AccountStatus | null | undefined,
+): BootstrapUserResult {
+  return approvalRequired && status ? { ...result, accountStatus: status } : result;
 }

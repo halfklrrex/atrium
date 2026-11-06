@@ -76,5 +76,9 @@ export function actionText(
       return n.recipeName ? `Ran automation "${n.recipeName}"` : 'Ran an automation';
     case 'automation_disabled':
       return n.recipeName ? `Turned off automation "${n.recipeName}"` : 'Turned off an automation';
+    case 'account_request':
+      return 'asked for access';
+    case 'account_approved':
+      return 'approved your account';
   }
 }

@@ -20,6 +20,10 @@ export const notificationKindSchema = z.enum([
   'button',
   'automation',
   'automation_disabled',
+  /** Site admins: a new account waits for approval (ADMIN-2). Always delivered, no pref switch. */
+  'account_request',
+  /** The person: an admin approved the account (ADMIN-2). Always delivered, no pref switch. */
+  'account_approved',
 ]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 

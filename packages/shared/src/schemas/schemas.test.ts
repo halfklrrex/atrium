@@ -304,7 +304,7 @@ describe('callable schemas', () => {
     );
     expect(bootstrapUserRequestSchema.safeParse({ uid: 'other' }).success).toBe(false);
     expect(bootstrapUserResultSchema.safeParse({ workspaceId: 'w1' }).success).toBe(true);
-    expect(bootstrapUserResultSchema.safeParse({}).success).toBe(false);
+    expect(bootstrapUserResultSchema.safeParse({ workspaceId: 1 }).success).toBe(false);
   });
 });
 

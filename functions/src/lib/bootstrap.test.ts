@@ -1,4 +1,9 @@
-import { workspaceSchema, userSchema, type TimestampLike } from '@atrium/shared';
+import {
+  workspaceSchema,
+  userSchema,
+  type AccountStatus,
+  type TimestampLike,
+} from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import {
   bootstrapUserInTransaction,
@@ -40,7 +45,18 @@ class FakeTx implements BootstrapTx {
     this.assertRead();
     const u = this.users.get(uid);
     const last = u?.lastWorkspaceId;
-    return Promise.resolve(u ? { lastWorkspaceId: typeof last === 'string' ? last : null } : null);
+    const status = u?.accountStatus;
+    return Promise.resolve(
+      u
+        ? {
+            lastWorkspaceId: typeof last === 'string' ? last : null,
+            accountStatus:
+              status === 'pending' || status === 'approved' || status === 'blocked'
+                ? (status as AccountStatus)
+                : null,
+          }
+        : null,
+    );
   }
   workspaceHasMember(workspaceId: string, uid: string) {
     this.assertRead();
@@ -133,6 +149,7 @@ describe('bootstrapUserInTransaction', () => {
       ...d,
       createdAt: fakeTimestamp,
       updatedAt: fakeTimestamp,
+      ...(d.statusChangedAt ? { statusChangedAt: fakeTimestamp } : {}),
     });
     expect(workspaceSchema.safeParse(withTs(store.workspaces.get('ws1')!)).success).toBe(true);
     expect(userSchema.safeParse(withTs(store.users.get('u1')!)).success).toBe(true);
@@ -178,6 +195,89 @@ describe('bootstrapUserInTransaction', () => {
     await run(store, { uid: 'u2', displayName: null, email: null, photoURL: null });
     expect(store.workspaces.get('ws1')?.name).toBe('My workspace');
     expect(store.users.get('u2')).toMatchObject({ displayName: '', email: '', photoURL: null });
+  });
+});
+
+describe('bootstrapUserInTransaction and ACCOUNT_APPROVAL_REQUIRED', () => {
+  it('flag off: a new user doc is approved, the result is unchanged, and the hook fires', async () => {
+    const store = new FakeTx();
+    let created = 0;
+    const result = await bootstrapUserInTransaction(store.begin(), ada, {}, SERVER_TS, {
+      approvalRequired: false,
+      onUserCreated: () => void created++,
+    });
+    expect(result).toEqual({ workspaceId: 'ws1' });
+    expect(created).toBe(1);
+    expect(store.users.get('u1')).toMatchObject({
+      accountStatus: 'approved',
+      statusChangedBy: 'system:bootstrap',
+    });
+    expect(store.users.get('u1')?.statusChangedAt).toBe(SERVER_TS);
+  });
+
+  it('flag off: an existing user is untouched and the hook does not fire', async () => {
+    const store = new FakeTx();
+    store.users.set('u1', { lastWorkspaceId: null });
+    let created = 0;
+    await bootstrapUserInTransaction(store.begin(), ada, {}, SERVER_TS, {
+      onUserCreated: () => void created++,
+    });
+    expect(created).toBe(0);
+    expect(store.users.get('u1')).not.toHaveProperty('accountStatus');
+  });
+
+  it('flag on: a new user is pending with no workspace and the result says so', async () => {
+    const store = new FakeTx();
+    let created = 0;
+    const result = await bootstrapUserInTransaction(store.begin(), ada, {}, SERVER_TS, {
+      approvalRequired: true,
+      onUserCreated: () => void created++,
+    });
+    expect(result).toEqual({ accountStatus: 'pending' });
+    expect(created).toBe(1);
+    expect(store.workspaces.size).toBe(0);
+    expect(store.members.size).toBe(0);
+    expect(store.users.get('u1')).toMatchObject({
+      accountStatus: 'pending',
+      lastWorkspaceId: null,
+      statusChangedBy: 'system:bootstrap',
+    });
+    const withTs = {
+      ...store.users.get('u1')!,
+      createdAt: fakeTimestamp,
+      statusChangedAt: fakeTimestamp,
+    };
+    expect(userSchema.safeParse(withTs).success).toBe(true);
+  });
+
+  it('flag on: a pending or blocked user stays without a workspace on every call', async () => {
+    for (const status of ['pending', 'blocked'] as const) {
+      const store = new FakeTx();
+      store.users.set('u1', { lastWorkspaceId: null, accountStatus: status });
+      const result = await bootstrapUserInTransaction(store.begin(), ada, {}, SERVER_TS, {
+        approvalRequired: true,
+      });
+      expect(result).toEqual({ accountStatus: status });
+      expect(store.workspaces.size).toBe(0);
+    }
+  });
+
+  it('flag on: an existing user without a status (pre-gate) behaves as today', async () => {
+    const store = new FakeTx();
+    store.users.set('u1', { lastWorkspaceId: null });
+    const result = await bootstrapUserInTransaction(store.begin(), ada, {}, SERVER_TS, {
+      approvalRequired: true,
+    });
+    expect(result).toEqual({ workspaceId: 'ws1' });
+  });
+
+  it('flag on: an approved user gets a workspace and its status back', async () => {
+    const store = new FakeTx();
+    store.users.set('u1', { lastWorkspaceId: null, accountStatus: 'approved' });
+    const result = await bootstrapUserInTransaction(store.begin(), ada, {}, SERVER_TS, {
+      approvalRequired: true,
+    });
+    expect(result).toEqual({ workspaceId: 'ws1', accountStatus: 'approved' });
   });
 });
 

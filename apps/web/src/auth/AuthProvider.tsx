@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     callBootstrapUser().then(
       ({ workspaceId }) => {
-        if (!cancelled) setOutcome({ key, workspaceId, error: null });
+        if (!cancelled) setOutcome({ key, workspaceId: workspaceId ?? null, error: null });
       },
       (e: unknown) => {
         if (cancelled) return;
