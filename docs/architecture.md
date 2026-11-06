@@ -320,6 +320,8 @@ P1 editor pass 2: `requestDescriptionImageUpload`, `finalizeDescriptionImage` an
 
 P0: `bootstrapUser` (callable, idempotent, transaction). It creates `users/{uid}` from the auth token if missing, plus a personal workspace "<FirstName>'s workspace" with the caller as owner, sets `lastWorkspaceId`, and returns `{ workspaceId }`. The client calls it once after every sign-in.
 
+ADMIN-2 (site admin, `docs/specs/ADMIN-site-admin-role.md`): callables `setAccountStatus` (approve, block, unblock; admins only, the `admin` claim in the verified token) and `listAccounts` (paged Auth users merged with `users/{uid}.accountStatus`), logic in `functions/src/lib/account-admin.ts` behind injected Auth and store interfaces (adapters in `admin-account.ts`), schemas in `packages/shared/src/account-admin.ts`. Every status change appends to `system/accountAudit/entries` (Admin SDK only; uids, no emails). `bootstrapUser` reads the Functions boolean param `ACCOUNT_APPROVAL_REQUIRED` (default **false**, `functions/src/lib/account-flag.ts`): off, nothing changes for users except that a newly created account is stored as approved and given the `acct: approved` claim; on, a new account is `pending` with no workspace and the admins get an `account_request` notification. The gate in the rules ships separately (ADMIN-1b).
+
 ## 9. Local development & testing
 
 - `pnpm dev` runs the Vite dev server and the Firebase Emulator Suite (auth 9099, firestore 8080, functions 5001, storage 9199, UI 4000), with emulator data persisted in `.emulator-data/` (gitignored).

@@ -3,6 +3,8 @@
 import './lib/global-options';
 
 export { bootstrapUser } from './callable/bootstrapUser';
+export { setAccountStatus } from './callable/setAccountStatus';
+export { listAccounts } from './callable/listAccounts';
 export { requestFileUpload } from './callable/requestFileUpload';
 export { finalizeFileUpload } from './callable/finalizeFileUpload';
 export { getFileDownloadUrl } from './callable/getFileDownloadUrl';

@@ -16,6 +16,8 @@ const KIND_ICON: Record<NotificationKind, typeof Person> = {
   button: Bolt,
   automation: Bolt,
   automation_disabled: Bolt,
+  account_request: Person,
+  account_approved: Person,
 };
 
 interface NotificationCardProps {

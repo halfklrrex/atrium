@@ -59,6 +59,8 @@ Live checks only the owner can do, collected per feature while agents build ahea
 
 - **Attachments in updates (`claude/update-attachments-web`):** on the showcase board open an item, write an update, click the new **paperclip** after `@` in the composer's bottom row, pick two files (one image) and post. The files upload one after another and the chips disappear when done; under the post you see a chip per file (the image shows a small thumbnail). Click a chip to download it, then remove one with its **x** (no confirmation, no undo). Try a file over 25 MB (a message names the limit) and an 11th file (limit of 10). Do the same on a reply. Check that the author and a board owner see the **x**, and that a viewer sees the chips and can download but has no **x** (and cannot post). An update still needs some text; files alone cannot be posted. Check light and dark. The showcase seed cannot hold files (they need Storage), so there is nothing to seed.
 
+- **Site admin, Functions (ADMIN-2):** nothing changes for anyone until the Functions param `ACCOUNT_APPROVAL_REQUIRED` is flipped and the rules gate (ADMIN-1b) has shipped. With the param off, a new sign-up is simply stored as approved and given the approved claim. Do not flip it before the backfill, the gate and the web screens are live.
+
 ## Owner decisions, 2026-11-05 (answered in the session; work not yet scheduled)
 
 - **Required columns:** a **hard rule** (the server refuses an empty required cell). Needs a spec: rules and `validateCell` changes, rules tests, and how it treats items on existing boards.

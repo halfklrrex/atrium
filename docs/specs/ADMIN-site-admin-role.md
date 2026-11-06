@@ -1,6 +1,6 @@
 # ADMIN: Site admin role, with account approval and blocking
 
-Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: item "Feature: site admin role, with account approval and blocking" · Origin: bug inbox request, 2026-11-05 · Status: **ADMIN-1a in progress (PR open; types, claim helpers, backfill script and users-rules tests, no gate). ADMIN-1b to 3 not started.** Defaults confirmed by the owner on 2026-11-06 (see Decisions); the technical choices below are mine and the owner can change them.
+Author: Ophelia · Implementers: Sonnet 5.5 (medium effort) · Roadmap: item "Feature: site admin role, with account approval and blocking" · Origin: bug inbox request, 2026-11-05 · Status: **ADMIN-1a merged, ADMIN-2 in review (behind ACCOUNT_APPROVAL_REQUIRED, default off). ADMIN-1b and ADMIN-3 not started.** Defaults confirmed by the owner on 2026-11-06 (see Decisions); the technical choices below are mine and the owner can change them.
 
 ## Goal
 
@@ -80,6 +80,16 @@ A dry-run-by-default script (`scripts/migrations/`, patterned on the other backf
 2. **ADMIN-1b the gate:** the gated `signedIn()` in `firestore.rules` and `storage.rules` with emulator tests (approved, pending, blocked, no claim, admin; users self-read; Storage). Merge only after the backfill is verified.
 3. **ADMIN-2 functions:** `bootstrapUser` changes, `setAccountStatus`, `listAccounts`, the notification, the audit log, `pnpm admin:grant`, tests (cannot block self or the last admin, claims and disable calls, idempotence).
 4. **ADMIN-3 web:** waiting and blocked screens, the token refresh on approval, the `/admin` screen, the notification kind, showcase and visual specs, an owner check-list entry.
+
+## The `ACCOUNT_APPROVAL_REQUIRED` switch (ADMIN-2)
+
+ADMIN-2 changes nothing for anyone until the owner flips a Functions boolean param, `ACCOUNT_APPROVAL_REQUIRED` (`defineBoolean`, default **false**, in `functions/src/lib/account-flag.ts`; set it with `ACCOUNT_APPROVAL_REQUIRED=true` in `functions/.env.<project>`). Flip it only after the gate (ADMIN-1b) and the web screens (ADMIN-3) have shipped.
+
+- **Off:** `bootstrapUser` returns what it always did. A user doc it creates also gets `accountStatus: 'approved'`, `statusChangedAt`, `statusChangedBy: 'system:bootstrap'`, and the Auth user gets `acct: 'approved'` (other claims kept), so accounts created before the gate ships are already approved. A failed claim write is logged and never breaks sign-in. Existing users are never touched.
+- **On:** a new account is created `pending`, with no claim and no workspace; the result is `{ accountStatus: 'pending' }` (`workspaceId` absent); every uid with `admin: true` gets an `account_request` notification. A pending or blocked user keeps getting `{ accountStatus }` and no workspace. Approval (`setAccountStatus`) creates the workspace and sends `account_approved`.
+- The admin callables `setAccountStatus` and `listAccounts` exist in both states (only admins can call them).
+- The two account notification kinds have no preference switch: the prefs map and its rules are strict, so they are always delivered.
+- Blocking an admin also removes their `admin` claim; unblocking does not restore it (re-grant with `pnpm admin:grant`).
 
 ## Deploy gotcha
 

@@ -45,7 +45,12 @@ export function adminBootstrapTx(firestore: Firestore, tx: Transaction): Bootstr
       const snap = await tx.get(userRef(uid));
       if (!snap.exists) return null;
       const last: unknown = snap.get('lastWorkspaceId');
-      return { lastWorkspaceId: typeof last === 'string' && last ? last : null };
+      const status: unknown = snap.get('accountStatus');
+      return {
+        lastWorkspaceId: typeof last === 'string' && last ? last : null,
+        accountStatus:
+          status === 'pending' || status === 'approved' || status === 'blocked' ? status : null,
+      };
     },
     async workspaceHasMember(workspaceId, uid) {
       const snap = await tx.get(workspaceRef(workspaceId));
