@@ -57,6 +57,7 @@ Decision (2026-10-25, owner): Atrium uses the named database `atrium-1` (`eur3`,
 - **UI state:** Zustand for local UI state (selection, open item card, sidebar). No Redux.
 - **Large lists:** `@tanstack/react-virtual` for the board table. **Drag & drop:** `@dnd-kit`.
 - **Ordering:** `fractional-indexing` string keys (`position`) for groups, items and columns, so a reorder writes only one document.
+- **Flag emoji fallback:** Windows has no flag glyphs, so `<Emoji>` (`apps/web/src/components/Emoji.tsx`, detection in `apps/web/src/lib/flag-emoji.ts`) draws a flag as a Twemoji SVG instead, but only after a one-off canvas check shows the platform can't. That makes an **external request to `cdn.jsdelivr.net`** (host and pinned version in `TWEMOJI_BASE_URL`); other platforms never make it, and a failed load falls back to the plain emoji. The app sets no Content-Security-Policy today; if one is added, `img-src` must allow that host. Flags inside the TipTap editors themselves are still text (follow-up). Credit: `docs/PROVENANCE.md`.
 - **Firebase init:** `apps/web/src/lib/firebase.ts` uses the committed public config. When `VITE_USE_EMULATORS=true` (default in `pnpm dev`) it connects Auth, Firestore, Functions and Storage to the local emulators.
 
 ## 5. Data model (Firestore)

@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/react';
 import { TextField, Tooltip } from '@vibe/core';
 import { useMemo, useState } from 'react';
 import { AnchoredPopup } from '../board-table/AnchoredPopup';
+import { Emoji } from '../Emoji';
 import {
   EMOJI_CATEGORIES,
   emojisInCategory,
@@ -33,7 +34,7 @@ function EmojiGrid({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => onPick(item)}
         >
-          {item.emoji}
+          <Emoji emoji={item.emoji ?? ''} />
         </button>
       ))}
     </div>
@@ -98,7 +99,7 @@ export function EmojiPicker({
                   aria-selected={c.id === category.id}
                   onClick={() => setCategoryId(c.id)}
                 >
-                  {emojisInCategory(c.id)[0]?.emoji}
+                  <Emoji emoji={emojisInCategory(c.id)[0]?.emoji ?? ''} />
                 </button>
               </Tooltip>
             ))}
