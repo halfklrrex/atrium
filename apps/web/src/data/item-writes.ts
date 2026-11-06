@@ -126,6 +126,33 @@ export const itemWrites = {
   },
 
   /**
+   * Set (or with `null`, clear) the same column on many items, in batches of at most `BATCH_LIMIT`
+   * (bulk edit and its Undo). Field paths: other cells are untouched.
+   */
+  async setValueMany(
+    uid: string,
+    boardId: string,
+    columnId: string,
+    cells: readonly { id: string; value: unknown }[],
+  ): Promise<void> {
+    for (const part of chunk(cells)) {
+      const batch = writeBatch(db);
+      for (const { id, value } of part) {
+        batch.update(
+          plainRefs.item(boardId, id),
+          new FieldPath('values', columnId),
+          value === null || value === undefined ? deleteField() : value,
+          'updatedAt',
+          serverTimestamp(),
+          'updatedBy',
+          uid,
+        );
+      }
+      await batch.commit();
+    }
+  },
+
+  /**
    * Set (or with `null`, clear) one cell and change the item's position in the same document
    * write, so a Kanban drop can never leave the status changed but the card in the old place (or
    * the reverse). Field paths again: other cells are untouched.

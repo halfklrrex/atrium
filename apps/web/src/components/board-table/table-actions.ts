@@ -52,6 +52,7 @@ import {
   wouldExceedRequiredCap,
   type RequiredWriteError,
 } from './required-write';
+import { bulkSummary, planBulkApply, type BulkOffer } from './bulk-edit';
 import { appendPositions, dropPosition, positionsAfter } from './move-math';
 import { clampWidth, withSubitemIds, type ColumnView } from './table-model';
 import { useTableStore } from './table-store';
@@ -308,6 +309,53 @@ export const tableActions = {
       'Could not save the change.',
       explain,
     );
+  },
+
+  /**
+   * Bulk edit: write the value just saved on the edited row to the other selected rows of the same
+   * level, in one batch (chunked at 400). Rows that are locked or would break the required rule are
+   * skipped and counted in the toast; the toast's Undo restores every row's previous value.
+   */
+  async applyToSelected(offer: BulkOffer, peers: readonly ItemDoc[]): Promise<boolean> {
+    const { ctx, itemId, columnId, value, previous } = offer;
+    const plan = planBulkApply({
+      boardId: ctx.boardId,
+      columns: ctx.columns,
+      columnId,
+      value,
+      peers,
+      lockCtx: lockCtxOf(ctx),
+    });
+    if (plan.writes.length > 0) {
+      const ok = await attempt(
+        () =>
+          itemWrites.setValueMany(
+            ctx.uid,
+            ctx.boardId,
+            columnId,
+            plan.writes.map((w) => ({ id: w.itemId, value })),
+          ),
+        'Could not update the selected items.',
+      );
+      if (!ok) return false;
+    }
+    showToast(bulkSummary(plan.writes.length + 1, plan.total, plan.skipped.length), {
+      type: plan.skipped.length > 0 ? 'normal' : 'positive',
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          void attempt(
+            () =>
+              itemWrites.setValueMany(ctx.uid, ctx.boardId, columnId, [
+                { id: itemId, value: previous },
+                ...plan.writes.map((w) => ({ id: w.itemId, value: w.previous })),
+              ]),
+            'Could not undo the change.',
+          );
+        },
+      },
+    });
+    return true;
   },
 
   /**
