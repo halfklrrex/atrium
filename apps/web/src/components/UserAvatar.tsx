@@ -1,5 +1,6 @@
 import { Avatar } from '@vibe/core';
-import { Person } from '@vibe/icons';
+import { Person, Robot } from '@vibe/icons';
+import { AUTOMATION_ACTOR_NAME, isAutomationActor } from '../lib/automation-actor';
 import { UNKNOWN_PERSON_NAME, useUserLookup } from '../data/members-store';
 import { initialsOf } from '../lib/format';
 
@@ -24,6 +25,18 @@ export function UserAvatar({
   const name = explicitName ?? person?.name ?? UNKNOWN_PERSON_NAME;
   const photo = explicitPhotoURL !== undefined ? explicitPhotoURL : (person?.photoURL ?? null);
 
+  if (isAutomationActor(uid)) {
+    // Automations never get a photo or initials: a neutral robot icon.
+    return (
+      <Avatar
+        type="icon"
+        icon={Robot}
+        size={size}
+        backgroundColor="winter"
+        aria-label={AUTOMATION_ACTOR_NAME}
+      />
+    );
+  }
   if (photo) {
     return <Avatar type="img" src={photo} size={size} aria-label={name} />;
   }
