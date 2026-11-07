@@ -17,6 +17,8 @@ Each message starts a private, two-way thread between the sender and the admins.
 2. **Two-way conversation until an admin closes the thread.** Closing locks it. A sender reply on an answered thread reopens it.
 3. **Feedback goes to the same Inbox.** One Inbox tab with an Appeals / Feedback filter. "Send feedback" and "My feedback" go in the profile menu; this also gives the "Give feedback" header icon a purpose.
 4. **Defaults accepted:** feedback categories Bug, Idea, Question, Other, no priority; no attachments in v1; bell notification only (no email), one notification per thread per person (overwritten, not stacked); closed threads deleted automatically 365 days after closing; limits: 1 open appeal per account, 7 days' wait after a refused appeal, feedback at most 5 new threads a day and 3 open at once, 2000 characters per message.
+5. **The admin's identity is hidden from the sender (answered 2026-11-07).** The sender sees every admin message as written by "Site Administrator" (no name, no photo, no uid). This is enforced in the data, not only in the screen: see "Hiding the admin" below.
+6. **Message caps accepted (T7):** 10 messages a day for a blocked account, 30 for an approved one, 200 per thread, admins exempt.
 
 ## Technical decisions (mine; the owner can change them)
 
@@ -27,8 +29,8 @@ These fix or tighten the research proposal.
 - **T3. Unread state is two booleans on the thread** (`adminUnread`, `senderUnread`), not read timestamps, so the badge is a single equality query (`adminUnread == true`) with no composite index and no cross-field comparison. Read state lives on the thread, never in notifications (Minerva lesson 6).
 - **T4. Admin-only data never sits in a document the sender can read.** The internal note is `inboxNotes/{threadId}`. Everything in `inbox/{threadId}` and its messages is visible to the sender, so it holds only what the sender may see (see "What each side sees").
 - **T5. The sender's email is stored on the thread** (`senderEmail`). The research left it out, but the admin needs it next to the message, and only the sender and admins can read the thread. It is a snapshot from the verified token at send time.
-- **T6. The admin's name is shown to the sender**, with a "Site admin" label. The message document stores the author's uid and name, and the sender can read that document, so hiding the name in the UI would not hide it. For a family-and-friends app the honest choice is to show it. (Owner can change: the alternative is storing a fixed "Site admin" name and no admin uid on the message, with the acting admin kept in the admin-only note document.)
-- **T7. Daily message caps** (my addition to the owner's limits, needed because a blocked person now has a write path): at most **10 messages a day for a blocked account** and **30 a day for an approved one**, admins exempt; at most **200 messages per thread**.
+- **T6. The admin's identity is hidden from the sender (owner decision, final).** The sender reads the message documents, so hiding the name only in the UI would not hide it. Admin messages therefore store NO uid, name or photo (`authorUid`, `authorName`, `authorPhotoURL` are `null` on `authorRole: 'admin'` messages) and the web shows the fixed label "Site Administrator" with a generic avatar. The acting admin is recorded only in the admin-only `inboxAudit/{threadId}/entries/{messageId}` (`{ adminUid, action, createdAt }`, written by the Function). Everything else the sender can read must also be free of the admin's identity: the thread's `closedBy` moves to `inboxAudit`, and the `inbox_reply` notification uses `actorName: 'Site Administrator'`, `actorPhotoURL: null` and, because the notification schema needs an actor id, the recipient's own uid as `actorId` (the card never shows it). Admins see which admin acted in the admin UI through `inboxAudit`. The owner is today the only admin, so this is about what other people see, not about hiding from the owner.
+- **T7. Daily message caps** (my addition to the owner's limits, needed because a blocked person now has a write path; the owner accepted them on 2026-11-07): at most **10 messages a day for a blocked account** and **30 a day for an approved one**, admins exempt; at most **200 messages per thread**.
 - **T8. Pending people get nothing new in v1.** They keep the waiting screen. (Out of scope; the same box could serve them later.)
 - **T9. Client-chosen request ids for idempotence.** Every send carries a `requestId` (UUID). The Function uses it as the message id (and as the thread id for a new thread), so a double click or a network retry never creates two messages.
 
@@ -117,25 +119,25 @@ export const INBOX_LIMITS = {
 
 ### `inbox/{threadId}`: one thread
 
-| Field                    | Type                                               | Notes                                                                              |
-| ------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `kind`                   | `'appeal' \| 'feedback'`                           |                                                                                    |
-| `category`               | `'bug' \| 'idea' \| 'question' \| 'other' \| null` | Feedback only; `null` for appeals.                                                 |
-| `subject`                | string 1 to 120                                    | Appeals: the fixed text `Appeal`.                                                  |
-| `senderUid`              | uid                                                |                                                                                    |
-| `senderName`             | string ≤ 200                                       | From the verified token at send time (`name`, else email, else "Someone").         |
-| `senderEmail`            | string ≤ 320, nullable                             | From the verified token (T5).                                                      |
-| `senderPhotoURL`         | string ≤ 2048, nullable                            |                                                                                    |
-| `status`                 | `'open' \| 'answered' \| 'closed'`                 | `open`: waiting for an admin. `answered`: an admin replied last. `closed`: locked. |
-| `outcome`                | `'unblocked' \| 'upheld' \| null`                  | Appeals only, set when closed. `null` for feedback and for open appeals.           |
-| `messageCount`           | int                                                |                                                                                    |
-| `lastMessageAt`          | timestamp                                          |                                                                                    |
-| `lastMessageBy`          | `'sender' \| 'admin'`                              |                                                                                    |
-| `lastSnippet`            | string ≤ 200                                       | First characters of the newest message.                                            |
-| `adminUnread`            | bool                                               | True after a sender message; an admin sets it false (T3).                          |
-| `senderUnread`           | bool                                               | True after an admin message; the sender sets it false.                             |
-| `createdAt`, `updatedAt` | timestamp                                          |                                                                                    |
-| `closedAt`, `closedBy`   | timestamp / uid, both nullable                     | `closedBy` is an admin uid, or `system:unblock` when `setAccountStatus` closed it. |
+| Field                    | Type                                               | Notes                                                                                                           |
+| ------------------------ | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `kind`                   | `'appeal' \| 'feedback'`                           |                                                                                                                 |
+| `category`               | `'bug' \| 'idea' \| 'question' \| 'other' \| null` | Feedback only; `null` for appeals.                                                                              |
+| `subject`                | string 1 to 120                                    | Appeals: the fixed text `Appeal`.                                                                               |
+| `senderUid`              | uid                                                |                                                                                                                 |
+| `senderName`             | string ≤ 200                                       | From the verified token at send time (`name`, else email, else "Someone").                                      |
+| `senderEmail`            | string ≤ 320, nullable                             | From the verified token (T5).                                                                                   |
+| `senderPhotoURL`         | string ≤ 2048, nullable                            |                                                                                                                 |
+| `status`                 | `'open' \| 'answered' \| 'closed'`                 | `open`: waiting for an admin. `answered`: an admin replied last. `closed`: locked.                              |
+| `outcome`                | `'unblocked' \| 'upheld' \| null`                  | Appeals only, set when closed. `null` for feedback and for open appeals.                                        |
+| `messageCount`           | int                                                |                                                                                                                 |
+| `lastMessageAt`          | timestamp                                          |                                                                                                                 |
+| `lastMessageBy`          | `'sender' \| 'admin'`                              |                                                                                                                 |
+| `lastSnippet`            | string ≤ 200                                       | First characters of the newest message.                                                                         |
+| `adminUnread`            | bool                                               | True after a sender message; an admin sets it false (T3).                                                       |
+| `senderUnread`           | bool                                               | True after an admin message; the sender sets it false.                                                          |
+| `createdAt`, `updatedAt` | timestamp                                          |                                                                                                                 |
+| `closedAt`               | timestamp, nullable                                | Who closed it is NOT stored here (T6): it goes to the admin-only `inboxAudit` (`adminUid` or `system:unblock`). |
 
 ### `inbox/{threadId}/messages/{messageId}`: one document per message
 
@@ -145,9 +147,9 @@ Not an array in the thread (Minerva lesson 5). `messageId` is the request's `req
 | ---------------- | ----------------------- | ----------------------------------------------------------------------- |
 | `seq`            | int                     | 1, 2, 3... in send order (assigned in the transaction); the sort key.   |
 | `authorRole`     | `'sender' \| 'admin'`   | Fixed by the callable (T2).                                             |
-| `authorUid`      | uid                     |                                                                         |
-| `authorName`     | string ≤ 200            |                                                                         |
-| `authorPhotoURL` | string ≤ 2048, nullable |                                                                         |
+| `authorUid`      | uid, nullable           | `null` on admin messages (T6); the sender's uid on sender messages.     |
+| `authorName`     | string ≤ 200, nullable  | `null` on admin messages (T6).                                          |
+| `authorPhotoURL` | string ≤ 2048, nullable | `null` on admin messages (T6).                                          |
 | `text`           | string 1 to 2000        | Trimmed; control characters except newline and tab removed; plain text. |
 | `createdAt`      | timestamp               |                                                                         |
 
@@ -176,15 +178,15 @@ No edits and no deletes of single messages in v1 (an honest record).
 
 ### What each side sees
 
-| Data                                   | Sender                          | Admins | Other people |
-| -------------------------------------- | ------------------------------- | ------ | ------------ |
-| Their own thread document and messages | yes                             | yes    | no           |
-| `senderEmail`                          | yes (their own)                 | yes    | no           |
-| Admin author name on admin messages    | yes, labelled "Site admin" (T6) | yes    | no           |
-| `adminUnread` flag                     | readable, not shown             | yes    | no           |
-| `inboxNotes/{threadId}`                | **never**                       | yes    | no           |
-| `inboxLimits/{uid}`                    | no (errors explain limits)      | no     | no           |
-| Other people's threads                 | **never**                       | yes    | no           |
+| Data                                   | Sender                                        | Admins                     | Other people |
+| -------------------------------------- | --------------------------------------------- | -------------------------- | ------------ |
+| Their own thread document and messages | yes                                           | yes                        | no           |
+| `senderEmail`                          | yes (their own)                               | yes                        | no           |
+| Admin author name on admin messages    | **never** (shown as "Site Administrator", T6) | yes (through `inboxAudit`) | no           |
+| `adminUnread` flag                     | readable, not shown                           | yes                        | no           |
+| `inboxNotes/{threadId}`                | **never**                                     | yes                        | no           |
+| `inboxLimits/{uid}`                    | no (errors explain limits)                    | no                         | no           |
+| Other people's threads                 | **never**                                     | yes                        | no           |
 
 A blocked sender sees only their appeal threads (T1), not their old feedback.
 
@@ -286,8 +288,8 @@ Pure logic in `functions/src/lib/inbox.ts` with narrow `InboxStore` and `InboxAu
 | Action        | Extra input                 | Rules                                                                                    | Effect                                                                                                                                                                                   |
 | ------------- | --------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `reply`       | `requestId`, text           | Not closed; `messageCount < 200`. No daily cap.                                          | Adds an `admin` message; `status: 'answered'`, `senderUnread: true`, `adminUnread: false`. Notifies the sender with `inbox_reply` (feedback only, and not when the admin is the sender). |
-| `close`       | none                        | Feedback only (appeals close through Unblock or Keep blocked).                           | `status: 'closed'`, `closedAt`, `closedBy`, `adminUnread: false`.                                                                                                                        |
-| `reopen`      | none                        | Closed threads. For an appeal: the sender is still blocked and has no other open appeal. | `status` back to `open` (last message from the sender) or `answered`; clears `closedAt`, `closedBy`, `outcome`; for an appeal clears `inboxLimits.appealRefusedAt`.                      |
+| `close`       | none                        | Feedback only (appeals close through Unblock or Keep blocked).                           | `status: 'closed'`, `closedAt`, `adminUnread: false`; the acting admin goes to `inboxAudit` (T6).                                                                                        |
+| `reopen`      | none                        | Closed threads. For an appeal: the sender is still blocked and has no other open appeal. | `status` back to `open` (last message from the sender) or `answered`; clears `closedAt`, `outcome`; for an appeal clears `inboxLimits.appealRefusedAt`.                                  |
 | `keepBlocked` | optional `requestId` + text | Appeal, not closed, sender still blocked.                                                | Adds the optional final admin message, then `status: 'closed'`, `outcome: 'upheld'`, and sets `inboxLimits/{senderUid}.appealRefusedAt` (starts the 7-day wait).                         |
 | `delete`      | none                        | Any thread.                                                                              | Deletes the messages (batches of up to 500), the note, the thread, and the deterministic `inbox_new` / `inbox_reply` notifications of that thread (every admin uid and the sender).      |
 
@@ -295,7 +297,7 @@ Pure logic in `functions/src/lib/inbox.ts` with narrow `InboxStore` and `InboxAu
 
 ### `setAccountStatus` (existing, PR4 part)
 
-On approve or unblock, after the claim: find this uid's appeals with status `open` or `answered` and close them (`outcome: 'unblocked'`, `closedBy: 'system:unblock'`). `AccountStore` gets a `closeOpenAppeals(uid)` method. Unit tests in `account-admin.test.ts`. (The blocking change itself is PR3.)
+On approve or unblock, after the claim: find this uid's appeals with status `open` or `answered` and close them (`outcome: 'unblocked'`; `inboxAudit` records `system:unblock`). `AccountStore` gets a `closeOpenAppeals(uid)` method. Unit tests in `account-admin.test.ts`. (The blocking change itself is PR3.)
 
 ### Notifications
 
@@ -319,7 +321,7 @@ All message text renders as plain text (`white-space: pre-wrap`), never as HTML,
 - **Routes:** `/admin` (Accounts, as today), `/admin/inbox`, `/admin/inbox/:threadId`. All guarded by `useIsSiteAdmin` like today.
 - **Tabs** under the page title: **Accounts** and **Inbox** with an unread count (live `inbox where adminUnread == true`, `limit(100)`, shown as "99+" above 99). The same count shows on the profile menu's "Site admin" entry.
 - **List:** filter chips **Open** (default), **Answered**, **Closed**, **All**, and a kind filter **All / Appeals / Feedback**. Rows: avatar, name and email, a kind label (Appeal; Feedback with its category), subject, `lastSnippet`, relative time, an unread dot when `adminUnread`. 20 per page, "Load more" with a cursor. Cards on narrow screens. Empty states per filter.
-- **Thread view:** header (subject, sender, email, kind and category, status chip, started date; for a closed appeal, its outcome). No extra call fetches the account's status: an open appeal implies a blocked account, and the server refuses Keep blocked or Reopen if that is no longer true. Messages styled like Atrium's item updates (avatar, name, "Site admin" label on admin messages, time). Reply box (hidden when closed, with "This conversation is closed. Reopen it to reply."). Opening the thread sets `adminUnread: false` when it is true.
+- **Thread view:** header (subject, sender, email, kind and category, status chip, started date; for a closed appeal, its outcome). No extra call fetches the account's status: an open appeal implies a blocked account, and the server refuses Keep blocked or Reopen if that is no longer true. Messages styled like Atrium's item updates (avatar, name, "Site Administrator" label on admin messages, time). Reply box (hidden when closed, with "This conversation is closed. Reopen it to reply."). Opening the thread sets `adminUnread: false` when it is true.
   - Feedback actions: **Close** / **Reopen**.
   - Appeal actions: **Unblock** (confirm; calls `setAccountStatus({ uid, status: 'approved' })`, which closes the appeal) and **Keep blocked** (confirm dialog with an optional final message; `keepBlocked`), **Reopen** on a closed appeal.
   - **Internal note** panel ("Only site admins see this"), saved on blur and on a short debounce, with "Saved" feedback.
@@ -500,4 +502,4 @@ PR2 and PR3 can be built in parallel but merge in that order (both touch `packag
 
 ## Open questions
 
-None block the work. The owner may change T6 (show the admin's name to the sender, default yes) and T7 (the daily message caps I added, default 10 blocked / 30 approved) at any time before PR4.
+None. The owner decided T6 (the admin is shown as "Site Administrator") and accepted T7 (the daily caps) on 2026-11-07. Implementers: move `closedBy` and any other admin identity out of sender-readable documents into `inboxAudit` (admin-only; add it to the rules, the rules tests and the "What each side sees" table, and a rules test that a sender cannot read it), and add a test that no sender-readable document or notification contains an admin uid or name.
