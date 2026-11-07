@@ -23,6 +23,11 @@
 }
 
 @media print {
+  /* Fit-to-page zoom of a wide board table; lib/use-printing.ts overrides it on <html> while printing. */
+  :root {
+    --atrium-print-scale: 1;
+  }
+
   /* ---- Colours: black on white whatever the theme ---- */
   html,
   html.light-app-theme,
