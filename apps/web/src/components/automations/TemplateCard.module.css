@@ -1,0 +1,97 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-16);
+  min-height: var(--atrium-automation-card-min-height);
+  padding: var(--space-16);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-background-color);
+  transition: transform var(--atrium-motion-panel) var(--motion-timing-enter);
+}
+
+.card:not([data-unavailable]):hover {
+  transform: translateY(calc(var(--space-2) * -1));
+  box-shadow: var(--box-shadow-small);
+}
+
+.card[data-unavailable] {
+  border-style: dashed;
+  background: var(--atrium-automation-soon-bg);
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.tile {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--atrium-automation-card-icon-size);
+  height: var(--atrium-automation-card-icon-size);
+  border-radius: var(--border-radius-medium);
+  background: var(--primary-selected-color);
+  color: var(--atrium-automation-card-icon-fg);
+}
+
+.card[data-unavailable] .tile {
+  background: var(--allgrey-background-color);
+  color: var(--secondary-text-color);
+}
+
+.badge {
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--allgrey-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-automation-badge-font);
+  white-space: nowrap;
+}
+
+.badge[data-availability='p5c'] {
+  border-color: var(--warning-color-selected);
+  background: var(--warning-color-selected);
+}
+
+.sentence {
+  flex: 1;
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--atrium-automation-card-font);
+  overflow-wrap: anywhere;
+}
+
+.card[data-unavailable] .sentence {
+  color: var(--secondary-text-color);
+}
+
+.key {
+  font-weight: var(--font-weight-bold);
+}
+
+.noFit {
+  margin: 0;
+  color: var(--negative-color);
+  font: var(--font-text3-normal);
+}
+
+.use {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+
+  .card:not([data-unavailable]):hover {
+    transform: none;
+  }
+}

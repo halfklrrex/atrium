@@ -202,7 +202,9 @@ describe('Center shell', () => {
 
   it('shows the template sentence in the crumb', () => {
     renderCenter();
-    fireEvent.click(screen.getByRole('button', { name: /notify the board owner/ }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Use template: When an item is created notify someone/ }),
+    );
     expect(screen.getByText(/^From template: /)).toBeInTheDocument();
   });
 
@@ -217,7 +219,9 @@ describe('Center shell', () => {
 
   it('switches to Manage > Board automations after a save', async () => {
     renderCenter();
-    fireEvent.click(screen.getByRole('button', { name: /notify the board owner/ }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Use template: When an item is created notify someone/ }),
+    );
     const form = screen.getByRole('form', { name: 'New automation' });
     fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mocks.writes.create).toHaveBeenCalledTimes(1));

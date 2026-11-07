@@ -2,6 +2,9 @@ import { validateAutomation } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import {
   AVAILABILITY_LABELS,
+  AVAILABILITY_TITLES,
+  BASICS_IDS,
+  basicsTemplates,
   TEMPLATE_CATALOG,
   TEMPLATE_CATEGORIES,
   buildStarterRecipes,
@@ -260,5 +263,20 @@ describe('template catalog', () => {
     expect(templatesByCategory('recommended').every((t) => t.recommended)).toBe(true);
     expect(templatesByCategory('sync').every((t) => t.availability === 'p9')).toBe(true);
     expect(plainSentence(TEMPLATE_CATALOG[0]!)).not.toContain('*');
+  });
+
+  it('gives every entry an icon kind and every unavailable one a long title', () => {
+    for (const t of TEMPLATE_CATALOG) {
+      expect(t.icon, t.id).toBeTruthy();
+      if (t.availability !== 'ready') {
+        expect(AVAILABILITY_TITLES[t.availability], t.id).toBeTruthy();
+      }
+    }
+  });
+
+  it('lists the three basics, all ready and in the catalog', () => {
+    const basics = basicsTemplates();
+    expect(basics.map((t) => t.id)).toEqual([...BASICS_IDS]);
+    expect(basics.every((t) => t.availability === 'ready')).toBe(true);
   });
 });
