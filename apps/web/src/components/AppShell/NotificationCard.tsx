@@ -1,6 +1,6 @@
 import type { NotificationKind } from '@atrium/shared';
 import { Icon, IconButton, Menu, MenuButton, MenuItem } from '@vibe/core';
-import { Bolt, Check, Delete, Mention, Person, Reply, Undo } from '@vibe/icons';
+import { Bolt, Check, Delete, Email, Mention, Person, Reply, Undo } from '@vibe/icons';
 import classNames from 'classnames';
 import type { NotificationDoc } from '../../data/model';
 import { formatUpdated } from '../../lib/format';
@@ -18,7 +18,16 @@ const KIND_ICON: Record<NotificationKind, typeof Person> = {
   automation_disabled: Bolt,
   account_request: Person,
   account_approved: Person,
+  inbox_new: Email,
+  inbox_reply: Email,
 };
+
+/** Account and Inbox notifications carry placeholder board and item ids: no board line. */
+const isPlaceholderRef = (kind: NotificationKind) =>
+  kind === 'account_request' ||
+  kind === 'account_approved' ||
+  kind === 'inbox_new' ||
+  kind === 'inbox_reply';
 
 interface NotificationCardProps {
   notification: NotificationDoc;
@@ -62,7 +71,7 @@ export function NotificationCard({
           ) : null}
           <span className={styles.meta}>
             {formatUpdated(n.createdAt)}
-            {n.kind === 'account_request' || n.kind === 'account_approved' ? null : (
+            {isPlaceholderRef(n.kind) ? null : (
               <>
                 {' • '}
                 <Highlight text={n.itemName} term={term} />

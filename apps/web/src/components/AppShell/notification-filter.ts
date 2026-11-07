@@ -80,5 +80,9 @@ export function actionText(
       return 'asked for access';
     case 'account_approved':
       return 'approved your account';
+    case 'inbox_new':
+      return 'wrote to the site admins';
+    case 'inbox_reply':
+      return 'replied to your feedback';
   }
 }
