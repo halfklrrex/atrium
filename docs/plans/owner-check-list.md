@@ -2,6 +2,14 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Same emoji on every device (live)
+
+- **What changed:** every emoji is now drawn by a font bundled with Atrium (Twemoji style), so it looks the same everywhere and nothing is fetched from another site. The old Windows-only flag pictures are gone.
+- **Check on Windows, Mac and iPhone:** workspace icons, the Country column, an update, the description editor, and the emoji picker. Look at faces, skin tones, family emoji, flags (including England) and the rainbow flag.
+- **While typing:** type and paste emoji in the description editor and in the update box; they should turn into the same pictures at once, in the editor too.
+- **Known and accepted:** keycap emoji (1 with a box) stay in the device's own style, and symbols such as the heart and the check mark now show in colour.
+- If anything looks wrong, report it on monday item 3339109711.
+
 ## New logo (live)
 
 - **What changed:** the four-bars mark is replaced by the new glazed-atrium logo everywhere: favicon, header, login page, About dialog and the full-page account screens.
