@@ -2,10 +2,12 @@ import type { ColumnDef } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import {
   TRIGGER_TYPES,
+  checkBlankableDraft,
   checkDraft,
   conditionColumns,
   conditionOps,
   defaultTrigger,
+  findBlanks,
   isDraftOk,
   resolveRecipeTimezone,
   type BuilderBoard,
@@ -282,5 +284,97 @@ describe('scheduled triggers (P5d)', () => {
     expect(resolveRecipeTimezone('America/New_York')).toBe('America/New_York');
     expect(resolveRecipeTimezone('Not/AZone')).toBe(resolveRecipeTimezone(undefined));
     expect(resolveRecipeTimezone('')).toBe(resolveRecipeTimezone(null));
+  });
+});
+
+describe('blanks', () => {
+  it('a scratch draft has a blank trigger and a blank action', () => {
+    const blanks = findBlanks({ trigger: null, conditions: [], actions: [null] });
+    expect(blanks).toEqual({ trigger: true, conditions: [], actions: [true], total: 2 });
+  });
+
+  it('counts an unpicked column, value, group, person and text', () => {
+    const blanks = findBlanks({
+      trigger: { type: 'status_changed', columnId: '' },
+      conditions: [
+        { columnId: '', op: 'is' },
+        { columnId: 'status', op: 'is' },
+        { columnId: 'status', op: 'is_empty' },
+      ],
+      actions: [
+        { type: 'set_value', columnId: 'status', value: undefined },
+        { type: 'set_value', columnId: 'status', value: null },
+        { type: 'move_to_group', groupId: '' },
+        { type: 'notify', uids: [] },
+        { type: 'rename_item', template: ' ' },
+        { type: 'create_item', name: 'x', values: { status: undefined } },
+        { type: 'post_update', text: '' },
+        { type: 'archive_item' },
+      ],
+    });
+    expect(blanks.trigger).toBe(true);
+    expect(blanks.conditions).toEqual([true, true, false]);
+    expect(blanks.actions).toEqual([true, false, true, true, true, true, true, false]);
+    expect(blanks.total).toBe(1 + 2 + 6);
+  });
+
+  it('a filled draft has none', () => {
+    const blanks = findBlanks({
+      trigger: { type: 'item_created' },
+      conditions: [],
+      actions: [{ type: 'archive_item' }],
+    });
+    expect(blanks.total).toBe(0);
+  });
+
+  it('gives a blank part no message but keeps the others, aligned with the rows', () => {
+    const { problems, blanks } = checkBlankableDraft(
+      {
+        trigger: null,
+        conditions: [{ columnId: 'status', op: 'is' }],
+        actions: [null, { type: 'move_to_group', groupId: 'gone' }, { type: 'archive_item' }],
+      },
+      board,
+      'owner',
+      0,
+    );
+    expect(blanks.total).toBe(3);
+    expect(problems.trigger).toBeNull();
+    expect(problems.conditions).toEqual([null]);
+    expect(problems.actions).toHaveLength(3);
+    expect(problems.actions[0]).toBeNull();
+    expect(problems.actions[1]).toMatch(/deleted/);
+    expect(problems.actions[2]).toBeNull();
+  });
+
+  it('still reports a trigger that points at a deleted column', () => {
+    const { problems, blanks } = checkBlankableDraft(
+      {
+        trigger: { type: 'status_changed', columnId: 'gone' },
+        conditions: [],
+        actions: [{ type: 'archive_item' }],
+      },
+      board,
+      'owner',
+      0,
+    );
+    expect(blanks.total).toBe(0);
+    expect(problems.trigger).toMatch(/no longer exists/);
+    expect(isDraftOk(problems, 1)).toBe(false);
+  });
+
+  it('a complete draft passes', () => {
+    const { problems, blanks } = checkBlankableDraft(
+      {
+        trigger: { type: 'item_created' },
+        conditions: [],
+        actions: [{ type: 'move_to_group', groupId: 'g1' }],
+      },
+      board,
+      'owner',
+      0,
+    );
+    expect(blanks.total).toBe(0);
+    expect(isDraftOk(problems, 1)).toBe(true);
   });
 });

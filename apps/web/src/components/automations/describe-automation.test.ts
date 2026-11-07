@@ -1,6 +1,10 @@
 import type { ButtonAction } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
-import { describeAutomation, type DescribeBoard } from './describe-automation';
+import {
+  describeAutomation,
+  describeAutomationParts,
+  type DescribeBoard,
+} from './describe-automation';
 
 const board: DescribeBoard = {
   columns: [
@@ -285,5 +289,62 @@ describe('describeAutomation: scheduled triggers (P5d)', () => {
     expect(
       sentence({ type: 'date_arrives', columnId: 'gone', offsetDays: 0, at: '09:00' }, [notify]),
     ).toBe('On the day a deleted column arrives at 09:00 (Europe/Madrid), then notify 3 people');
+  });
+});
+
+describe('describeAutomationParts', () => {
+  const recipe = {
+    trigger: { type: 'status_changed', columnId: 'status', toLabelId: 1 },
+    conditions: [{ columnId: 'tags', op: 'is', value: { ids: [1] } }],
+    actions: [
+      { type: 'move_to_group', groupId: 'g-done' },
+      { type: 'notify', uids: ['u1', 'u2'] },
+    ],
+  } satisfies Parameters<typeof describeAutomation>[0];
+  const names: Record<string, string> = { u1: 'Avery Quinn', u2: 'Sam Rivera' };
+  const options = { personName: (uid: string) => names[uid] ?? null };
+
+  it('joins to exactly the plain sentence', () => {
+    const parts = describeAutomationParts(recipe, board, options);
+    expect(parts.map((p) => p.text).join('')).toBe(describeAutomation(recipe, board, options));
+    expect(parts.map((p) => p.text).join('')).toBe(
+      'When Status changes to Done and Area is Web, then move the item to Done items and notify Avery Quinn and Sam Rivera',
+    );
+  });
+
+  it('marks names as strong and a status label as a chip in its own colour', () => {
+    const parts = describeAutomationParts(recipe, board, options);
+    expect(parts.find((p) => p.text === 'Status')).toEqual({ text: 'Status', strong: true });
+    expect(parts.find((p) => p.text === 'Done')).toEqual({ text: 'Done', color: '#00c875' });
+    expect(parts.find((p) => p.text === 'Done items')?.strong).toBe(true);
+    expect(parts.find((p) => p.text === 'Avery Quinn and Sam Rivera')?.strong).toBe(true);
+  });
+
+  it('keeps a scheduled sentence without "When"', () => {
+    const parts = describeAutomationParts(
+      {
+        trigger: { type: 'recurring', every: 'week', weekday: 5, at: '17:00' },
+        conditions: [],
+        actions: [{ type: 'archive_item' }],
+        timezone: 'UTC',
+      },
+      board,
+    );
+    expect(parts.map((p) => p.text).join('')).toBe(
+      'Every Friday at 17:00 (UTC), then archive the item',
+    );
+  });
+
+  it('a deleted label or column stays plain text', () => {
+    const parts = describeAutomationParts(
+      {
+        trigger: { type: 'status_changed', columnId: 'status', toLabelId: 99 },
+        conditions: [],
+        actions: [{ type: 'set_value', columnId: 'gone', value: { index: 1 } }],
+      },
+      board,
+    );
+    expect(parts.some((p) => p.color !== undefined)).toBe(false);
+    expect(parts.map((p) => p.text).join('')).toContain('a deleted column');
   });
 });

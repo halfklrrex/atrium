@@ -9,6 +9,7 @@ import {
   type AutomationCondition,
   type AutomationTrigger,
   type BoardRole,
+  type ButtonAction,
   type ColumnDef,
   type GroupDef,
 } from '@atrium/shared';
@@ -228,3 +229,102 @@ export const WEEKDAY_NAMES = [
 
 /** The actions a recipe with this trigger may use; a recurring recipe has no item to act on. */
 export const RECURRING_ACTION_TYPES = ['create_item', 'notify'] as const;
+
+/**
+ * A draft as the sentence builder holds it: a from-scratch recipe starts with a blank trigger and a
+ * blank action (`null`), each shown as a blank to fill in. Nothing blank is ever saved.
+ */
+export interface BlankableDraft {
+  trigger: AutomationTrigger | null;
+  conditions: readonly AutomationCondition[];
+  actions: readonly (ButtonAction | null)[];
+}
+
+/** Which parts of a draft are still blanks, and how many in all. */
+export interface DraftBlanks {
+  trigger: boolean;
+  conditions: boolean[];
+  actions: boolean[];
+  total: number;
+}
+
+const actionIsBlank = (action: ButtonAction | null): boolean => {
+  if (action === null) return true;
+  switch (action.type) {
+    case 'set_value':
+      return action.columnId === '' || action.value === undefined;
+    case 'move_to_group':
+      return action.groupId === '';
+    case 'notify':
+      return action.uids.length === 0;
+    case 'rename_item':
+      return action.template.trim() === '';
+    case 'create_item':
+      return (
+        action.name.trim() === '' || Object.values(action.values ?? {}).some((v) => v === undefined)
+      );
+    case 'post_update':
+      return action.text.trim() === '';
+    case 'archive_item':
+      return false;
+  }
+};
+
+/** Finds the blanks: an unpicked trigger, column, value, group, person or text. */
+export function findBlanks(draft: BlankableDraft): DraftBlanks {
+  const trigger =
+    draft.trigger === null || ('columnId' in draft.trigger && draft.trigger.columnId === '');
+  const conditions = draft.conditions.map(
+    (c) => c.columnId === '' || (needsValue(c.op) && c.value === undefined),
+  );
+  const actions = draft.actions.map(actionIsBlank);
+  const total = (trigger ? 1 : 0) + [...conditions, ...actions].filter(Boolean).length;
+  return { trigger, conditions, actions, total };
+}
+
+/**
+ * `checkDraft` for a draft that may still have blanks. A blank part gets no message (it is simply
+ * unfinished, and the blank counter says so); every other failure sits next to its part as before.
+ * Action messages stay aligned with the draft's action rows.
+ */
+export function checkBlankableDraft(
+  draft: BlankableDraft,
+  board: BuilderBoard,
+  role: BoardRole | null,
+  existingCount: number | null,
+  scheduled: Parameters<typeof checkDraft>[4] = {},
+): { problems: DraftProblems; blanks: DraftBlanks } {
+  const blanks = findBlanks(draft);
+  const rows: number[] = [];
+  const actions: ButtonAction[] = [];
+  draft.actions.forEach((action, i) => {
+    if (action) {
+      rows.push(i);
+      actions.push(action);
+    }
+  });
+  const checked = checkDraft(
+    {
+      trigger: draft.trigger ?? { type: 'item_created' },
+      conditions: [...draft.conditions],
+      actions,
+    },
+    board,
+    role,
+    existingCount,
+    scheduled,
+  );
+  const aligned: (string | null)[] = draft.actions.map(() => null);
+  rows.forEach((row, j) => {
+    aligned[row] = blanks.actions[row] ? null : (checked.actions[j] ?? null);
+  });
+  return {
+    blanks,
+    problems: {
+      trigger: blanks.trigger ? null : checked.trigger,
+      conditions: checked.conditions.map((m, i) => (blanks.conditions[i] ? null : m)),
+      actions: aligned,
+      general: checked.general,
+    },
+  };
+}
