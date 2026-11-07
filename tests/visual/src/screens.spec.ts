@@ -20,6 +20,7 @@ import type { Locator, Page } from '@playwright/test';
 import {
   FULL_VIEW_ITEM,
   IDS,
+  INBOX_THREADS,
   CALENDAR_VIEW,
   KANBAN_VIEW,
   TIMELINE_VIEW,
@@ -40,6 +41,7 @@ import {
   addDashboard,
   addView,
   clearActivity,
+  clearInbox,
   clearAutomations,
   clearRichUpdate,
   clearRecents,
@@ -60,6 +62,7 @@ import {
   seedSavedTemplate,
   seedActivity,
   seedAutomations,
+  seedInbox,
   seedNotifications,
   seedRichUpdate,
 } from './seed';
@@ -805,6 +808,44 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(panel.getByText('Replied to your update')).toBeVisible();
       await expect(panel.getByText('Assigned you to an item')).toBeVisible();
       await shoot(page, `notifications-panel-${theme}`);
+    });
+
+    test('admin: Inbox list', async ({ page }) => {
+      await seedInbox();
+      try {
+        await page.goto('/admin/inbox');
+        await appReady(page);
+        await expect(page.getByRole('heading', { name: 'Site admin' })).toBeVisible();
+        // The default filter is Open: the appeal and the bug report. Show the answered idea too.
+        await page
+          .getByRole('group', { name: 'Status' })
+          .getByRole('button', { name: 'All', exact: true })
+          .click();
+        const list = page.getByRole('list', { name: 'Conversations' });
+        await expect(list.getByRole('listitem')).toHaveCount(3);
+        await expect(list.getByText('Casey Morgan')).toBeVisible();
+        await expect(page.getByTestId('inbox-unread-count')).toHaveText('1');
+        await shoot(page, `admin-inbox-list-${theme}`);
+      } finally {
+        await clearInbox();
+      }
+    });
+
+    test('admin: appeal thread', async ({ page }) => {
+      await seedInbox();
+      try {
+        await page.goto(`/admin/inbox/${INBOX_THREADS.appeal}`);
+        await appReady(page);
+        await expect(page.getByRole('heading', { name: 'Appeal', level: 1 })).toBeVisible();
+        await expect(page.getByText('Site Administrator')).toBeVisible();
+        await expect(page.getByText('It was my brother using my laptop.').first()).toBeVisible();
+        await expect(page.getByRole('textbox', { name: 'Internal note' })).toHaveValue(
+          /40 addresses/,
+        );
+        await shoot(page, `admin-appeal-thread-${theme}`);
+      } finally {
+        await clearInbox();
+      }
     });
 
     test('404 page', async ({ page }) => {

@@ -159,10 +159,12 @@ export async function seed(): Promise<void> {
     password: AVERY.password,
     displayName: AVERY.displayName,
   });
-  // The Firestore rules gate on this claim (ADMIN-1b): the seeded user is an approved account.
-  await auth.setCustomUserClaims(AVERY.uid, { acct: 'approved' });
+  // The Firestore rules gate on this claim (ADMIN-1b): the seeded user is an approved account. The
+  // `admin` claim (ADMIN-4) lets the same user open the site admin Inbox screens.
+  await auth.setCustomUserClaims(AVERY.uid, { acct: 'approved', admin: true });
 
   await clearSeededData(firestore);
+  await clearInbox();
 
   // The user doc and personal workspace come out of the same code `bootstrapUser` runs on sign-in,
   // only with a fixed workspace id and the frozen timestamp instead of a server timestamp.
@@ -1524,4 +1526,154 @@ export async function addDashboard(): Promise<void> {
 
 export async function removeDashboard(): Promise<void> {
   await adminDb().collection('dashboards').doc(DASHBOARD_ID).delete();
+}
+
+/** Ids of the Inbox threads `seedInbox` writes (ADMIN-4). */
+export const INBOX_THREADS = {
+  appeal: 'inbox-appeal',
+  bug: 'inbox-feedback-bug',
+  idea: 'inbox-feedback-idea',
+} as const;
+
+/**
+ * Three Inbox conversations as the Functions would have written them (fictional people): an open
+ * appeal with an admin reply and an internal note, an open bug report, and an answered idea.
+ * Remove them with `clearInbox`.
+ */
+export async function seedInbox(): Promise<void> {
+  const firestore = adminDb();
+  const inbox = firestore.collection('inbox');
+  const common = {
+    senderPhotoURL: null,
+    outcome: null,
+    senderUnread: false,
+    closedAt: null,
+  };
+  const batch = firestore.batch();
+
+  const appeal = inbox.doc(INBOX_THREADS.appeal);
+  batch.set(appeal, {
+    ...common,
+    kind: 'appeal',
+    category: null,
+    subject: 'Appeal',
+    senderUid: 'visual-casey',
+    senderName: 'Casey Morgan',
+    senderEmail: 'casey@example.com',
+    status: 'open',
+    messageCount: 3,
+    lastMessageAt: ago(25 * 60_000),
+    lastMessageBy: 'sender',
+    lastSnippet: 'It was my brother using my laptop. It will not happen again.',
+    adminUnread: true,
+    createdAt: ago(2 * DAY),
+    updatedAt: ago(25 * 60_000),
+  });
+  const appealMessages: [string, 'sender' | 'admin', string, number][] = [
+    [
+      'm1',
+      'sender',
+      'Hello, I think my account was blocked by mistake. I only shared a board with my family.',
+      2 * DAY,
+    ],
+    [
+      'm2',
+      'admin',
+      'Thanks for writing. Our records show a lot of invitations sent within a few minutes. Can you tell us what happened?',
+      DAY,
+    ],
+    ['m3', 'sender', 'It was my brother using my laptop. It will not happen again.', 25 * 60_000],
+  ];
+  appealMessages.forEach(([id, role, text, age], index) => {
+    batch.set(appeal.collection('messages').doc(id), {
+      seq: index + 1,
+      authorRole: role,
+      authorUid: role === 'sender' ? 'visual-casey' : null,
+      authorName: role === 'sender' ? 'Casey Morgan' : null,
+      authorPhotoURL: null,
+      text,
+      createdAt: ago(age),
+    });
+  });
+  batch.set(firestore.collection('inboxNotes').doc(INBOX_THREADS.appeal), {
+    text: 'Invitations went to 40 addresses in 3 minutes. Looks plausible that it was a shared laptop.',
+    updatedAt: ago(DAY),
+    updatedBy: AVERY.uid,
+  });
+
+  const bug = inbox.doc(INBOX_THREADS.bug);
+  batch.set(bug, {
+    ...common,
+    kind: 'feedback',
+    category: 'bug',
+    subject: 'Calendar view crashes on June',
+    senderUid: 'visual-jordan',
+    senderName: 'Jordan Lee',
+    senderEmail: 'jordan@example.com',
+    status: 'open',
+    messageCount: 1,
+    lastMessageAt: ago(3 * HOUR),
+    lastMessageBy: 'sender',
+    lastSnippet: 'When I switch the calendar to June the page goes blank.',
+    adminUnread: false,
+    createdAt: ago(3 * HOUR),
+    updatedAt: ago(3 * HOUR),
+  });
+  batch.set(bug.collection('messages').doc('m1'), {
+    seq: 1,
+    authorRole: 'sender',
+    authorUid: 'visual-jordan',
+    authorName: 'Jordan Lee',
+    authorPhotoURL: null,
+    text: 'When I switch the calendar to June the page goes blank.',
+    createdAt: ago(3 * HOUR),
+  });
+
+  const idea = inbox.doc(INBOX_THREADS.idea);
+  batch.set(idea, {
+    ...common,
+    kind: 'feedback',
+    category: 'idea',
+    subject: 'Keyboard shortcut for new item',
+    senderUid: 'visual-sam',
+    senderName: 'Sam Rivera',
+    senderEmail: 'sam@example.com',
+    status: 'answered',
+    messageCount: 2,
+    lastMessageAt: ago(DAY),
+    lastMessageBy: 'admin',
+    lastSnippet: 'Good idea, we have added it to the list.',
+    adminUnread: false,
+    senderUnread: true,
+    createdAt: ago(3 * DAY),
+    updatedAt: ago(DAY),
+  });
+  batch.set(idea.collection('messages').doc('m1'), {
+    seq: 1,
+    authorRole: 'sender',
+    authorUid: 'visual-sam',
+    authorName: 'Sam Rivera',
+    authorPhotoURL: null,
+    text: 'A shortcut to add a new item to the top group would save me a lot of clicks.',
+    createdAt: ago(3 * DAY),
+  });
+  batch.set(idea.collection('messages').doc('m2'), {
+    seq: 2,
+    authorRole: 'admin',
+    authorUid: null,
+    authorName: null,
+    authorPhotoURL: null,
+    text: 'Good idea, we have added it to the list.',
+    createdAt: ago(DAY),
+  });
+  await batch.commit();
+}
+
+/** Removes what `seedInbox` wrote, so other screens never see it. */
+export async function clearInbox(): Promise<void> {
+  const firestore = adminDb();
+  for (const id of Object.values(INBOX_THREADS)) {
+    await firestore.recursiveDelete(firestore.collection('inbox').doc(id));
+    await firestore.collection('inboxNotes').doc(id).delete();
+  }
 }
