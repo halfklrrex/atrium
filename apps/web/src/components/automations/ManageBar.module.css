@@ -1,0 +1,26 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+  padding-block: var(--space-4);
+}
+
+.usage {
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+  font-variant-numeric: tabular-nums;
+}
+
+.search {
+  width: var(--atrium-automation-manage-search-width);
+}

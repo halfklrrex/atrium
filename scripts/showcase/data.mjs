@@ -1807,7 +1807,7 @@ export function buildShowcase({
   });
   summary.views += 1;
 
-  // ---- Six recipes in the Automation center: two on and harmless, one off with its reason, one of each P5c trigger and action, and one of each P5d trigger (off) ----
+  // ---- Six recipes in the Automation center: two on and harmless, one off by the breaker (with its reason), one of each P5c trigger and action, and one of each P5d trigger (off) ----
   // `runAs` is the owner. No `automationRuns` are seeded: only Cloud Functions write those.
   const recipeStamps = {
     runAs: ownerUid,
@@ -1871,10 +1871,10 @@ export function buildShowcase({
       ...recipeStamps,
     }),
   });
-  // One recipe of each P5d (scheduler-driven) type. Both are seeded OFF, with a reason: the
-  // scheduler fires enabled recipes in production, so the owner switches them on to try them.
-  const scheduledOffReason =
-    'Switched off so the showcase does not fire on a schedule. Turn it on to try it.';
+  // One recipe of each P5d (scheduler-driven) type. Both are seeded OFF: the scheduler fires
+  // enabled recipes in production, so the owner switches them on to try them. They carry no
+  // `disabledReason`: a reason means the circuit breaker tripped and flags "Needs attention",
+  // and these are off on purpose.
   docs.push({
     path: `boards/${SHOWCASE_MAIN_ID}/automations/showcase-due-soon`,
     data: automationSchema.parse({
@@ -1884,7 +1884,7 @@ export function buildShowcase({
       conditions: [{ columnId: 'status', op: 'is_not', value: { index: STATUS.done } }],
       actions: [{ type: 'notify', uids: [ownerUid], message: 'Due in 3 days.' }],
       timezone: 'UTC',
-      disabledReason: scheduledOffReason,
+      disabledReason: null,
       ...recipeStamps,
     }),
   });
@@ -1897,7 +1897,7 @@ export function buildShowcase({
       conditions: [],
       actions: [{ type: 'create_item', name: 'Weekly review {date}', groupId: 'backlog' }],
       timezone: 'UTC',
-      disabledReason: scheduledOffReason,
+      disabledReason: null,
       ...recipeStamps,
     }),
   });

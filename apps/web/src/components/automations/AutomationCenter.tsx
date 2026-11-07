@@ -1,5 +1,5 @@
 import { canManageBoard, type BoardRole } from '@atrium/shared';
-import { Button, Modal, Tab, TabList } from '@vibe/core';
+import { Button, Modal } from '@vibe/core';
 import { NavigationChevronLeft } from '@vibe/icons';
 import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
@@ -20,14 +20,12 @@ import { showToast } from '../toast-store';
 import { CENTER_PANEL_ID, CENTER_TAB_ID, CenterHeader, type CenterView } from './CenterHeader';
 import { CreateTab } from './CreateTab';
 import { describeAutomation } from './describe-automation';
+import { ManageBar, type ManageTab } from './ManageBar';
 import { RecipesTab } from './RecipesTab';
 import { RecipeBuilder } from './RecipeBuilder';
 import { RunHistoryTab } from './RunHistoryTab';
 import { lastRunByAutomation } from './run-history';
-import { buildStarterRecipes } from './starter-recipes';
 import shell from './CenterShell.module.css';
-
-type CenterTab = 'recipes' | 'history';
 
 const TITLE_ID = 'automation-center-title';
 
@@ -90,7 +88,8 @@ function CenterBody({
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const isOwner = canManageBoard(role);
-  const [tab, setTab] = useState<CenterTab>('recipes');
+  const [tab, setTab] = useState<ManageTab>('recipes');
+  const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AutomationDoc | null>(null);
   const [builder, setBuilder] = useState<BuilderTarget | null>(null);
@@ -136,11 +135,6 @@ function CenterBody({
       }
     },
     [],
-  );
-
-  const starters = useMemo(
-    () => (isOwner ? buildStarterRecipes(board, uid) : []),
-    [board, isOwner, uid],
   );
 
   const openBuilder = (target: BuilderTarget) => {
@@ -211,13 +205,15 @@ function CenterBody({
   ) : (
     <div className={view === 'create' ? shell.create : shell.manage}>
       {view === 'manage' ? (
-        <TabList
-          activeTabId={tab === 'recipes' ? 0 : 1}
-          onTabChange={(id: number) => setTab(id === 0 ? 'recipes' : 'history')}
-        >
-          <Tab>Recipes</Tab>
-          <Tab>Run history</Tab>
-        </TabList>
+        <ManageBar
+          tab={tab}
+          onTabChange={setTab}
+          count={automations.data.length}
+          isOwner={isOwner}
+          search={search}
+          onSearchChange={setSearch}
+          onCreate={() => openBuilder({ mode: 'create' })}
+        />
       ) : null}
       <div className={view === 'create' ? undefined : shell.manageScroll}>
         {view === 'create' ? (
@@ -239,8 +235,8 @@ function CenterBody({
             lastRuns={lastRuns}
             busyId={busyId}
             deleting={deleting}
-            starters={starters}
-            onStart={(starter) => openBuilder({ mode: 'create', initial: starter.input })}
+            search={search}
+            onBrowseTemplates={() => changeView('create')}
             onCreate={() => openBuilder({ mode: 'create' })}
             onEdit={(automation) => openBuilder({ mode: 'edit', automation })}
             onDuplicate={(automation) =>

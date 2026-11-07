@@ -3,12 +3,11 @@ import {
   AUTOMATION_RUN_STATUSES,
   type AutomationRunStatus,
 } from '@atrium/shared';
-import { Dropdown, Label, Loader } from '@vibe/core';
+import { Dropdown, Loader } from '@vibe/core';
 import { useMemo, useState } from 'react';
 import type { AutomationDoc, AutomationRunDoc } from '../../data/automations';
 import { AUTOMATION_RUNS_LIMIT } from '../../data/automations';
 import { useItems } from '../../data';
-import { formatUpdated } from '../../lib/format';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { NoSearchResults } from '../illustrations';
 import {
@@ -16,21 +15,25 @@ import {
   type DescribeBoard,
   type DescribeOptions,
 } from './describe-automation';
-import { RUN_STATUS_LABELS, filterRuns, runDetail, scheduledRunInfo } from './run-history';
+import {
+  RUN_STATUS_LABELS,
+  filterRuns,
+  formatRunTime,
+  runDetail,
+  scheduledRunInfo,
+} from './run-history';
+import { RunStatusChip } from './RunStatusChip';
 import styles from './AutomationCenter.module.css';
 
 type Option = { value: string; label: string };
 
-const STATUS_OPTIONS: Option[] = AUTOMATION_RUN_STATUSES.map((value) => ({
-  value,
-  label: RUN_STATUS_LABELS[value],
-}));
+const ALL_AUTOMATIONS: Option = { value: '', label: 'All automations' };
+const ALL_RESULTS: Option = { value: '', label: 'All results' };
 
-const LABEL_COLOR: Record<AutomationRunStatus, 'positive' | 'negative' | 'dark'> = {
-  ok: 'positive',
-  failed: 'negative',
-  skipped: 'dark',
-};
+const STATUS_OPTIONS: Option[] = [
+  ALL_RESULTS,
+  ...AUTOMATION_RUN_STATUSES.map((value) => ({ value, label: RUN_STATUS_LABELS[value] })),
+];
 
 export interface RunHistoryTabProps {
   boardId: string;
@@ -82,11 +85,13 @@ function OwnerRunHistory({
     return automation.name.trim() || describeAutomation(automation, board, describeOptions);
   };
   const recipeOptions = useMemo<Option[]>(
-    () =>
-      automations.map((a) => ({
+    () => [
+      ALL_AUTOMATIONS,
+      ...automations.map((a) => ({
         value: a.id,
         label: a.name.trim() || describeAutomation(a, board, describeOptions),
       })),
+    ],
     [automations, board, describeOptions],
   );
   const filtered = useMemo(
@@ -112,56 +117,65 @@ function OwnerRunHistory({
       />
     );
   }
+
+  const toolbar = (
+    <div className={styles.filters}>
+      <div className={styles.filterWide}>
+        <Dropdown
+          size="small"
+          aria-label="Filter by automation"
+          options={recipeOptions}
+          value={recipeOptions.find((o) => o.value === (automationId ?? ''))}
+          clearable={false}
+          onChange={(selected: unknown) =>
+            setAutomationId((selected as Option | null)?.value || null)
+          }
+        />
+      </div>
+      <div className={styles.filter}>
+        <Dropdown
+          size="small"
+          aria-label="Filter by result"
+          searchable={false}
+          options={STATUS_OPTIONS}
+          value={STATUS_OPTIONS.find((o) => o.value === (status ?? ''))}
+          clearable={false}
+          onChange={(selected: unknown) =>
+            setStatus(((selected as Option | null)?.value || null) as AutomationRunStatus | null)
+          }
+        />
+      </div>
+      <span className={styles.meta}>{`Last ${AUTOMATION_LIMITS.runTtlDays} days`}</span>
+    </div>
+  );
+
   if (runs.length === 0) {
     return (
-      <EmptyState
-        size="panel"
-        title="No runs yet"
-        body="When an automation runs, it will show up here with what happened."
-      />
+      <>
+        {toolbar}
+        <EmptyState
+          size="panel"
+          illustration={<NoSearchResults />}
+          title="No runs to show"
+          body={
+            automations.length > 0
+              ? 'Change the filters, or wait for a trigger: runs appear here within a few seconds.'
+              : 'Runs appear here once an automation does something.'
+          }
+        />
+      </>
     );
   }
 
   return (
     <>
-      <div className={styles.filters}>
-        <div className={styles.filter}>
-          <Dropdown
-            size="small"
-            placeholder="Automation"
-            aria-label="Filter by automation"
-            options={recipeOptions}
-            value={recipeOptions.find((o) => o.value === automationId)}
-            clearable
-            onChange={(selected: unknown) =>
-              setAutomationId((selected as Option | null)?.value ?? null)
-            }
-            onClear={() => setAutomationId(null)}
-          />
-        </div>
-        <div className={styles.filter}>
-          <Dropdown
-            size="small"
-            placeholder="Status"
-            aria-label="Filter by status"
-            searchable={false}
-            options={STATUS_OPTIONS}
-            value={STATUS_OPTIONS.find((o) => o.value === status)}
-            clearable
-            onChange={(selected: unknown) =>
-              setStatus(((selected as Option | null)?.value ?? null) as AutomationRunStatus | null)
-            }
-            onClear={() => setStatus(null)}
-          />
-        </div>
-      </div>
-
+      {toolbar}
       {filtered.length === 0 ? (
         <EmptyState
           size="panel"
           illustration={hasFilters ? <NoSearchResults /> : undefined}
           title="No runs match these filters"
-          body="Try a different automation or status."
+          body="Try a different automation or result."
           primaryAction={{
             label: 'Clear filters',
             onClick: () => {
@@ -171,67 +185,65 @@ function OwnerRunHistory({
           }}
         />
       ) : (
-        <div>
-          <div className={styles.runHeader} aria-hidden="true">
-            <span>When</span>
-            <span>Automation</span>
-            <span>Item</span>
-            <span>Result</span>
-            <span>Details</span>
-          </div>
-          <ul className={styles.list} aria-label="Run history">
+        <table className={styles.table} aria-label="Run history">
+          <thead>
+            <tr>
+              <th scope="col">When</th>
+              <th scope="col">Automation</th>
+              <th scope="col">Item</th>
+              <th scope="col">Result</th>
+            </tr>
+          </thead>
+          <tbody>
             {filtered.map((run) => {
               const itemName = run.itemId ? itemNames.get(run.itemId) : undefined;
               const scheduled = scheduledRunInfo(run);
-              const cells = (
-                <>
-                  <span
-                    className={styles.cell}
+              const detail = runDetail(run);
+              return (
+                <tr key={run.id} className={styles.tableRow}>
+                  <td
+                    className={styles.meta}
                     title={
                       scheduled
                         ? `${scheduled.label}. Ran ${run.startedAt.toDate().toLocaleString()}`
                         : run.startedAt.toDate().toLocaleString()
                     }
                   >
-                    {formatUpdated(run.startedAt)}
-                  </span>
-                  <span className={styles.cell}>{recipeName(run.automationId)}</span>
-                  <span className={styles.cell}>
-                    {run.itemId ? (itemName ?? 'Deleted item') : (scheduled?.label ?? 'Scheduled')}
-                  </span>
-                  <span>
-                    <Label
-                      text={RUN_STATUS_LABELS[run.status]}
-                      color={LABEL_COLOR[run.status]}
-                      size="small"
-                      kind="line"
-                    />
-                  </span>
-                  <span className={styles.detail}>{runDetail(run)}</span>
-                </>
-              );
-              return (
-                <li key={run.id} className={styles.runItem}>
-                  {run.itemId && itemName !== undefined ? (
-                    <button
-                      type="button"
-                      className={styles.runRow}
-                      onClick={() => onOpenItem(run.itemId as string)}
-                    >
-                      {cells}
-                    </button>
-                  ) : (
-                    <div className={styles.runRow}>{cells}</div>
-                  )}
-                </li>
+                    {formatRunTime(run.startedAt)}
+                  </td>
+                  <td className={styles.runRecipe}>{recipeName(run.automationId)}</td>
+                  <td>
+                    {run.itemId && itemName !== undefined ? (
+                      <button
+                        type="button"
+                        className={styles.itemLink}
+                        onClick={() => onOpenItem(run.itemId as string)}
+                      >
+                        {itemName}
+                      </button>
+                    ) : (
+                      <span className={styles.meta}>
+                        {run.itemId ? 'Deleted item' : (scheduled?.label ?? 'Scheduled')}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={styles.result}>
+                      <RunStatusChip status={run.status} />
+                      {detail ? <span className={styles.meta}>{detail}</span> : null}
+                    </span>
+                  </td>
+                </tr>
               );
             })}
-          </ul>
-        </div>
+          </tbody>
+        </table>
       )}
-      <p className={styles.footnote}>
-        {`Showing the latest ${AUTOMATION_RUNS_LIMIT} runs. Runs are kept for ${AUTOMATION_LIMITS.runTtlDays} days.`}
-      </p>
+      {runs.length >= AUTOMATION_RUNS_LIMIT ? (
+        <p className={styles.footnote}>
+          {`Showing the latest ${AUTOMATION_RUNS_LIMIT} runs. Runs are kept for ${AUTOMATION_LIMITS.runTtlDays} days.`}
+        </p>
+      ) : null}
     </>
   );
 }

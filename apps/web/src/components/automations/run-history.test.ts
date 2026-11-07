@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { scheduledRunInfo } from './run-history';
+import { formatRunTime, scheduledRunInfo } from './run-history';
+
+describe('formatRunTime', () => {
+  const at = (...args: [number, number, number, number, number]) => ({
+    toMillis: () => new Date(...args).getTime(),
+  });
+  const now = new Date(2026, 10, 7, 16, 0).getTime();
+
+  it('says Today and Yesterday with a 24-hour time', () => {
+    expect(formatRunTime(at(2026, 10, 7, 14, 32), now, 'en-US')).toBe('Today 14:32');
+    expect(formatRunTime(at(2026, 10, 6, 17, 18), now, 'en-US')).toBe('Yesterday 17:18');
+  });
+
+  it('reads yesterday by calendar day, not by 24 hours', () => {
+    expect(formatRunTime(at(2026, 10, 6, 23, 59), now, 'en-US')).toBe('Yesterday 23:59');
+  });
+
+  it('falls back to the short date and time', () => {
+    expect(formatRunTime(at(2026, 10, 3, 15, 11), now, 'en-US')).toBe('Nov 3, 15:11');
+  });
+});
 
 describe('scheduledRunInfo', () => {
   it('reads the instant of a recurring run from its id', () => {

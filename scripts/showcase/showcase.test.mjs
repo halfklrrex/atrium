@@ -968,7 +968,7 @@ test('the main board has a shared, closed Form view whose questions the form rul
   assert.deepEqual(formPublishProblems(view.settings.form, board), []);
 });
 
-test('the main board has six recipes (three on, three off with a reason, covering every trigger and action type) valid against the board, and no runs', () => {
+test('the main board has six recipes (three on, three off (one by the breaker, with a reason), covering every trigger and action type) valid against the board, and no runs', () => {
   const { docs, summary } = build();
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
   const recipes = docs.filter((d) => /^boards\/showcase-main\/automations\/[^/]+$/.test(d.path));
@@ -985,7 +985,12 @@ test('the main board has six recipes (three on, three off with a reason, coverin
     assert.ok(triggers.has(type), type);
   }
   for (const type of ['create_item', 'post_update']) assert.ok(actions.has(type), type);
-  assert.ok(off.every((r) => r.data.disabledReason));
+  // Only the breaker example carries a reason (and so "Needs attention"); the scheduled ones are
+  // off on purpose and have none.
+  assert.deepEqual(
+    off.filter((r) => r.data.disabledReason).map((r) => r.path.split('/').pop()),
+    ['showcase-done-to-group'],
+  );
   // Scheduled recipes carry a known zone and stay off, so production does not run them unasked.
   for (const { data } of recipes) {
     const scheduled = ['date_arrives', 'recurring'].includes(data.trigger.type);
