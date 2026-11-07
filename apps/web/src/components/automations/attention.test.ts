@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attentionReason, filterNeedsAttention } from './attention';
+import { attentionReason } from './attention';
 
 const on = { enabled: true, disabledReason: null };
 
@@ -21,20 +21,5 @@ describe('attentionReason', () => {
     expect(attentionReason(on, { status: 'ok' })).toBeNull();
     expect(attentionReason(on, { status: 'skipped' })).toBeNull();
     expect(attentionReason(on, undefined)).toBeNull();
-  });
-});
-
-describe('filterNeedsAttention', () => {
-  const list = [
-    { id: 'a', ...on },
-    { id: 'b', ...on },
-    { id: 'c', enabled: false, disabledReason: 'Too many failures' },
-  ];
-  it('keeps failing and breaker-disabled ones in order', () => {
-    const runs = new Map([['b', { status: 'failed' as const }]]);
-    expect(filterNeedsAttention(list, runs).map((a) => a.id)).toEqual(['b', 'c']);
-  });
-  it('works without history (non-owners)', () => {
-    expect(filterNeedsAttention(list, null).map((a) => a.id)).toEqual(['c']);
   });
 });

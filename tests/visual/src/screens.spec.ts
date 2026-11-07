@@ -579,7 +579,9 @@ for (const theme of ['light', 'dark'] as const) {
         const table = dialog.getByRole('table', { name: 'Automations' });
         // Two data rows; the header row is excluded.
         await expect(table.locator('tbody').getByRole('row')).toHaveCount(2);
-        await expect(dialog.getByText(/Turned off: /)).toBeVisible();
+        // The breaker-off recipe shows its reason as a warning line and a "Needs attention" chip.
+        await expect(dialog.getByText('Turned off after 5 failed runs in a row.')).toBeVisible();
+        await expect(dialog.getByText('Needs attention')).toBeVisible();
         await shoot(page, `automation-center-${theme}`, PARK_IN_HEADER);
       } finally {
         await clearAutomations();

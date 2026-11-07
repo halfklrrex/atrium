@@ -1,15 +1,13 @@
 /*
  * The builder fills the center's builder area edge to edge: the canvas on the left, the "Reads as"
- * panel on the right, the footer under both. The area around it (CenterShell .builderScroll) pads
- * its content, so the form takes that padding back with negative margins.
+ * panel on the right, the footer under both.
  */
 .builder {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--atrium-automation-builder-side-width);
   grid-template-rows: minmax(0, 1fr) auto;
-  height: calc(100% + var(--space-40) * 2);
+  height: 100%;
   min-height: var(--atrium-automation-min-height);
-  margin: calc(var(--space-40) * -1);
 }
 
 .canvas {

@@ -215,7 +215,7 @@ function CenterBody({
           onCreate={() => openBuilder({ mode: 'create' })}
         />
       ) : null}
-      <div className={view === 'create' ? undefined : shell.manageScroll}>
+      <div className={view === 'create' ? shell.createBody : shell.manageScroll}>
         {view === 'create' ? (
           <CreateTab
             board={board}
