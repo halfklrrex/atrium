@@ -418,8 +418,18 @@
 /* Bulk edit: the same outline as the active cell, on this column in every selected row. */
 .cellBulk {
   z-index: var(--atrium-z-raised);
-  outline: var(--atrium-table-focus-outline);
-  outline-offset: calc(var(--border-width) * -1);
+}
+
+/* An overlay, not an outline: full-bleed cells (Status, Priority) paint an absolutely positioned
+   pill over the cell's own outline. The cell is its own stacking context (position + z-index), so
+   this ::after sits above every child and never takes pointer events. */
+.cellBulk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: var(--atrium-z-raised);
+  box-shadow: inset 0 0 0 var(--atrium-table-bulk-outline-width) var(--primary-color);
+  pointer-events: none;
 }
 
 .cellActive {
