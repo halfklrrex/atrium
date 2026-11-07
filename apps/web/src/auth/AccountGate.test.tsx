@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from './auth-context';
-import { ACCOUNT_DISABLED_MESSAGE } from './auth-errors';
+import { BLOCKED_SCREEN_MESSAGE } from './AccountGate';
 import { RequireAuth } from './RequireAuth';
 
 const mocks = vi.hoisted(() => ({
@@ -75,12 +75,14 @@ describe('AccountGate', () => {
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the blocked screen with a sign out button and does not listen', async () => {
+  it('shows the blocked screen with the interim text and a sign out button', async () => {
     renderGate('blocked');
     expect(screen.getByRole('heading', { name: 'Your account is blocked' })).toBeInTheDocument();
-    expect(screen.getByText(ACCOUNT_DISABLED_MESSAGE)).toBeInTheDocument();
+    expect(BLOCKED_SCREEN_MESSAGE).toBe(
+      "An admin has blocked this account, so you can't use Atrium with it. If you think this is a mistake, contact the site admin.",
+    );
+    expect(screen.getByText(BLOCKED_SCREEN_MESSAGE)).toBeInTheDocument();
     expect(screen.queryByText('the app shell')).not.toBeInTheDocument();
-    expect(mocks.snapshot).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(signOut).toHaveBeenCalledTimes(1);
   });
@@ -98,6 +100,22 @@ describe('AccountGate', () => {
     act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
     act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
     await waitFor(() => expect(refreshAccount).toHaveBeenCalledTimes(1));
+  });
+
+  it('a blocked screen listens for the unblock and refreshes the session once', async () => {
+    renderGate('blocked');
+    expect(mocks.snapshot).not.toBeNull();
+    act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'blocked' }) }));
+    expect(refreshAccount).not.toHaveBeenCalled();
+    act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
+    act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
+    await waitFor(() => expect(refreshAccount).toHaveBeenCalledTimes(1));
+  });
+
+  it('a blocked screen stays put when the document cannot be read', () => {
+    renderGate('blocked');
+    act(() => mocks.snapshotError?.());
+    expect(screen.getByRole('heading', { name: 'Your account is blocked' })).toBeInTheDocument();
   });
 
   it('stays on the waiting screen when the document cannot be read', () => {
