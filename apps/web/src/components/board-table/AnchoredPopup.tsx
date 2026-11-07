@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { usePopupZIndex } from '../PopupLayer';
 import styles from './AnchoredPopup.module.css';
 
 interface AnchoredPopupProps {
@@ -19,6 +20,8 @@ interface AnchoredPopupProps {
   /** Centre under the anchor instead of aligning the left edges. */
   center?: boolean;
   className?: string;
+  /** Extra width rule: the popup is at least as wide as the anchor. */
+  matchAnchorWidth?: boolean;
 }
 
 const GAP = 4;
@@ -39,8 +42,10 @@ export function AnchoredPopup({
   children,
   center = false,
   className,
+  matchAnchorWidth = false,
 }: AnchoredPopupProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const layer = usePopupZIndex();
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' });
   const closeRef = useRef(onClose);
   useEffect(() => {
@@ -62,7 +67,7 @@ export function AnchoredPopup({
         const above = rect.top - GAP - height;
         top = above >= EDGE ? above : Math.max(EDGE, window.innerHeight - height - EDGE);
       }
-      setStyle({ left, top });
+      setStyle(matchAnchorWidth ? { left, top, minWidth: rect.width } : { left, top });
     };
     place();
     let frame = 0;
@@ -80,7 +85,7 @@ export function AnchoredPopup({
       window.removeEventListener('scroll', schedule, true);
       observer.disconnect();
     };
-  }, [anchor, center]);
+  }, [anchor, center, matchAnchorWidth]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -112,7 +117,7 @@ export function AnchoredPopup({
       aria-label={label}
       data-popup-keep=""
       className={classNames(styles.popup, className)}
-      style={style}
+      style={layer ? { ...style, zIndex: layer } : style}
     >
       {children}
     </div>,

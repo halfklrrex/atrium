@@ -1,6 +1,5 @@
 /* An inline blank in the automation sentence, and the list it opens. Sized by the surrounding text. */
 .wrap {
-  position: relative;
   display: inline-flex;
   max-width: 100%;
 }
@@ -80,10 +79,6 @@
 
 .panel {
   composes: atrium-scroll from global;
-  position: absolute;
-  inset-block-start: calc(100% + var(--space-4));
-  inset-inline-start: 0;
-  z-index: var(--atrium-z-chrome);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -91,12 +86,6 @@
   max-height: var(--atrium-automation-picker-max-height);
   padding: var(--space-8);
   overflow-y: auto;
-  border: var(--border-width) var(--border-style) var(--layout-border-color);
-  border-radius: var(--border-radius-medium);
-  background: var(--dialog-background-color);
-  box-shadow: var(--box-shadow-medium);
-  color: var(--primary-text-color);
-  font: var(--font-text2-normal);
   animation: pick-in var(--motion-productive-short) var(--motion-timing-enter);
 }
 

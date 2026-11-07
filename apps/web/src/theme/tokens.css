@@ -179,6 +179,7 @@
   --atrium-z-popover: 60; /* workspace switcher, board info, sort/filter panels */
   --atrium-z-dropdown: 70; /* menus, tooltips, cell editors, column pickers; above popovers so a Dropdown opened inside a popover is not painted behind it */
   --atrium-z-modal: 80; /* dialogs */
+  --atrium-z-modal-popup: 85; /* popovers and cell editors opened from inside a modal (PopupLayer), above it, below toasts */
   --atrium-z-toast: 90; /* toasts */
   --monday-modal-z-index: var(--atrium-z-modal); /* Vibe Modal reads this (default 10000) */
 }

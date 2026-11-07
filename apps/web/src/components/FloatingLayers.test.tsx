@@ -3,6 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Popover } from './Popover';
+import { PopupLayer } from './PopupLayer';
+import { AnchoredPopup } from './board-table/AnchoredPopup';
 
 /**
  * Regression: a board's "..." menu was drawn under the table's sticky header. Floating layers must
@@ -81,5 +83,34 @@ describe('floating layers render in a portal on <body>', () => {
     fireEvent.click(option);
     expect(onChange).toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('popup layer inside a modal', () => {
+  const popups = (anchor: HTMLElement | null) => (
+    <>
+      <AnchoredPopup anchor={anchor} onClose={() => undefined} label="Editor">
+        <p>editor</p>
+      </AnchoredPopup>
+      <Popover open onClose={() => undefined} label="Panel" trigger={<span>t</span>}>
+        <p>panel</p>
+      </Popover>
+    </>
+  );
+
+  it('keeps the CSS tier outside a PopupLayer', () => {
+    render(popups(document.body));
+    expect(screen.getByRole('dialog', { name: 'Editor' }).style.zIndex).toBe('');
+    expect(screen.getByRole('dialog', { name: 'Panel' }).style.zIndex).toBe('');
+  });
+
+  it('lifts AnchoredPopup and Popover above the modal inside a PopupLayer', () => {
+    render(<PopupLayer>{popups(document.body)}</PopupLayer>);
+    expect(screen.getByRole('dialog', { name: 'Editor' }).style.zIndex).toBe(
+      'var(--atrium-z-modal-popup)',
+    );
+    expect(screen.getByRole('dialog', { name: 'Panel' }).style.zIndex).toBe(
+      'var(--atrium-z-modal-popup)',
+    );
   });
 });
