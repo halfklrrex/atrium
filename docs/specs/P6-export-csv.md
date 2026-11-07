@@ -38,8 +38,21 @@ A board member can download the board as a CSV file from the board's **⋯ Board
 - Showcase: nothing visible on a board, so no change. `pnpm lint`, `typecheck` (`pnpm -r --workspace-concurrency=1 typecheck`), `pnpm test`, `pnpm test:rules` (unchanged), `pnpm build`.
 - No hot-spot files except the shared package export line (`packages/shared/**`); keep it to the new file plus one re-export.
 
+## Slice 2: Excel file, print, and Export from the selection (owner autonomy run, 2026-11-07)
+
+Decisions are the lead's; the defaults stand unless the owner changes them.
+
+1. **Native `.xlsx` with one small dependency, `fflate` (MIT, about 8 kB, zip only).** SheetJS community and ExcelJS were rejected: SheetJS' npm release is old and unmaintained, ExcelJS is large. The sheet XML is written by us (`packages/shared/src/columns/xlsx.ts`, pure and tested): one sheet "Items", a bold frozen header row, column widths from the longest cell (max 60), inline strings (no shared-string table), numbers as numbers, dates as Excel serial dates with a date style, checkboxes as `TRUE`/`FALSE` text, everything else the same `toText` as the CSV. The same formula-injection guard applies to strings that start with `=`, `+`, `-` (non-numeric), `@`, tab or CR (written as a string cell, which Excel does not evaluate, plus the leading `'`). `fflate` is imported **dynamically** when the user clicks Export, so it is not in the main bundle. Run `pnpm licenses:notices` and commit `THIRD_PARTY_NOTICES.md` (hot spot: `pnpm-lock.yaml`, merge alone).
+2. **Menu:** the board menu's "Export to CSV" becomes a small submenu "Export" with **CSV** and **Excel (.xlsx)**, both using the exact row/column rules of slice 1. File name `<board name>.xlsx`.
+3. **Print.** `@media print` styles (tokens only; the print rules live in `apps/web/src/theme/print.css`, the only place for print-specific literals) for the board table, the item view and a dashboard: hide the app shell (sidebar, top bar, board header actions, view tabs, batch bar, add-item rows), show every row of every expanded group (no virtual scrolling cut: when printing, render all rows), black text on white regardless of theme, avoid breaking a row across pages, repeat the header row, landscape hint for tables (`@page { size: landscape }` on the board only). A **Print** item in the board menu calls `window.print()`; a browser "Save as PDF" covers PDF. No server rendering.
+4. **Export from the selection.** In the batch bar (shown when rows are selected), add an **Export** button with the same two choices (CSV, Excel). It exports only the selected rows (subitems of a selected parent are included; the selection order is the view order), with the same columns as the full export. The bar's buttons keep their order: Export goes after Duplicate, before Delete. Convert and Apps (monday's other batch-bar buttons) stay out of scope.
+5. **Performance:** build the file in the browser; for more than 5 000 rows show the "Exporting..." toast first and yield to the event loop once before building.
+6. **Tests:** xlsx.ts golden test (open the produced zip with `fflate`, check `[Content_Types].xml`, the sheet XML for a header, a number, a date, an injection string, and column widths); the board menu and batch bar tests; a CSS test that `print.css` contains no colour or px literals outside the theme folder rules; `pnpm licenses:check` passes.
+7. **Work packages:** (a) `claude/export-xlsx`: shared writer + menu submenu + dependency; (b) `claude/export-batch-bar`: the batch-bar Export button (after (a)); (c) `claude/print-styles`: `print.css`, the Print menu item and tests (independent). Visual baselines are not needed for print (it is checked with `emulateMedia({ media: 'print' })` in one Playwright snapshot test, added to `tests/visual`, which needs a baseline run).
+8. **Owner checks:** open an exported `.xlsx` in Excel or Numbers (header bold and frozen, dates as dates, numbers right-aligned); print preview of a board, an item and a dashboard.
+
 ## Out of scope / follow-ups
 
-- Print stylesheet (`@media print`) for the table, Dashboard and item view; PDF export.
-- Native `.xlsx` (needs a licence-checked dependency; run `pnpm licenses:notices`).
+- Server-side PDF generation; Convert (to subitems or another board).
+- Print styles for Calendar, Timeline and Kanban views (the table only in this slice).
 - Import (separate Roadmap item: CSV / Excel import).
