@@ -8,7 +8,14 @@ import { useToastStore } from '../toast-store';
 import { BoardTable } from './BoardTable';
 import { REQUIRED_CAP_MESSAGE } from './required-write';
 import { tableActions, type TableCtx } from './table-actions';
-import { bulkPeers, bulkSummary, isBulkEditableType, planBulkApply } from './bulk-edit';
+import {
+  bulkPeers,
+  bulkSummary,
+  bulkUndoSummary,
+  isBulkEditableType,
+  planBulkApply,
+  planBulkUndo,
+} from './bulk-edit';
 import { useTablePrefs, useTableStore } from './table-store';
 
 const mocks = vi.hoisted(() => ({
@@ -151,6 +158,85 @@ describe('planBulkApply', () => {
   });
 });
 
+describe('planBulkUndo', () => {
+  const req = col('st', 'status', 'Status', { required: true });
+  const plain = col('pl', 'text', 'Plain');
+  const rowsNow = [row('a', { st: { index: 1 } }), row('b', { st: { index: 1 } })];
+  const prev = (a: unknown, b: unknown) =>
+    new Map<string, unknown>([
+      ['a', a],
+      ['b', b],
+    ]);
+
+  it('restores every row whose previous value is allowed', () => {
+    const plan = planBulkUndo({
+      columns: [req],
+      columnId: 'st',
+      previousById: prev({ index: 0 }, { index: 2 }),
+      current: rowsNow,
+    });
+    expect(plan.kept).toEqual([]);
+    expect(plan.restore).toEqual([
+      { id: 'a', value: { index: 0 } },
+      { id: 'b', value: { index: 2 } },
+    ]);
+  });
+
+  it('keeps a row whose previous value was empty in a required column', () => {
+    const plan = planBulkUndo({
+      columns: [req],
+      columnId: 'st',
+      previousById: prev({ index: 0 }, null),
+      current: rowsNow,
+    });
+    expect(plan.restore).toEqual([{ id: 'a', value: { index: 0 } }]);
+    expect(plan.kept).toEqual([{ id: 'b', reason: 'required' }]);
+  });
+
+  it('restores an empty previous value in an ordinary column', () => {
+    const plan = planBulkUndo({
+      columns: [plain],
+      columnId: 'pl',
+      previousById: prev(null, null),
+      current: [row('a', { pl: 'x' }), row('b', { pl: 'y' })],
+    });
+    expect(plan.restore).toEqual([
+      { id: 'a', value: null },
+      { id: 'b', value: null },
+    ]);
+  });
+
+  it('keeps every row of a column that has become locked', () => {
+    const plan = planBulkUndo({
+      columns: [plain],
+      columnId: 'pl',
+      previousById: prev('p', 'q'),
+      current: [row('a', { pl: 'x' }), row('b', { pl: 'y' })],
+      locked: true,
+    });
+    expect(plan.restore).toEqual([]);
+    expect(plan.kept.map((k) => k.reason)).toEqual(['locked', 'locked']);
+  });
+
+  it('can keep all rows, and words the toast without hiding them', () => {
+    const plan = planBulkUndo({
+      columns: [req],
+      columnId: 'st',
+      previousById: prev(null, null),
+      current: rowsNow,
+    });
+    expect(plan.restore).toEqual([]);
+    expect(plan.kept).toHaveLength(2);
+    expect(bulkUndoSummary(0, 2, plan.kept, 'Status')).toBe(
+      'Undid 0 of 2 items; 2 items kept the new value because Status is required',
+    );
+    expect(bulkUndoSummary(2, 3, [{ reason: 'required' }], 'Status')).toBe(
+      'Undid 2 of 3 items; 1 item kept the new value because Status is required',
+    );
+    expect(bulkUndoSummary(2, 2, [], 'Status')).toBe('Undid 2 items');
+  });
+});
+
 describe('bulk edit in the table', () => {
   const board = (overrides: Partial<BoardDoc> = {}): BoardDoc =>
     makeBoard({
@@ -288,6 +374,83 @@ describe('bulk edit in the table', () => {
       { id: 'r1', value: null },
       { id: 'r2', value: null },
     ]);
+  });
+
+  it('Undo restores the rows that can go back and names the required one that keeps the new value', async () => {
+    const doneReq = col('done', 'checkbox', 'Done', { required: true });
+    mocks.items = [
+      row('r1', { done: { checked: 'true' }, note: 'x' }),
+      row('r2', { note: 'x' }),
+      row('r3', { done: { checked: 'true' }, note: 'x' }),
+    ];
+    render(<BoardTable board={board({ columns: [doneReq, note] })} />);
+    select('r1', 'r2', 'r3');
+    await toggleRow('r2');
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(useToastStore.getState().toasts.at(-1)?.action).toBeDefined());
+    act(() => useToastStore.getState().toasts.at(-1)!.action!.onClick());
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(2));
+    // r2 had an empty required cell: it keeps the new value, so it is not in the Undo batch.
+    const undoCells = mocks.setValueMany.mock.calls[1]![3] as { id: string }[];
+    expect(undoCells.map((c) => c.id)).toEqual(['r1', 'r3']);
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.at(-1)?.text).toBe(
+        'Undid 2 of 3 items; 1 item kept the new value because Done is required',
+      ),
+    );
+  });
+
+  describe('column highlight', () => {
+    const outlined = () =>
+      Array.from(document.querySelectorAll('[data-bulk-outlined]')).map((e) =>
+        e.getAttribute('data-cell'),
+      );
+
+    it('outlines the hovered column in every selected row, and only there', async () => {
+      render(<BoardTable board={board()} />);
+      select('r1', 'r2');
+      await userEvent.hover(document.querySelector('[data-cell="r1:done"]')!);
+      expect(useTableStore.getState().bulkColumnId).toBe('done');
+      expect(outlined().sort()).toEqual(['r1:done', 'r2:done']);
+      expect(
+        document.querySelector('[data-cell="r1:done"]')!.getAttribute('aria-description'),
+      ).toBe('Changes all 2 selected items');
+      await userEvent.unhover(document.querySelector('[data-cell="r1:done"]')!);
+      expect(useTableStore.getState().bulkColumnId).toBeNull();
+      expect(outlined()).toEqual([]);
+    });
+
+    it('does nothing with one row selected or when the hovered row is not selected', async () => {
+      render(<BoardTable board={board()} />);
+      select('r1');
+      await userEvent.hover(document.querySelector('[data-cell="r1:done"]')!);
+      expect(outlined()).toEqual([]);
+      select('r1', 'r2');
+      await userEvent.hover(document.querySelector('[data-cell="r3:done"]')!);
+      expect(outlined()).toEqual([]);
+    });
+
+    it('does nothing for a column that is not bulk-editable', async () => {
+      const formula = col('f', 'formula', 'F');
+      render(<BoardTable board={board({ columns: [done, formula] })} />);
+      select('r1', 'r2');
+      await userEvent.hover(document.querySelector('[data-cell="r1:f"]')!);
+      expect(outlined()).toEqual([]);
+    });
+
+    it('keeps the outline while the editor is open and drops it when it closes', async () => {
+      const text = col('tx', 'text', 'Text');
+      render(<BoardTable board={board({ columns: [done, text] })} />);
+      select('r1', 'r2');
+      const cell = document.querySelector('[data-cell="r1:tx"]')!;
+      await userEvent.hover(cell);
+      await userEvent.click(cell);
+      expect(useTableStore.getState().editing?.itemId).toBe('r1');
+      await userEvent.unhover(cell);
+      expect(outlined().sort()).toEqual(['r1:tx', 'r2:tx']);
+      act(() => useTableStore.getState().setEditing(null));
+      await waitFor(() => expect(outlined()).toEqual([]));
+    });
   });
 
   it('Undo puts back the previous value of rows that had one and empties the rest', async () => {

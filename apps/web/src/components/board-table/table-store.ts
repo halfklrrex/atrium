@@ -43,12 +43,15 @@ interface TableState {
   renamingGroupId: string | null;
   /** The row last toggled by a plain checkbox click: where a shift+click range starts. */
   anchorId: string | null;
+  /** Bulk edit: the column whose cells are outlined in every selected row (hovered or editing). */
+  bulkColumnId: string | null;
 
   reset: (boardId: string | null) => void;
   setSelected: (ids: ReadonlySet<string>) => void;
   toggleSelected: (id: string) => void;
   setGroupSelected: (ids: readonly string[], on: boolean) => void;
   clearSelection: () => void;
+  setBulkColumn: (columnId: string | null) => void;
   setActive: (cell: CellRef | null) => void;
   setEditing: (cell: CellRef | null) => void;
   setRenamingItem: (id: string | null) => void;
@@ -87,6 +90,7 @@ export const useTableStore = create<TableState>()((set) => ({
   pendingGroups: [],
   renamingGroupId: null,
   anchorId: null,
+  bulkColumnId: null,
 
   reset: (boardId) =>
     set({
@@ -105,6 +109,7 @@ export const useTableStore = create<TableState>()((set) => ({
       pendingGroups: [],
       renamingGroupId: null,
       anchorId: null,
+      bulkColumnId: null,
     }),
   setSelected: (selected) => set({ selected }),
   toggleSelected: (id) =>
@@ -122,7 +127,9 @@ export const useTableStore = create<TableState>()((set) => ({
       }
       return { selected: next };
     }),
-  clearSelection: () => set({ selected: NONE, anchorId: null }),
+  clearSelection: () => set({ selected: NONE, anchorId: null, bulkColumnId: null }),
+  setBulkColumn: (bulkColumnId) =>
+    set((s) => (s.bulkColumnId === bulkColumnId ? s : { bulkColumnId })),
   setActive: (active) => set({ active }),
   setEditing: (editing) => set(editing ? { editing, active: editing } : { editing: null }),
   setRenamingItem: (renamingItemId) => set({ renamingItemId }),

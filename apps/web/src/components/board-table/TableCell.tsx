@@ -3,6 +3,7 @@ import classNames from 'classnames';
 import {
   memo,
   useCallback,
+  useEffect,
   useMemo,
   useLayoutEffect,
   useRef,
@@ -84,6 +85,31 @@ export const TableCell = memo(function TableCell({
   }, [derived, ctx.boardId, ctx.columns, column.def, item, raw]);
 
   const itemId = item.id;
+  // Bulk edit: outline this column in every selected row while one of its cells is hovered or
+  // being edited. A narrow boolean selector: only the cells of that column re-render.
+  const bulkOutlined = useTableStore((s) => s.bulkColumnId === columnId && s.selected.has(itemId));
+  const bulkCount = useTableStore((s) => (bulkOutlined ? s.selected.size : 0));
+  const startBulkHover = () => {
+    const store = useTableStore.getState();
+    if (!canEdit || !isBulkEditableType(column.def.type) || !store.selected.has(itemId)) return;
+    if (store.selected.size < 2) return;
+    if (bulkPeers(ctx.getItems?.() ?? env.getItems(), store.selected, item).length === 0) return;
+    store.setBulkColumn(columnId);
+  };
+  const endBulkHover = () => {
+    const store = useTableStore.getState();
+    // While this cell's editor is open the outline stays, even if the pointer leaves.
+    if (store.bulkColumnId === columnId && !(editing && store.editing?.itemId === itemId)) {
+      store.setBulkColumn(null);
+    }
+  };
+  // The editor closing ends the outline; opening it (re)starts it.
+  useEffect(() => {
+    if (editing) startBulkHover();
+    else if (useTableStore.getState().bulkColumnId === columnId && !ref.current?.matches(':hover'))
+      useTableStore.getState().setBulkColumn(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the editor opening/closing only
+  }, [editing]);
   const onChange = useCallback(
     (next: unknown) => {
       if (!canEdit) return;
@@ -139,11 +165,19 @@ export const TableCell = memo(function TableCell({
     <div
       ref={ref}
       role="gridcell"
-      className={classNames(styles.cell, (active || editing) && styles.cellActive)}
+      className={classNames(
+        styles.cell,
+        (active || editing) && styles.cellActive,
+        bulkOutlined && styles.cellBulk,
+      )}
       data-cell={`${itemId}:${columnId}`}
       aria-selected={active || editing}
       title={readOnlyTooltip}
+      data-bulk-outlined={bulkOutlined ? 'true' : undefined}
+      aria-description={bulkOutlined ? `Changes all ${bulkCount} selected items` : undefined}
       onClick={onClick}
+      onPointerEnter={startBulkHover}
+      onPointerLeave={endBulkHover}
     >
       {showEditor && ui.editor === 'inline' && ui.Editor ? (
         <CellEditor

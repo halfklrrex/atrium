@@ -52,3 +52,21 @@ describe('table store range selection', () => {
     expect(store().anchorId).toBeNull();
   });
 });
+
+describe('table store bulk column', () => {
+  beforeEach(() => store().reset('b1'));
+
+  it('sets and clears the outlined column, and clearSelection and reset drop it', () => {
+    expect(store().bulkColumnId).toBeNull();
+    store().setBulkColumn('status');
+    expect(store().bulkColumnId).toBe('status');
+    store().setBulkColumn(null);
+    expect(store().bulkColumnId).toBeNull();
+    store().setBulkColumn('status');
+    store().clearSelection();
+    expect(store().bulkColumnId).toBeNull();
+    store().setBulkColumn('status');
+    store().reset('b2');
+    expect(store().bulkColumnId).toBeNull();
+  });
+});

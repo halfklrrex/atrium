@@ -6,6 +6,7 @@
  */
 import {
   COLUMN_MIGRATION_CHUNK_SIZE,
+  canEditColumn,
   validateColumnDef,
   columnRegistry,
   defaultSubitemColumns,
@@ -53,7 +54,7 @@ import {
   wouldExceedRequiredCap,
   type RequiredWriteError,
 } from './required-write';
-import { bulkSummary, planBulkApply } from './bulk-edit';
+import { bulkSummary, bulkUndoSummary, planBulkApply, planBulkUndo } from './bulk-edit';
 import { appendPositions, dropPosition, positionsAfter } from './move-math';
 import { clampWidth, withSubitemIds, type ColumnView } from './table-model';
 import { useTableStore } from './table-store';
@@ -363,16 +364,50 @@ export const tableActions = {
       [edited.id, previous],
       ...plan.writes.map((w) => [w.itemId, w.previous] as const),
     ]);
+    const columnTitle = ctx.columns.find((c) => c.id === columnId)?.title || 'This column';
+    const rowsById = new Map<string, ItemDoc>([
+      [edited.id, edited],
+      ...plan.writes.map((w) => [w.itemId, peers.find((p) => p.id === w.itemId)!] as const),
+    ]);
+    /**
+     * Undo for `ids`: rows are planned against their CURRENT state (an empty required cell cannot
+     * be emptied again: the rules refuse it for the whole atomic batch), the rest keep the new
+     * value and the toast says so.
+     */
     const undoRows = (ids: readonly string[]) => () => {
+      const live = ctx.getItems?.() ?? [];
+      const current = ids.map((id) => {
+        const fromLive = live.find((i) => i.id === id);
+        if (fromLive) return fromLive;
+        // No live read: the captured row, as the bulk write left it.
+        const row = rowsById.get(id);
+        return { id, values: { ...(row?.values ?? {}), [columnId]: value } };
+      });
+      const lockCtx = lockCtxOf(ctx);
+      const locked = lockCtx ? !canEditColumn(lockCtx.boardRole, lockCtx.board, columnId) : false;
+      const undoPlan = planBulkUndo({
+        columns: ctx.columns,
+        columnId,
+        previousById,
+        current,
+        locked,
+      });
+      if (undoPlan.restore.length === 0) {
+        showToast(bulkUndoSummary(0, ids.length, undoPlan.kept, columnTitle), { type: 'negative' });
+        return;
+      }
       void attempt(
-        () =>
-          itemWrites.setValueMany(
-            ctx.uid,
-            ctx.boardId,
-            columnId,
-            ids.map((id) => ({ id, value: previousById.get(id) ?? null })),
-          ),
+        async () => {
+          await itemWrites.setValueMany(ctx.uid, ctx.boardId, columnId, undoPlan.restore);
+          if (undoPlan.kept.length > 0) {
+            showToast(
+              bulkUndoSummary(undoPlan.restore.length, ids.length, undoPlan.kept, columnTitle),
+              { type: 'normal' },
+            );
+          }
+        },
         'Could not undo the change.',
+        () => explainRequiredDenied(ctx.columns, ctx.requiredColumnIds, columnId, null),
       );
     };
 

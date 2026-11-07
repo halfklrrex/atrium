@@ -97,3 +97,66 @@ export function bulkSummary(updated: number, total: number, skipped: number): st
   if (skipped === 0) return `Updated ${updated} items`;
   return `Updated ${updated} of ${total} items; ${skipped} skipped (locked or required)`;
 }
+
+export type BulkUndoKeepReason = 'locked' | 'required';
+
+export interface BulkUndoPlan {
+  /** Rows whose previous value can be put back. */
+  restore: { id: string; value: unknown }[];
+  /** Rows that keep the new value, with why (never dropped silently). */
+  kept: { id: string; reason: BulkUndoKeepReason }[];
+}
+
+export interface BulkUndoInput {
+  columns: readonly ColumnDef[];
+  columnId: string;
+  /** Previous value per row id, as captured before the bulk write. */
+  previousById: ReadonlyMap<string, unknown>;
+  /** The rows to undo, in order, as they are NOW (after the bulk write). */
+  current: readonly Pick<ItemDoc, 'id' | 'values'>[];
+  /** True when the column has become locked for this person since the edit. */
+  locked?: boolean;
+}
+
+/**
+ * Decides which rows an Undo can restore. The forward write may fill an empty required cell; the
+ * Undo would empty it again, which the required-columns rule (`requiredCellsOk`) refuses for the
+ * whole atomic batch. So each row is checked against its CURRENT state with the same check the
+ * forward path uses, and rows that cannot be restored keep the new value.
+ */
+export function planBulkUndo(input: BulkUndoInput): BulkUndoPlan {
+  const { columns, columnId, previousById, current, locked = false } = input;
+  const restore: BulkUndoPlan['restore'] = [];
+  const kept: BulkUndoPlan['kept'] = [];
+  for (const item of current) {
+    const value = previousById.get(item.id) ?? null;
+    if (locked) {
+      kept.push({ id: item.id, reason: 'locked' });
+    } else if (checkRequiredWrite(columns, columnId, value, item)) {
+      kept.push({ id: item.id, reason: 'required' });
+    } else {
+      restore.push({ id: item.id, value });
+    }
+  }
+  return { restore, kept };
+}
+
+/** Toast text after an Undo: never hides the rows that kept the new value. */
+export function bulkUndoSummary(
+  restored: number,
+  total: number,
+  kept: readonly { reason: BulkUndoKeepReason }[],
+  columnTitle: string,
+): string {
+  if (kept.length === 0) return `Undid ${restored} items`;
+  const required = kept.some((k) => k.reason === 'required');
+  const locked = kept.some((k) => k.reason === 'locked');
+  const why =
+    required && locked
+      ? `${columnTitle} is required or locked`
+      : locked
+        ? `${columnTitle} is locked`
+        : `${columnTitle} is required`;
+  const noun = kept.length === 1 ? '1 item kept' : `${kept.length} items kept`;
+  return `Undid ${restored} of ${total} items; ${noun} the new value because ${why}`;
+}
