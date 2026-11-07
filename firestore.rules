@@ -15,9 +15,21 @@ service cloud.firestore {
     }
 
     // Signed in with any account state. ONLY for a person reading their own `users/{uid}` document,
-    // so the app can show the waiting or blocked screen. Never use it for anything else.
+    // so the app can show the waiting or blocked screen. Never use it for anything else. (The one
+    // other state-blind read is a blocked person reading their own appeal threads, which uses
+    // `isBlockedAccount()` inside `senderMayRead` below and nowhere else.)
     function authed() {
       return request.auth != null;
+    }
+
+    // Site admin (ADMIN-4): approved and carrying the `admin` claim (set only by Functions and scripts).
+    function isSiteAdmin() {
+      return signedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    // A blocked account (ADMIN-4). ONLY for a blocked person reading their own appeal threads.
+    function isBlockedAccount() {
+      return request.auth != null && request.auth.token.get('acct', '') == 'blocked';
     }
 
     function uid() {
@@ -185,6 +197,62 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
         && (request.resource.data.readAt == null || request.resource.data.readAt == request.time);
       allow delete: if signedIn() && uid() == userId;
+    }
+
+    // ---------------------------------------------------------------------
+    // Appeals and feedback Inbox (ADMIN-4, docs/specs/ADMIN-4-appeals-inbox.md).
+    // inbox/{threadId} and its messages are readable by the sender and the site admins only; every
+    // create and delete is Functions-only. Nothing admin-only lives in these documents (the admin's
+    // identity is in inboxAudit, the internal note in inboxNotes). Limits below are the literals of
+    // INBOX_LIMITS in packages/shared/src/schemas/inbox.ts.
+    // ---------------------------------------------------------------------
+    match /inbox/{threadId} {
+      // The sender reads their own thread when approved; a blocked sender only their APPEAL threads.
+      // A list query by a blocked sender must therefore filter on `kind == 'appeal'`.
+      function senderMayRead(t) {
+        return request.auth != null && t.senderUid == request.auth.uid
+          && (signedIn() || (isBlockedAccount() && t.kind == 'appeal'));
+      }
+
+      allow read: if isSiteAdmin() || senderMayRead(resource.data);
+      allow create, delete: if false;
+      allow update: if
+        (isSiteAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['adminUnread'])
+          && request.resource.data.adminUnread == false)
+        || (signedIn() && resource.data.senderUid == uid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['senderUnread'])
+          && request.resource.data.senderUnread == false);
+
+      match /messages/{messageId} {
+        allow read: if isSiteAdmin()
+          || senderMayRead(get(/databases/$(database)/documents/inbox/$(threadId)).data);
+        allow write: if false;
+      }
+    }
+
+    // inboxNotes/{threadId}: the admin-only internal note. Never readable by the sender.
+    match /inboxNotes/{threadId} {
+      allow read: if isSiteAdmin();
+      allow create, update: if isSiteAdmin()
+        && exists(/databases/$(database)/documents/inbox/$(threadId))
+        && request.resource.data.keys().hasOnly(['text', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasAll(['text', 'updatedAt', 'updatedBy'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 2000
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == uid();
+      allow delete: if false;
+    }
+
+    // inboxAudit/{threadId}/entries/{entryId}: which admin acted (T6). Admin read only; Functions write.
+    match /inboxAudit/{threadId}/entries/{entryId} {
+      allow read: if isSiteAdmin();
+      allow write: if false;
+    }
+
+    // inboxLimits/{uid}: Functions-only counters. Nobody reads or writes them from a client.
+    match /inboxLimits/{userId} {
+      allow read, write: if false;
     }
 
     // ---------------------------------------------------------------------
