@@ -79,6 +79,7 @@ export default function DescriptionEditor({
   const fileInput = useRef<HTMLInputElement>(null);
   const [emojiAnchor, setEmojiAnchor] = useState<HTMLElement | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(true);
 
   const editor = useEditor({
     extensions,
@@ -100,24 +101,28 @@ export default function DescriptionEditor({
         onSaveRef
           .current(result.value)
           .then(() => {
+            if (!mounted.current) return;
             setSaveState('saved');
             if (hideTimer.current) clearTimeout(hideTimer.current);
             hideTimer.current = setTimeout(() => setSaveState('idle'), 2000);
           })
-          .catch(() => setSaveState('idle'));
+          .catch(() => {
+            if (mounted.current) setSaveState('idle');
+          });
       });
     },
     onBlur: () => debouncer.flush(),
   });
 
   // Leaving the window (or the item) never loses the last keystrokes.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       debouncer.flush();
       if (hideTimer.current) clearTimeout(hideTimer.current);
-    },
-    [debouncer],
-  );
+    };
+  }, [debouncer]);
 
   // Viewers' editors load the fonts the doc uses.
   useEffect(() => {

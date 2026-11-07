@@ -306,6 +306,38 @@ describe('saving', () => {
   });
 });
 
+describe('save-state timer', () => {
+  it('starts no "Saved" hide timer when the editor unmounts before the save resolves', async () => {
+    let resolveSave: () => void = () => {};
+    const onSave = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    const { unmount } = render(
+      <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
+        initial={null}
+        readOnly={false}
+        onSave={onSave}
+      />,
+    );
+    act(() => {
+      editorOf().commands.setContent('<p>typed</p>', { emitUpdate: true });
+    });
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    unmount();
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    await act(async () => {
+      resolveSave();
+      await Promise.resolve();
+    });
+    expect(timers.mock.calls.filter(([, ms]) => ms === 2000)).toHaveLength(0);
+  });
+});
+
 describe('expand', () => {
   it('moves the same editor into a dialog and back, with the same document', async () => {
     const user = userEvent.setup();

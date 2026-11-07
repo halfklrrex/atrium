@@ -16,6 +16,13 @@ function atriumVersion(): string {
   return process.env.GITHUB_SHA?.slice(0, 10) || 'dev';
 }
 
+// Tests format dates and sort names, so they must not depend on the shell's locale: an empty
+// LC_ALL/LANG makes ICU fall back to "und" ("M10" instead of "Oct"). Test workers inherit this.
+if (process.env.VITEST || process.argv.some((a) => a.includes('vitest'))) {
+  process.env.LC_ALL = 'en_US.UTF-8';
+  process.env.LANG = 'en_US.UTF-8';
+}
+
 export default defineConfig({
   plugins: [react()],
   define: { __ATRIUM_VERSION__: JSON.stringify(atriumVersion()) },
