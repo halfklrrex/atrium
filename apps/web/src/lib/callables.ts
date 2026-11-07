@@ -1,11 +1,21 @@
 import {
   LIST_ACCOUNTS_CALLABLE,
+  MANAGE_INBOX_THREAD_CALLABLE,
+  SEND_INBOX_MESSAGE_CALLABLE,
   SET_ACCOUNT_STATUS_CALLABLE,
+  manageInboxThreadRequestSchema,
+  manageInboxThreadResultSchema,
+  sendInboxMessageRequestSchema,
+  sendInboxMessageResultSchema,
   listAccountsRequestSchema,
   listAccountsResultSchema,
   setAccountStatusRequestSchema,
   setAccountStatusResultSchema,
   type InboxErrorReason,
+  type ManageInboxThreadRequest,
+  type ManageInboxThreadResult,
+  type SendInboxMessageRequest,
+  type SendInboxMessageResult,
   type ListAccountsRequest,
   type ListAccountsResult,
   type SetAccountStatusRequest,
@@ -267,6 +277,20 @@ export const accountAdminCalls = {
     SET_ACCOUNT_STATUS_CALLABLE,
     (r) => setAccountStatusRequestSchema.parse(r),
     (d) => setAccountStatusResultSchema.parse(d),
+  ),
+};
+
+/** Appeals and feedback Inbox (ADMIN-4): `send` is the sender side, `manage` the admin side. */
+export const inboxCalls = {
+  send: validatedCallable<SendInboxMessageRequest, SendInboxMessageResult>(
+    SEND_INBOX_MESSAGE_CALLABLE,
+    (r) => sendInboxMessageRequestSchema.parse(r),
+    (d) => sendInboxMessageResultSchema.parse(d),
+  ),
+  manage: validatedCallable<ManageInboxThreadRequest, ManageInboxThreadResult>(
+    MANAGE_INBOX_THREAD_CALLABLE,
+    (r) => manageInboxThreadRequestSchema.parse(r),
+    (d) => manageInboxThreadResultSchema.parse(d),
   ),
 };
 
