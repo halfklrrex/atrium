@@ -1,6 +1,6 @@
 import { Button, Heading, Loader, Text } from '@vibe/core';
 import type { ReactNode } from 'react';
-import { AtriumMark } from './AtriumLogo';
+import { BrandMark } from './BrandMark';
 import styles from './FullPage.module.css';
 
 export function FullPageLoader({ label }: { label: string }) {
@@ -35,7 +35,7 @@ export function FullPageMessage({
   return (
     <div className={styles.page}>
       <div className={styles.message}>
-        <AtriumMark size={40} />
+        <BrandMark size={40} />
         <Heading type="h2">{title}</Heading>
         <Text type="text1" color="secondary">
           {description}

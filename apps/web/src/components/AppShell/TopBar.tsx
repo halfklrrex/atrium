@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import { Link } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { formatUnreadCount, useUnreadNotifications } from '../../data/notifications';
-import { AtriumMark } from '../AtriumLogo';
+import { BrandMark } from '../BrandMark';
 import { showComingSoon } from '../toast-store';
 import { useCurrentWorkspace } from './useCurrentWorkspace';
 import { AppGridIcon } from './AppGridIcon';
@@ -59,7 +59,7 @@ export function TopBar() {
         />
       </span>
       <Link to="/" className={styles.brand} aria-label="Atrium workboards home">
-        <AtriumMark size={24} />
+        <BrandMark size={28} title="Atrium" />
         <span className={styles.brandName}>Atrium</span>
         <span className={styles.brandSuffix}>workboards</span>
       </Link>

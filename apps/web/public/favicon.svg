@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Atrium">
-  <rect width="32" height="32" rx="8" fill="#1b1d36" />
-  <rect x="6" y="6" width="12" height="7" rx="2.5" fill="#7c7cff" />
-  <rect x="19" y="6" width="7" height="12" rx="2.5" fill="#26c6b0" />
-  <rect x="14" y="19" width="12" height="7" rx="2.5" fill="#ffb03a" />
-  <rect x="6" y="14" width="7" height="12" rx="2.5" fill="#ff6f91" />
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#1a2238"/><polygon points="4.0,10.5 15.25,3.25 15.25,7.0 9.25,12.5" fill="#3176bb" stroke="#3176bb" stroke-width=".5" stroke-linejoin="round"/><polygon points="10.5,13.0 15.25,8.5 15.25,14.75" fill="#46a8c4" stroke="#46a8c4" stroke-width=".5" stroke-linejoin="round"/><polygon points="17.0,8.5 21.75,13.0 17.0,14.75" fill="#e1847b" stroke="#e1847b" stroke-width=".5" stroke-linejoin="round"/><polygon points="17.0,3.25 28.0,10.5 23.0,12.5 17.0,7.0" fill="#b46a7f" stroke="#b46a7f" stroke-width=".5" stroke-linejoin="round"/><polygon points="3.75,12.25 9.0,14.25 9.0,25.0 3.75,26.5" fill="#5a55af" stroke="#5a55af" stroke-width=".5" stroke-linejoin="round"/><polygon points="10.5,14.75 15.25,16.5 15.25,24.0 10.5,24.75" fill="#a98faa" stroke="#a98faa" stroke-width=".5" stroke-linejoin="round"/><polygon points="16.75,16.5 21.75,14.75 21.75,25.0 16.75,24.0" fill="#efaf5a" stroke="#efaf5a" stroke-width=".5" stroke-linejoin="round"/><polygon points="23.25,14.25 28.25,12.25 28.25,26.5 23.25,25.25" fill="#ac5c6d" stroke="#ac5c6d" stroke-width=".5" stroke-linejoin="round"/></svg>

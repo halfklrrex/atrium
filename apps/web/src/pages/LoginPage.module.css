@@ -35,6 +35,14 @@
   font: var(--font-text1-normal);
 }
 
+.brandLockup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+  color: var(--atrium-white);
+  font: var(--atrium-font-weight-semibold) var(--font-size-20) / 1 var(--title-font-family);
+}
+
 .markWatermark {
   position: absolute;
   inset-inline-end: var(--atrium-login-watermark-inset);

@@ -43,3 +43,7 @@ Not copied into the repository, but shown to users, so they are credited here.
 | Twemoji (maintained fork) | https://github.com/jdecked/twemoji | `v17.0.3` / `b6b55fef1e8636b540a6d016a4729ca8cdf2e60b` | `assets/svg/<codepoints>.svg` for flag emoji only, fetched from jsDelivr | Graphics CC-BY 4.0 (`LICENSE-GRAPHICS`), code MIT (no code used) | `apps/web/src/lib/flag-emoji.ts`, `apps/web/src/components/Emoji.tsx`; only on platforms without flag glyphs (Windows) | 2026-11-05 | Ophelia (Sonnet subagent) |
 
 Attribution (CC-BY 4.0): flag pictures are Twemoji graphics, copyright 2020 Twitter, Inc and other contributors, maintained by the jdecked/twemoji project, licensed under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/). They are used unmodified.
+
+## Own artwork: the Atrium logo
+
+The Atrium logo (glazed atrium, gable roof of translucent panes, warm floor glow; `apps/web/src/assets/brand/`, `apps/web/public/` icons) is own artwork, owner-approved on 2026-11-07. The concept was first generated with an AI image tool at the owner's request and then traced by hand into vector SVG by Claude. No third-party brand assets or fonts are included. Agent: Ophelia (Sonnet subagent).

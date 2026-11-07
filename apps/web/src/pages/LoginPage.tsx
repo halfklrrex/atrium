@@ -8,7 +8,7 @@ import {
   isKnownSignInError,
   signInErrorMessage,
 } from '../auth/auth-errors';
-import { AtriumLogo, AtriumMark } from '../components/AtriumLogo';
+import { BrandMark } from '../components/BrandMark';
 import { FullPageLoader } from '../components/FullPage';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { SOURCE_REPO_URL } from '../lib/about';
@@ -53,20 +53,23 @@ export function LoginPage() {
   return (
     <div className={styles.page}>
       <aside className={styles.brandPanel} aria-hidden="true">
-        <AtriumLogo variant="onDark" size={32} />
+        <div className={styles.brandLockup}>
+          <BrandMark size={32} />
+          <span>Atrium</span>
+        </div>
         <div className={styles.brandCopy}>
           <p className={styles.tagline}>One open space for all your work.</p>
           <p className={styles.taglineSub}>Boards, plans and people around a shared courtyard.</p>
         </div>
         <div className={styles.markWatermark}>
-          <AtriumMark size={360} />
+          <BrandMark size={360} />
         </div>
       </aside>
 
       <main className={styles.formPanel}>
         <div className={styles.card}>
           <div className={styles.cardMark}>
-            <AtriumMark size={48} title="Atrium" />
+            <BrandMark variant="icon" size={64} title="Atrium" />
           </div>
           <Heading type="h1" className={styles.heading}>
             {bootstrapFailed ? 'Almost there' : 'Welcome to Atrium'}
