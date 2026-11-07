@@ -2,6 +2,7 @@ import { Timestamp, type Firestore, type Transaction } from 'firebase-admin/fire
 import { accountStatusFromClaims } from '@atrium/shared';
 import { adminAccountAuth } from './admin-account';
 import { adminNotificationStore } from './admin-notifications';
+import type { InboxPurgeStore } from './inbox-purge';
 import type { InboxAuth, InboxStore, InboxTx, LimitsData, ThreadData } from './inbox';
 
 /** Admin SDK adapter for the Inbox logic. Every access goes through the `Firestore` from `db()`. */
@@ -117,6 +118,42 @@ export function adminInboxAuth(): InboxAuth {
     async getAccountStatus(uid) {
       const user = await auth.getUser(uid);
       return user ? accountStatusFromClaims(user.claims) : null;
+    },
+  };
+}
+
+/** Queries for the daily purge: `inbox(status, closedAt)` composite index, `inboxLimits.updatedAt` single-field. */
+export function adminInboxPurgeStore(firestore: Firestore): InboxPurgeStore {
+  return {
+    async listClosedThreadIdsBefore(cutoff, limit) {
+      const snap = await firestore
+        .collection('inbox')
+        .where('status', '==', 'closed')
+        .where('closedAt', '<', Timestamp.fromDate(cutoff))
+        .orderBy('closedAt', 'asc')
+        .limit(limit)
+        .get();
+      return snap.docs.map((d) => d.id);
+    },
+    async listLimitsUpdatedBefore(cutoff, limit) {
+      const snap = await firestore
+        .collection('inboxLimits')
+        .where('updatedAt', '<', Timestamp.fromDate(cutoff))
+        .orderBy('updatedAt', 'asc')
+        .limit(limit)
+        .get();
+      return snap.docs.map((d) => {
+        const refused: unknown = d.get('appealRefusedAt');
+        return {
+          uid: d.id,
+          appealRefusedAt: refused instanceof Timestamp ? refused.toDate() : null,
+        };
+      });
+    },
+    async deleteLimits(uids) {
+      const batch = firestore.batch();
+      for (const uid of uids) batch.delete(firestore.collection('inboxLimits').doc(uid));
+      await batch.commit();
     },
   };
 }
