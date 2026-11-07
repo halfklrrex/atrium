@@ -45,8 +45,14 @@ export function BoardPage() {
     writes.touchRecent(uid, { id: visibleBoardId, workspaceId }).catch((error: unknown) => {
       console.warn('Could not record the visit', error);
     });
-    rememberWorkspace(workspaceId);
-  }, [uid, visibleBoardId, workspaceId, rememberWorkspace]);
+  }, [uid, visibleBoardId, workspaceId]);
+
+  // Only a workspace the user belongs to can be "last": a board opened as a guest must not point
+  // the shell at a workspace that is not in their list.
+  const isMember = !!uid && !!workspace && workspace.id === workspaceId && uid in workspace.roles;
+  useEffect(() => {
+    if (isMember && workspaceId) rememberWorkspace(workspaceId);
+  }, [isMember, workspaceId, rememberWorkspace]);
 
   if (loading) {
     return (
