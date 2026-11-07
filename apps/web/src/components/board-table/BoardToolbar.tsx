@@ -72,7 +72,7 @@ export function BoardToolbar({
   }, [searchOpen]);
 
   return (
-    <div className={styles.toolbar} role="toolbar" aria-label="Board tools">
+    <div className={styles.toolbar} role="toolbar" aria-label="Board tools" data-print="hide">
       {calendar ? (
         <Button size="small" disabled={!canAddItem} onClick={onNewItem}>
           New item

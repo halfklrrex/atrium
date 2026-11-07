@@ -592,7 +592,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
 
   return (
     <TableEnvContext.Provider value={env}>
-      <div className={styles.root}>
+      <div className={styles.root} data-print-page="board">
         <BoardToolbar
           board={board}
           items={items}
@@ -604,6 +604,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
         <div
           ref={setScrollElement}
           className={styles.scroll}
+          data-print="reset"
           style={cssVars}
           tabIndex={0}
           aria-label="Board table"
@@ -677,7 +678,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
               <p className={styles.empty}>No items match &ldquo;{search}&rdquo;.</p>
             ) : null}
             {!loading && !error && search === '' && canEdit ? (
-              <div className={styles.addGroup}>
+              <div className={styles.addGroup} data-print="hide">
                 <Button
                   kind="secondary"
                   size="small"

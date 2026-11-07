@@ -36,6 +36,7 @@ export function OfflineNotice({
       role="status"
       aria-live="polite"
       data-testid="offline-notice"
+      data-print="hide"
     >
       <AlertBanner
         backgroundColor="warning"

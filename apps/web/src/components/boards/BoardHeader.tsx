@@ -108,7 +108,7 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
           </Popover>
         </div>
 
-        <div className={styles.actions}>
+        <div className={styles.actions} data-print="hide">
           <Tooltip content="Coming soon">
             <Button
               kind="tertiary"

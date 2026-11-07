@@ -11,7 +11,7 @@ export function ToastHost() {
   const dismiss = useToastStore((s) => s.dismiss);
 
   return (
-    <div className={styles.host} aria-live="polite">
+    <div className={styles.host} aria-live="polite" data-print="hide">
       {toasts.map((toast) => (
         <Toast
           key={toast.id}
