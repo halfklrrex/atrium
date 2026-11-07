@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { AnchoredPopup } from '../board-table/AnchoredPopup';
 import { UserAvatar } from '../UserAvatar';
 import styles from './SentenceToken.module.css';
 
@@ -41,6 +42,8 @@ interface BaseProps {
   disabled?: boolean;
   /** `link`: a link-coloured text button ("Change trigger") instead of a token. */
   variant?: 'token' | 'link';
+  /** Shown in place of the rows when `options` is empty ("No status column on this board"). */
+  emptyText?: string;
 }
 
 export interface SentenceTokenProps extends BaseProps {
@@ -101,9 +104,9 @@ function TokenShell({
 }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
-  const wrapRef = useRef<HTMLSpanElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const link = base.variant === 'link';
 
   const close = (refocus: boolean) => {
@@ -117,12 +120,13 @@ function TokenShell({
     const selected = panelRef.current?.querySelector<HTMLElement>(
       '[role="option"][aria-selected="true"]:not(:disabled)',
     );
-    (selected ?? rows?.[0])?.focus();
-    const onPointerDown = (event: MouseEvent) => {
-      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
+    const first = selected ?? rows?.[0];
+    first?.focus();
+    // The popup is hidden until it has been placed; a hidden row can't take focus, so retry once.
+    const frame = requestAnimationFrame(() => {
+      if (!panelRef.current?.contains(document.activeElement)) first?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -155,9 +159,12 @@ function TokenShell({
   };
 
   return (
-    <span ref={wrapRef} className={styles.wrap}>
+    <span className={styles.wrap}>
       <button
-        ref={buttonRef}
+        ref={(node) => {
+          buttonRef.current = node;
+          setAnchor(node);
+        }}
         type="button"
         className={classNames(
           link ? styles.link : filled ? styles.token : styles.blank,
@@ -175,22 +182,29 @@ function TokenShell({
         {link ? null : <DropdownChevronDown className={styles.chevron} aria-hidden="true" />}
       </button>
       {open ? (
-        <div
-          ref={panelRef}
-          id={listId}
-          role="listbox"
-          aria-label={base.label}
-          aria-multiselectable={multiple || undefined}
-          className={styles.panel}
-          onKeyDown={onKeyDown}
-          onClick={(event) => {
-            // Choosing a row closes a single-choice list; a multi-choice list stays open.
-            const row = (event.target as HTMLElement).closest('[role="option"]');
-            if (row && !multiple && !(row as HTMLButtonElement).disabled) close(true);
-          }}
+        <AnchoredPopup
+          anchor={anchor}
+          onClose={() => setOpen(false)}
+          label={base.label}
+          matchAnchorWidth
         >
-          {children}
-        </div>
+          <div
+            ref={panelRef}
+            id={listId}
+            role="listbox"
+            aria-label={base.label}
+            aria-multiselectable={multiple || undefined}
+            className={styles.panel}
+            onKeyDown={onKeyDown}
+            onClick={(event) => {
+              // Choosing a row closes a single-choice list; a multi-choice list stays open.
+              const row = (event.target as HTMLElement).closest('[role="option"]');
+              if (row && !multiple && !(row as HTMLButtonElement).disabled) close(true);
+            }}
+          >
+            {children}
+          </div>
+        </AnchoredPopup>
       ) : null}
     </span>
   );
@@ -207,6 +221,9 @@ export function SentenceToken(props: SentenceTokenProps) {
   const text = filled ? (props.display ?? current?.label ?? props.value ?? '') : props.placeholder;
   return (
     <TokenShell base={props} text={text} filled={filled}>
+      {props.options.length === 0 ? (
+        <p className={styles.empty}>{props.emptyText ?? 'Nothing to choose from'}</p>
+      ) : null}
       {props.options.map((option) => (
         <button
           key={option.value}
@@ -233,7 +250,9 @@ export function SentenceMultiToken(props: SentenceMultiTokenProps) {
   const full = props.max !== undefined && props.values.length >= props.max;
   return (
     <TokenShell base={props} text={text} filled={filled} multiple>
-      {props.options.length === 0 ? <p className={styles.empty}>No one found</p> : null}
+      {props.options.length === 0 ? (
+        <p className={styles.empty}>{props.emptyText ?? 'No one found'}</p>
+      ) : null}
       {props.options.map((option) => {
         const on = props.values.includes(option.value);
         return (

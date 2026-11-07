@@ -11,6 +11,12 @@ On a scratch board, not your real boards:
 - **One row:** deselect down to one row (or edit a row that is not selected): only that row changes.
 - Try it in light and dark and compare with the monday recording.
 
+## P5e fix: automation builder pickers (web)
+
+- **What changed:** every blue blank in the recipe builder now opens a visible list or editor above the Automation center, and long lists are no longer cut off.
+- **To check (showcase board, Automate, Create from scratch, light and dark, after a hard reload):** every blue blank opens a visible list or editor and the choice sticks: trigger column and label, condition value, action column, a status / people / date value, a create-item value, a notify person. A list with nothing to choose from says "Nothing to choose from" instead of showing a blank panel.
+- **Manage:** save a test recipe switched off, see its row highlighted in Manage, then delete it.
+
 ## Site admin, the gate (ADMIN-1b) - DO NOT MERGE until you say so
 
 - **What it is:** the rules start refusing everyone whose sign-in token lacks the approved claim. Everyone already has it (backfill applied, verified), so nothing should change for you.

@@ -588,6 +588,26 @@ for (const theme of ['light', 'dark'] as const) {
       }
     });
 
+    // The recipe builder with a value picker open: it must draw above the full-screen modal.
+    test('board: Automation builder value picker', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}`);
+      await boardReady(page);
+      await page.getByRole('button', { name: 'Automate' }).click();
+      const dialog = page.getByRole('dialog', { name: /^Automations/ });
+      await dialog.getByRole('button', { name: /Create from scratch/ }).click();
+      await dialog.getByRole('button', { name: /^Trigger:/ }).click();
+      await page.getByRole('option', { name: 'an item is created' }).click();
+      await dialog.getByRole('button', { name: /^Action:/ }).click();
+      await page.getByRole('option', { name: 'set a value' }).click();
+      await dialog.getByRole('button', { name: /^Column to set:/ }).click();
+      await page.getByRole('option', { name: 'Status' }).first().click();
+      await dialog.getByRole('button', { name: /^Value for Status:/ }).click();
+      const editor = page.getByRole('dialog', { name: /./ }).last();
+      await expect(editor).toBeVisible();
+      await expect.poll(() => isOnTop(editor)).toBe(true);
+      await shoot(page, `automation-builder-picker-${theme}`, PARK_IN_HEADER);
+    });
+
     test('board: column header menu over the table', async ({ page }) => {
       await page.goto(`/boards/${IDS.roadmap}`);
       await boardReady(page);

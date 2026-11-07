@@ -16,6 +16,7 @@ import type { BoardDoc } from '../../data/model';
 import { UNKNOWN_PERSON_NAME, useWorkspaceMembers } from '../../data/members-store';
 import { describeError } from '../boards/board-actions';
 import { openItem } from '../board-table/open-item';
+import { PopupLayer } from '../PopupLayer';
 import { showToast } from '../toast-store';
 import { CENTER_PANEL_ID, CENTER_TAB_ID, CenterHeader, type CenterView } from './CenterHeader';
 import { CreateTab } from './CreateTab';
@@ -61,13 +62,15 @@ export function AutomationCenter(props: AutomationCenterProps) {
       closeButtonAriaLabel="Close"
       onClose={props.onClose}
     >
-      <CenterBody
-        key={attempt}
-        {...props}
-        view={view}
-        onViewChange={setView}
-        onRetry={() => setAttempt((n) => n + 1)}
-      />
+      <PopupLayer>
+        <CenterBody
+          key={attempt}
+          {...props}
+          view={view}
+          onViewChange={setView}
+          onRetry={() => setAttempt((n) => n + 1)}
+        />
+      </PopupLayer>
     </Modal>
   );
 }
@@ -93,6 +96,7 @@ function CenterBody({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AutomationDoc | null>(null);
   const [builder, setBuilder] = useState<BuilderTarget | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const automations = useBoardAutomations(board.id);
   // Owners only: everyone else never subscribes to the history.
@@ -152,8 +156,9 @@ function CenterBody({
   };
 
   // A save lands on Manage > Board automations, where the new or changed recipe shows up.
-  const builderSaved = () => {
+  const builderSaved = (savedId: string) => {
     setBuilder(null);
+    setHighlightId(savedId);
     setView('manage');
     setTab('recipes');
     requestAnimationFrame(() => document.getElementById(CENTER_TAB_ID('manage'))?.focus());
@@ -236,6 +241,7 @@ function CenterBody({
             busyId={busyId}
             deleting={deleting}
             search={search}
+            highlightId={highlightId}
             onBrowseTemplates={() => changeView('create')}
             onCreate={() => openBuilder({ mode: 'create' })}
             onEdit={(automation) => openBuilder({ mode: 'edit', automation })}

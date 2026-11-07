@@ -101,6 +101,7 @@ describe('design tokens', () => {
       'popover',
       'dropdown',
       'modal',
+      'modal-popup',
       'toast',
     ];
     const values = order.map(z);
@@ -108,6 +109,11 @@ describe('design tokens', () => {
     expect(values).toEqual([...values].sort((a, b) => a - b));
     // Sticky table layers use sticky+1 and sticky+2 (table-tokens.css): still under the sidebar handle.
     expect(z('sticky') + 2).toBeLessThan(z('chrome'));
+    // Popups opened inside a modal sit above it; popover and dropdown stay below it.
+    expect(z('popover')).toBeLessThan(z('modal'));
+    expect(z('dropdown')).toBeLessThan(z('modal'));
+    expect(z('modal')).toBeLessThan(z('modal-popup'));
+    expect(z('modal-popup')).toBeLessThan(z('toast'));
     // Every Vibe dialog wrapper (MenuButton, Tooltip) gets the dropdown tier from index.css.
     const index = readFileSync(join(srcDir, 'index.css'), 'utf8');
     expect(index).toMatch(
