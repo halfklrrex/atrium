@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { unzipSync } from 'fflate';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +7,7 @@ import { makeBoard } from '../../test/fixtures';
 import { chooseMenuItem } from '../../test/menu';
 
 const download = vi.hoisted(() => vi.fn());
+const downloadXlsx = vi.hoisted(() => vi.fn());
 
 vi.mock('../../lib/firebase', () => ({ db: {} }));
 vi.mock('../../auth/auth-context', () => ({ useAuth: () => ({ user: { uid: 'u1' } }) }));
@@ -32,6 +34,7 @@ vi.mock('./board-actions', () => ({ boardActions: {} }));
 vi.mock('./board-export', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   downloadCsv: download,
+  downloadXlsx,
 }));
 
 function makeItemStub(id: string, name: string) {
@@ -62,9 +65,10 @@ const board = makeBoard({
   accessUids: ['u1'],
 });
 
-describe('BoardMenu Export to CSV', () => {
+describe('BoardMenu Export', () => {
   beforeEach(() => {
     download.mockClear();
+    downloadXlsx.mockClear();
     useToastStore.setState({ toasts: [] });
   });
 
@@ -81,12 +85,24 @@ describe('BoardMenu Export to CSV', () => {
 
   it('downloads the board file and confirms with a toast', async () => {
     const user = await open();
-    await chooseMenuItem(user, 'Export to CSV');
+    await user.hover(await screen.findByRole('menuitem', { name: 'Export' }));
+    await chooseMenuItem(user, 'CSV');
     await waitFor(() => expect(download).toHaveBeenCalledTimes(1));
     const [fileName, csv] = download.mock.calls[0] as [string, string];
     expect(fileName).toBe('Plans- 2026.csv');
     expect(csv.startsWith('﻿Item,Group')).toBe(true);
     expect(csv).toContain('First item,Backlog');
+    expect(useToastStore.getState().toasts[0]?.text).toBe('Exported 1 item');
+  });
+
+  it('downloads an .xlsx zip from the Excel entry', async () => {
+    const user = await open();
+    await user.hover(await screen.findByRole('menuitem', { name: 'Export' }));
+    await chooseMenuItem(user, 'Excel (.xlsx)');
+    await waitFor(() => expect(downloadXlsx).toHaveBeenCalledTimes(1));
+    const [fileName, bytes] = downloadXlsx.mock.calls[0] as [string, Uint8Array];
+    expect(fileName).toBe('Plans- 2026.xlsx');
+    expect(Object.keys(unzipSync(bytes))).toContain('xl/worksheets/sheet1.xml');
     expect(useToastStore.getState().toasts[0]?.text).toBe('Exported 1 item');
   });
 
@@ -97,7 +113,10 @@ describe('BoardMenu Export to CSV', () => {
       access: { u1: 'viewer' },
       accessUids: ['u1'],
     });
-    await open(viewerBoard);
-    expect(await screen.findByRole('menuitem', { name: 'Export to CSV' })).toBeEnabled();
+    const user = await open(viewerBoard);
+    expect(await screen.findByRole('menuitem', { name: 'Export' })).toBeEnabled();
+    await user.hover(screen.getByRole('menuitem', { name: 'Export' }));
+    expect(await screen.findByRole('menuitem', { name: 'CSV' })).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Excel (.xlsx)' })).toBeInTheDocument();
   });
 });
