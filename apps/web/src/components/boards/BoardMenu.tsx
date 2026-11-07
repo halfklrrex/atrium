@@ -1,4 +1,10 @@
-import { canEditBoard, canManageBoard, csvFileName, resolveBoardRole } from '@atrium/shared';
+import {
+  canEditBoard,
+  canManageBoard,
+  csvFileName,
+  resolveBoardRole,
+  xlsxFileName,
+} from '@atrium/shared';
 import { Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
 import {
   Archive,
@@ -29,11 +35,21 @@ import {
 import { useBoardFilter, useHiddenColumnIds } from '../board-filters';
 import { buildColumnViews, buildGroupModels } from '../board-table/table-model';
 import { useTableStore } from '../board-table/table-store';
-import { showToast } from '../toast-store';
+import { showToast, updateToast } from '../toast-store';
 import { useUiStore } from '../AppShell/ui-store';
 import { FavoriteFilled } from './FavoriteStar';
 import { boardActions } from './board-actions';
-import { boardCsvText, buildBoardCsvRows, downloadCsv } from './board-export';
+import {
+  boardCsvText,
+  boardXlsxBytes,
+  buildBoardCsvRows,
+  downloadCsv,
+  downloadXlsx,
+} from './board-export';
+
+/** Above this many items the "Exporting..." toast is shown before the file is built. */
+const LARGE_EXPORT_ROWS = 5000;
+const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 import { canLeaveBoard } from './board-sharing';
 import { folderChoices } from './folder-choices';
 
@@ -44,7 +60,7 @@ interface BoardMenuProps {
   /** Opens the board's Activity log panel. The entry is hidden when omitted (only the header has the panel). */
   onActivityLog?: () => void;
   /**
-   * True when the menu belongs to the open board view (the header): "Export to CSV" then exports
+   * True when the menu belongs to the open board view (the header): "Export" then exports
    * the rows that view shows (filters, search, sort, hidden columns). Otherwise it exports every
    * active item in group order.
    */
@@ -119,7 +135,11 @@ function BoardMenuContent({
     }
   };
 
-  const exportCsv = () => {
+  const exportBoard = async (format: 'csv' | 'xlsx') => {
+    // Tell the user first and let the toast paint before the heavy work blocks the main thread.
+    const busyToast =
+      items.length > LARGE_EXPORT_ROWS ? showToast('Exporting...', { loading: true }) : null;
+    if (busyToast !== null) await nextTask();
     try {
       const allColumns = buildColumnViews(board.columns);
       const models = buildGroupModels({
@@ -140,13 +160,22 @@ function BoardMenuContent({
         hiddenColumnIds: exportOpenView ? viewHiddenIds : [],
         groups: board.groups,
         personNames: (id) => memberLookup(id)?.name,
+        typed: format === 'xlsx',
       });
-      downloadCsv(csvFileName(board.name), boardCsvText(rows));
       const count = rows.length - 1;
-      showToast(`Exported ${count} ${count === 1 ? 'item' : 'items'}`, { type: 'positive' });
+      if (format === 'xlsx') {
+        downloadXlsx(xlsxFileName(board.name), await boardXlsxBytes(rows));
+      } else {
+        downloadCsv(csvFileName(board.name), boardCsvText(rows));
+      }
+      const done = `Exported ${count} ${count === 1 ? 'item' : 'items'}`;
+      if (busyToast !== null) updateToast(busyToast, done, { type: 'positive' });
+      else showToast(done, { type: 'positive' });
     } catch (error) {
       console.error('Could not export the board', error);
-      showToast('Could not export the board', { type: 'negative' });
+      const failed = 'Could not export the board';
+      if (busyToast !== null) updateToast(busyToast, failed, { type: 'negative' });
+      else showToast(failed, { type: 'negative' });
     }
   };
 
@@ -171,7 +200,12 @@ function BoardMenuContent({
         disabled={!workspace || workspace.roles[uid] === 'viewer'}
         onClick={() => openDialog({ type: 'saveTemplate', boardId: board.id })}
       />
-      <MenuItem title="Export to CSV" icon={Download} disabled={itemsLoading} onClick={exportCsv} />
+      <MenuItem title="Export" icon={Download} disabled={itemsLoading}>
+        <Menu id={`export-menu-${board.id}`} size="medium">
+          <MenuItem title="CSV" onClick={() => void exportBoard('csv')} />
+          <MenuItem title="Excel (.xlsx)" onClick={() => void exportBoard('xlsx')} />
+        </Menu>
+      </MenuItem>
       {canEdit ? (
         <MenuItem title="Move to folder" icon={Move}>
           <Menu id={`move-menu-${board.id}`} size="medium">

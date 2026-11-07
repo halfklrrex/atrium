@@ -6,6 +6,7 @@
 import {
   CSV_BOM,
   buildCsv,
+  buildXlsxParts,
   columnRegistry,
   type ColumnDef,
   type CsvCell,
@@ -33,6 +34,11 @@ export interface BoardCsvInput {
   groups: readonly GroupDef[];
   /** Display name of a user id; `undefined` when unknown. */
   personNames: (uid: string) => string | undefined;
+  /**
+   * Also mark date and checkbox cells (`{ text, date }`, `{ text, checkbox }`) for the Excel
+   * writer. Off by default: the CSV rows then hold plain text for those, as before.
+   */
+  typed?: boolean;
 }
 
 const isActive = (item: ItemDoc): boolean => item.state === 'active';
@@ -45,6 +51,7 @@ function cellFor(
   boardId: string,
   personNames: (uid: string) => string | undefined,
   itemNames: ReadonlyMap<string, string>,
+  typed: boolean,
 ): CsvCell {
   const { def, settings } = view;
   const raw = columnRegistry.isDerived(def.type)
@@ -64,7 +71,10 @@ function cellFor(
     // A team keeps the CSV's long-standing fallback (it used to go through `personNames`).
     teamName: (id) => personNames(id) ?? UNKNOWN_PERSON_NAME,
   });
-  return def.type === 'numbers' || typeof raw === 'number' ? { text, numeric: true } : text;
+  if (def.type === 'numbers' || typeof raw === 'number') return { text, numeric: true };
+  if (typed && def.type === 'date') return { text, date: true };
+  if (typed && def.type === 'checkbox') return { text, checkbox: true };
+  return text;
 }
 
 /**
@@ -74,6 +84,7 @@ function cellFor(
  */
 export function buildBoardCsvRows(input: BoardCsvInput): CsvCell[][] {
   const { board, columns, hiddenColumnIds, groups, personNames } = input;
+  const typed = input.typed === true;
   const subitemColumns = input.subitemColumns ?? [];
   const hidden = new Set(hiddenColumnIds);
   const views = buildColumnViews(columns).filter((v) => !hidden.has(v.def.id));
@@ -103,7 +114,7 @@ export function buildBoardCsvRows(input: BoardCsvInput): CsvCell[][] {
     const row: CsvCell[] = [item.name, groupTitles.get(item.groupId) ?? ''];
     if (hasSubitems) row.push('');
     for (const v of views) {
-      row.push(cellFor(v, columns, item, board.id, personNames, itemNames));
+      row.push(cellFor(v, columns, item, board.id, personNames, itemNames, typed));
     }
     rows.push(row);
 
@@ -114,7 +125,7 @@ export function buildBoardCsvRows(input: BoardCsvInput): CsvCell[][] {
         const own = subitemViews.get(v.def.id);
         subRow.push(
           own && own.def.type === v.def.type
-            ? cellFor(own, subitemColumns, sub, board.id, personNames, itemNames)
+            ? cellFor(own, subitemColumns, sub, board.id, personNames, itemNames, typed)
             : '',
         );
       }
@@ -129,9 +140,31 @@ export function boardCsvText(rows: readonly (readonly CsvCell[])[]): string {
   return CSV_BOM + buildCsv(rows);
 }
 
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/**
+ * Zips the workbook parts of `buildXlsxParts` into an `.xlsx` file. `fflate` is imported here, at
+ * click time, so it stays out of the main bundle.
+ */
+export async function boardXlsxBytes(rows: readonly (readonly CsvCell[])[]): Promise<Uint8Array> {
+  const { zipSync, strToU8 } = await import('fflate');
+  const files: Record<string, Uint8Array> = {};
+  for (const [name, xml] of Object.entries(buildXlsxParts(rows))) files[name] = strToU8(xml);
+  return zipSync(files, { level: 6 });
+}
+
 /** Starts a browser download of `csv` as `fileName` through a temporary `<a download>`. */
 export function downloadCsv(fileName: string, csv: string): void {
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  downloadBlob(fileName, new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+}
+
+/** Starts a browser download of the `.xlsx` bytes as `fileName`. */
+export function downloadXlsx(fileName: string, bytes: Uint8Array): void {
+  downloadBlob(fileName, new Blob([bytes as BlobPart], { type: XLSX_MIME }));
+}
+
+function downloadBlob(fileName: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
   try {
     const link = document.createElement('a');
     link.href = url;

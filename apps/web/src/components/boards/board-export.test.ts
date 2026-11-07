@@ -1,7 +1,7 @@
 import type { ColumnDef, GroupDef } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import { makeItem } from '../../test/fixtures';
-import { boardCsvText, buildBoardCsvRows } from './board-export';
+import { boardCsvText, boardXlsxBytes, buildBoardCsvRows } from './board-export';
 
 const col = (
   id: string,
@@ -186,5 +186,38 @@ describe('boardCsvText', () => {
     expect(text).toContain('"Ship, ""v1"""');
     expect(text).toContain(',-4.50,');
     expect(text).toContain('\r\n');
+  });
+});
+
+describe('xlsx export', () => {
+  it('zips the workbook parts', async () => {
+    const { unzipSync, strFromU8 } = await import('fflate');
+    const rows = buildBoardCsvRows({
+      ...base,
+      typed: true,
+      items: [
+        makeItem({
+          id: 'i1',
+          name: 'A',
+          groupId: 'g1',
+          values: { price: 5, due: { date: '2026-01-05' }, ok: { checked: 'true' } },
+        }),
+      ],
+    });
+    const files = unzipSync(await boardXlsxBytes(rows));
+    expect(Object.keys(files).sort()).toEqual(
+      [
+        '[Content_Types].xml',
+        '_rels/.rels',
+        'xl/_rels/workbook.xml.rels',
+        'xl/styles.xml',
+        'xl/workbook.xml',
+        'xl/worksheets/sheet1.xml',
+      ].sort(),
+    );
+    const sheet = strFromU8(files['xl/worksheets/sheet1.xml'] as Uint8Array);
+    expect(sheet).toContain('state="frozen"');
+    expect(sheet).toContain('<v>5</v>');
+    expect(sheet).toContain('<v>46027</v>');
   });
 });
