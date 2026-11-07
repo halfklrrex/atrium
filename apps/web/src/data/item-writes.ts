@@ -27,6 +27,20 @@ export function chunk<T>(list: readonly T[], size: number = BATCH_LIMIT): T[][] 
   return out;
 }
 
+/** A chunked write failed after earlier chunks were already committed (batches are not atomic). */
+export class PartialBatchError extends Error {
+  constructor(
+    /** Ids whose write was committed before the failure. */
+    readonly committedIds: string[],
+    /** Number of cells that were not written. */
+    readonly failedCount: number,
+    override readonly cause: unknown,
+  ) {
+    super(`Wrote ${committedIds.length} items; ${failedCount} could not be saved.`);
+    this.name = 'PartialBatchError';
+  }
+}
+
 /** The two audit fields every item update must carry (rules: `updatedBy`, `updatedAt`). */
 const audit = (uid: string) => ({ updatedAt: serverTimestamp(), updatedBy: uid });
 
@@ -135,6 +149,7 @@ export const itemWrites = {
     columnId: string,
     cells: readonly { id: string; value: unknown }[],
   ): Promise<void> {
+    const committedIds: string[] = [];
     for (const part of chunk(cells)) {
       const batch = writeBatch(db);
       for (const { id, value } of part) {
@@ -148,7 +163,14 @@ export const itemWrites = {
           uid,
         );
       }
-      await batch.commit();
+      try {
+        await batch.commit();
+      } catch (error) {
+        // Earlier chunks are already written: say so instead of pretending nothing happened.
+        if (committedIds.length === 0) throw error;
+        throw new PartialBatchError(committedIds, cells.length - committedIds.length, error);
+      }
+      committedIds.push(...part.map((c) => c.id));
     }
   },
 

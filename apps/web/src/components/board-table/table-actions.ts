@@ -18,6 +18,7 @@ import {
 } from '@atrium/shared';
 import {
   itemWrites,
+  PartialBatchError,
   updateBoardStructure,
   writes,
   type BoardStructureState,
@@ -356,38 +357,65 @@ export const tableActions = {
     const previous = edited.values?.[columnId] ?? null;
     const count = plan.writes.length + 1;
 
+    const explain = () =>
+      explainRequiredDenied(ctx.columns, ctx.requiredColumnIds, columnId, value);
+    const previousById = new Map<string, unknown>([
+      [edited.id, previous],
+      ...plan.writes.map((w) => [w.itemId, w.previous] as const),
+    ]);
+    const undoRows = (ids: readonly string[]) => () => {
+      void attempt(
+        () =>
+          itemWrites.setValueMany(
+            ctx.uid,
+            ctx.boardId,
+            columnId,
+            ids.map((id) => ({ id, value: previousById.get(id) ?? null })),
+          ),
+        'Could not undo the change.',
+      );
+    };
+
     let pendingToast: number | null = null;
     const timer = setTimeout(() => {
       pendingToast = showToast(`Updating ${count} selected items`, { loading: true });
     }, BULK_PENDING_MS);
-    const ok = await attempt(
-      () =>
-        itemWrites.setValueMany(ctx.uid, ctx.boardId, columnId, [
-          { id: edited.id, value },
-          ...plan.writes.map((w) => ({ id: w.itemId, value })),
-        ]),
-      'Could not update the selected items.',
-    );
-    clearTimeout(timer);
-    if (!ok) {
-      if (pendingToast !== null) useToastStore.getState().dismiss(pendingToast);
-      return false;
+    let ok = false;
+    try {
+      await itemWrites.setValueMany(ctx.uid, ctx.boardId, columnId, [
+        { id: edited.id, value },
+        ...plan.writes.map((w) => ({ id: w.itemId, value })),
+      ]);
+      ok = true;
+    } catch (error) {
+      console.error('Could not update the selected items.', error);
+      if (error instanceof PartialBatchError) {
+        // Batches over 400 rows are not atomic: say what was written and offer Undo for it.
+        showToast(
+          `Updated ${error.committedIds.length} items; ${error.failedCount} could not be saved`,
+          {
+            type: 'negative',
+            action: { label: 'Undo', onClick: undoRows(error.committedIds) },
+          },
+        );
+      } else {
+        const code = (error as { code?: string } | null)?.code;
+        const friendly = code === 'permission-denied' ? explain() : null;
+        showToast(friendly ?? describeError(error, 'Could not update the selected items.'), {
+          type: 'negative',
+        });
+      }
+    } finally {
+      clearTimeout(timer);
+      if (!ok && pendingToast !== null) useToastStore.getState().dismiss(pendingToast);
     }
+    if (!ok) return false;
     const summary = bulkSummary(count, plan.total, plan.skipped.length);
     const options = {
       type: plan.skipped.length > 0 ? ('normal' as const) : ('positive' as const),
       action: {
         label: 'Undo',
-        onClick: () => {
-          void attempt(
-            () =>
-              itemWrites.setValueMany(ctx.uid, ctx.boardId, columnId, [
-                { id: edited.id, value: previous },
-                ...plan.writes.map((w) => ({ id: w.itemId, value: w.previous })),
-              ]),
-            'Could not undo the change.',
-          );
-        },
+        onClick: undoRows([edited.id, ...plan.writes.map((w) => w.itemId)]),
       },
     };
     if (pendingToast !== null) updateToast(pendingToast, summary, options);
