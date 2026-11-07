@@ -115,6 +115,14 @@ export function Popover({
               ref={panelRef}
               role="dialog"
               aria-label={label}
+              tabIndex={-1}
+              onKeyDown={(event) => {
+                // A React child of any modal it opens from: keep Escape from closing the modal too.
+                if (event.key === 'Escape') {
+                  event.stopPropagation();
+                  onClose();
+                }
+              }}
               className={classNames(styles.panel, panelClassName)}
               style={layer ? { ...style, zIndex: layer } : style}
             >

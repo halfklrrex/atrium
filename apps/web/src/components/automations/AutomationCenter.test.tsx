@@ -229,6 +229,25 @@ describe('Center shell', () => {
     expect(screen.getByRole('tab', { name: /^Manage/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Run history' })).toBeInTheDocument();
   });
+
+  it('highlights the saved recipe on Manage', async () => {
+    mocks.writes.create.mockResolvedValue('a9');
+    mocks.automations = {
+      data: [recipe({ id: 'a1', name: 'Old' }), recipe({ id: 'a9', name: 'Fresh' })],
+      loading: false,
+      error: null,
+    };
+    renderCenter();
+    fireEvent.click(
+      screen.getByRole('button', { name: /Use template: When an item is created notify someone/ }),
+    );
+    const form = screen.getByRole('form', { name: 'New automation' });
+    fireEvent.click(within(form).getByRole('button', { name: 'Create automation' }));
+    await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+    const rowOf = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
+    expect(rowOf('Fresh').className).toMatch(/highlight/);
+    expect(rowOf('Old').className).not.toMatch(/highlight/);
+  });
 });
 
 describe('Builder pickers inside the real modal', () => {
@@ -256,6 +275,37 @@ describe('Builder pickers inside the real modal', () => {
         within(form).getByRole('button', { name: 'Value for Status: Done' }),
       ).toBeInTheDocument(),
     );
+  });
+
+  it('Escape in a value editor closes only the editor, not the Automation center', async () => {
+    const onClose = vi.fn();
+    render(<AutomationCenter board={board} role="owner" onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: /Create from scratch/ }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    pickRow(/^Trigger:/, 'an item is created');
+    pickRow(/^Action:/, /set a value/);
+    pickRow(/^Column to set:/, 'Status');
+    fireEvent.click(within(form).getByRole('button', { name: 'Value for Status: a value' }));
+    const layer = () =>
+      screen.getAllByRole('dialog').find((d) => d.style.zIndex === 'var(--atrium-z-modal-popup)');
+    expect(layer()).toBeDefined();
+    fireEvent.keyDown(within(layer()!).getByText('Done'), { key: 'Escape' });
+    expect(layer()).toBeUndefined();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('form', { name: 'New automation' })).toBeInTheDocument();
+  });
+
+  it('Escape in a token list closes only the list, not the Automation center', () => {
+    const onClose = vi.fn();
+    render(<AutomationCenter board={board} role="owner" onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: /Create from scratch/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Trigger:/ }));
+    fireEvent.keyDown(within(screen.getByRole('listbox')).getAllByRole('option')[0]!, {
+      key: 'Escape',
+    });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('form', { name: 'New automation' })).toBeInTheDocument();
   });
 
   it('lists the condition values in an unclipped layer', () => {
