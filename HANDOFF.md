@@ -20,6 +20,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
   - archive, trash and undo
   - empty states and the notifications bell and panel (2026-10-30)
   - the layering fix for menus
+  - the new Atrium logo (2026-11-07), the account approval gate, bulk edit across selected rows
 - **Data:** Firestore named database **`atrium-1`** (`eur3`, scheduled backups), through `FIRESTORE_DATABASE_ID`. `(default)` (`nam5`) is unused legacy.
 - **Showcase:** the "🧪 Atrium Showcase" board is in the owner's Test Workspace (id in `.private/project-ids.md`, gitignored, local only). Re-seed it per `docs/showcase.md`.
 - **MCP connector:** a local MCP server lets Claude edit boards and items in the live Atrium (`docs/mcp-connector.md`, `pnpm mcp`).
@@ -31,17 +32,18 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 
 ## Open work (2026-11-07, end of day)
 
-- **Latest session notes:** `docs/handoff/2026-11-07-ophelia-queue-and-next-steps.md` (read this first: the queue, the owner's decisions and the gotchas), `docs/handoff/2026-11-07-ophelia-pickers-bulk-edit-approval-on.md`, `docs/handoff/2026-11-07-ophelia-gate-drag-automation-redesign.md`. Plans: `docs/plans/2026-11-07-owner-feedback-round-2.md` (every owner report and the work packages), `docs/plans/owner-check-list.md` (what the owner still has to look at).
-- **Live since 2026-11-07:** the account gate (#143) and **approval ON for new sign-ups** (#152, the flag lives in the committed `functions/.env.atrium-board`; the owner tested it with a second account and it works), builder pickers above the modal (#154), shift+click range select and immediate bulk edit (#153, #161: Undo respects required columns, column highlight), people shown as names in the Automation center and Manage chips (#160), the blocked sign-in message (#157), test fixes (#163). Specs merged: PWA and web push (#149), appeals inbox ADMIN-4 (#156).
-- **In flight:** `claude/bulk-highlight-overlay` (the bulk column highlight is applied but invisible on Status and Priority cells because the colour pill covers the outline; fix draws it as an overlay above the cell content). Check the PR list first.
+- **Latest session notes:** `docs/handoff/2026-11-07-ophelia-queue-and-next-steps.md` (read this first: the queue, the owner's decisions and the gotchas), `docs/handoff/2026-11-07-ophelia-logo-and-board-cleanup.md` (logo live, monday cleanup, later owner decisions), `docs/handoff/2026-11-07-ophelia-pickers-bulk-edit-approval-on.md`, `docs/handoff/2026-11-07-ophelia-gate-drag-automation-redesign.md`. Plans: `docs/plans/2026-11-07-owner-feedback-round-2.md` (every owner report and the work packages), `docs/plans/owner-check-list.md` (what the owner still has to look at).
+- **Live since 2026-11-07:** the **new logo** (#166: favicons, header, login, About, account screens; the owner confirmed it; the PWA icon files are in `apps/web/public` but there is still no manifest), the bulk column highlight overlay (#164), the account gate (#143) and **approval ON for new sign-ups** (#152, the flag lives in the committed `functions/.env.atrium-board`; the owner tested it with a second account and it works), builder pickers above the modal (#154), shift+click range select and immediate bulk edit (#153, #161: Undo respects required columns, column highlight), people shown as names in the Automation center and Manage chips (#160), the blocked sign-in message (#157), test fixes (#163). Specs merged: PWA and web push (#149), appeals inbox ADMIN-4 (#156).
+- **In flight:** nothing open (check the PR list first). Next small fix: the bulk highlight border from 2px to **1px** (owner, 2026-11-07; token `--atrium-table-bulk-outline-width` in `apps/web/src/theme/table-tokens.css`).
 - **Owner decisions, 2026-11-07:** appeals inbox: a blocked person signs in and appeals from the blocked screen (blocking stops disabling the Auth user), two-way until an admin closes it, feedback goes to the same Inbox, the admin is shown as "Site Administrator" (no admin uid or name on anything the sender can read), daily caps accepted (10 blocked, 30 approved, 200 per thread), no email, closed threads deleted after 365 days. The owner's old Minerva messenger is inspiration only: nothing copied.
-- **Waiting on the owner:** the PWA questions (five, with defaults, on Roadmap item 3306251569; PWA is on hold until answered); live checks of the builder pickers (other blanks), a real bulk edit and Undo on the showcase, and the P5 items that need a real run (event triggers, actions library, post_update author, time-based "Scheduled for" run, flag emoji on Windows); go-aheads for two production writes with dry runs ready: the `requiredColumnIds` backfill (8 boards) and the legacy-activity cleanup (1 doc) (`dateKeys` is already applied).
+- **PWA answers (owner, 2026-11-07):** push by default for assigned, reply, mention, button (automation off); desktop browsers too; **account notifications follow the per-kind switches** (the spec says "always push": update `docs/specs/P4-pwa-web-push.md`); sign-out removes the device's push token; the new logo is final and the app is "Atrium". PWA is no longer on hold.
+- **Waiting on the owner:** only the flag emoji check on Windows (item 3336410633). On 2026-11-07 the owner confirmed everything automation (center, builder, triggers, actions, templates, author), bulk edit with Undo, and site admin approval; those items are Done. The two production backfills are **not needed**: dry runs show `requiredColumnIds` set on all 9 boards and 0 legacy activity docs.
 - **Queue (not started; each has a Roadmap item):**
   1. Appeals and feedback inbox, 7 small PRs in the order of `docs/specs/ADMIN-4-appeals-inbox.md` (PR2, PR3 and PR4 get an ultrareview checkpoint). Start with PR2 (shared schemas, rules, indexes, rules tests; hot spots) after a fresh read of the spec's T6 and the "What each side sees" table. List accounts blocked before PR3 and ask the owner.
-  2. New app logo (Roadmap item in the VF group): propose 2 or 3 SVG directions, owner picks, then a Sonnet agent applies it (header, login, favicon, PWA icon sizes). Do it before PWA-1.
+  2. ~~New app logo~~ done 2026-11-07.
   3. Export and print: print styles and native .xlsx (spec section in `docs/specs/P6-export-csv.md` first; an MIT dependency, so `pnpm-lock.yaml` and `pnpm licenses:notices`), then an Export button in the batch bar (CSV of the selected rows). Convert (to subitems or another board) is its own later item; Apps is skipped.
   4. Read-only live QA with Chrome: light mode of the Automation center, VF compare item 3333664237, nested layers (the date picker inside a builder value editor must draw above the modal and Escape must close only the innermost layer).
-  5. PWA and web push, only after the owner answers (spec `docs/specs/P4-pwa-web-push.md`, PWA-1 to PWA-4, ultrareview before PWA-3).
+  5. PWA and web push, owner has answered (spec `docs/specs/P4-pwa-web-push.md`, PWA-1 to PWA-4, ultrareview before PWA-3).
   6. Unstarted epics that need a spec first: Teams and user profiles, Email notifications, Docs editor, Map and Files gallery views, the P8 public API (plan an ultrareview checkpoint first).
 - **Ava is on a break with no end date.** Ophelia works alone. Ava's Roadmap items are Agent = Claude.
 - **Start of every session:** `git fetch`, open PRs, the bug inbox (item 3307382004) and Actionable = Agents. **Read the threaded replies with GraphQL** (`updates { replies { text_body } }`): owner replies are not in `get_updates` text.
@@ -51,6 +53,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 
 ## Notes index
 
+- [2026-11-07 · Ophelia · logo live and board cleanup](docs/handoff/2026-11-07-ophelia-logo-and-board-cleanup.md)
 - [2026-11-07 · Ophelia · queue, owner decisions and next steps](docs/handoff/2026-11-07-ophelia-queue-and-next-steps.md)
 - [2026-10-23 · Claude · kickoff, P0, P1a, deploys](docs/handoff/2026-10-23-claude-kickoff-p0-p1a.md)
 - [2026-10-24 · Claude · multi-agent workflow, VF1, OPS1, deploy-on-merge](docs/handoff/2026-10-24-claude-workflow-vf1-ops1.md)
