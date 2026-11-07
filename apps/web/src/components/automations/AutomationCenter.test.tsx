@@ -1,5 +1,4 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AutomationDoc, AutomationRunDoc } from '../../data/automations';
 import { makeBoard, makeItem, ts } from '../../test/fixtures';
@@ -94,6 +93,9 @@ const runDoc = (over: Partial<AutomationRunDoc> & { id: string }): AutomationRun
 });
 
 const SENTENCE = 'When Status changes to Done, then move the item to Done items';
+/** The sentence has bold names in `<strong>`, so match on the element's whole text. */
+const sentenceOf = (_: string, element: Element | null) =>
+  element?.tagName === 'SPAN' && element.textContent === SENTENCE;
 
 /** The center opens on Create; most tests live on Manage. */
 const goToManage = () => fireEvent.click(screen.getByRole('tab', { name: /^Manage/ }));
@@ -191,9 +193,7 @@ describe('Center shell', () => {
     mocks.automations = { data: [recipe({ id: 'a1', name: 'Tidy' })], loading: false, error: null };
     renderCenter();
     goToManage();
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: 'Options for Tidy' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Tidy' }));
     expect(await screen.findByText('Editing: Tidy')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to Manage' }));
     expect(screen.queryByRole('form')).toBeNull();
@@ -230,14 +230,21 @@ describe('Center shell', () => {
 describe('Recipes tab', () => {
   it('shows the empty state with Create for an owner, and a plain note for others', () => {
     open('owner');
-    expect(screen.getByText('No automations yet')).toBeInTheDocument();
+    expect(screen.getByText('No automations on this board yet')).toBeInTheDocument();
+    expect(screen.getByText(/A board can have up to 20\./)).toBeInTheDocument();
+    // The tab row keeps its create button; the empty state adds its own two actions.
     expect(screen.getByRole('button', { name: 'Create automation' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create from scratch' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Browse templates' })).toBeInTheDocument();
+    expect(screen.getByText('0 of 20 used')).toBeInTheDocument();
   });
 
   it('hides Create from non-owners', () => {
     open('editor');
-    expect(screen.getByText('No automations yet')).toBeInTheDocument();
+    expect(screen.getByText('No automations on this board yet')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Create automation' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create from scratch' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Browse templates' })).toBeNull();
   });
 
   it('shows loading and error states (with Retry)', () => {
@@ -253,26 +260,76 @@ describe('Recipes tab', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
-  it('lists recipes as sentences with the last run, and "Never" when none', () => {
+  it('lists recipes as sentences first, then the name, with the last run', () => {
     mocks.automations = {
-      data: [recipe({ id: 'a1' }), recipe({ id: 'a2', name: 'Second' })],
+      data: [
+        recipe({ id: 'a1' }),
+        recipe({ id: 'a2', name: 'Second', createdBy: 'u2', enabled: false }),
+      ],
       loading: false,
       error: null,
     };
     mocks.runs = { data: [runDoc({ id: 'r1', automationId: 'a1' })], loading: false, error: null };
     open();
-    expect(screen.getAllByText(SENTENCE)).toHaveLength(2);
+    expect(screen.getAllByText(sentenceOf)).toHaveLength(2);
     expect(screen.getByText('Second')).toBeInTheDocument();
     const table = screen.getByRole('table', { name: 'Automations' });
-    expect(within(table).getByRole('columnheader', { name: 'Last run' })).toBeInTheDocument();
+    for (const name of ['On', 'Automation', 'Created by', 'Last run']) {
+      expect(within(table).getByRole('columnheader', { name })).toBeInTheDocument();
+    }
     const rows = within(table).getAllByRole('row');
     expect(rows).toHaveLength(3); // header + two automations
+    // Sentence first, the name below it.
+    const second = rows[2]!;
+    const sentence = within(second).getByText(sentenceOf);
+    expect(sentence.compareDocumentPosition(within(second).getByText('Second'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    // Key names are bold.
+    expect(within(sentence).getByText('Status').tagName).toBe('STRONG');
+    expect(within(sentence).getByText('Done items').tagName).toBe('STRONG');
+    expect(within(second).getByText('Avery Quinn')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('OK')).toBeInTheDocument();
     expect(within(rows[1]!).getByText(/5 minutes ago/)).toBeInTheDocument();
-    expect(within(rows[2]!).getByText('Never')).toBeInTheDocument();
+    expect(within(second).getByText('Never ran')).toBeInTheDocument();
     expect(screen.queryByText('Needs attention')).toBeNull();
   });
 
-  it('marks failing and breaker-disabled automations and filters to them', () => {
+  it('shows "N of 20 used" and the count in the sub-tab', () => {
+    mocks.automations = {
+      data: [recipe({ id: 'a1' }), recipe({ id: 'a2' })],
+      loading: false,
+      error: null,
+    };
+    open();
+    expect(screen.getByRole('tab', { name: 'Board automations (2)' })).toBeInTheDocument();
+    expect(screen.getByText('2 of 20 used')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create automation' })).toBeEnabled();
+  });
+
+  it('searches by sentence or name, and says when nothing matches', async () => {
+    mocks.automations = {
+      data: [
+        recipe({ id: 'a1', name: 'Tidy' }),
+        recipe({ id: 'a2', name: 'Other', actions: [{ type: 'archive_item' }] }),
+      ],
+      loading: false,
+      error: null,
+    };
+    open();
+    const search = screen.getByRole('searchbox', { name: 'Search automations' });
+    fireEvent.change(search, { target: { value: 'tidy' } });
+    expect(screen.getByText('Tidy')).toBeInTheDocument();
+    // The Vibe search waits a moment after typing.
+    await waitFor(() => expect(screen.queryByText('Other')).toBeNull());
+    fireEvent.change(search, { target: { value: 'archive' } });
+    await waitFor(() => expect(screen.queryByText('Tidy')).toBeNull());
+    expect(screen.getByText('Other')).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'zzzz' } });
+    expect(await screen.findByText('No automations match “zzzz”')).toBeInTheDocument();
+  });
+
+  it('flags failing and breaker-disabled automations with a yellow chip in Last run', () => {
     mocks.automations = {
       data: [
         recipe({ id: 'a1', name: 'Fine' }),
@@ -293,15 +350,14 @@ describe('Recipes tab', () => {
     };
     open();
     expect(screen.getAllByText('Needs attention')).toHaveLength(2);
-    const filter = screen.getByRole('button', { name: 'Needs attention (2)' });
-    expect(filter).toHaveAttribute('aria-pressed', 'false');
-    fireEvent.click(filter);
-    expect(filter).toHaveAttribute('aria-pressed', 'true');
-    const table = screen.getByRole('table', { name: 'Automations' });
-    expect(within(table).queryByText('Fine')).toBeNull();
-    expect(within(table).queryByText('Paused')).toBeNull();
-    expect(within(table).getByText('Broken')).toBeInTheDocument();
-    expect(within(table).getByText('Tripped')).toBeInTheDocument();
+    // The red filter button is gone; the chips in the rows are enough.
+    expect(screen.queryByRole('button', { name: /Needs attention/ })).toBeNull();
+    const rows = within(screen.getByRole('table', { name: 'Automations' })).getAllByRole('row');
+    const lastRun = (row: HTMLElement) => within(row).getAllByRole('cell')[3]!;
+    expect(within(lastRun(rows[2]!)).getByText('Needs attention')).toBeInTheDocument();
+    expect(within(lastRun(rows[2]!)).getByText('Failed')).toBeInTheDocument();
+    expect(within(lastRun(rows[3]!)).getByText('Needs attention')).toBeInTheDocument();
+    expect(within(lastRun(rows[4]!)).queryByText('Needs attention')).toBeNull();
   });
 
   it('an owner switches a recipe off and on through the data layer', async () => {
@@ -314,12 +370,15 @@ describe('Recipes tab', () => {
     expect(mocks.writes.setEnabled.mock.calls[0]![2]).toBe(false);
   });
 
-  it('a disabled recipe shows its reason and a Turn on action', async () => {
+  it('a disabled recipe shows its reason with Fix and Turn on actions', async () => {
     const a1 = recipe({ id: 'a1', enabled: false, disabledReason: 'Failed 5 times in a row' });
     mocks.automations = { data: [a1], loading: false, error: null };
     open();
-    expect(screen.getByText('Turned off: Failed 5 times in a row')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    expect(screen.getByText('Failed 5 times in a row')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Fix' }));
+    expect(await screen.findByRole('form', { name: 'Edit automation' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
     await waitFor(() =>
       expect(mocks.writes.setEnabled).toHaveBeenCalledWith(expect.anything(), a1, true),
     );
@@ -328,10 +387,11 @@ describe('Recipes tab', () => {
   it('non-owners see the list read-only and never subscribe to the history', () => {
     mocks.automations = { data: [recipe({ id: 'a1' })], loading: false, error: null };
     open('editor');
-    expect(screen.getByText(SENTENCE)).toBeInTheDocument();
+    expect(screen.getByText(sentenceOf)).toBeInTheDocument();
     expect(screen.queryByRole('switch')).toBeNull();
-    expect(screen.queryByRole('button', { name: /Options for/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^(Edit|Duplicate|Delete) / })).toBeNull();
     expect(screen.queryByText(/Last run/)).toBeNull();
+    expect(screen.queryByText(/of 20 used/)).toBeNull();
     expect(screen.queryByRole('columnheader', { name: 'Last run' })).toBeNull();
     expect(mocks.runsEnabled.every((enabled) => enabled === false)).toBe(true);
   });
@@ -366,9 +426,7 @@ describe('Recipes tab', () => {
       error: null,
     };
     open('owner');
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: /Options for/ }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit / }));
     const form = await screen.findByRole('form', { name: 'Edit automation' });
     expect(within(form).getByRole('alert')).toHaveTextContent('the column no longer exists');
     expect(within(form).getByRole('button', { name: 'Save' })).toHaveAttribute(
@@ -472,15 +530,17 @@ describe('Recipes tab', () => {
     expect(save).toHaveAttribute('aria-disabled', 'false');
   });
 
-  it('a starter opens the builder prefilled', () => {
+  it('"Browse templates" in the empty state switches to Create', () => {
     open('owner');
-    fireEvent.click(screen.getByRole('button', { name: /notify the board owner/ }));
-    const form = screen.getByRole('form', { name: 'New automation' });
-    expect(within(form).getByRole('group', { name: /^Action 1: / })).toBeInTheDocument();
-    expect(within(form).getByRole('button', { name: 'Save' })).toHaveAttribute(
-      'aria-disabled',
-      'false',
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Browse templates' }));
+    expect(screen.getByRole('tab', { name: /^Create/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Start with the basics')).toBeInTheDocument();
+  });
+
+  it('"Create from scratch" in the empty state opens the builder', () => {
+    open('owner');
+    fireEvent.click(screen.getByRole('button', { name: 'Create from scratch' }));
+    expect(screen.getByRole('form', { name: 'New automation' })).toBeInTheDocument();
   });
 
   it('warns that saving takes over a recipe someone else made, then updates it', async () => {
@@ -491,9 +551,7 @@ describe('Recipes tab', () => {
     };
     mocks.writes.update.mockResolvedValue(undefined);
     open('owner');
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: /Options for/ }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Edit / }));
     const form = await screen.findByRole('form', { name: 'Edit automation' });
     expect(within(form).getByRole('note')).toHaveTextContent(
       'Saving makes you the person this runs as.',
@@ -508,7 +566,7 @@ describe('Recipes tab', () => {
     open('owner');
     fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByText('No automations yet')).toBeInTheDocument();
+    expect(screen.getByText('No automations on this board yet')).toBeInTheDocument();
     expect(mocks.writes.create).not.toHaveBeenCalled();
   });
 
@@ -530,10 +588,15 @@ describe('Recipes tab', () => {
   it('Delete asks first, then removes the recipe', async () => {
     mocks.automations = { data: [recipe({ id: 'a1', name: 'Tidy' })], loading: false, error: null };
     open();
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: 'Options for Tidy' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Tidy' }));
     const confirm = await screen.findByRole('alertdialog', { name: 'Delete automation' });
+    // The confirmation replaces the row itself and names what the delete means.
+    expect(confirm.closest('tr')).not.toBeNull();
+    expect(confirm).toHaveTextContent(
+      'Delete “Tidy”? It stops running at once and its run history is kept for 30 days.',
+    );
+    const buttons = within(confirm).getAllByRole('button');
+    expect(buttons.map((b) => b.textContent)).toEqual(['Cancel', 'Delete']);
     expect(mocks.writes.remove).not.toHaveBeenCalled();
     fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(mocks.writes.remove).toHaveBeenCalledWith('b1', 'a1'));
@@ -542,9 +605,7 @@ describe('Recipes tab', () => {
   it('Duplicate creates a switched-off copy', async () => {
     mocks.automations = { data: [recipe({ id: 'a1', name: 'Tidy' })], loading: false, error: null };
     open();
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    await user.click(screen.getByRole('button', { name: 'Options for Tidy' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Duplicate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate Tidy' }));
     await waitFor(() => expect(mocks.writes.create).toHaveBeenCalled());
     const [, input, count, options] = mocks.writes.create.mock.calls[0]!;
     expect(input.name).toBe('Tidy (copy)');
@@ -687,7 +748,28 @@ describe('Run history tab', () => {
   it('shows the empty, loading and error states for owners', () => {
     open();
     goToHistory();
-    expect(screen.getByText('No runs yet')).toBeInTheDocument();
+    expect(screen.getByText('No runs to show')).toBeInTheDocument();
+    expect(
+      screen.getByText('Runs appear here once an automation does something.'),
+    ).toBeInTheDocument();
+  });
+
+  it('with automations, the empty state points at the filters and the trigger', () => {
+    mocks.automations = { data: [recipe({ id: 'a1' })], loading: false, error: null };
+    open();
+    goToHistory();
+    expect(
+      screen.getByText(
+        'Change the filters, or wait for a trigger: runs appear here within a few seconds.',
+      ),
+    ).toBeInTheDocument();
+    // The tab row and the toolbar stay.
+    expect(screen.getByText('1 of 20 used')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create automation' })).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox', { name: 'Search automations' })).toBeNull();
+    expect(screen.getByText('All automations')).toBeInTheDocument();
+    expect(screen.getByText('All results')).toBeInTheDocument();
+    expect(screen.getByText('Last 30 days')).toBeInTheDocument();
   });
 
   it('lists runs with item, result and details, and says how many are shown', () => {
@@ -707,6 +789,30 @@ describe('Run history tab', () => {
     expect(screen.getByText('Column was deleted')).toBeInTheDocument();
     expect(screen.getByText('Deleted item')).toBeInTheDocument();
     expect(screen.getByText('Deleted automation')).toBeInTheDocument();
+    // A real table: When, Automation, Item and Result (details sit in the Result cell).
+    const table = screen.getByRole('table', { name: 'Run history' });
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual(['When', 'Automation', 'Item', 'Result']);
+    expect(within(table).getAllByText(/^Today \d\d:\d\d$/)).toHaveLength(3);
+    expect(within(table).getByText('OK')).toBeInTheDocument();
+    expect(within(table).getByText('Failed')).toBeInTheDocument();
+    expect(within(table).getByText('Skipped')).toBeInTheDocument();
+    // The cap note only shows when the cap is hit.
+    expect(screen.queryByText(/Showing the latest/)).toBeNull();
+  });
+
+  it('says how many runs are shown once the cap is hit', () => {
+    mocks.automations = { data: [recipe({ id: 'a1', name: 'Tidy' })], loading: false, error: null };
+    mocks.runs = {
+      data: Array.from({ length: 200 }, (_, i) => runDoc({ id: `r${i}` })),
+      loading: false,
+      error: null,
+    };
+    open();
+    goToHistory();
     expect(screen.getByText(/Showing the latest 200 runs/)).toBeInTheDocument();
   });
 

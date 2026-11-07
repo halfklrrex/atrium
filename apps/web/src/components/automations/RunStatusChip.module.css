@@ -1,0 +1,33 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-8);
+  color: var(--primary-text-color);
+  font: var(--font-text3-bold);
+  line-height: var(--space-20);
+  white-space: nowrap;
+  border: var(--border-width) var(--border-style) transparent;
+  border-radius: var(--border-radius-small);
+}
+
+.ok {
+  background: var(--positive-color-selected);
+}
+
+.failed {
+  background: var(--negative-color-selected);
+}
+
+.skipped {
+  color: var(--secondary-text-color);
+  border-color: var(--layout-border-color);
+}
+
+.attention {
+  background: var(--warning-color-selected);
+}
+
+.icon {
+  flex-shrink: 0;
+}

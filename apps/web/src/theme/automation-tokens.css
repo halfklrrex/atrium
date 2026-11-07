@@ -6,10 +6,7 @@
   --atrium-automation-min-height: 420px; /* keeps the full-screen center steady between its views */
   --atrium-automation-row-min-height: 56px;
   --atrium-automation-filter-width: 220px;
-  --atrium-automation-run-time-width: 120px;
-  --atrium-automation-run-recipe-width: 200px;
-  --atrium-automation-run-item-width: 160px;
-  --atrium-automation-run-status-width: 88px;
+  --atrium-automation-filter-wide-width: 250px; /* Run history "All automations" select */
   --atrium-automation-sidebar-width: 280px; /* Create tab categories column */
   --atrium-automation-card-min-width: 220px;
   --atrium-automation-card-min-height: 236px;

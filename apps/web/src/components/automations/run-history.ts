@@ -34,6 +34,28 @@ export function filterRuns(
   );
 }
 
+/**
+ * "Today 14:32", "Yesterday 17:18", otherwise "Nov 3, 15:11" (24-hour clock, local time). Takes any
+ * timestamp-like with `toMillis()`.
+ */
+export function formatRunTime(
+  timestamp: { toMillis(): number },
+  now: number = Date.now(),
+  locale?: string,
+): string {
+  const at = new Date(timestamp.toMillis());
+  const time = at.toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date(now)) - startOfDay(at)) / 86_400_000);
+  if (days === 0) return `Today ${time}`;
+  if (days === 1) return `Yesterday ${time}`;
+  return `${at.toLocaleDateString(locale, { month: 'short', day: 'numeric' })}, ${time}`;
+}
+
 /** The one line a run shows next to its status: why it was skipped or how it failed. */
 export function runDetail(run: Pick<AutomationRunDoc, 'status' | 'reason' | 'error'>): string {
   if (run.status === 'failed') return run.error ?? run.reason ?? '';
