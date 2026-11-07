@@ -17,7 +17,10 @@ export function ToastHost() {
           key={toast.id}
           open
           type={toast.type === 'normal' ? 'dark' : toast.type}
-          autoHideDuration={toast.action ? UNDO_VISIBLE_MS : DEFAULT_VISIBLE_MS}
+          loading={toast.loading}
+          autoHideDuration={
+            toast.loading ? undefined : toast.action ? UNDO_VISIBLE_MS : DEFAULT_VISIBLE_MS
+          }
           onClose={() => dismiss(toast.id)}
           actions={
             toast.action

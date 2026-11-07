@@ -144,8 +144,8 @@ describe('planBulkApply', () => {
   });
 
   it('words the summary without hiding skips', () => {
-    expect(bulkSummary(9, 9, 0)).toBe('Updated 9 items.');
-    expect(bulkSummary(7, 9, 2)).toBe('Updated 7 of 9 items; 2 skipped (locked or required).');
+    expect(bulkSummary(9, 9, 0)).toBe('Updated 9 items');
+    expect(bulkSummary(7, 9, 2)).toBe('Updated 7 of 9 items; 2 skipped (locked or required)');
   });
 });
 
@@ -173,23 +173,26 @@ describe('bulk edit in the table', () => {
     await userEvent.click(document.querySelector(`[data-cell="${id}:done"]`)!);
   };
 
-  it('offers the change to all selected rows and applies it with one Undo', async () => {
+  it('applies the change to all selected rows at once, with no popup and one Undo', async () => {
     render(<BoardTable board={board()} />);
     select('r1', 'r2', 'r3');
     await toggleRow('r1');
-    expect(mocks.setValue).toHaveBeenCalledWith('u1', 'b1', 'r1', 'done', { checked: 'true' });
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Apply to 3 selected items' }));
     await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(1));
+    // One batch holds the edited row and its peers; there is no separate first write.
+    expect(mocks.setValue).not.toHaveBeenCalled();
     expect(mocks.setValueMany).toHaveBeenCalledWith('u1', 'b1', 'done', [
+      { id: 'r1', value: { checked: 'true' } },
       { id: 'r2', value: { checked: 'true' } },
       { id: 'r3', value: { checked: 'true' } },
     ]);
+    expect(screen.queryByRole('button', { name: /Apply to|Only this item/ })).toBeNull();
     expect(useTableStore.getState().selected.size).toBe(3);
-    expect(screen.queryByRole('dialog', { name: 'Apply to selected items' })).toBeNull();
 
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.at(-1)?.text).toBe('Updated 3 items'),
+    );
     const toast = useToastStore.getState().toasts.at(-1)!;
-    expect(toast.text).toBe('Updated 3 items.');
+    expect(toast.action?.label).toBe('Undo');
     act(() => toast.action!.onClick());
     await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(2));
     expect(mocks.setValueMany).toHaveBeenLastCalledWith('u1', 'b1', 'done', [
@@ -199,30 +202,53 @@ describe('bulk edit in the table', () => {
     ]);
   });
 
-  it('writes nothing more for "Only this item" and for Escape', async () => {
-    render(<BoardTable board={board()} />);
-    select('r1', 'r2');
-    await toggleRow('r1');
-    await userEvent.click(await screen.findByRole('button', { name: 'Only this item' }));
-    expect(screen.queryByRole('button', { name: /Apply to/ })).toBeNull();
-
-    await toggleRow('r2');
-    await screen.findByRole('button', { name: 'Apply to 2 selected items' });
-    await userEvent.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('button', { name: /Apply to/ })).toBeNull());
-    expect(mocks.setValueMany).not.toHaveBeenCalled();
+  it('shows "Updating N selected items" only when the write is slow, then the result', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let finish: () => void = () => undefined;
+      mocks.setValueMany.mockReturnValue(new Promise<void>((r) => (finish = r)));
+      render(<BoardTable board={board()} />);
+      select('r1', 'r2');
+      await toggleRow('r1');
+      expect(useToastStore.getState().toasts).toHaveLength(0);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400);
+      });
+      const pending = useToastStore.getState().toasts.at(-1)!;
+      expect(pending).toMatchObject({ text: 'Updating 2 selected items', loading: true });
+      await act(async () => {
+        finish();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0]).toMatchObject({ id: pending.id, text: 'Updated 2 items' });
+      expect(toasts[0]!.loading).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it('does not offer anything with one selected row or an unselected edited row', async () => {
+  it('writes a single row when one row or none of the selected rows is edited', async () => {
     render(<BoardTable board={board()} />);
     select('r1');
     await toggleRow('r1');
     await waitFor(() => expect(mocks.setValue).toHaveBeenCalledTimes(1));
-    expect(screen.queryByRole('button', { name: /Apply to/ })).toBeNull();
 
     select('r1', 'r2');
     await toggleRow('r3');
     await waitFor(() => expect(mocks.setValue).toHaveBeenCalledTimes(2));
-    expect(screen.queryByRole('button', { name: /Apply to/ })).toBeNull();
+    expect(mocks.setValueMany).not.toHaveBeenCalled();
+  });
+
+  it('restores nothing silently on failure: shows the error and no result toast', async () => {
+    mocks.setValueMany.mockRejectedValue(new Error('boom'));
+    render(<BoardTable board={board()} />);
+    select('r1', 'r2');
+    await toggleRow('r1');
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.some((t) => t.type === 'negative')).toBe(true),
+    );
+    expect(useToastStore.getState().toasts.some((t) => /^Updated/.test(t.text))).toBe(false);
   });
 });

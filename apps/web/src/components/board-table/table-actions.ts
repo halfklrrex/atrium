@@ -36,7 +36,7 @@ import {
 } from '../../lib/positions';
 import { nextGroupColor } from '../../theme/palette';
 import { describeError } from '../boards/board-actions';
-import { showToast } from '../toast-store';
+import { showToast, updateToast, useToastStore } from '../toast-store';
 import {
   isClientReadOnlyType,
   newItemValues,
@@ -52,7 +52,7 @@ import {
   wouldExceedRequiredCap,
   type RequiredWriteError,
 } from './required-write';
-import { bulkSummary, planBulkApply, type BulkOffer } from './bulk-edit';
+import { bulkSummary, planBulkApply } from './bulk-edit';
 import { appendPositions, dropPosition, positionsAfter } from './move-math';
 import { clampWidth, withSubitemIds, type ColumnView } from './table-model';
 import { useTableStore } from './table-store';
@@ -116,6 +116,9 @@ const columnsOf = (ctx: TableCtx, state: BoardStructureState): ColumnDef[] =>
   state[columnsKey(ctx)];
 const columnsPatch = (ctx: TableCtx, columns: ColumnDef[]): StructurePatch =>
   ({ [columnsKey(ctx)]: columns }) as StructurePatch;
+
+/** How long a bulk write may run before the "Updating N selected items" toast appears. */
+const BULK_PENDING_MS = 300;
 
 async function attempt(
   task: () => Promise<unknown>,
@@ -312,12 +315,36 @@ export const tableActions = {
   },
 
   /**
-   * Bulk edit: write the value just saved on the edited row to the other selected rows of the same
-   * level, in one batch (chunked at 400). Rows that are locked or would break the required rule are
-   * skipped and counted in the toast; the toast's Undo restores every row's previous value.
+   * Bulk edit: a cell edit in a selected row applies at once to the edited row and to its selected
+   * peers (same level), in one batch (chunked at 400). Rows that are locked or would break the
+   * required rule are skipped and counted in the result toast; its Undo restores every previous
+   * value in one batch. A write slower than `BULK_PENDING_MS` shows "Updating N selected items"
+   * first. Resolves to whether the batch was written.
    */
-  async applyToSelected(offer: BulkOffer, peers: readonly ItemDoc[]): Promise<boolean> {
-    const { ctx, itemId, columnId, value, previous } = offer;
+  async setCellBulk(
+    ctx: TableCtx,
+    edited: ItemDoc,
+    columnId: string,
+    value: unknown,
+    peers: readonly ItemDoc[],
+  ): Promise<boolean> {
+    const check = validateCellWrite(
+      ctx.boardId,
+      ctx.columns,
+      columnId,
+      value,
+      edited,
+      lockCtxOf(ctx),
+    );
+    if (!check.ok) {
+      showToast(check.message, { type: 'negative' });
+      return false;
+    }
+    const refused = refusedByRequiredRule(ctx, edited.id, columnId, value, edited);
+    if (refused) {
+      showToast(refused.message, { type: 'negative' });
+      return false;
+    }
     const plan = planBulkApply({
       boardId: ctx.boardId,
       columns: ctx.columns,
@@ -326,35 +353,45 @@ export const tableActions = {
       peers,
       lockCtx: lockCtxOf(ctx),
     });
-    if (plan.writes.length > 0) {
-      const ok = await attempt(
-        () =>
-          itemWrites.setValueMany(
-            ctx.uid,
-            ctx.boardId,
-            columnId,
-            plan.writes.map((w) => ({ id: w.itemId, value })),
-          ),
-        'Could not update the selected items.',
-      );
-      if (!ok) return false;
+    const previous = edited.values?.[columnId] ?? null;
+    const count = plan.writes.length + 1;
+
+    let pendingToast: number | null = null;
+    const timer = setTimeout(() => {
+      pendingToast = showToast(`Updating ${count} selected items`, { loading: true });
+    }, BULK_PENDING_MS);
+    const ok = await attempt(
+      () =>
+        itemWrites.setValueMany(ctx.uid, ctx.boardId, columnId, [
+          { id: edited.id, value },
+          ...plan.writes.map((w) => ({ id: w.itemId, value })),
+        ]),
+      'Could not update the selected items.',
+    );
+    clearTimeout(timer);
+    if (!ok) {
+      if (pendingToast !== null) useToastStore.getState().dismiss(pendingToast);
+      return false;
     }
-    showToast(bulkSummary(plan.writes.length + 1, plan.total, plan.skipped.length), {
-      type: plan.skipped.length > 0 ? 'normal' : 'positive',
+    const summary = bulkSummary(count, plan.total, plan.skipped.length);
+    const options = {
+      type: plan.skipped.length > 0 ? ('normal' as const) : ('positive' as const),
       action: {
         label: 'Undo',
         onClick: () => {
           void attempt(
             () =>
               itemWrites.setValueMany(ctx.uid, ctx.boardId, columnId, [
-                { id: itemId, value: previous },
+                { id: edited.id, value: previous },
                 ...plan.writes.map((w) => ({ id: w.itemId, value: w.previous })),
               ]),
             'Could not undo the change.',
           );
         },
       },
-    });
+    };
+    if (pendingToast !== null) updateToast(pendingToast, summary, options);
+    else showToast(summary, options);
     return true;
   },
 
