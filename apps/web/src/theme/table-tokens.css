@@ -56,8 +56,8 @@
   --atrium-table-batch-dot: 10px;
   --atrium-table-focus-outline: 1px solid var(--primary-color);
 
-  /* Bulk-edit column highlight ring (monday draws about 2px around the cell in every selected row). */
-  --atrium-table-bulk-outline-width: 2px;
+  /* Bulk-edit column highlight ring: matches the active cell outline (1px), owner decision 2026-11-07. */
+  --atrium-table-bulk-outline-width: var(--border-width);
 
   /* ---- Stacking ---- */
   --atrium-table-z-sticky: var(--atrium-z-sticky);
