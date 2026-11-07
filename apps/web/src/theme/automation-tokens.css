@@ -10,17 +10,8 @@
   --atrium-automation-sidebar-width: 280px; /* Create tab categories column */
   --atrium-automation-card-min-width: 220px;
   --atrium-automation-card-min-height: 236px;
-  --atrium-automation-create-search-width: 360px;
   --atrium-automation-switch-width: 56px;
   --atrium-automation-field-min-width: 160px; /* recipe builder pickers wrap below this */
-
-  /* Sentence builder (P5e R3) */
-  --atrium-automation-keyword-width: 96px; /* the "When" / "and only if" / "then" column */
-  --atrium-automation-sentence-indent: 104px; /* sub-rows line up under the first token */
-  --atrium-automation-sentence-line-height: 40px;
-  --atrium-automation-token-height: 32px;
-  --atrium-automation-token-input-width: 160px;
-  --atrium-automation-token-number-width: 72px;
 
   /* Chosen mockup (P5e fidelity gaps): shell, header, segmented control */
   --atrium-automation-header-height: 64px;
@@ -45,7 +36,6 @@
 
   /* Manage tab */
   --atrium-automation-manage-search-width: 240px;
-  --atrium-automation-avatar-size: 24px;
 
   /* Theme-dependent colours (light values; dark and black below) */
   --atrium-automation-sidebar-bg: var(--grey-background-color);

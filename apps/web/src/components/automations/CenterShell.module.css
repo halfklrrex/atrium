@@ -28,6 +28,11 @@
   overflow-y: auto;
 }
 
+/* Gives the Create layout a definite height so its sidebar and main column scroll separately. */
+.createBody {
+  height: 100%;
+}
+
 .manage {
   display: flex;
   flex: 1;
@@ -71,6 +76,5 @@
 .builderScroll {
   flex: 1;
   min-height: 0;
-  padding: var(--space-40);
   overflow-y: auto;
 }
