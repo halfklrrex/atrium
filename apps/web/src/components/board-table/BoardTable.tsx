@@ -36,7 +36,6 @@ import { useAuth } from '../../auth/auth-context';
 import { useItems, useUserLookup, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
 import { comparePositions, positionBeforeAll, positionBetween } from '../../lib/positions';
 import { BatchBar } from './BatchBar';
-import { BulkEditPopup } from './BulkEditPopup';
 import { BoardToolbar } from './BoardToolbar';
 import { GroupBlock } from './GroupBlock';
 import { ItemRowBody } from './ItemRow';
@@ -59,6 +58,7 @@ import {
   tableWidth,
   type GroupModel,
   type MovePatch,
+  visibleRowIds,
 } from './table-model';
 import { useTablePrefs, useTableStore } from './table-store';
 import { getColumnUi } from '../../columns/registry';
@@ -488,14 +488,12 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
     const parentId = activeDoc?.parentItemId ?? null;
     const scopeColumns = parentId ? subitemColumns : columns;
     const scopeCtx = parentId ? subitemCtx : ctx;
-    const rowIds = parentId
-      ? itemsRef.current
-          .filter((i) => i.parentItemId === parentId)
-          .sort(comparePositions)
-          .map((i) => i.id)
-      : modelsRef.current
-          .filter((m) => !(useTablePrefs.getState().collapsed[boardId] ?? []).includes(m.group.id))
-          .flatMap((m) => m.items.map((i) => i.id));
+    const rowIds = visibleRowIds(
+      modelsRef.current,
+      useTablePrefs.getState().collapsed[boardId] ?? [],
+      itemsRef.current,
+      parentId,
+    );
     const columnIds = [NAME_COLUMN, ...scopeColumns.map((c) => c.def.id)];
 
     if (isArrowKey(event.key)) {
@@ -693,7 +691,6 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
           </div>
         </div>
         <BatchBar />
-        <BulkEditPopup />
       </div>
     </TableEnvContext.Provider>
   );

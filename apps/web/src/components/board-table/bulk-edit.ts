@@ -1,14 +1,13 @@
 /**
- * Bulk edit (docs/specs/P1-bulk-edit-selected.md): after a cell edit in a selected row, the same
- * value can be applied to the other selected rows of the same level. This module is the pure part:
- * which column types qualify, which selected rows are peers, and the plan (writes and skips). The
- * writes themselves run in `tableActions.applyToSelected`.
+ * Bulk edit (docs/specs/P1-bulk-edit-selected.md): a cell edit in a selected row applies at once to
+ * all selected rows of the same level. This module is the pure part: which column types qualify,
+ * which selected rows are peers, and the plan (writes and skips). The writes themselves run in
+ * `tableActions.applyBulkEdit`.
  */
 import { COLUMN_LOCKED_MESSAGE, columnRegistry, isSubitem, type ColumnDef } from '@atrium/shared';
 import type { ItemDoc } from '../../data';
 import { validateCellWrite, type ColumnLockContext } from './derived';
 import { checkRequiredWrite } from './required-write';
-import type { TableCtx } from './table-actions';
 
 /**
  * Types that are never bulk-applied on top of derived and server-managed ones (which the registry
@@ -49,10 +48,10 @@ export function bulkPeers(
 export type BulkSkipReason = 'locked' | 'required' | 'invalid';
 
 export interface BulkPlan {
-  /** Rows to write (the edited row is not among them: it was written first). */
+  /** Rows to write (the edited row is not among them: the caller writes it in the same batch). */
   writes: { itemId: string; value: unknown; previous: unknown }[];
   skipped: { itemId: string; reason: BulkSkipReason }[];
-  /** Rows the change was offered to, the edited one included. */
+  /** Rows the change applies to, the edited one included. */
   total: number;
 }
 
@@ -93,20 +92,8 @@ export function planBulkApply(input: BulkPlanInput): BulkPlan {
   return { writes, skipped, total: peers.length + 1 };
 }
 
-/** What the popup under the edited cell needs to apply the change. */
-export interface BulkOffer {
-  ctx: TableCtx;
-  itemId: string;
-  columnId: string;
-  value: unknown;
-  /** The edited row's value before the edit, for the batch Undo. */
-  previous: unknown;
-  /** Rows the popup counts, the edited one included. */
-  count: number;
-}
-
 /** Toast text after applying: never hides skipped rows. */
 export function bulkSummary(updated: number, total: number, skipped: number): string {
-  if (skipped === 0) return `Updated ${updated} items.`;
-  return `Updated ${updated} of ${total} items; ${skipped} skipped (locked or required).`;
+  if (skipped === 0) return `Updated ${updated} items`;
+  return `Updated ${updated} of ${total} items; ${skipped} skipped (locked or required)`;
 }

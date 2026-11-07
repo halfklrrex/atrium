@@ -2,6 +2,15 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Bulk edit v2: range select and immediate apply
+
+On a scratch board, not your real boards:
+
+- **Range select:** tick one row, then shift+click the checkbox of another row several rows below it. Everything in between is selected, including across a group boundary, and a collapsed group's rows are skipped. A plain click moves the starting point.
+- **Bulk edit:** with 3 or more rows selected, change a Status on one of them. All selected rows change at once, with no popup. A toast says "Updated N items" with Undo (a slow write first shows "Updating N selected items" with a spinner). Undo puts every value back in one go.
+- **One row:** deselect down to one row (or edit a row that is not selected): only that row changes.
+- Try it in light and dark and compare with the monday recording.
+
 ## Site admin, the gate (ADMIN-1b) - DO NOT MERGE until you say so
 
 - **What it is:** the rules start refusing everyone whose sign-in token lacks the approved claim. Everyone already has it (backfill applied, verified), so nothing should change for you.

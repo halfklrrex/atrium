@@ -87,24 +87,19 @@ export const TableCell = memo(function TableCell({
   const onChange = useCallback(
     (next: unknown) => {
       if (!canEdit) return;
-      void tableActions.setCell(ctx, itemId, columnId, next, item).then((written) => {
-        // Bulk edit: offer the change to the other selected rows once this row's write is out.
-        if (!written || !isBulkEditableType(column.def.type)) return;
-        const store = useTableStore.getState();
-        if (!store.selected.has(itemId)) return;
+      // Bulk edit: in a selected row, with other rows of its level selected, the change applies to
+      // all of them at once (the edited row included, in the same batch).
+      const store = useTableStore.getState();
+      if (isBulkEditableType(column.def.type) && store.selected.has(itemId)) {
         const peers = bulkPeers(ctx.getItems?.() ?? env.getItems(), store.selected, item);
-        if (peers.length === 0) return;
-        store.setBulkOffer({
-          ctx,
-          itemId,
-          columnId,
-          value: next,
-          previous: raw ?? null,
-          count: peers.length + 1,
-        });
-      });
+        if (peers.length > 0) {
+          void tableActions.setCellBulk(ctx, item, columnId, next, peers);
+          return;
+        }
+      }
+      void tableActions.setCell(ctx, itemId, columnId, next, item);
     },
-    [canEdit, ctx, env, itemId, columnId, item, raw, column.def.type],
+    [canEdit, ctx, env, itemId, columnId, item, column.def.type],
   );
 
   if (!ui) {

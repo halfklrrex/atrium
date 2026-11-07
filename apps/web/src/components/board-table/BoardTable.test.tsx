@@ -159,6 +159,49 @@ describe('BoardTable', () => {
     expect(screen.getByRole('checkbox', { name: 'Select Ship it' })).not.toBeChecked();
   });
 
+  it('selects the rows between two checkboxes on shift+click, across groups', async () => {
+    mocks.items = [
+      ...sample(),
+      makeItem({ id: 'i4', name: 'Review', groupId: 'g2', position: 'a1' }),
+    ];
+    renderTable();
+    const box = (name: string) => screen.getByRole('checkbox', { name: `Select ${name}` });
+    const user = userEvent.setup();
+    await user.click(box('Build table'));
+    await user.keyboard('{Shift>}');
+    await user.click(box('Review'));
+    await user.keyboard('{/Shift}');
+    expect(box('Write spec')).not.toBeChecked();
+    for (const name of ['Build table', 'Ship it', 'Review']) expect(box(name)).toBeChecked();
+
+    // A plain click moves the anchor: the next range starts there.
+    await userEvent.click(box('Write spec'));
+    expect(useTableStore.getState().anchorId).toBe('i1');
+  });
+
+  it('skips collapsed groups when selecting a range', async () => {
+    useTablePrefs.setState({ collapsed: { b1: ['g2'] }, nameWidth: {} });
+    mocks.items = [
+      ...sample(),
+      makeItem({ id: 'i4', name: 'Review', groupId: 'g3', position: 'a0' }),
+    ];
+    render(
+      <BoardTable
+        board={{
+          ...board,
+          groups: [...board.groups, { id: 'g3', title: 'Gamma', color: '#a25ddc', position: 'a2' }],
+        }}
+      />,
+    );
+    const box = (name: string) => screen.getByRole('checkbox', { name: `Select ${name}` });
+    const user = userEvent.setup();
+    await user.click(box('Write spec'));
+    await user.keyboard('{Shift>}');
+    await user.click(box('Review'));
+    await user.keyboard('{/Shift}');
+    expect([...useTableStore.getState().selected].sort()).toEqual(['i1', 'i2', 'i4']);
+  });
+
   it('collapses a group to one row that still shows its summaries', async () => {
     renderTable();
     await userEvent.click(screen.getByRole('button', { name: 'Collapse group Alpha' }));

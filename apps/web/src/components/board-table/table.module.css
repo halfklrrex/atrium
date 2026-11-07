@@ -871,13 +871,6 @@
   gap: var(--space-4);
 }
 
-.bulkPopup {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-8);
-}
-
 /* ---- Toolbar ---- */
 
 .toolbar {
