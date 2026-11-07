@@ -83,7 +83,7 @@ A dry-run-by-default script (`scripts/migrations/`, patterned on the other backf
 
 ## The `ACCOUNT_APPROVAL_REQUIRED` switch (ADMIN-2)
 
-ADMIN-2 changes nothing for anyone until the owner flips a Functions boolean param, `ACCOUNT_APPROVAL_REQUIRED` (`defineBoolean`, default **false**, in `functions/src/lib/account-flag.ts`; set it with `ACCOUNT_APPROVAL_REQUIRED=true` in `functions/.env.<project>`). Flip it only after the gate (ADMIN-1b) and the web screens (ADMIN-3) have shipped.
+ADMIN-2 changes nothing for anyone until the switch `ACCOUNT_APPROVAL_REQUIRED` is on. It is a plain environment variable (unset means **false**, read in `functions/src/lib/account-flag.ts`), set by the committed file `functions/.env.atrium-board`. It deploys when a PR that changes the file is merged to `main` (CI deploys). Rollback is a PR that sets it to `false`. Flip it only after the gate (ADMIN-1b) and the web screens (ADMIN-3) have shipped.
 
 - **Off:** `bootstrapUser` returns what it always did. A user doc it creates also gets `accountStatus: 'approved'`, `statusChangedAt`, `statusChangedBy: 'system:bootstrap'`, and the Auth user gets `acct: 'approved'` (other claims kept), so accounts created before the gate ships are already approved. A failed claim write is logged and never breaks sign-in. Existing users are never touched.
 - **On:** a new account is created `pending`, with no claim and no workspace; the result is `{ accountStatus: 'pending' }` (`workspaceId` absent); every uid with `admin: true` gets an `account_request` notification. A pending or blocked user keeps getting `{ accountStatus }` and no workspace. Approval (`setAccountStatus`) creates the workspace and sends `account_approved`.
@@ -122,7 +122,7 @@ The scripts call the Identity Toolkit REST API (`GET /v1/projects/{project}/acco
 2. Owner says go; merge this PR (rebase merge). CI deploys the rules and Functions.
 3. Verify the deploy (the Actions run is green, the site loads).
 4. The owner signs out and in once. If the app shows nothing or an error, roll back (below).
-5. To test with a second Google account as pending: the flag is off, so a new sign-up would just be approved. Turn it on: add `ACCOUNT_APPROVAL_REQUIRED=true` to `functions/.env.atrium-board` and redeploy the Functions, then sign in with the second account (it should show "Waiting for approval"), approve it from `/admin`, then block and unblock it. Set the flag back to off (or leave it on, which is the intended end state) with another redeploy.
+5. To test with a second Google account as pending: the flag is off, so a new sign-up would just be approved. Turn it on: set `ACCOUNT_APPROVAL_REQUIRED=true` in the committed file `functions/.env.atrium-board` and merge that to `main` (CI deploys the Functions), then sign in with the second account (it should show "Waiting for approval"), approve it from `/admin`, then block and unblock it. Set the flag back to off (or leave it on, which is the intended end state) with another PR.
 
 **Rollback.** Revert this PR (rules and the other changes go back together) and let CI deploy. The claims on the accounts are harmless without the gate, so nothing else needs undoing. Because the rules are only the choke point, a revert takes effect immediately for new requests; clients holding a token keep working throughout.
 
