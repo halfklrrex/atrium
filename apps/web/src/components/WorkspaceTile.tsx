@@ -1,5 +1,4 @@
 import classNames from 'classnames';
-import { Emoji } from './Emoji';
 import styles from './WorkspaceTile.module.css';
 
 export type TileSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -22,7 +21,7 @@ export function WorkspaceTile({
       style={{ backgroundColor: color }}
       aria-hidden="true"
     >
-      <Emoji emoji={icon} />
+      {icon}
     </span>
   );
 }
