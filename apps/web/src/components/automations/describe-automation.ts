@@ -8,6 +8,7 @@ import {
   type ColumnDef,
   type GroupDef,
 } from '@atrium/shared';
+import { cellDisplayText } from '../../lib/cell-display-text';
 
 /** What a sentence needs from the board: its columns and groups, and optionally who people are. */
 export interface DescribeBoard {
@@ -16,7 +17,10 @@ export interface DescribeBoard {
 }
 
 export interface DescribeOptions {
-  /** Resolves a person for a "notify" action; without it the sentence counts people. */
+  /**
+   * Resolves a person's name (a "notify" action, a people value); without it a notify counts
+   * people and a people value reads as a generic member.
+   */
   personName?: (uid: string) => string | null;
 }
 
@@ -62,7 +66,12 @@ const labelsOf = (column: DescribeBoard['columns'][number]): ColouredLabel[] => 
 };
 
 /** A cell value as words ("Done", "High, Low", "checked"), or a neutral fallback. */
-function valueText(board: DescribeBoard, columnId: string, value: unknown): string {
+function valueText(
+  board: DescribeBoard,
+  columnId: string,
+  value: unknown,
+  options: DescribeOptions,
+): string {
   const column = columnOf(board, columnId);
   if (value === null || value === undefined) return 'empty';
   if (!column) return 'a value';
@@ -73,7 +82,7 @@ function valueText(board: DescribeBoard, columnId: string, value: unknown): stri
   let text: string;
   try {
     text = columnRegistry.has(column.type)
-      ? columnRegistry.toText(column.type, value, column.settings)
+      ? cellDisplayText(column.type, value, column.settings, { personName: options.personName })
       : '';
   } catch {
     text = '';
@@ -83,9 +92,14 @@ function valueText(board: DescribeBoard, columnId: string, value: unknown): stri
 }
 
 /** Like `valueText`, but a status label or dropdown option keeps its colour. */
-function valueParts(board: DescribeBoard, columnId: string, value: unknown): DescribePart[] {
+function valueParts(
+  board: DescribeBoard,
+  columnId: string,
+  value: unknown,
+  options: DescribeOptions = {},
+): DescribePart[] {
   const column = columnOf(board, columnId);
-  const text = valueText(board, columnId, value);
+  const text = valueText(board, columnId, value, options);
   if (!column || value === null || value === undefined) return [plain(text)];
   if (column.type === 'status') {
     const index = (value as { index?: unknown }).index;
@@ -183,18 +197,23 @@ const CONDITION_OPS: Record<AutomationCondition['op'], string> = {
 export function describeConditionParts(
   condition: AutomationCondition,
   board: DescribeBoard,
+  options: DescribeOptions = {},
 ): DescribePart[] {
   const subject = [
     strong(columnTitle(board, condition.columnId)),
     plain(` ${CONDITION_OPS[condition.op]}`),
   ];
   return condition.op === 'is' || condition.op === 'is_not'
-    ? [...subject, plain(' '), ...valueParts(board, condition.columnId, condition.value)]
+    ? [...subject, plain(' '), ...valueParts(board, condition.columnId, condition.value, options)]
     : subject;
 }
 
-export function describeCondition(condition: AutomationCondition, board: DescribeBoard): string {
-  return toText(describeConditionParts(condition, board));
+export function describeCondition(
+  condition: AutomationCondition,
+  board: DescribeBoard,
+  options: DescribeOptions = {},
+): string {
+  return toText(describeConditionParts(condition, board, options));
 }
 
 export function describeActionParts(
@@ -208,7 +227,7 @@ export function describeActionParts(
         plain('set '),
         strong(columnTitle(board, action.columnId)),
         plain(' to '),
-        ...valueParts(board, action.columnId, action.value),
+        ...valueParts(board, action.columnId, action.value, options),
       ];
     case 'rename_item':
       return [plain(`rename the item to "${action.template}"`)];
@@ -264,7 +283,7 @@ export function describeAutomationParts(
   options: DescribeOptions = {},
 ): DescribePart[] {
   const trigger = describeTriggerParts(automation.trigger, board, automation.timezone);
-  const conditions = automation.conditions.map((c) => describeConditionParts(c, board));
+  const conditions = automation.conditions.map((c) => describeConditionParts(c, board, options));
   const when =
     conditions.length > 0 ? [...trigger, plain(' and '), ...joinParts(conditions)] : trigger;
   const then = automation.actions.map((a) => describeActionParts(a, board, options));
