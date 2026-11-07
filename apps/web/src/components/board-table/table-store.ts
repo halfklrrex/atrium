@@ -74,6 +74,10 @@ interface TableState {
 
 const NONE: ReadonlySet<string> = new Set();
 
+/** The bulk outline needs two or more selected rows: it ends when the selection shrinks below. */
+const dropBulk = (s: { bulkColumnId: string | null }, next: ReadonlySet<string>) =>
+  next.size < 2 && s.bulkColumnId ? { bulkColumnId: null } : {};
+
 export const useTableStore = create<TableState>()((set) => ({
   boardId: null,
   selected: NONE,
@@ -111,12 +115,16 @@ export const useTableStore = create<TableState>()((set) => ({
       anchorId: null,
       bulkColumnId: null,
     }),
-  setSelected: (selected) => set({ selected }),
+  setSelected: (selected) =>
+    set((s) => ({
+      selected,
+      ...(selected.size < 2 && s.bulkColumnId ? { bulkColumnId: null } : {}),
+    })),
   toggleSelected: (id) =>
     set((s) => {
       const next = new Set(s.selected);
       if (!next.delete(id)) next.add(id);
-      return { selected: next, anchorId: id };
+      return { selected: next, anchorId: id, ...dropBulk(s, next) };
     }),
   setGroupSelected: (ids, on) =>
     set((s) => {
@@ -125,7 +133,7 @@ export const useTableStore = create<TableState>()((set) => ({
         if (on) next.add(id);
         else next.delete(id);
       }
-      return { selected: next };
+      return { selected: next, ...dropBulk(s, next) };
     }),
   clearSelection: () => set({ selected: NONE, anchorId: null, bulkColumnId: null }),
   setBulkColumn: (bulkColumnId) =>
