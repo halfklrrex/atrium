@@ -34,7 +34,7 @@ Bulk edit from the BatchBar for several columns at once, and a "Convert/Update s
 
 # v2 (2026-11-07): range selection and a seamless bulk edit
 
-Owner feedback on #141 (bug inbox, 2026-11-07): "The user ought to be able to select one item and then, using shift + click, select a second item, and have the app select all items in between" and "the implementation of a single bulk edit should be significantly more seamless and good looking". Reference: two screen recordings (monday and Atrium) in the owner's local `[Felix Items]` folder, which is not committed. The lead extracted frames and measured both; the findings below replace the "Apply to N" popup design of v1. Branch `claude/bulk-edit-v2`.
+Owner feedback on #141 (bug inbox, 2026-11-07): "The user ought to be able to select one item and then, using shift + click, select a second item, and have the app select all items in between" and "the implementation of a single bulk edit should be significantly more seamless and good looking". Reference: two screen recordings (monday and Atrium) in the owner's local reference folder, which is not committed. The lead extracted frames and measured both; the findings below replace the "Apply to N" popup design of v1. Branch `claude/bulk-edit-v2`.
 
 ## What monday does (observed in the recording)
 

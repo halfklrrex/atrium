@@ -15,22 +15,22 @@ Both feed a shared **bell notification** system with optional web push.
 
 ### 1.1 Relevant files
 
-| File | What it does |
-|---|---|
-| `firestore.rules` | Rules for `reports`, `suggestions`, `suggestionReactions`, `user_notifications`. |
-| `functions/index.js` | Callables `submitReport`, `replyToReport`, `editMyReportComment`; helpers `notifyAdminsOfNewReport`, `notifyAdminsOfUserReportReply`, `getAdminUids`; trigger `deliverNotificationPush` (push on each new notification); push subscription callables. |
-| `src/services/reportService.js` | Client side of reports: calls the callables, admin reads (all reports, live), admin status, notes, comments and delete (direct writes). |
-| `src/services/suggestionsService.js` | Suggestions: direct `addDoc` by the user, email to the admin through a browser email service, bell notification to admins, admin update and delete, thumbs up and down reactions. |
-| `src/services/notificationService.js` | Bell notifications: send to one or many users, live subscription (last 20), mark read, clear all, `notifyAdmins`. |
-| `src/utils/adminReportNotifications.js` | Works out "unread per report" from unread bell notifications that point at the report. |
-| `src/services/offlineActionService.js` | Queues a report, a reply or a suggestion while offline and sends it later. |
-| `src/components/common/ReportDialog.jsx`, `ReportButton.jsx` | The "report an error" dialog: fixed error types, optional description (300 characters). |
-| `src/components/incidencias/MisIncidenciasPage.jsx` | The reporter's view: their reports, status, the thread, reply and edit own comments, "new reply" badge. |
-| `src/components/admin/IncidencesManager.jsx` | Admin view of reports: status tabs with counts, 20 per page, mobile cards, internal notes, public reply, edit the content in place, delete. |
-| `src/components/suggestions/SuggestionsPage.jsx` | Submit form, "my suggestions", a public list with votes, and the admin review tab (filters by status and category, priority, notes, delete). |
-| `src/components/buzon/BuzonPage.jsx` | The "My inbox" page joining the two tabs. |
-| `src/components/common/NotificationBell.jsx` | Bell with unread badge. |
-| `CHANGELOG.md`, `MUSTREAD_PROJECTINSTRUCTIONS.md` | History and lessons (section 1.6). `PHASE6_IMPLEMENTATION.md` and `README.md` have nothing on messaging. |
+| File                                                         | What it does                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `firestore.rules`                                            | Rules for `reports`, `suggestions`, `suggestionReactions`, `user_notifications`.                                                                                                                                                                      |
+| `functions/index.js`                                         | Callables `submitReport`, `replyToReport`, `editMyReportComment`; helpers `notifyAdminsOfNewReport`, `notifyAdminsOfUserReportReply`, `getAdminUids`; trigger `deliverNotificationPush` (push on each new notification); push subscription callables. |
+| `src/services/reportService.js`                              | Client side of reports: calls the callables, admin reads (all reports, live), admin status, notes, comments and delete (direct writes).                                                                                                               |
+| `src/services/suggestionsService.js`                         | Suggestions: direct `addDoc` by the user, email to the admin through a browser email service, bell notification to admins, admin update and delete, thumbs up and down reactions.                                                                     |
+| `src/services/notificationService.js`                        | Bell notifications: send to one or many users, live subscription (last 20), mark read, clear all, `notifyAdmins`.                                                                                                                                     |
+| `src/utils/adminReportNotifications.js`                      | Works out "unread per report" from unread bell notifications that point at the report.                                                                                                                                                                |
+| `src/services/offlineActionService.js`                       | Queues a report, a reply or a suggestion while offline and sends it later.                                                                                                                                                                            |
+| `src/components/common/ReportDialog.jsx`, `ReportButton.jsx` | The "report an error" dialog: fixed error types, optional description (300 characters).                                                                                                                                                               |
+| `src/components/incidencias/MisIncidenciasPage.jsx`          | The reporter's view: their reports, status, the thread, reply and edit own comments, "new reply" badge.                                                                                                                                               |
+| `src/components/admin/IncidencesManager.jsx`                 | Admin view of reports: status tabs with counts, 20 per page, mobile cards, internal notes, public reply, edit the content in place, delete.                                                                                                           |
+| `src/components/suggestions/SuggestionsPage.jsx`             | Submit form, "my suggestions", a public list with votes, and the admin review tab (filters by status and category, priority, notes, delete).                                                                                                          |
+| `src/components/buzon/BuzonPage.jsx`                         | The "My inbox" page joining the two tabs.                                                                                                                                                                                                             |
+| `src/components/common/NotificationBell.jsx`                 | Bell with unread badge.                                                                                                                                                                                                                               |
+| `CHANGELOG.md`, `MUSTREAD_PROJECTINSTRUCTIONS.md`            | History and lessons (section 1.6). `PHASE6_IMPLEMENTATION.md` and `README.md` have nothing on messaging.                                                                                                                                              |
 
 ### 1.2 Data model
 
