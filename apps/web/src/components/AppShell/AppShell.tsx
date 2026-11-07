@@ -47,20 +47,21 @@ export function AppShell() {
   useSearchShortcut();
 
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-print="reset">
       <OfflineNotice />
       <TopBar />
-      <div className={styles.surface}>
+      <div className={styles.surface} data-print="reset">
         <Sidebar />
         {sidebarOpen ? (
           <button
             type="button"
             className={styles.scrim}
+            data-print="hide"
             aria-label="Close navigation"
             onClick={() => setSidebarOpen(false)}
           />
         ) : null}
-        <main className={styles.content} id="main-content">
+        <main className={styles.content} id="main-content" data-print="reset">
           <Outlet />
         </main>
       </div>

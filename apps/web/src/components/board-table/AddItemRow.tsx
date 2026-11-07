@@ -56,6 +56,7 @@ export function AddItemRow({
     <div
       role="row"
       className={classNames(styles.addRow, endMarker && styles.dropBefore)}
+      data-print="hide"
       style={{ '--group-color': group.color } as CSSProperties}
     >
       <div className={classNames(styles.sticky, styles.tinted)}>

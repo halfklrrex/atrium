@@ -267,7 +267,7 @@ export function ViewTabs() {
   };
 
   return (
-    <div className={styles.row} ref={rowRef} onContextMenu={onContextMenu}>
+    <div className={styles.row} ref={rowRef} onContextMenu={onContextMenu} data-print="hide">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={views.map((v) => v.id)} strategy={horizontalListSortingStrategy}>
           <TabList

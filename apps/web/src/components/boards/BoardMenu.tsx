@@ -18,6 +18,7 @@ import {
   ClassicFolder as Folder,
   Locked,
   Move,
+  Print,
   Remove,
   Time,
 } from '@vibe/icons';
@@ -206,6 +207,7 @@ function BoardMenuContent({
           <MenuItem title="Excel (.xlsx)" onClick={() => void exportBoard('xlsx')} />
         </Menu>
       </MenuItem>
+      <MenuItem title="Print" icon={Print} onClick={() => window.print()} />
       {canEdit ? (
         <MenuItem title="Move to folder" icon={Move}>
           <Menu id={`move-menu-${board.id}`} size="medium">

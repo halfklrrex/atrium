@@ -131,6 +131,7 @@ export function Sidebar() {
   return (
     <aside
       id="app-sidebar"
+      data-print="hide"
       className={classNames(
         styles.sidebar,
         collapsed && styles.collapsed,

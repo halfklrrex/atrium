@@ -28,6 +28,7 @@ import { dragProps } from './drag-props';
 import { HeaderRow } from './HeaderRow';
 import { ItemEntry } from './ItemEntry';
 import { SummaryCell, SummaryRow } from './SummaryRow';
+import { usePrinting } from '../../lib/use-printing';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import { VIRTUALIZE_AFTER, groupItemCountLabel, groupKey, type GroupModel } from './table-model';
@@ -47,6 +48,8 @@ interface GroupBlockProps {
 /** One group: title row, then (unless collapsed) header, rows, "+ Add item" and the footer. */
 export const GroupBlock = memo(function GroupBlock({ model, term, dragDisabled }: GroupBlockProps) {
   const env = useTableEnv();
+  // Print shows every row, not just the virtualised window.
+  const printing = usePrinting();
   const { group, items, all } = model;
   const collapsedPref = useTablePrefs((s) => s.collapsed[env.boardId]?.includes(group.id) ?? false);
   const draggingGroup = useTableStore((s) => s.draggingGroup);
@@ -201,7 +204,7 @@ export const GroupBlock = memo(function GroupBlock({ model, term, dragDisabled }
           <div ref={setBodyRef} role="grid" aria-label={`${group.title} items`}>
             <HeaderRow group={group} itemIds={items.map((i) => i.id)} />
             <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-              {items.length > VIRTUALIZE_AFTER ? (
+              {items.length > VIRTUALIZE_AFTER && !printing ? (
                 <VirtualRows
                   items={items}
                   group={group}

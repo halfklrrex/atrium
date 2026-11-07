@@ -106,6 +106,7 @@ export function BoardActivityPanel({ board }: { board: BoardDoc }) {
     <aside
       ref={panelRef}
       id="board-activity-panel"
+      data-print="hide"
       className={classNames(styles.panel, open && styles.open)}
       aria-label="Activity log"
       inert={!open}

@@ -153,6 +153,16 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `board-${theme}`, PARK_IN_HEADER);
     });
 
+    // Print layout: the same board with `@media print` emulated. Black on white in both themes,
+    // no sidebar, top bar or board tools (theme/print.css).
+    test('board: print layout', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}`);
+      await boardReady(page);
+      await page.emulateMedia({ media: 'print' });
+      await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden();
+      await shoot(page, `board-print-${theme}`, PARK_IN_HEADER);
+    });
+
     test('board: view tabs with unsaved changes', async ({ page }) => {
       await addView();
       try {
