@@ -55,6 +55,15 @@ export interface NotificationStore {
   createNotification(uid: string, id: string, data: NewNotification): Promise<boolean>;
 }
 
+/**
+ * Overwrite-style write for the Inbox kinds (ADMIN-4): one doc per thread per person, `set` with a
+ * fresh `createdAt` and `readAt: null`, so a long exchange keeps one card that moves to the top and
+ * turns unread again. Every other kind keeps the create-only `createNotification`.
+ */
+export interface NotificationUpsertStore {
+  upsertNotification(uid: string, id: string, data: NewNotification): Promise<void>;
+}
+
 export const notificationId = (kind: NotificationKind, eventId: string, uid: string): string =>
   `${kind}-${eventId}-${uid}`;
 

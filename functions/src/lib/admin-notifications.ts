@@ -1,6 +1,10 @@
 import type { WorkspaceRole } from '@atrium/shared';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
-import type { NotificationPurgeStore, NotificationStore } from './notifications';
+import type {
+  NotificationPurgeStore,
+  NotificationStore,
+  NotificationUpsertStore,
+} from './notifications';
 
 /** gRPC status `ALREADY_EXISTS`, which `create()` rejects with when the document is there. */
 const ALREADY_EXISTS = 6;
@@ -9,7 +13,9 @@ const str = (value: unknown): string | undefined =>
   typeof value === 'string' && value ? value : undefined;
 
 /** Adapts the Admin SDK to the narrow store the notification logic reads and writes through. */
-export function adminNotificationStore(firestore: Firestore): NotificationStore {
+export function adminNotificationStore(
+  firestore: Firestore,
+): NotificationStore & NotificationUpsertStore {
   return {
     async getBoard(boardId) {
       const snap = await firestore.collection('boards').doc(boardId).get();
@@ -65,6 +71,15 @@ export function adminNotificationStore(firestore: Firestore): NotificationStore 
         .doc(updateId)
         .get();
       return snap.exists ? (str(snap.get('authorId')) ?? null) : null;
+    },
+    async upsertNotification(uid, id, data) {
+      // `set`, not `create`: one card per thread per person, moved to the top and unread again.
+      await firestore
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .doc(id)
+        .set({ ...data, createdAt: FieldValue.serverTimestamp(), readAt: null });
     },
     async createNotification(uid, id, data) {
       const ref = firestore.collection('users').doc(uid).collection('notifications').doc(id);
