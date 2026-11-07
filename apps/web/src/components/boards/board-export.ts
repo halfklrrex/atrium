@@ -10,10 +10,9 @@ import {
   type ColumnDef,
   type CsvCell,
   type GroupDef,
-  type PeopleValue,
 } from '@atrium/shared';
 import type { BoardDoc, ItemDoc } from '../../data';
-import { UNKNOWN_PERSON_NAME } from '../../data/members-store';
+import { cellDisplayText } from '../../lib/cell-display-text';
 import { derivedCellValue } from '../board-table/derived';
 import { buildColumnViews, type ColumnView } from '../board-table/table-model';
 import { comparePositions } from '../../lib/positions';
@@ -52,12 +51,6 @@ function cellFor(
     : item.values[def.id];
   if (raw === null || raw === undefined) return '';
 
-  if (def.type === 'people') {
-    const parsed = columnRegistry.parseValue('people', raw);
-    if (!parsed.success) return '';
-    const value = parsed.data as PeopleValue;
-    return value.personsAndTeams.map((p) => personNames(p.id) ?? UNKNOWN_PERSON_NAME).join(', ');
-  }
   if (def.type === 'dependency') {
     const ids = (raw as { item_ids?: unknown }).item_ids;
     if (Array.isArray(ids)) {
@@ -65,7 +58,7 @@ function cellFor(
     }
   }
 
-  const text = columnRegistry.toText(def.type, raw, settings);
+  const text = cellDisplayText(def.type, raw, settings, { personName: personNames });
   return def.type === 'numbers' || typeof raw === 'number' ? { text, numeric: true } : text;
 }
 

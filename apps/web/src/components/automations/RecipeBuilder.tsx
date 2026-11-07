@@ -33,7 +33,8 @@ import {
   resolveRecipeTimezone,
   triggerColumns,
 } from './recipe-draft';
-import { describeAutomationParts, type DescribePart } from './describe-automation';
+import { describeAutomationParts } from './describe-automation';
+import { RichSentence } from './RichSentence';
 import { SentenceProblem, SentenceToken, TokenInput, type TokenOption } from './SentenceToken';
 import styles from './RecipeBuilder.module.css';
 
@@ -577,25 +578,6 @@ function ConditionLine({
       </div>
       <SentenceProblem message={problem} />
     </li>
-  );
-}
-
-/** The described sentence with bold names and coloured label chips. */
-function RichSentence({ parts }: { parts: readonly DescribePart[] }) {
-  return (
-    <>
-      {parts.map((part, i) =>
-        part.color ? (
-          <span key={i} className={styles.chip} style={{ backgroundColor: part.color }}>
-            {part.text}
-          </span>
-        ) : part.strong ? (
-          <strong key={i}>{part.text}</strong>
-        ) : (
-          <span key={i}>{part.text}</span>
-        ),
-      )}
-    </>
   );
 }
 

@@ -60,6 +60,7 @@ const board = makeBoard({
         ],
       },
     },
+    { id: 'owner', type: 'people', title: 'Owner', position: 'a1', settings: {} },
   ],
   groups: [{ id: 'g1', title: 'Done items', color: '#00c875', position: 'a0' }],
 });
@@ -359,6 +360,34 @@ describe('Recipes tab', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
+  it('reads a people value as a name in the Manage sentence and finds it by search', () => {
+    mocks.automations = {
+      data: [
+        recipe({
+          id: 'a1',
+          trigger: { type: 'item_created' },
+          actions: [
+            {
+              type: 'set_value',
+              columnId: 'owner',
+              value: { personsAndTeams: [{ id: 'u2', kind: 'person' }] },
+            },
+          ],
+        }),
+      ],
+      loading: false,
+      error: null,
+    };
+    open();
+    const sentence = screen.getByText(
+      (_, el) =>
+        el?.tagName === 'SPAN' &&
+        el.textContent === 'When an item is created, then set Owner to Avery Quinn',
+    );
+    expect(sentence).toBeInTheDocument();
+    expect(sentence.textContent).not.toContain('u2');
+  });
+
   it('lists recipes as sentences first, then the name, with the last run', () => {
     mocks.automations = {
       data: [
@@ -387,6 +416,10 @@ describe('Recipes tab', () => {
     // Key names are bold.
     expect(within(sentence).getByText('Status').tagName).toBe('STRONG');
     expect(within(sentence).getByText('Done items').tagName).toBe('STRONG');
+    // The label is a coloured chip, like the builder's "Reads as".
+    const chip = within(sentence).getByText('Done');
+    expect(chip).toHaveAttribute('data-chip');
+    expect(chip).toHaveStyle({ backgroundColor: '#00c875' });
     expect(within(second).getByText('Avery Quinn')).toBeInTheDocument();
     expect(within(rows[1]!).getByText('OK')).toBeInTheDocument();
     expect(within(rows[1]!).getByText(/5 minutes ago/)).toBeInTheDocument();

@@ -116,12 +116,6 @@
   font: var(--font-text2-normal);
 }
 
-.chip {
-  padding: 0 var(--space-8);
-  border-radius: var(--border-radius-small);
-  color: var(--atrium-table-on-fill);
-}
-
 .soon {
   display: flex;
   flex-direction: column;

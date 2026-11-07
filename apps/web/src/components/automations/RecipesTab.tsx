@@ -11,11 +11,12 @@ import { UserAvatar } from '../UserAvatar';
 import { attentionReason } from './attention';
 import {
   describeAutomation,
+  describeAutomationParts,
   type DescribeBoard,
   type DescribeOptions,
 } from './describe-automation';
 import { AttentionChip, RunStatusChip } from './RunStatusChip';
-import { boldNames, sentenceNames } from './SentenceText';
+import { RichSentence } from './RichSentence';
 import styles from './AutomationCenter.module.css';
 
 export interface RecipesTabProps {
@@ -64,6 +65,7 @@ function LastRun({ run, attention }: { run: AutomationRunDoc | undefined; attent
 function RecipeRow(props: RecipesTabProps & { automation: AutomationDoc; columns: number }) {
   const { automation, board, describeOptions, isOwner, lastRuns, busyId, columns } = props;
   const sentence = describeAutomation(automation, board, describeOptions);
+  const parts = describeAutomationParts(automation, board, describeOptions);
   const title = automation.name.trim() || sentence;
   const busy = busyId === automation.id;
   const attention = attentionReason(automation, lastRuns?.get(automation.id)) !== null;
@@ -119,7 +121,7 @@ function RecipeRow(props: RecipesTabProps & { automation: AutomationDoc; columns
       <td>
         <div className={styles.text}>
           <span className={styles.sentence}>
-            {boldNames(sentence, sentenceNames(automation, board, describeOptions))}
+            <RichSentence parts={parts} />
           </span>
           {automation.name.trim() ? <span className={styles.meta}>{automation.name}</span> : null}
           {!lastRuns && attention ? <AttentionChip /> : null}
