@@ -1,5 +1,5 @@
 import { onSnapshot } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { comparePositions } from '../lib/positions';
 import { activeBoards, mergeBoards } from './boards';
 import { queries, refs } from './firestore';
@@ -223,34 +223,51 @@ export function useBoardsByIds(ids: readonly string[]): {
   boards: Readonly<Record<string, BoardDoc | null>>;
   loading: boolean;
 } {
-  const key = ids.join('|');
-  const [state, setState] = useState<{ key: string; boards: Record<string, BoardDoc | null> }>({
-    key: '',
-    boards: {},
-  });
+  // Order-independent key: a reorder (e.g. dragging a favourite) must not touch subscriptions.
+  const key = [...new Set(ids)].sort().join('|');
+  const [received, setReceived] = useState<Record<string, BoardDoc | null>>({});
+  const subscriptions = useRef(new Map<string, () => void>());
 
+  // Subscribe incrementally: only the ids that appeared or disappeared change.
   useEffect(() => {
-    const wanted = key ? key.split('|') : [];
-    const received: Record<string, BoardDoc | null> = {};
-    const publish = () => setState({ key, boards: { ...received } });
-    const unsubscribers = wanted.map((id) =>
-      onSnapshot(
-        refs.board(id),
-        (snap) => {
-          received[id] = snap.exists() ? snap.data() : null;
-          publish();
-        },
-        () => {
-          // Not readable (permission denied): treat like a missing board.
-          received[id] = null;
-          publish();
-        },
-      ),
-    );
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+    const wanted = new Set(key ? key.split('|') : []);
+    const active = subscriptions.current;
+    for (const [id, unsubscribe] of active) {
+      if (wanted.has(id)) continue;
+      unsubscribe();
+      active.delete(id);
+      setReceived((prev) => {
+        if (!(id in prev)) return prev;
+        const { [id]: _removed, ...rest } = prev;
+        return rest;
+      });
+    }
+    for (const id of wanted) {
+      if (active.has(id)) continue;
+      active.set(
+        id,
+        onSnapshot(
+          refs.board(id),
+          (snap) => setReceived((prev) => ({ ...prev, [id]: snap.exists() ? snap.data() : null })),
+          (error) => {
+            // Not readable (permission denied): treat like a missing board, but say so.
+            console.warn(`Could not read board ${id}`, error);
+            setReceived((prev) => ({ ...prev, [id]: null }));
+          },
+        ),
+      );
+    }
   }, [key]);
 
-  const current = state.key === key ? state.boards : {};
+  useEffect(() => {
+    const active = subscriptions.current;
+    return () => {
+      active.forEach((unsubscribe) => unsubscribe());
+      active.clear();
+    };
+  }, []);
+
+  const current = received;
   const loading = ids.some((id) => !(id in current));
   return { boards: current, loading };
 }

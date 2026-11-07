@@ -1,5 +1,5 @@
 import { canManageWorkspace } from '@atrium/shared';
-import { IconButton, Menu, MenuButton, MenuItem } from '@vibe/core';
+import { Button, IconButton, Menu, MenuButton, MenuItem } from '@vibe/core';
 import {
   Home,
   MyWeek,
@@ -80,7 +80,7 @@ export function Sidebar() {
   const setMobileOpen = useUiStore((s) => s.setSidebarOpen);
   const closeMobile = () => setMobileOpen(false);
 
-  const { workspace, workspaces, loading } = useCurrentWorkspace();
+  const { workspace, workspaces, loading, error: workspacesError } = useCurrentWorkspace();
   const { data: folders } = useFolders(workspace?.id);
   const { data: boards, error: boardsError } = useBoards(workspace?.id, uid);
   const { data: dashboards } = useWorkspaceDashboards(workspace?.id, uid);
@@ -209,7 +209,14 @@ export function Sidebar() {
           ) : null}
 
           <div className={styles.treeScroll}>
-            {boardsError ? (
+            {workspacesError ? (
+              <div role="alert" className={styles.note}>
+                <p>Could not load workspaces.</p>
+                <Button kind="tertiary" size="xs" onClick={() => window.location.reload()}>
+                  Retry
+                </Button>
+              </div>
+            ) : boardsError ? (
               <p className={styles.note} role="alert">
                 Could not load boards.
               </p>

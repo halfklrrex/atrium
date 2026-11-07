@@ -44,7 +44,7 @@ const prefersReducedMotion = () =>
 export function Favorites({ onNavigate }: { onNavigate?: () => void }) {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
-  const { data: favorites } = useFavorites(uid);
+  const { data: favorites, error: favoritesError } = useFavorites(uid);
   const ids = favorites.map((f) => f.boardId);
   const { boards } = useBoardsByIds(ids);
   const [open, setOpen] = useState(true);
@@ -129,7 +129,11 @@ export function Favorites({ onNavigate }: { onNavigate?: () => void }) {
         />
       </button>
       {open ? (
-        visible.length > 0 ? (
+        favoritesError ? (
+          <p className={styles.note} role="alert">
+            Could not load favorites.
+          </p>
+        ) : visible.length > 0 ? (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}

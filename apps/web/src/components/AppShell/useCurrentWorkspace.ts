@@ -10,9 +10,10 @@ export function useCurrentWorkspace(): {
   workspace: WorkspaceDoc | null;
   workspaces: WorkspaceDoc[];
   loading: boolean;
+  error: Error | null;
 } {
   const { user, lastWorkspaceId } = useAuth();
-  const { data: workspaces, loading } = useWorkspaces(user?.uid ?? null);
+  const { data: workspaces, loading, error } = useWorkspaces(user?.uid ?? null);
   const workspaceMatch = useMatch('/workspaces/:workspaceId');
   const boardMatch = useMatch('/boards/:boardId/*');
   const { data: board } = useBoard(boardMatch?.params.boardId);
@@ -23,5 +24,5 @@ export function useCurrentWorkspace(): {
     workspaces.find((w) => w.id === lastWorkspaceId) ??
     workspaces[0] ??
     null;
-  return { workspace, workspaces, loading };
+  return { workspace, workspaces, loading, error };
 }

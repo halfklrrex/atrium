@@ -10,6 +10,7 @@ import { Favorites } from './Favorites';
 
 const mocks = vi.hoisted(() => ({
   favorites: [] as FavoriteDoc[],
+  favoritesError: null as Error | null,
   boards: {} as Record<string, unknown>,
 }));
 
@@ -17,7 +18,7 @@ vi.mock('../../lib/firebase', () => ({ db: {} }));
 vi.mock('../../auth/auth-context', () => ({ useAuth: () => ({ user: { uid: 'u1' } }) }));
 vi.mock('../../data', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
-  useFavorites: () => ({ data: mocks.favorites, loading: false, error: null }),
+  useFavorites: () => ({ data: mocks.favorites, loading: false, error: mocks.favoritesError }),
   useBoardsByIds: () => ({ boards: mocks.boards, loading: false }),
 }));
 vi.mock('../boards/board-actions', () => ({
@@ -52,6 +53,7 @@ describe('Favorites', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.favoritesError = null;
     mocks.favorites = [fav('a', 'a0'), fav('h', 'a1'), fav('b', 'a2'), fav('c', 'a3')];
     mocks.boards = {
       a: makeBoard({ id: 'a', name: 'Alpha' }),
@@ -82,6 +84,14 @@ describe('Favorites', () => {
     expect([uid, boardId]).toEqual(['u1', 'a']);
     expect(key > 'a2' && key < 'a3').toBe(true);
     await waitFor(() => expect(labels()).toEqual(['Bravo', 'Alpha', 'Charlie']));
+    expect(screen.queryByText('Star a board to find it here')).not.toBeInTheDocument();
+  });
+
+  it('shows an inline error when favourites cannot be loaded', () => {
+    mocks.favoritesError = new Error('denied');
+    renderFavorites();
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load favorites.');
+    expect(screen.queryByText('Star a board to find it here')).not.toBeInTheDocument();
   });
 
   it('Move up on the second row puts it before every favourite', async () => {

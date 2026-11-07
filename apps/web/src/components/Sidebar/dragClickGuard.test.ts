@@ -27,4 +27,27 @@ describe('dragClickGuard', () => {
     guardedNavigate(onNavigate)({ preventDefault: vi.fn() });
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
+
+  it('cancels the native link follow even when dnd-kit stops propagation', () => {
+    vi.useFakeTimers();
+    const link = document.createElement('a');
+    link.href = '/boards/x';
+    document.body.appendChild(link);
+    const dndKit = (e: Event) => e.stopPropagation();
+    document.addEventListener('click', dndKit, true);
+
+    dragClickGuard.start();
+    const during = new MouseEvent('click', { bubbles: true, cancelable: true });
+    link.dispatchEvent(during);
+    expect(during.defaultPrevented).toBe(true);
+
+    dragClickGuard.end();
+    vi.advanceTimersByTime(200);
+    const after = new MouseEvent('click', { bubbles: true, cancelable: true });
+    link.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false);
+
+    document.removeEventListener('click', dndKit, true);
+    link.remove();
+  });
 });
