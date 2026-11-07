@@ -573,7 +573,9 @@ for (const theme of ['light', 'dark'] as const) {
         await page.goto(`/boards/${IDS.roadmap}`);
         await boardReady(page);
         await page.getByRole('button', { name: 'Automate' }).click();
-        const dialog = page.getByRole('dialog', { name: 'Automations' });
+        const dialog = page.getByRole('dialog', { name: /^Automations/ });
+        // The center opens on Create; this screenshot is of Manage.
+        await dialog.getByRole('tab', { name: /^Manage/ }).click();
         const table = dialog.getByRole('table', { name: 'Automations' });
         // Two data rows; the header row is excluded.
         await expect(table.locator('tbody').getByRole('row')).toHaveCount(2);

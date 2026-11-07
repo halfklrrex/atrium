@@ -1,14 +1,7 @@
 import { canManageBoard, type BoardRole } from '@atrium/shared';
-import {
-  Button,
-  Modal,
-  ModalBasicLayout,
-  ModalContent,
-  ModalHeader,
-  Tab,
-  TabList,
-} from '@vibe/core';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Button, Modal, Tab, TabList } from '@vibe/core';
+import { NavigationChevronLeft } from '@vibe/icons';
+import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import {
   automationInputOf,
@@ -24,17 +17,19 @@ import { UNKNOWN_PERSON_NAME, useWorkspaceMembers } from '../../data/members-sto
 import { describeError } from '../boards/board-actions';
 import { openItem } from '../board-table/open-item';
 import { showToast } from '../toast-store';
+import { CENTER_PANEL_ID, CENTER_TAB_ID, CenterHeader, type CenterView } from './CenterHeader';
 import { CreateTab } from './CreateTab';
+import { describeAutomation } from './describe-automation';
 import { RecipesTab } from './RecipesTab';
 import { RecipeBuilder } from './RecipeBuilder';
 import { RunHistoryTab } from './RunHistoryTab';
 import { lastRunByAutomation } from './run-history';
 import { buildStarterRecipes } from './starter-recipes';
-import styles from './AutomationCenter.module.css';
+import shell from './CenterShell.module.css';
 
 type CenterTab = 'recipes' | 'history';
-/** The two halves of the center: browse templates to make an automation, or manage the board's. */
-type CenterView = 'create' | 'manage';
+
+const TITLE_ID = 'automation-center-title';
 
 /** What the center asks the recipe builder to open; a new recipe may begin from a preset. */
 export type BuilderTarget =
@@ -56,14 +51,25 @@ export interface AutomationCenterProps {
 export function AutomationCenter(props: AutomationCenterProps) {
   // A retry remounts the body, which re-subscribes both listeners.
   const [attempt, setAttempt] = useState(0);
+  // Opens on Create, as the mockup does; kept here so a retry doesn't throw the view away.
+  const [view, setView] = useState<CenterView>('create');
   return (
-    <Modal id="automation-center" show size="full-view" onClose={props.onClose}>
-      <ModalBasicLayout>
-        <ModalHeader title={`Automations: ${props.board.name}`} />
-        <ModalContent>
-          <CenterBody key={attempt} {...props} onRetry={() => setAttempt((n) => n + 1)} />
-        </ModalContent>
-      </ModalBasicLayout>
+    <Modal
+      id="automation-center"
+      show
+      size="full-view"
+      className={shell.modal}
+      aria-labelledby={TITLE_ID}
+      closeButtonAriaLabel="Close"
+      onClose={props.onClose}
+    >
+      <CenterBody
+        key={attempt}
+        {...props}
+        view={view}
+        onViewChange={setView}
+        onRetry={() => setAttempt((n) => n + 1)}
+      />
     </Modal>
   );
 }
@@ -74,16 +80,20 @@ function CenterBody({
   onClose,
   onOpenBuilder,
   onRetry,
-}: AutomationCenterProps & { onRetry: () => void }) {
+  view,
+  onViewChange: setView,
+}: AutomationCenterProps & {
+  onRetry: () => void;
+  view: CenterView;
+  onViewChange: (view: CenterView) => void;
+}) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
   const isOwner = canManageBoard(role);
-  const [view, setView] = useState<CenterView>('manage');
   const [tab, setTab] = useState<CenterTab>('recipes');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AutomationDoc | null>(null);
   const [builder, setBuilder] = useState<BuilderTarget | null>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
 
   const automations = useBoardAutomations(board.id);
   // Owners only: everyone else never subscribes to the history.
@@ -134,60 +144,72 @@ function CenterBody({
   );
 
   const openBuilder = (target: BuilderTarget) => {
-    if (onOpenBuilder) onOpenBuilder(target);
-    else setBuilder(target);
+    if (onOpenBuilder) {
+      onOpenBuilder(target);
+      return;
+    }
+    setBuilder(target);
   };
 
   const closeBuilder = () => {
     setBuilder(null);
-    // Give focus back to the selected tab, where the Create or Edit control lived.
-    requestAnimationFrame(() =>
-      bodyRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus(),
-    );
+    // Give focus back to the segment, where the Create or Edit control lived.
+    requestAnimationFrame(() => document.getElementById(CENTER_TAB_ID(view))?.focus());
   };
 
-  if (builder) {
-    const editing = builder.mode === 'edit' ? builder.automation : null;
-    return (
-      <div className={styles.body}>
-        <h2 className={styles.builderTitle}>{editing ? 'Edit automation' : 'New automation'}</h2>
-        <div className={styles.scroll}>
-          <RecipeBuilder
-            board={board}
-            role={role}
-            uid={uid}
-            existingCount={automations.data.length}
-            existing={automations.data}
-            automation={editing}
-            initial={builder.mode === 'create' ? builder.initial : undefined}
-            onCancel={closeBuilder}
-            onSaved={closeBuilder}
-          />
-        </div>
-      </div>
-    );
-  }
+  // A save lands on Manage > Board automations, where the new or changed recipe shows up.
+  const builderSaved = () => {
+    setBuilder(null);
+    setView('manage');
+    setTab('recipes');
+    requestAnimationFrame(() => document.getElementById(CENTER_TAB_ID('manage'))?.focus());
+  };
 
-  return (
-    <div className={styles.body} ref={bodyRef}>
-      <div className={styles.viewToggle} role="group" aria-label="Automation center view">
+  const changeView = (next: CenterView) => {
+    // Clicking Create or Manage while building leaves the builder, like Cancel.
+    setBuilder(null);
+    setView(next);
+  };
+
+  const builderCrumb = (target: BuilderTarget) => {
+    if (target.mode === 'edit') {
+      const { automation } = target;
+      return `Editing: ${automation.name.trim() || describeAutomation(automation, board, describeOptions)}`;
+    }
+    return target.initial
+      ? `From template: ${describeAutomation(target.initial, board, describeOptions)}`
+      : 'New automation from scratch';
+  };
+
+  const body = builder ? (
+    <div className={shell.builder}>
+      <div className={shell.backBar}>
         <Button
-          kind={view === 'create' ? 'primary' : 'tertiary'}
+          kind="tertiary"
           size="small"
-          aria-pressed={view === 'create'}
-          onClick={() => setView('create')}
+          leftIcon={NavigationChevronLeft}
+          onClick={closeBuilder}
         >
-          Create
+          {view === 'create' ? 'Back to templates' : 'Back to Manage'}
         </Button>
-        <Button
-          kind={view === 'manage' ? 'primary' : 'tertiary'}
-          size="small"
-          aria-pressed={view === 'manage'}
-          onClick={() => setView('manage')}
-        >
-          Manage
-        </Button>
+        <span className={shell.crumb}>{builderCrumb(builder)}</span>
       </div>
+      <div className={shell.builderScroll}>
+        <RecipeBuilder
+          board={board}
+          role={role}
+          uid={uid}
+          existingCount={automations.data.length}
+          existing={automations.data}
+          automation={builder.mode === 'edit' ? builder.automation : null}
+          initial={builder.mode === 'create' ? builder.initial : undefined}
+          onCancel={closeBuilder}
+          onSaved={builderSaved}
+        />
+      </div>
+    </div>
+  ) : (
+    <div className={view === 'create' ? shell.create : shell.manage}>
       {view === 'manage' ? (
         <TabList
           activeTabId={tab === 'recipes' ? 0 : 1}
@@ -197,7 +219,7 @@ function CenterBody({
           <Tab>Run history</Tab>
         </TabList>
       ) : null}
-      <div className={styles.scroll}>
+      <div className={view === 'create' ? undefined : shell.manageScroll}>
         {view === 'create' ? (
           <CreateTab
             board={board}
@@ -278,6 +300,26 @@ function CenterBody({
             }}
           />
         )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={shell.shell}>
+      <CenterHeader
+        titleId={TITLE_ID}
+        boardName={board.name}
+        view={view}
+        onViewChange={changeView}
+        manageCount={automations.data.length}
+      />
+      <div
+        className={shell.body}
+        role="tabpanel"
+        id={CENTER_PANEL_ID}
+        aria-labelledby={CENTER_TAB_ID(view)}
+      >
+        {body}
       </div>
     </div>
   );
