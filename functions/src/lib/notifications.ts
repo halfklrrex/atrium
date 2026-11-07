@@ -72,13 +72,22 @@ const KIND_PRIORITY: Record<NotificationKind, number> = {
   automation_disabled: 1,
   account_request: 0,
   account_approved: 0,
+  inbox_new: 0,
+  inbox_reply: 0,
 };
 
 /** The prefs switch behind a kind: `automation_disabled` follows the `automation` switch. */
 const prefKeyOf = (kind: NotificationKind): keyof NotificationPrefs | null => {
   // The account kinds have no switch (the prefs map is strict and its rules are a hot spot); they
-  // are written by the account code, not by `deliverNotifications`.
-  if (kind === 'account_request' || kind === 'account_approved') return null;
+  // are written by the account code, not by `deliverNotifications`. The Inbox kinds (ADMIN-4) too.
+  if (
+    kind === 'account_request' ||
+    kind === 'account_approved' ||
+    kind === 'inbox_new' ||
+    kind === 'inbox_reply'
+  ) {
+    return null;
+  }
   return kind === 'automation_disabled' ? 'automation' : kind;
 };
 

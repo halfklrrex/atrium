@@ -139,8 +139,17 @@ export function NotificationsPanel() {
   const openNotification = (n: NotificationDoc) => {
     if (n.readAt === null) markRead(n);
     setOpen(false);
-    // Account notifications carry placeholder board and item ids: never open a board for them.
+    // Account and Inbox notifications carry placeholder board ids: never open a board for them.
     if (n.kind === 'account_approved') return;
+    // The routes arrive with ADMIN-4 PR5 (admin) and PR6 (sender); `itemId` is the thread id.
+    if (n.kind === 'inbox_new') {
+      void navigate(`/admin/inbox/${n.itemId}`);
+      return;
+    }
+    if (n.kind === 'inbox_reply') {
+      void navigate(`/feedback/${n.itemId}`);
+      return;
+    }
     if (n.kind === 'account_request') {
       void navigate('/admin');
       return;
