@@ -1,6 +1,6 @@
 # P4 PWA and web push (incl. iPhone)
 
-Roadmap item: "PWA & web push (incl. iPhone)" (P4). Status: **spec for the owner's review; no code yet.** Decisions below are the lead's proposals; the owner can change any of them. Open questions with defaults are at the end.
+Roadmap item: "PWA & web push (incl. iPhone)" (P4). Status: **spec approved, owner answers recorded 2026-11-07 (see the end); no code yet.** Decisions below are the lead's proposals; the owner can change any of them.
 
 ## Goal
 
@@ -22,11 +22,11 @@ Roadmap item: "PWA & web push (incl. iPhone)" (P4). Status: **spec for the owner
 1. **Transport: Firebase Cloud Messaging (FCM) web push.** It reuses the existing Firebase project and Admin SDK (`firebase-admin/messaging`), handles the Apple, Google and Mozilla push services behind one API, and needs one public VAPID key (public by design, lives in `apps/web/src/lib/firebase.ts` next to the web config). Rejected: the `web-push` library with our own VAPID keys (more code, our own subscription store and expiry handling, no benefit for a single-region personal app).
 2. **One hand-written service worker, no precaching and no offline caching in v1.** File `apps/web/public/sw.js`, served from the site root (shape in PWA-1 and PWA-4). Rationale: the 2026-11 handoff records that browsers keep old JS chunks after a deploy; a caching worker would make that worse. Push and install do not need caching (iOS and current Chrome do not require a fetch handler). `vite-plugin-pwa`/Workbox is therefore **not** added (no new dependency, no new licence entry).
 3. **Server hook: after `createNotification` returns `true`** (the notification was newly created, so a retried trigger never pushes twice). The push is sent from the same Function invocation, best-effort: a push failure is logged, never thrown, never blocks the notification. Rejected: a separate Firestore trigger on the notifications path (an extra deploy unit and cold start for no gain; the single store method already sees every writer).
-4. **Respect prefs per channel.** `notificationPrefs` gains a nested `push` map with the same kinds (`assigned`, `reply`, `mention`, `button`, `automation`) and a master `pushEnabled` is **not** stored: a device is opted in by having a token document. Defaults for a freshly enabled device: assigned, reply, mention, button on; automation off (noisy). Account kinds always push to the people they target (admins, the approved person), as they always show in the bell.
+4. **Respect prefs per channel.** `notificationPrefs` gains a nested `push` map with the same kinds (`assigned`, `reply`, `mention`, `button`, `automation`) and a master `pushEnabled` is **not** stored: a device is opted in by having a token document. Defaults for a freshly enabled device: assigned, reply, mention, button on; automation off (noisy). Account kinds (`account_request`, `account_approved`) have no bell switch today, so `push` gets one extra key, `account`, **on by default**, and they follow it like every other kind (owner answer 4, 2026-11-07; the draft said "always push"). Whoever turns `account` off still sees those events in the bell. Because only admins receive `account_request` and only the approved person receives `account_approved`, the `account` switch is shown to everyone but only matters for those two kinds.
 5. **Device tokens at `users/{uid}/pushTokens/{tokenId}`** where `tokenId` is a hash (sha-256 hex, 64 chars) of the FCM token, doc `{ token, userAgent (max 200), platform: 'ios'|'android'|'desktop', createdAt, lastSeenAt }`. The owner of the user doc may create, update `lastSeenAt` and delete their own; Functions delete tokens FCM reports as unregistered. Never readable by anyone else (not even workspace members).
 6. **Asking for permission only after a user action** (a button in the notification settings and in the install hint). Never on page load. iOS requires this and it is better practice.
 7. **iPhone:** web push works only for a site added to the Home Screen (iOS 16.4+). The settings dialog shows an "Install Atrium" hint on iOS Safari when not installed (instructions: Share > Add to Home Screen), and hides the enable switch until installed.
-8. **App identity:** name "Atrium", short name "Atrium", `display: standalone`, `theme_color` and `background_color` use the same value as the existing `theme-color` in `index.html` (a manifest is JSON, so it cannot read CSS tokens; a test keeps the two equal). Icons: our own mark in 192, 512 and maskable 512 PNG, plus a 180 apple-touch-icon. See open question 1.
+8. **App identity:** name "Atrium", short name "Atrium", `display: standalone`, `theme_color` and `background_color` use the same value as the existing `theme-color` in `index.html` (a manifest is JSON, so it cannot read CSS tokens; a test keeps the two equal). Icons: the final Atrium logo (merged 2026-11-07, #166). `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `apple-touch-icon.png` already exist in `apps/web/public`; PWA-1 only references them.
 9. **No monday names, logos or art** anywhere (icons and copy).
 
 ## Work packages (small PRs, in this order)
@@ -56,10 +56,10 @@ Roadmap item: "PWA & web push (incl. iPhone)" (P4). Status: **spec for the owner
 
 Offline mode and caching, background sync, badges counts on the app icon, email (separate epic "Email notifications & digests"), per-board mute, quiet hours, rich actions on the notification, the Windows/Android install banners beyond the browser default.
 
-## Open questions for the owner (defaults stand unless changed)
+## Owner answers (2026-11-07, final)
 
-1. **App icon and name.** Default: name "Atrium"; icon is a simple generated mark in the existing brand blue (Opus supplies an SVG, rendered to PNG sizes). You may provide your own artwork instead.
-2. **Which kinds push by default** when a device is enabled. Default: assigned, reply, mention and button on; automation off.
-3. **Desktop browsers too?** Default: yes (same code path); the settings dialog explains each browser's own permission prompt.
-4. **Account kinds** (a new account asking for approval, approval granted) always push to the people concerned, as they always show in the bell. Default: yes.
-5. **Sign-out behaviour.** Default: signing out on a device removes that device's push token so the next person on a shared device gets nothing.
+1. **Icon and name:** the new logo is final (#166); the app is named "Atrium".
+2. **Push by default:** assigned, reply, mention and button on; automation off.
+3. **Desktop browsers too:** yes.
+4. **Account kinds follow the per-kind switches** (changed from the draft default of "always push"): a new `account` push key, on by default. See decision 4.
+5. **Sign-out removes the device's push token:** yes.
