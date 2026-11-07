@@ -22,6 +22,18 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
             <p className={styles.aboutText}>
               Atrium is free software licensed under the GNU AGPL v3.
             </p>
+            <p className={styles.aboutText}>
+              Emoji graphics are Twemoji, copyright 2020 Twitter, Inc and other contributors,
+              maintained by the jdecked/twemoji project, licensed under{' '}
+              <a
+                href="https://creativecommons.org/licenses/by/4.0/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                CC-BY 4.0
+              </a>
+              . Converted to a colour font for Atrium.
+            </p>
             <ul className={styles.aboutLinks}>
               <li>
                 <a href={links.source} target="_blank" rel="noopener noreferrer">
