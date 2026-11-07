@@ -2,6 +2,13 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Bulk edit v3: Undo and the column highlight (live)
+
+- **Highlight:** on the showcase board select 3 rows and hover a Status cell in one of them: the Status cells of all 3 rows get a blue outline. It follows the pointer to other columns, stays while the editor is open, and disappears when you deselect down to one row.
+- **Undo with a required column:** select 3 rows where one has an empty Status (Status is required), set Status to Done, click Undo. The two rows that had a value go back; the empty one keeps Done and the toast says why ("... kept the new value because Status is required").
+- **Undo after someone else changed a row:** change one of the rows yourself after the bulk edit, then Undo: that row keeps your newer value and the toast says so. A row deleted meanwhile is skipped and counted.
+- This replaces the "permission" error you reported: the cause was Undo trying to empty a required cell (a rules test now covers it).
+
 ## Automation: people read as names (web)
 
 - **What changed:** a People value in the automation builder, the "Reads as" panel and the Manage list now shows the person's name instead of an id, and Manage sentences show bold names and coloured label chips like "Reads as".
