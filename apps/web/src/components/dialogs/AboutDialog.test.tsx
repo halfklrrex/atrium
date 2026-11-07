@@ -21,6 +21,15 @@ describe('AboutDialog', () => {
     );
   });
 
+  it('credits Twemoji under CC-BY 4.0', () => {
+    render(<AboutDialog onClose={vi.fn()} />);
+    expect(screen.getByText(/Emoji graphics are Twemoji/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'CC-BY 4.0' })).toHaveAttribute(
+      'href',
+      'https://creativecommons.org/licenses/by/4.0/',
+    );
+  });
+
   it('closes from the Close button', async () => {
     const onClose = vi.fn();
     render(<AboutDialog onClose={onClose} />);
