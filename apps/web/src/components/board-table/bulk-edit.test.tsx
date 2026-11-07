@@ -2,7 +2,7 @@ import { columnRegistry, REQUIRED_COLUMN_RULE_CAP, type ColumnDef } from '@atriu
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PartialBatchError, type BoardDoc } from '../../data';
+import { PartialBatchError, type BoardDoc, type ItemDoc } from '../../data';
 import { makeBoard, makeItem } from '../../test/fixtures';
 import { useToastStore } from '../toast-store';
 import { BoardTable } from './BoardTable';
@@ -172,6 +172,7 @@ describe('planBulkUndo', () => {
     const plan = planBulkUndo({
       columns: [req],
       columnId: 'st',
+      written: { index: 1 },
       previousById: prev({ index: 0 }, { index: 2 }),
       current: rowsNow,
     });
@@ -186,6 +187,7 @@ describe('planBulkUndo', () => {
     const plan = planBulkUndo({
       columns: [req],
       columnId: 'st',
+      written: { index: 1 },
       previousById: prev({ index: 0 }, null),
       current: rowsNow,
     });
@@ -197,8 +199,9 @@ describe('planBulkUndo', () => {
     const plan = planBulkUndo({
       columns: [plain],
       columnId: 'pl',
+      written: 'x',
       previousById: prev(null, null),
-      current: [row('a', { pl: 'x' }), row('b', { pl: 'y' })],
+      current: [row('a', { pl: 'x' }), row('b', { pl: 'x' })],
     });
     expect(plan.restore).toEqual([
       { id: 'a', value: null },
@@ -210,18 +213,54 @@ describe('planBulkUndo', () => {
     const plan = planBulkUndo({
       columns: [plain],
       columnId: 'pl',
+      written: 'x',
       previousById: prev('p', 'q'),
-      current: [row('a', { pl: 'x' }), row('b', { pl: 'y' })],
+      current: [row('a', { pl: 'x' }), row('b', { pl: 'x' })],
       locked: true,
     });
     expect(plan.restore).toEqual([]);
     expect(plan.kept.map((k) => k.reason)).toEqual(['locked', 'locked']);
   });
 
+  it('keeps rows edited since the bulk write and rows that are gone', () => {
+    const plan = planBulkUndo({
+      columns: [plain],
+      columnId: 'pl',
+      written: 'x',
+      previousById: prev('p', 'q'),
+      current: [row('a', { pl: 'x' }), row('b', { pl: 'newer' })],
+      gone: ['c'],
+    });
+    expect(plan.restore).toEqual([{ id: 'a', value: 'p' }]);
+    expect(plan.kept).toEqual([
+      { id: 'c', reason: 'gone' },
+      { id: 'b', reason: 'changed' },
+    ]);
+    expect(bulkUndoSummary(1, 3, plan.kept, 'Plain')).toBe(
+      'Undid 1 of 3 items; 1 item kept their newer value; 1 item no longer exists',
+    );
+  });
+
+  it('compares object values deeply', () => {
+    const plan = planBulkUndo({
+      columns: [plain],
+      columnId: 'pl',
+      written: { index: 1, nested: [1, 2] },
+      previousById: prev(null, null),
+      current: [
+        row('a', { pl: { index: 1, nested: [1, 2] } }),
+        row('b', { pl: { index: 1, nested: [1, 3] } }),
+      ],
+    });
+    expect(plan.restore.map((r) => r.id)).toEqual(['a']);
+    expect(plan.kept).toEqual([{ id: 'b', reason: 'changed' }]);
+  });
+
   it('can keep all rows, and words the toast without hiding them', () => {
     const plan = planBulkUndo({
       columns: [req],
       columnId: 'st',
+      written: { index: 1 },
       previousById: prev(null, null),
       current: rowsNow,
     });
@@ -234,6 +273,7 @@ describe('planBulkUndo', () => {
       'Undid 2 of 3 items; 1 item kept the new value because Status is required',
     );
     expect(bulkUndoSummary(2, 2, [], 'Status')).toBe('Undid 2 items');
+    expect(bulkUndoSummary(1, 1, [], 'Status')).toBe('Undid 1 item');
   });
 });
 
@@ -249,7 +289,13 @@ describe('bulk edit in the table', () => {
   beforeEach(() => {
     mocks.items = [row('r1', { note: 'x' }), row('r2', { note: 'x' }), row('r3', { note: 'x' })];
     mocks.setValue.mockReset().mockResolvedValue(undefined);
-    mocks.setValueMany.mockReset().mockResolvedValue(undefined);
+    // Like Firestore: the live rows hold what was written (in place: the table reads them by ref).
+    mocks.setValueMany.mockReset().mockImplementation(async (_u, _b, columnId, cells) => {
+      for (const c of cells as { id: string; value: unknown }[]) {
+        const found = (mocks.items as ItemDoc[]).find((i) => i.id === c.id);
+        if (found) found.values = { ...found.values, [columnId as string]: c.value };
+      }
+    });
     useTablePrefs.setState({ collapsed: {}, nameWidth: {} });
     useTableStore.getState().reset(null);
     useToastStore.setState({ toasts: [] });
@@ -355,9 +401,14 @@ describe('bulk edit in the table', () => {
   });
 
   it('names a partial failure and offers Undo for the rows already written', async () => {
-    mocks.setValueMany.mockRejectedValueOnce(
-      new PartialBatchError(['r1', 'r2'], 1, new Error('x')),
-    );
+    mocks.setValueMany.mockImplementationOnce(async () => {
+      // The first two rows were committed before the batch failed.
+      for (const id of ['r1', 'r2']) {
+        const found = (mocks.items as ItemDoc[]).find((i) => i.id === id)!;
+        found.values = { ...found.values, done: { checked: 'true' } };
+      }
+      throw new PartialBatchError(['r1', 'r2'], 1, new Error('x'));
+    });
     render(<BoardTable board={board()} />);
     select('r1', 'r2', 'r3');
     await toggleRow('r1');
@@ -400,6 +451,52 @@ describe('bulk edit in the table', () => {
     );
   });
 
+  const undoLast = async () => {
+    await waitFor(() => expect(useToastStore.getState().toasts.at(-1)?.action).toBeDefined());
+    act(() => useToastStore.getState().toasts.at(-1)!.action!.onClick());
+  };
+  const rows = () => mocks.items as ItemDoc[];
+
+  it('Undo keeps a row that another user changed since, and says so', async () => {
+    render(<BoardTable board={board()} />);
+    select('r1', 'r2', 'r3');
+    await toggleRow('r1');
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(1));
+    // Another user flips r2 afterwards.
+    rows().find((i) => i.id === 'r2')!.values = { done: { checked: 'false' } };
+    await undoLast();
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(2));
+    expect(mocks.setValueMany).toHaveBeenLastCalledWith('u1', 'b1', 'done', [
+      { id: 'r1', value: null },
+      { id: 'r3', value: null },
+    ]);
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.at(-1)?.text).toBe(
+        'Undid 2 of 3 items; 1 item kept their newer value',
+      ),
+    );
+  });
+
+  it('Undo restores the other rows when one was deleted meanwhile', async () => {
+    const view = render(<BoardTable board={board()} />);
+    select('r1', 'r2', 'r3');
+    await toggleRow('r1');
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(1));
+    mocks.items = rows().filter((i) => i.id !== 'r3');
+    view.rerender(<BoardTable board={board()} />);
+    await undoLast();
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(2));
+    expect(mocks.setValueMany).toHaveBeenLastCalledWith('u1', 'b1', 'done', [
+      { id: 'r1', value: null },
+      { id: 'r2', value: null },
+    ]);
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.at(-1)?.text).toBe(
+        'Undid 2 of 3 items; 1 item no longer exists',
+      ),
+    );
+  });
+
   describe('column highlight', () => {
     const outlined = () =>
       Array.from(document.querySelectorAll('[data-bulk-outlined]')).map((e) =>
@@ -414,7 +511,7 @@ describe('bulk edit in the table', () => {
       expect(outlined().sort()).toEqual(['r1:done', 'r2:done']);
       expect(
         document.querySelector('[data-cell="r1:done"]')!.getAttribute('aria-description'),
-      ).toBe('Changes all 2 selected items');
+      ).toBe('Changes the selected items');
       await userEvent.unhover(document.querySelector('[data-cell="r1:done"]')!);
       expect(useTableStore.getState().bulkColumnId).toBeNull();
       expect(outlined()).toEqual([]);
@@ -436,6 +533,56 @@ describe('bulk edit in the table', () => {
       select('r1', 'r2');
       await userEvent.hover(document.querySelector('[data-cell="r1:f"]')!);
       expect(outlined()).toEqual([]);
+    });
+
+    it('drops the outline when the selection shrinks to one row', async () => {
+      render(<BoardTable board={board()} />);
+      select('r1', 'r2');
+      await userEvent.hover(document.querySelector('[data-cell="r1:done"]')!);
+      expect(outlined().sort()).toEqual(['r1:done', 'r2:done']);
+      select('r1');
+      await waitFor(() => expect(outlined()).toEqual([]));
+      expect(
+        document.querySelector('[data-cell="r1:done"]')!.getAttribute('aria-description'),
+      ).toBeNull();
+    });
+
+    it('keeps the outline when another cell of the column mounts', async () => {
+      const view = render(<BoardTable board={board()} />);
+      select('r1', 'r2');
+      await userEvent.hover(document.querySelector('[data-cell="r1:done"]')!);
+      expect(outlined().sort()).toEqual(['r1:done', 'r2:done']);
+      mocks.items = [...rows(), row('r4', { note: 'x' })];
+      view.rerender(<BoardTable board={board()} />);
+      await waitFor(() => expect(document.querySelector('[data-cell="r4:done"]')).not.toBeNull());
+      expect(useTableStore.getState().bulkColumnId).toBe('done');
+      expect(outlined().sort()).toEqual(['r1:done', 'r2:done']);
+    });
+
+    it('clears the outline when the hovered row disappears', async () => {
+      const view = render(<BoardTable board={board()} />);
+      select('r1', 'r2', 'r3');
+      await userEvent.hover(document.querySelector('[data-cell="r1:done"]')!);
+      expect(useTableStore.getState().bulkColumnId).toBe('done');
+      mocks.items = rows().filter((i) => i.id !== 'r1');
+      view.rerender(<BoardTable board={board()} />);
+      await waitFor(() => expect(document.querySelector('[data-cell="r1:done"]')).toBeNull());
+      expect(useTableStore.getState().bulkColumnId).toBeNull();
+    });
+
+    it('ignores hovering another cell while an editor is open', async () => {
+      const text = col('tx', 'text', 'Text');
+      render(<BoardTable board={board({ columns: [done, text] })} />);
+      select('r1', 'r2');
+      const cell = document.querySelector('[data-cell="r1:tx"]')!;
+      await userEvent.hover(cell);
+      await userEvent.click(cell);
+      expect(useTableStore.getState().editing?.itemId).toBe('r1');
+      await userEvent.hover(document.querySelector('[data-cell="r2:done"]')!);
+      expect(useTableStore.getState().bulkColumnId).toBe('tx');
+      await userEvent.unhover(document.querySelector('[data-cell="r2:done"]')!);
+      expect(useTableStore.getState().bulkColumnId).toBe('tx');
+      expect(outlined().sort()).toEqual(['r1:tx', 'r2:tx']);
     });
 
     it('keeps the outline while the editor is open and drops it when it closes', async () => {
@@ -492,6 +639,34 @@ describe('tableActions.setCellBulk', () => {
   beforeEach(() => {
     mocks.setValueMany.mockReset().mockResolvedValue(undefined);
     useToastStore.setState({ toasts: [] });
+  });
+
+  it('Undo of a column that became locked keeps every row and says so', async () => {
+    const live = [row('r1'), row('r2')];
+    const lockedCtx = ctx({
+      board: { columnLocks: [] },
+      boardRole: 'editor',
+      getItems: () => live,
+    });
+    mocks.setValueMany.mockImplementation(async (_u, _b, columnId, cells) => {
+      for (const c of cells as { id: string; value: unknown }[]) {
+        const found = live.find((i) => i.id === c.id)!;
+        found.values = { ...found.values, [columnId as string]: c.value };
+      }
+    });
+    const ok = await tableActions.setCellBulk(lockedCtx, live[0]!, 'done', { checked: 'true' }, [
+      live[1]!,
+    ]);
+    expect(ok).toBe(true);
+    expect(mocks.setValueMany).toHaveBeenCalledTimes(1);
+    lockedCtx.board = { columnLocks: ['done'] };
+    act(() => toasts().at(-1)!.action!.onClick());
+    await waitFor(() =>
+      expect(toasts().at(-1)?.text).toBe(
+        'Undid 0 of 2 items; 2 items kept the new value because Done is locked',
+      ),
+    );
+    expect(mocks.setValueMany).toHaveBeenCalledTimes(1);
   });
 
   it('refuses an edited row in a locked column without writing', async () => {
