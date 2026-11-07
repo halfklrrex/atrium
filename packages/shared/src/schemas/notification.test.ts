@@ -34,6 +34,12 @@ const notification = {
 };
 
 describe('notificationSchema', () => {
+  it('accepts the inbox kinds (ADMIN-4)', () => {
+    for (const kind of ['inbox_new', 'inbox_reply']) {
+      expect(notificationSchema.safeParse({ ...notification, kind }).success, kind).toBe(true);
+    }
+  });
+
   it('accepts a valid notification', () => {
     expect(notificationSchema.safeParse(notification).success).toBe(true);
     expect(notificationSchema.safeParse({ ...notification, readAt: ts }).success).toBe(true);

@@ -24,6 +24,10 @@ export const notificationKindSchema = z.enum([
   'account_request',
   /** The person: an admin approved the account (ADMIN-2). Always delivered, no pref switch. */
   'account_approved',
+  /** Site admins: a new appeal or feedback, or a sender reply (ADMIN-4). One per thread, no pref switch. */
+  'inbox_new',
+  /** A feedback sender: an admin replied (ADMIN-4). One per thread, no pref switch. */
+  'inbox_reply',
 ]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 
