@@ -11,7 +11,7 @@ The owner's account becomes the site-wide admin. Every account has a state: **pe
 1. **Existing accounts stay approved.** Only new sign-ups wait.
 2. **A pending person sees a "waiting for approval" screen** after Google sign-in (sign-in is not refused).
 3. **The admin gets a bell notification** for each new request, plus the admin screen.
-4. **Blocking signs the person out and refuses all their reads and writes.**
+4. **Blocking signs the person out and refuses all their reads and writes.** _Updated by ADMIN-4 PR3 (owner, 2026-11-07): blocking no longer disables the Auth user. The open app signs the person out within seconds, and they can sign in again to see a blocked screen with an appeal box. See `docs/specs/ADMIN-4-appeals-inbox.md`, "Blocking: today and after"._
 
 ## Facts this design rests on
 
@@ -45,8 +45,8 @@ The owner's account becomes the site-wide admin. Every account has a state: **pe
 
 - `setAccountStatus({ uid, status: 'approved' | 'blocked' })`:
   - **approve:** set claim `acct: 'approved'`, update the user document, create the personal workspace if missing, send the person an in-app notification.
-  - **block:** set claim `acct: 'blocked'`, `revokeRefreshTokens(uid)` and **disable the Auth user**, so they are signed out and can't sign in again. An admin can't block themselves or the last admin.
-  - **unblock:** re-enable the Auth user and set `approved`.
+  - **block:** set claim `acct: 'blocked'` (and drop `admin`), `revokeRefreshTokens(uid)`, then write `users/{uid}.accountStatus = 'blocked'`, in that order. Since ADMIN-4 PR3 the Auth user is **not** disabled: the person can sign in and see the blocked screen. An admin can't block themselves or the last admin. (Originally this also disabled the Auth user.)
+  - **unblock:** set `approved`; the Auth user is re-enabled only if it is still disabled (a legacy block).
   - Each change appends a line to `system/accountAudit` (who, whom, what, when); admins read it, nobody writes it from a client.
 - `listAccounts` (callable, admin only): the admin screen's data (display name, email, status, created, last sign-in), paged. A callable rather than a rules read, because the email must not be readable from `users` by other people.
 
@@ -64,7 +64,7 @@ A dry-run-by-default script (`scripts/migrations/`, patterned on the other backf
 
 ## Honest limits
 
-- A claim lives in the ID token, which stays valid up to **one hour**. Blocking revokes refresh tokens and disables the account, so the person can't get a new token, but a token they already hold can still read and write until it expires (at most an hour). If the owner wants zero tolerance, the alternative is a `get(users/{uid})` check in `signedIn()`; it costs one extra document access per request, and Storage can't do it at all. I recommend the claim approach for a family-and-friends app.
+- A claim lives in the ID token, which stays valid up to **one hour**. Blocking revokes refresh tokens, so the person can't get a new approved token, but a token they already hold can still read and write until it expires (at most an hour). Since ADMIN-4 PR3 a normal open client ends that window itself: it listens to the own user document and signs out when it turns `blocked`, and every callable refuses a token without `acct: 'approved'`; a modified client's direct reads and writes keep working until the token expires. If the owner wants zero tolerance, the alternative is a `get(users/{uid})` check in `signedIn()`; it costs one extra document access per request, and Storage can't do it at all. I recommend the claim approach for a family-and-friends app.
 - Existing sessions of an approved person pick up a status change on their next token refresh (up to an hour) unless the app force-refreshes, which it does for approval.
 - The MCP connector and scripts that use the Admin SDK bypass rules as before.
 

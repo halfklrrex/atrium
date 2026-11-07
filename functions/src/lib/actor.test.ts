@@ -1,4 +1,4 @@
-import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
+import type { HttpsError, CallableRequest } from 'firebase-functions/v2/https';
 import { describe, expect, it } from 'vitest';
 import { actorFromRequest } from './actor';
 

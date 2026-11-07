@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as HttpsModule from 'firebase-functions/v2/https';
 
 const { syncMemberProfiles, runTransaction } = vi.hoisted(() => ({
   syncMemberProfiles: vi.fn(),
@@ -6,7 +7,7 @@ const { syncMemberProfiles, runTransaction } = vi.hoisted(() => ({
 }));
 
 vi.mock('firebase-functions/v2/https', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('firebase-functions/v2/https')>();
+  const actual = await importOriginal<typeof HttpsModule>();
   // `onCall(handler)` returns the handler itself so the test can call it directly.
   return { ...actual, onCall: (handler: unknown) => handler };
 });
