@@ -132,8 +132,21 @@ export const AVAILABILITY_LABELS: Record<TemplateAvailability, string> = {
   p9: 'Planned · P9',
 };
 
+/** What a card's icon tile shows; `CreateTab` maps each kind to a Vibe icon. */
+export type TemplateIcon =
+  'plus' | 'bolt' | 'calendar' | 'chat' | 'cursor' | 'archive' | 'edit' | 'person' | 'mail';
+
+/** The long form of each availability, for tooltips and accessible names. */
+export const AVAILABILITY_TITLES: Record<Exclude<TemplateAvailability, 'ready'>, string> = {
+  p5c: 'Coming in the next release (P5c)',
+  p5d: 'Planned: time-based triggers (P5d)',
+  p9: 'Planned: integrations (P9)',
+};
+
 export interface CatalogTemplate {
   id: string;
+  /** The kind of icon on the card's tile. */
+  icon: TemplateIcon;
   /** The sentence; the words between asterisks are the ones the person fills in (shown bold). */
   sentence: string;
   /** Where it lives in the sidebar. Recommended templates also show under Recommended. */
@@ -165,6 +178,7 @@ const notifyActions = (uid: string): AutomationInput['actions'] | null =>
   uid ? [{ type: 'notify', uids: [uid] }] : null;
 
 type Category = CatalogTemplate['category'];
+type BaseTemplate = Omit<CatalogTemplate, 'icon'>;
 
 const ready = (
   id: string,
@@ -172,7 +186,7 @@ const ready = (
   category: Category,
   recommended: boolean,
   build: NonNullable<CatalogTemplate['build']>,
-): CatalogTemplate => ({ id, sentence, category, recommended, availability: 'ready', build });
+): BaseTemplate => ({ id, sentence, category, recommended, availability: 'ready', build });
 
 const planned = (
   id: string,
@@ -180,9 +194,9 @@ const planned = (
   category: Category,
   recommended: boolean,
   availability: Exclude<TemplateAvailability, 'ready'>,
-): CatalogTemplate => ({ id, sentence, category, recommended, availability });
+): BaseTemplate => ({ id, sentence, category, recommended, availability });
 
-export const TEMPLATE_CATALOG: readonly CatalogTemplate[] = [
+const BASE_CATALOG: readonly BaseTemplate[] = [
   ready(
     'item-created-notify',
     'When an *item is created* notify *someone*',
@@ -431,6 +445,49 @@ export const TEMPLATE_CATALOG: readonly CatalogTemplate[] = [
     'p9',
   ),
 ];
+
+const TEMPLATE_ICONS: Record<string, TemplateIcon> = {
+  'item-created-notify': 'plus',
+  'status-to-group': 'bolt',
+  'date-arrives-notify': 'calendar',
+  'status-notify': 'chat',
+  'button-sets-status': 'cursor',
+  'stuck-and-high-notify': 'chat',
+  'created-sets-status': 'plus',
+  'done-archives': 'archive',
+  'button-moves-group': 'cursor',
+  'created-renames': 'edit',
+  'creator-becomes-owner': 'person',
+  'group-move-sets-status': 'bolt',
+  'person-assigned-notify': 'person',
+  'status-creates-item': 'plus',
+  'stuck-posts-update': 'chat',
+  'weekly-create-item': 'calendar',
+  'overdue-notify': 'calendar',
+  'connected-status-notify': 'chat',
+  'created-sends-email': 'mail',
+  'status-adds-event': 'calendar',
+};
+
+export const TEMPLATE_CATALOG: readonly CatalogTemplate[] = BASE_CATALOG.map((t) => ({
+  ...t,
+  icon: TEMPLATE_ICONS[t.id] ?? 'bolt',
+}));
+
+/** The templates under "Start with the basics", next to Create from scratch. */
+export const BASICS_IDS = [
+  'item-created-notify',
+  'status-to-group',
+  'date-arrives-notify',
+] as const;
+
+export function basicsTemplates(
+  catalog: readonly CatalogTemplate[] = TEMPLATE_CATALOG,
+): CatalogTemplate[] {
+  return BASICS_IDS.map((id) => catalog.find((t) => t.id === id)).filter(
+    (t): t is CatalogTemplate => t !== undefined,
+  );
+}
 
 /** Templates of one sidebar category; `recommended` gathers every template flagged as such. */
 export function templatesByCategory(
