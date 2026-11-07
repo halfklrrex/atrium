@@ -87,7 +87,12 @@ function valueText(
   } catch {
     text = '';
   }
-  if (text === '' && (typeof value === 'string' || typeof value === 'number')) text = String(value);
+  if (
+    text === '' &&
+    column.type !== 'people' &&
+    (typeof value === 'string' || typeof value === 'number')
+  )
+    text = String(value);
   return text === '' ? 'a value' : text;
 }
 

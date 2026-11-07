@@ -1,4 +1,5 @@
 import type { ButtonAction } from '@atrium/shared';
+import { columnRegistry } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import {
   describeAutomation,
@@ -384,5 +385,58 @@ describe('people values', () => {
     );
     expect(sentence).toContain('set Owner to Board member');
     expect(sentence).not.toContain('u2');
+  });
+
+  const set = (v: unknown) => ({
+    trigger: { type: 'item_created' as const },
+    conditions: [],
+    actions: [{ type: 'set_value' as const, columnId: 'owner', value: v }],
+  });
+
+  it('reads a person entry that cannot be resolved (for example an agent) as a generic name', () => {
+    const sentence = describeAutomation(
+      set({ personsAndTeams: [{ id: 'agent-7', kind: 'person' }] }),
+      peopleBoard,
+      options,
+    );
+    expect(sentence).toContain('set Owner to Board member');
+    expect(sentence).not.toContain('agent-7');
+  });
+
+  it('reads an empty people list as a neutral value', () => {
+    const sentence = describeAutomation(set({ personsAndTeams: [] }), peopleBoard, options);
+    expect(sentence).toContain('set Owner to a value');
+  });
+
+  it('never shows a legacy bare-uid string for a people column', () => {
+    const sentence = describeAutomation(set('legacy-uid-123'), peopleBoard, options);
+    expect(sentence).toContain('set Owner to a value');
+    expect(sentence).not.toContain('legacy-uid-123');
+  });
+});
+
+describe('status and dropdown text', () => {
+  it('matches columnRegistry.toText', () => {
+    const status = board.columns.find((c) => c.id === 'status')!;
+    const tags = board.columns.find((c) => c.id === 'tags')!;
+    const statusValue = { index: 1 };
+    const tagsValue = { ids: [1, 2] };
+    const sentence = describeAutomation(
+      {
+        trigger: { type: 'item_created' },
+        conditions: [],
+        actions: [
+          { type: 'set_value', columnId: 'status', value: statusValue },
+          { type: 'set_value', columnId: 'tags', value: tagsValue },
+        ],
+      },
+      board,
+    );
+    expect(sentence).toContain(
+      `set Status to ${columnRegistry.toText('status', statusValue, status.settings)}`,
+    );
+    expect(sentence).toContain(
+      `set Area to ${columnRegistry.toText('dropdown', tagsValue, tags.settings)}`,
+    );
   });
 });

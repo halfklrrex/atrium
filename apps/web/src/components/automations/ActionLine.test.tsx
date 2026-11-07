@@ -66,6 +66,7 @@ function Line({
         columns={cols}
         groups={groups}
         boardId="b1"
+        workspaceId="w1"
         allowedTypes={allowedTypes}
         error={null}
         canRemove
@@ -268,6 +269,7 @@ describe('ActionLine', () => {
           columns={columns}
           groups={groups}
           boardId="b1"
+          workspaceId="w1"
           error="This group was deleted"
           canRemove={false}
           onChange={vi.fn()}

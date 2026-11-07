@@ -13,7 +13,7 @@ import {
   type AutomationDoc,
 } from '../../data/automations';
 import type { BoardDoc } from '../../data/model';
-import { UNKNOWN_PERSON_NAME, useWorkspaceMembers } from '../../data/members-store';
+import { useUserLookup } from '../../data/members-store';
 import { describeError } from '../boards/board-actions';
 import { openItem } from '../board-table/open-item';
 import { PopupLayer } from '../PopupLayer';
@@ -106,15 +106,10 @@ function CenterBody({
     [isOwner, runs.data],
   );
 
-  const { members } = useWorkspaceMembers(board.workspaceId);
+  const lookup = useUserLookup(board.workspaceId);
   const describeOptions = useMemo(
-    () => ({
-      personName: (id: string) => {
-        const member = members.find((m) => m.id === id);
-        return member ? member.displayName || member.email || UNKNOWN_PERSON_NAME : null;
-      },
-    }),
-    [members],
+    () => ({ personName: (id: string) => lookup(id)?.name ?? null }),
+    [lookup],
   );
 
   const ctx = useMemo(() => ({ boardId: board.id, uid, board, role }), [board, uid, role]);

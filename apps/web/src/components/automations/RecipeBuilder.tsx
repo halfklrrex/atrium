@@ -124,13 +124,15 @@ function ColumnToken({
 /** "Anyone" or one workspace member (a person who has left stays selectable so it can be changed). */
 function AssigneeToken({
   value,
+  workspaceId,
   onChange,
 }: {
   value: string | undefined;
+  workspaceId: string;
   onChange: (uid: string) => void;
 }) {
-  const { members } = useWorkspaceMembers();
-  const lookup = useUserLookup();
+  const { members } = useWorkspaceMembers(workspaceId);
+  const lookup = useUserLookup(workspaceId);
   const known = value === undefined || members.some((m) => m.id === value);
   return (
     <SentenceToken
@@ -289,6 +291,7 @@ function TriggerLine({
       <>
         <AssigneeToken
           value={trigger.uid}
+          workspaceId={board.workspaceId}
           onChange={(uid) =>
             onChange({
               type: 'person_assigned',
@@ -640,14 +643,10 @@ export function RecipeBuilder({
     [existing, automation?.id],
   );
 
-  const { members } = useWorkspaceMembers();
-  const lookup = useUserLookup();
+  const lookup = useUserLookup(board.workspaceId);
   const describeOptions = useMemo(
-    () => ({
-      personName: (id: string) =>
-        lookup(id)?.name ?? members.find((m) => m.id === id)?.displayName ?? null,
-    }),
-    [lookup, members],
+    () => ({ personName: (id: string) => lookup(id)?.name ?? null }),
+    [lookup],
   );
 
   const columnViews = useMemo(() => buildColumnViews(board.columns), [board.columns]);
@@ -798,6 +797,7 @@ export function RecipeBuilder({
                 columns={columnViews}
                 groups={board.groups}
                 boardId={board.id}
+                workspaceId={board.workspaceId}
                 allowedTypes={trigger?.type === 'recurring' ? RECURRING_ACTION_TYPES : undefined}
                 error={problems.actions[i] ?? null}
                 canRemove={actions.length > 1}
