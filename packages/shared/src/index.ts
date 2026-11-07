@@ -1,6 +1,7 @@
 export * from './roles';
 export * from './account';
 export * from './account-admin';
+export * from './inbox';
 export * from './callable';
 export * from './boards';
 export * from './forms';
@@ -13,6 +14,7 @@ export * from './schemas/item';
 export * from './schemas/update';
 export * from './schemas/update-attachments';
 export * from './schemas/notification';
+export * from './schemas/inbox';
 export * from './schemas/activity';
 export * from './schemas/automation';
 export * from './schemas/form';
