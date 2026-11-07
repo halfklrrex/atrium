@@ -98,6 +98,14 @@ class FakeStore implements AccountStore {
     this.audit.push(entry);
     return Promise.resolve();
   }
+  closedAppeals: string[] = [];
+  failCloseAppeals = false;
+  closeOpenAppeals(uid: string) {
+    this.order.push(`appeals:${uid}`);
+    if (this.failCloseAppeals) return Promise.reject(new Error('appeals failed'));
+    this.closedAppeals.push(uid);
+    return Promise.resolve(1);
+  }
   createNotification(uid: string, id: string, data: NewNotification) {
     if (this.notes.some((n) => n.uid === uid && n.id === id)) return Promise.resolve(false);
     this.notes.push({ uid, id, data });
@@ -272,7 +280,7 @@ describe('setAccountStatus: block and unblock', () => {
     store.statuses.set('u1', 'blocked');
     await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
     expect(auth.calls).toEqual(['claims:u1']);
-    expect(auth.order.at(-2)).toBe('claims:u1');
+    expect(auth.order.at(-3)).toBe('claims:u1');
     expect(auth.users.get('u1')!.claims).toEqual({ acct: 'approved' });
   });
 
@@ -286,6 +294,33 @@ describe('setAccountStatus: block and unblock', () => {
     expect(auth.users.get('u1')!.claims).toEqual({ acct: 'approved' });
     expect(store.audit[0]).toMatchObject({ action: 'unblock', from: 'blocked', to: 'approved' });
     expect(store.notes).toHaveLength(0);
+  });
+
+  it('approve and unblock close the open appeals after the claim', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    store.statuses.set('u1', 'blocked');
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(store.closedAppeals).toEqual(['u1']);
+    const order = auth.order;
+    expect(order.indexOf('claims:u1')).toBeLessThan(order.indexOf('appeals:u1'));
+  });
+
+  it('a failing appeal close is logged and never fails the unblock', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    store.statuses.set('u1', 'blocked');
+    store.failCloseAppeals = true;
+    const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(result).toEqual({ uid: 'u1', status: 'approved', changed: true });
+    expect(auth.users.get('u1')!.claims).toEqual({ acct: 'approved' });
+    expect(store.audit[0]).toMatchObject({ action: 'unblock' });
+  });
+
+  it('blocking and a no-op never close appeals', async () => {
+    const { store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
+    store.statuses.set('u1', 'approved');
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(store.closedAppeals).toEqual([]);
   });
 
   it('refuses blocking yourself', async () => {
