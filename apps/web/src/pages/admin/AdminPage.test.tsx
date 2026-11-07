@@ -1,7 +1,7 @@
 import type { AccountListItem } from '@atrium/shared';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { filterAccounts, sortAccounts } from './accounts';
 import { AdminPage } from './AdminPage';
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   setStatus: vi.fn(),
   showToast: vi.fn(),
+  unread: 0,
 }));
 
 vi.mock('../../auth/useIsSiteAdmin', () => ({ useIsSiteAdmin: () => mocks.isAdmin }));
@@ -20,6 +21,11 @@ vi.mock('../../lib/callables', () => ({
     (e as { message?: string } | null)?.message ?? fallback,
 }));
 vi.mock('../../components/toast-store', () => ({ showToast: mocks.showToast }));
+vi.mock('../../data/inbox', () => ({
+  useInboxUnreadCount: () => ({ count: mocks.unread, loading: false }),
+}));
+vi.mock('./InboxTab', () => ({ InboxTab: () => <div>inbox list stub</div> }));
+vi.mock('./InboxThreadView', () => ({ InboxThreadView: () => <div>inbox thread stub</div> }));
 
 function account(uid: string, over: Partial<AccountListItem> = {}): AccountListItem {
   return {
@@ -57,6 +63,7 @@ const rowNames = () =>
 
 beforeEach(() => {
   mocks.isAdmin = true;
+  mocks.unread = 0;
   mocks.list.mockReset().mockResolvedValue({ accounts: ACCOUNTS, nextPageToken: null });
   mocks.setStatus.mockReset().mockResolvedValue({ uid: 'x', status: 'approved', changed: true });
   mocks.showToast.mockReset();
@@ -188,5 +195,73 @@ describe('AdminPage', () => {
     mocks.list.mockRejectedValue(new Error('Admins only.'));
     renderPage();
     expect(await screen.findByText('Admins only.')).toBeInTheDocument();
+  });
+});
+
+function renderAt(path: string) {
+  function Where() {
+    return <div data-testid="where">{useLocation().pathname}</div>;
+  }
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <AdminPage tab={path.startsWith('/admin/inbox') ? 'inbox' : 'accounts'} />
+      <Routes>
+        <Route path="*" element={<Where />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe('AdminPage tabs', () => {
+  it('has Accounts and Inbox tabs, and Accounts is selected on /admin', async () => {
+    renderAt('/admin');
+    expect(screen.getByRole('tab', { name: 'Accounts' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Inbox' })).toHaveAttribute('aria-selected', 'false');
+    await screen.findByText('devon');
+  });
+
+  it('shows the Inbox list on /admin/inbox', () => {
+    renderAt('/admin/inbox');
+    expect(screen.getByText('inbox list stub')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Inbox' })).toHaveAttribute('aria-selected', 'true');
+    expect(mocks.list).not.toHaveBeenCalled();
+  });
+
+  it('shows one conversation on /admin/inbox/:threadId', () => {
+    render(
+      <MemoryRouter initialEntries={['/admin/inbox/t1']}>
+        <Routes>
+          <Route path="/admin/inbox/:threadId" element={<AdminPage tab="inbox" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('inbox thread stub')).toBeInTheDocument();
+    expect(screen.queryByText('inbox list stub')).toBeNull();
+  });
+
+  it('shows no count at zero, the live count, and 99+ above 99', () => {
+    const { unmount } = renderAt('/admin/inbox');
+    expect(screen.queryByTestId('inbox-unread-count')).toBeNull();
+    unmount();
+    mocks.unread = 7;
+    const second = renderAt('/admin/inbox');
+    expect(screen.getByTestId('inbox-unread-count')).toHaveTextContent('7');
+    second.unmount();
+    mocks.unread = 100;
+    renderAt('/admin/inbox');
+    expect(screen.getByTestId('inbox-unread-count')).toHaveTextContent('99+');
+  });
+
+  it('switches to the Inbox route when the tab is clicked', async () => {
+    renderAt('/admin');
+    await userEvent.setup().click(screen.getByRole('tab', { name: 'Inbox' }));
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/admin/inbox'));
+  });
+
+  it('does not subscribe or show anything to someone without the claim', () => {
+    mocks.isAdmin = false;
+    renderAt('/admin/inbox');
+    expect(screen.queryByText('inbox list stub')).toBeNull();
+    expect(screen.getByText("We couldn't find that page")).toBeInTheDocument();
   });
 });
