@@ -32,6 +32,11 @@ describe('cellDisplayText', () => {
     expect(cellDisplayText('people', { nope: true }, {})).toBe('');
   });
 
+  it('returns empty text for a legacy bare-uid string and an empty list', () => {
+    expect(cellDisplayText('people', 'legacy-uid', {})).toBe('');
+    expect(cellDisplayText('people', { personsAndTeams: [] }, {})).toBe('');
+  });
+
   it('falls back to the registry for other types', () => {
     expect(cellDisplayText('text', 'hello', {})).toBe('hello');
   });

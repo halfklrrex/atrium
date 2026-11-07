@@ -101,6 +101,14 @@ describe('buildBoardCsvRows', () => {
     expect(buildBoardCsvRows({ ...base, items: [unknown] })[1]![4]).toBe('Board member');
   });
 
+  it('keeps the old CSV fallback for a team entry', () => {
+    const withTeam = makeItem({
+      id: 'i3',
+      values: { owner: { personsAndTeams: [{ id: 't1', kind: 'team' }] } },
+    });
+    expect(buildBoardCsvRows({ ...base, items: [withTeam] })[1]![4]).toBe('Board member');
+  });
+
   it('marks numeric cells and exports the computed formula value', () => {
     const rows = buildBoardCsvRows({ ...base, items: [full] });
     const row = rows[1]!;
