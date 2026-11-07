@@ -1,6 +1,7 @@
 import { Check, DropdownChevronDown } from '@vibe/icons';
 import classNames from 'classnames';
 import {
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -59,6 +60,15 @@ export interface SentenceMultiTokenProps extends BaseProps {
   max?: number;
 }
 
+/** The empty state of a list: a disabled option, so the listbox keeps only valid children. */
+function EmptyOption({ children }: { children: ReactNode }) {
+  return (
+    <div role="option" aria-disabled="true" aria-selected="false" className={styles.empty}>
+      {children}
+    </div>
+  );
+}
+
 function Row({ option }: { option: TokenOption }) {
   return (
     <span className={styles.rowContent}>
@@ -109,6 +119,11 @@ function TokenShell({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const link = base.variant === 'link';
 
+  const setButtonNode = useCallback((node: HTMLButtonElement | null) => {
+    buttonRef.current = node;
+    setAnchor(node);
+  }, []);
+
   const close = (refocus: boolean) => {
     setOpen(false);
     if (refocus) buttonRef.current?.focus();
@@ -116,9 +131,11 @@ function TokenShell({
 
   useEffect(() => {
     if (!open) return;
-    const rows = panelRef.current?.querySelectorAll<HTMLElement>('[role="option"]:not(:disabled)');
+    const rows = panelRef.current?.querySelectorAll<HTMLElement>(
+      '[role="option"]:not(:disabled):not([aria-disabled="true"])',
+    );
     const selected = panelRef.current?.querySelector<HTMLElement>(
-      '[role="option"][aria-selected="true"]:not(:disabled)',
+      '[role="option"][aria-selected="true"]:not(:disabled):not([aria-disabled="true"])',
     );
     const first = selected ?? rows?.[0];
     first?.focus();
@@ -143,7 +160,9 @@ function TokenShell({
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     const rows = [
-      ...(panelRef.current?.querySelectorAll<HTMLElement>('[role="option"]:not(:disabled)') ?? []),
+      ...(panelRef.current?.querySelectorAll<HTMLElement>(
+        '[role="option"]:not(:disabled):not([aria-disabled="true"])',
+      ) ?? []),
     ];
     if (rows.length === 0) return;
     const at = rows.indexOf(document.activeElement as HTMLElement);
@@ -161,10 +180,7 @@ function TokenShell({
   return (
     <span className={styles.wrap}>
       <button
-        ref={(node) => {
-          buttonRef.current = node;
-          setAnchor(node);
-        }}
+        ref={setButtonNode}
         type="button"
         className={classNames(
           link ? styles.link : filled ? styles.token : styles.blank,
@@ -182,12 +198,7 @@ function TokenShell({
         {link ? null : <DropdownChevronDown className={styles.chevron} aria-hidden="true" />}
       </button>
       {open ? (
-        <AnchoredPopup
-          anchor={anchor}
-          onClose={() => setOpen(false)}
-          label={base.label}
-          matchAnchorWidth
-        >
+        <AnchoredPopup anchor={anchor} onClose={() => setOpen(false)} matchAnchorWidth>
           <div
             ref={panelRef}
             id={listId}
@@ -222,7 +233,7 @@ export function SentenceToken(props: SentenceTokenProps) {
   return (
     <TokenShell base={props} text={text} filled={filled}>
       {props.options.length === 0 ? (
-        <p className={styles.empty}>{props.emptyText ?? 'Nothing to choose from'}</p>
+        <EmptyOption>{props.emptyText ?? 'Nothing to choose from'}</EmptyOption>
       ) : null}
       {props.options.map((option) => (
         <button
@@ -251,7 +262,7 @@ export function SentenceMultiToken(props: SentenceMultiTokenProps) {
   return (
     <TokenShell base={props} text={text} filled={filled} multiple>
       {props.options.length === 0 ? (
-        <p className={styles.empty}>{props.emptyText ?? 'No one found'}</p>
+        <EmptyOption>{props.emptyText ?? 'No one found'}</EmptyOption>
       ) : null}
       {props.options.map((option) => {
         const on = props.values.includes(option.value);

@@ -114,6 +114,7 @@ function ColumnToken({
       value={value === '' ? null : value}
       display={value !== '' && !known ? 'a deleted column' : undefined}
       options={columns.map((c) => ({ value: c.id, label: c.title }))}
+      emptyText="No matching column on this board"
       onChange={onChange}
     />
   );
