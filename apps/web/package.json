@@ -33,6 +33,7 @@
     "@vibe/core": "^4.5.38",
     "@vibe/icons": "^4.2.0",
     "classnames": "^2.5.1",
+    "fflate": "0.8.3",
     "firebase": "^13.1.0",
     "fractional-indexing": "^4.0.0",
     "react": "^19.3.1",
