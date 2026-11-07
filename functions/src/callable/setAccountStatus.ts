@@ -8,7 +8,7 @@ import { adminAccountAuth, adminAccountStore } from '../lib/admin-account';
 /** Approve, block or unblock an account. Site admins only (the `admin` claim in the verified token). */
 export const setAccountStatus = onCall(async (request) => {
   const actor = actorFromRequest(request);
-  assertAdminToken(request.auth?.token as Record<string, unknown> | undefined);
+  assertAdminToken(actor.claims);
   const input = parseInput(setAccountStatusRequestSchema, request.data, 'setAccountStatus');
   const result = await run(
     { auth: adminAccountAuth(), store: adminAccountStore(db()) },
