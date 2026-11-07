@@ -51,3 +51,25 @@ describe('print scale variable', () => {
     section.parentElement?.remove();
   });
 });
+
+describe('print theme', () => {
+  it('switches <html> to the light theme while printing and restores the dark one', () => {
+    const root = document.documentElement;
+    root.classList.add('dark-app-theme');
+    root.style.colorScheme = 'dark';
+    render(<Probe />);
+    act(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+    });
+    expect(root.classList.contains('light-app-theme')).toBe(true);
+    expect(root.classList.contains('dark-app-theme')).toBe(false);
+    act(() => {
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    expect(root.classList.contains('dark-app-theme')).toBe(true);
+    expect(root.classList.contains('light-app-theme')).toBe(false);
+    expect(root.style.colorScheme).toBe('dark');
+    root.classList.remove('dark-app-theme');
+    root.style.colorScheme = '';
+  });
+});
