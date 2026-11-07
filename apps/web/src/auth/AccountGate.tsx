@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { FullPageMessage } from '../components/FullPage';
 import { plainRefs } from '../data/firestore';
 import { useAuth } from './auth-context';
+import { ACCOUNT_DISABLED_MESSAGE } from './auth-errors';
 
 /**
  * Full-page screen for an account that is not approved (ADMIN-3). It renders no app shell and starts
@@ -42,7 +43,7 @@ export function AccountGate({ status }: { status: Extract<AccountStatus, 'pendin
     return (
       <FullPageMessage
         title="Your account is blocked"
-        description="An admin has blocked this account, so you can't use Atrium with it."
+        description={ACCOUNT_DISABLED_MESSAGE}
         primary={signOutAction}
       />
     );

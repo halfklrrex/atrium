@@ -10,6 +10,10 @@ export function isSilentSignInError(error: unknown): boolean {
   return code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request';
 }
 
+/** Shown on the login page (`auth/user-disabled`) and on the in-app blocked screen. */
+export const ACCOUNT_DISABLED_MESSAGE =
+  'Your account has been disabled. If you think this is an error, contact the site admin.';
+
 export const BOOTSTRAP_ERROR_MESSAGE =
   "We couldn't finish setting up your account. Please try again.";
 
@@ -24,12 +28,18 @@ export function signInErrorMessage(error: unknown): string | null {
       return "This address isn't allowed to sign in yet.";
     case 'auth/network-request-failed':
       return 'Check your connection and try again.';
+    case 'auth/user-disabled':
+      return ACCOUNT_DISABLED_MESSAGE;
     default:
       return 'Sign-in failed. Please try again.';
   }
 }
 
-const KNOWN_CODES = new Set(['auth/unauthorized-domain', 'auth/network-request-failed']);
+const KNOWN_CODES = new Set([
+  'auth/unauthorized-domain',
+  'auth/network-request-failed',
+  'auth/user-disabled',
+]);
 
 /** True when the error is one we have a dedicated message for (so it needs no console log). */
 export function isKnownSignInError(error: unknown): boolean {

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from './auth-context';
+import { ACCOUNT_DISABLED_MESSAGE } from './auth-errors';
 import { RequireAuth } from './RequireAuth';
 
 const mocks = vi.hoisted(() => ({
@@ -77,6 +78,7 @@ describe('AccountGate', () => {
   it('shows the blocked screen with a sign out button and does not listen', async () => {
     renderGate('blocked');
     expect(screen.getByRole('heading', { name: 'Your account is blocked' })).toBeInTheDocument();
+    expect(screen.getByText(ACCOUNT_DISABLED_MESSAGE)).toBeInTheDocument();
     expect(screen.queryByText('the app shell')).not.toBeInTheDocument();
     expect(mocks.snapshot).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
