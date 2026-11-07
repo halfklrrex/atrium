@@ -46,7 +46,7 @@ export function TopBar() {
   };
 
   return (
-    <header className={styles.topBar}>
+    <header className={styles.topBar} data-print="hide">
       <span className={styles.menuToggle}>
         <IconButton
           icon={MenuIcon}

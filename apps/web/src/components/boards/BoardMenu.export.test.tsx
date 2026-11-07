@@ -101,3 +101,43 @@ describe('BoardMenu Export to CSV', () => {
     expect(await screen.findByRole('menuitem', { name: 'Export to CSV' })).toBeEnabled();
   });
 });
+
+describe('BoardMenu Print', () => {
+  const print = vi.fn();
+
+  beforeEach(() => {
+    print.mockClear();
+    window.print = print;
+  });
+
+  async function open(role: 'viewer' | 'editor') {
+    const boardDoc = makeBoard({
+      ...board,
+      id: `print-${role}`,
+      access: { u1: role },
+      accessUids: ['u1'],
+    });
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(
+      <MemoryRouter>
+        <BoardMenu board={boardDoc} exportOpenView />
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole('button', { name: `Options for ${boardDoc.name}` }));
+    return user;
+  }
+
+  it.each(['viewer', 'editor'] as const)('is offered to a %s, right after Export', async (role) => {
+    await open(role);
+    const items = (await screen.findAllByRole('menuitem')).map((el) => el.textContent);
+    const exportAt = items.findIndex((t) => t?.includes('Export to CSV'));
+    expect(exportAt).toBeGreaterThanOrEqual(0);
+    expect(items[exportAt + 1]).toContain('Print');
+  });
+
+  it('opens the browser print dialog when clicked', async () => {
+    const user = await open('editor');
+    await chooseMenuItem(user, 'Print');
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  });
+});

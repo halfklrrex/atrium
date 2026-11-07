@@ -138,7 +138,7 @@ function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdi
   const hiddenBoards = items.unreadableBoardIds.length;
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-print="reset">
       <header className={styles.header}>
         <InlineEdit
           value={dashboard.name}
@@ -148,7 +148,7 @@ function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdi
           onCommit={(name) => void dashboardActions.rename(dashboard, name)}
           className={styles.title}
         />
-        <div className={styles.headerActions}>
+        <div className={styles.headerActions} data-print="hide">
           <Button kind="secondary" size="small" onClick={openShare}>
             Share
           </Button>

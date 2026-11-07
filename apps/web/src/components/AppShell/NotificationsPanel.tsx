@@ -158,6 +158,7 @@ export function NotificationsPanel() {
     <aside
       ref={panelRef}
       id="notifications-panel"
+      data-print="hide"
       className={classNames(styles.panel, open && styles.open)}
       aria-label="Notifications"
       inert={!open}

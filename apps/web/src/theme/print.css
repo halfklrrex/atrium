@@ -1,0 +1,143 @@
+/*
+ * Print styles (export/print spec, slice 2). Everything here sits inside `@media print`, apart
+ * from the `@page` rules, so nothing changes on screen. This is the only place for print-specific
+ * literals; the component stylesheets are not touched by printing.
+ *
+ * Hooks: component CSS-module class names are hashed, so the markup carries stable attributes.
+ *   data-print="hide"          chrome that never prints (shell, header actions, tabs, add rows, ...)
+ *   data-print="reset"         a layout box that must grow with its content instead of scrolling
+ *   data-print="item-overlay"  the item view's overlay, "item-window" its window
+ *   data-print-page="board"    the board table root; "board-page" the page that holds a view
+ * The board table renders every row while printing (lib/use-printing.ts), so nothing is cut off.
+ */
+
+/* Landscape for the board table only. A named page is used so the item view and a dashboard keep
+   the browser's default orientation. */
+@page board-table {
+  size: landscape;
+  margin: 12mm;
+}
+
+@page {
+  margin: 12mm;
+}
+
+@media print {
+  /* ---- Colours: black on white whatever the theme ---- */
+  html,
+  html.light-app-theme,
+  html.dark-app-theme,
+  html.black-app-theme {
+    --primary-text-color: #000;
+    --secondary-text-color: #323338;
+    --primary-background-color: #fff;
+    --secondary-background-color: #fff;
+    --allgrey-background-color: #fff;
+    --layout-border-color: #c3c6d4;
+    --ui-border-color: #c3c6d4;
+    --atrium-app-bg: #fff;
+    --atrium-surface-bg: #fff;
+
+    color-scheme: light;
+    background: #fff;
+    color: #000;
+  }
+
+  html body {
+    background: #fff;
+    color: #000;
+  }
+
+  /* Keep the colour of group bars, status pills and chart fills. */
+  html body * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* ---- Chrome that never prints ---- */
+  [data-print='hide'],
+  .monday-style-dialog-content-wrapper {
+    display: none !important;
+  }
+
+  /* ---- Layout boxes grow with their content: no fixed height, no scroll, no clipping ---- */
+  html,
+  body,
+  #root {
+    height: auto;
+    overflow: visible;
+  }
+
+  html body [data-print='reset'],
+  html body [data-print-page='board'] {
+    position: static;
+    display: block;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    padding-inline-start: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* The table keeps its own width so its columns lay out as on screen. */
+  html body [data-print-page='board'] [data-print='reset'] {
+    width: max-content;
+  }
+
+  /* ---- Board table ---- */
+  html body [data-print-page='board-page']:has([data-print-page='board']) {
+    page: board-table;
+  }
+
+  [data-print-page='board'] [role='row'] {
+    break-inside: avoid;
+  }
+
+  [data-print-page='board'] section {
+    break-inside: auto;
+  }
+
+  /* A group's title and header row stay with its first rows. */
+  [data-print-page='board'] section > :first-child {
+    break-after: avoid;
+  }
+
+  [data-print-page='board'] [role='grid'] > :first-child {
+    break-after: avoid;
+  }
+
+  /* ---- Item view: the item alone, no overlay, no clipping ---- */
+  html
+    body
+    [data-print-page='board-page']:has([data-print='item-overlay'])
+    > :not([data-print='item-overlay']) {
+    display: none;
+  }
+
+  html body [data-print='item-overlay'] {
+    position: static;
+    display: block;
+    inset: auto;
+  }
+
+  html body [data-print='item-window'] {
+    display: block;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  [data-print='item-window'] section {
+    break-inside: avoid;
+  }
+
+  /* ---- Dashboard ---- */
+  [data-widget-id] {
+    break-inside: avoid;
+  }
+}

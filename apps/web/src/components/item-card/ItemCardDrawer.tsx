@@ -85,7 +85,7 @@ export function ItemCardDrawer() {
   // A non-modal side panel (as in monday): no backdrop, the board behind it stays interactive,
   // and only the X or Escape close it.
   return (
-    <div className={styles.dock}>
+    <div className={styles.dock} data-print="hide">
       <aside
         ref={drawerRef}
         className={styles.drawer}

@@ -183,8 +183,8 @@ export function ItemView({ board, itemId }: ItemViewProps) {
       {loading ? <Loader size="medium" /> : <p>This item no longer exists.</p>}
     </div>
   ) : (
-    <div className={styles.body}>
-      <div className={styles.main}>
+    <div className={styles.body} data-print="reset">
+      <div className={styles.main} data-print="reset">
         <section className={styles.section} aria-label="Description">
           <h3 className={styles.sectionTitle}>Description</h3>
           <Suspense fallback={<div className={styles.editorFallback} aria-busy="true" />}>
@@ -219,7 +219,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
           </div>
         </section>
       </div>
-      <aside className={styles.side} aria-label="Fields panel">
+      <aside className={styles.side} aria-label="Fields panel" data-print="reset">
         <h3 className={styles.sectionTitle}>Fields</h3>
         <FieldsPanel item={item} columns={columns} ctx={ctx} canEdit={canEdit} />
       </aside>
@@ -227,11 +227,18 @@ export function ItemView({ board, itemId }: ItemViewProps) {
   );
 
   return (
-    <div className={styles.overlay}>
-      <button type="button" className={styles.scrim} aria-label="Close item" onClick={close} />
+    <div className={styles.overlay} data-print="item-overlay">
+      <button
+        type="button"
+        className={styles.scrim}
+        aria-label="Close item"
+        data-print="hide"
+        onClick={close}
+      />
       <div
         ref={windowRef}
         className={styles.window}
+        data-print="item-window"
         role="dialog"
         aria-modal="true"
         aria-label={item ? `Item ${item.name}` : 'Item'}
@@ -257,7 +264,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
                 </>
               ) : null}
             </nav>
-            <div className={styles.actions}>
+            <div className={styles.actions} data-print="hide">
               {total > 1 ? (
                 <>
                   <Tooltip content="Previous item">

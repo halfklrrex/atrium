@@ -31,7 +31,7 @@ export function BatchBar() {
   };
 
   return (
-    <div className={styles.batch}>
+    <div className={styles.batch} data-print="hide">
       <div className={styles.batchCard} role="region" aria-label="Selected items">
         <span className={styles.batchCount} aria-hidden="true">
           {items.length}

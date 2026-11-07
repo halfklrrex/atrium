@@ -12,6 +12,7 @@ import {
   ClassicFolder as Folder,
   Locked,
   Move,
+  Print,
   Remove,
   Time,
 } from '@vibe/icons';
@@ -172,6 +173,7 @@ function BoardMenuContent({
         onClick={() => openDialog({ type: 'saveTemplate', boardId: board.id })}
       />
       <MenuItem title="Export to CSV" icon={Download} disabled={itemsLoading} onClick={exportCsv} />
+      <MenuItem title="Print" icon={Print} onClick={() => window.print()} />
       {canEdit ? (
         <MenuItem title="Move to folder" icon={Move}>
           <Menu id={`move-menu-${board.id}`} size="medium">
