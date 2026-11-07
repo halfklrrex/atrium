@@ -55,3 +55,14 @@
   --font-family: 'Atrium Emoji', var(--atrium-vibe-font-family);
   --title-font-family: 'Atrium Emoji', var(--atrium-vibe-title-font-family);
 }
+
+/*
+ * Browsers give native form controls their own system font, so an emoji typed into one would
+ * skip the stack above. Make them inherit it (element selectors, so any component rule wins).
+ */
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
