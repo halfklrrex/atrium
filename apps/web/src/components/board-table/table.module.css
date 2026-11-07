@@ -415,6 +415,13 @@
   cursor: default;
 }
 
+/* Bulk edit: the same outline as the active cell, on this column in every selected row. */
+.cellBulk {
+  z-index: var(--atrium-z-raised);
+  outline: var(--atrium-table-focus-outline);
+  outline-offset: calc(var(--border-width) * -1);
+}
+
 .cellActive {
   z-index: var(--atrium-z-raised);
   outline: var(--atrium-table-focus-outline);

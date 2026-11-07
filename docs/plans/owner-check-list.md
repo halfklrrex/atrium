@@ -2,6 +2,14 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Bulk edit v3: Undo with required columns, and the column highlight
+
+On the showcase board (or a scratch board with a required Status):
+
+- **Highlight:** select 3 rows and hover a Status cell in one of them. The Status cells of all 3 rows get a blue outline. It stays while the editor is open and goes when the pointer leaves or the editor closes. With one row selected, or over a column that cannot be bulk-edited, nothing is outlined.
+- **Undo with an empty required cell:** select 3 rows including one with an empty Status, set Status to Done, then click Undo. The rows that had a value go back; the empty one keeps Done and the toast names it ("Undid 2 of 3 items; 1 item kept the new value because Status is required"). There is no "You don't have permission" message any more.
+- Try it in light and dark and compare with the monday recording.
+
 ## Bulk edit v2: range select and immediate apply
 
 On a scratch board, not your real boards:
