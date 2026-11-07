@@ -25,7 +25,11 @@ export function TableCheckbox({
       className={classNames(styles.checkbox, on && styles.checkboxOn)}
       // A shift+click selects a range: keep the browser from also selecting the text in between.
       onMouseDown={(event) => {
-        if (event.shiftKey) event.preventDefault();
+        if (event.shiftKey) {
+          event.preventDefault();
+          // preventDefault also stops the focus move: put keyboard focus on this checkbox.
+          event.currentTarget.focus();
+        }
       }}
       onClick={(event) => {
         event.stopPropagation();

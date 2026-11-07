@@ -3,7 +3,7 @@
 ## Merged and live
 
 - **#139 Export to CSV** (P6 first slice; spec `docs/specs/P6-export-csv.md`): board ⋯ menu → "Export to CSV". Client-side, RFC 4180, BOM, formula-injection guard, open view's rows/hidden columns (header menu) or everything (sidebar menu). Print styles and native `.xlsx` are follow-ups.
-- **#141 Bulk edit** (spec `docs/specs/P1-bulk-edit-selected.md`): editing a cell in a selected row with other same-level rows selected offers "Apply to N selected items". Undo is the toast action (the repo has no undo stack). Skip toast says "locked or required" for any skip reason.
+- **#141 Bulk edit** (spec `docs/specs/P1-bulk-edit-selected.md`): editing a cell in a selected row with other same-level rows selected offered "Apply to N selected items" (v1; superseded by v2, which applies at once with no popup). Undo is the toast action (the repo has no undo stack). Skip toast says "locked or required" for any skip reason.
 - **#140** view tab labels 14px (`--font-size-20`).
 - Baselines for the board options menu were updated for #139.
 

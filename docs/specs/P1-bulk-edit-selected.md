@@ -79,6 +79,10 @@ Owner feedback on #141 (bug inbox, 2026-11-07): "The user ought to be able to se
 - Update `bulk-edit.test.tsx` (the popup tests go away or become "applies immediately" tests), `BoardTable.test.tsx` lines ~137-187.
 - Visual: the `board-batch-bar` screenshots may change slightly (selected-row tint); if so run the baselines workflow, never hand-edit PNGs.
 
+## Known limit
+
+Writes go out in chunks of 400 rows (Firestore's batch limit), so a bulk edit over more than 400 rows is not atomic. If a later chunk fails after an earlier one was committed, the toast says "Updated N items; M could not be saved" and its Undo restores only the rows already written.
+
 ## Owner check (add to `docs/plans/owner-check-list.md` in the PR)
 
 On a scratch board (not your real boards): tick one row, shift+click another several rows below it: everything in between is selected, including across a group boundary and skipping a collapsed group. With 3+ selected, change a Status on one of them: all selected rows change at once, with no popup, a toast with Undo, and Undo puts every value back. Deselect down to one row: editing it changes only that row. Try it in light and dark and compare with the monday recording.

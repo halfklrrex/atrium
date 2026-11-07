@@ -1,11 +1,13 @@
-import { columnRegistry, type ColumnDef } from '@atrium/shared';
+import { columnRegistry, REQUIRED_COLUMN_RULE_CAP, type ColumnDef } from '@atrium/shared';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BoardDoc } from '../../data';
+import { PartialBatchError, type BoardDoc } from '../../data';
 import { makeBoard, makeItem } from '../../test/fixtures';
 import { useToastStore } from '../toast-store';
 import { BoardTable } from './BoardTable';
+import { REQUIRED_CAP_MESSAGE } from './required-write';
+import { tableActions, type TableCtx } from './table-actions';
 import { bulkPeers, bulkSummary, isBulkEditableType, planBulkApply } from './bulk-edit';
 import { useTablePrefs, useTableStore } from './table-store';
 
@@ -241,14 +243,152 @@ describe('bulk edit in the table', () => {
     expect(mocks.setValueMany).not.toHaveBeenCalled();
   });
 
-  it('restores nothing silently on failure: shows the error and no result toast', async () => {
-    mocks.setValueMany.mockRejectedValue(new Error('boom'));
+  it('shows the error and no result toast when the write fails, and dismisses the pending toast', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let fail: (e: Error) => void = () => undefined;
+      mocks.setValueMany.mockReturnValue(new Promise<void>((_, r) => (fail = r)));
+      render(<BoardTable board={board()} />);
+      select('r1', 'r2');
+      await toggleRow('r1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400);
+      });
+      expect(useToastStore.getState().toasts.some((t) => t.loading)).toBe(true);
+      await act(async () => {
+        fail(new Error('boom'));
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts.some((t) => t.loading)).toBe(false);
+      expect(toasts.some((t) => t.type === 'negative')).toBe(true);
+      expect(toasts.some((t) => /^Updated/.test(t.text))).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('names a partial failure and offers Undo for the rows already written', async () => {
+    mocks.setValueMany.mockRejectedValueOnce(
+      new PartialBatchError(['r1', 'r2'], 1, new Error('x')),
+    );
     render(<BoardTable board={board()} />);
-    select('r1', 'r2');
+    select('r1', 'r2', 'r3');
     await toggleRow('r1');
     await waitFor(() =>
-      expect(useToastStore.getState().toasts.some((t) => t.type === 'negative')).toBe(true),
+      expect(useToastStore.getState().toasts.at(-1)?.text).toBe(
+        'Updated 2 items; 1 could not be saved',
+      ),
     );
-    expect(useToastStore.getState().toasts.some((t) => /^Updated/.test(t.text))).toBe(false);
+    const toast = useToastStore.getState().toasts.at(-1)!;
+    expect(toast.type).toBe('negative');
+    act(() => toast.action!.onClick());
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(2));
+    expect(mocks.setValueMany).toHaveBeenLastCalledWith('u1', 'b1', 'done', [
+      { id: 'r1', value: null },
+      { id: 'r2', value: null },
+    ]);
+  });
+
+  it('Undo puts back the previous value of rows that had one and empties the rest', async () => {
+    mocks.items = [row('r1', { done: { checked: 'true' } }), row('r2'), row('r3')];
+    render(<BoardTable board={board()} />);
+    select('r1', 'r2', 'r3');
+    await toggleRow('r2');
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(useToastStore.getState().toasts.at(-1)?.action).toBeDefined());
+    act(() => useToastStore.getState().toasts.at(-1)!.action!.onClick());
+    await waitFor(() => expect(mocks.setValueMany).toHaveBeenCalledTimes(2));
+    expect(mocks.setValueMany).toHaveBeenLastCalledWith('u1', 'b1', 'done', [
+      { id: 'r2', value: null },
+      { id: 'r1', value: { checked: 'true' } },
+      { id: 'r3', value: null },
+    ]);
+  });
+});
+
+describe('tableActions.setCellBulk', () => {
+  const status = col('st', 'status', 'Status', {
+    settings: {
+      labels: [
+        { id: 'w', index: 0, label: 'Working', color: '#fdab3d' },
+        { id: 'd', index: 1, label: 'Done', color: '#00c875', isDone: true },
+      ],
+    },
+  });
+  const owner = col('owner', 'text', 'Owner', { required: true });
+  const cols = [status, owner, done];
+  const ctx = (extra: Partial<TableCtx> = {}): TableCtx => ({
+    boardId: 'b1',
+    uid: 'u1',
+    columns: cols,
+    ...extra,
+  });
+  const toasts = () => useToastStore.getState().toasts;
+
+  beforeEach(() => {
+    mocks.setValueMany.mockReset().mockResolvedValue(undefined);
+    useToastStore.setState({ toasts: [] });
+  });
+
+  it('refuses an edited row in a locked column without writing', async () => {
+    const edited = row('r1');
+    const ok = await tableActions.setCellBulk(
+      ctx({ board: { columnLocks: ['done'] }, boardRole: 'editor' }),
+      edited,
+      'done',
+      { checked: 'true' },
+      [row('r2')],
+    );
+    expect(ok).toBe(false);
+    expect(mocks.setValueMany).not.toHaveBeenCalled();
+    expect(toasts().at(-1)?.type).toBe('negative');
+  });
+
+  it('refuses an edited row whose change breaks the required rule without writing', async () => {
+    const edited = row('r1', { owner: 'Avery' });
+    const ok = await tableActions.setCellBulk(ctx(), edited, 'owner', null, [
+      row('r2', { owner: 'Blake' }),
+    ]);
+    expect(ok).toBe(false);
+    expect(mocks.setValueMany).not.toHaveBeenCalled();
+    expect(toasts().at(-1)).toMatchObject({ text: 'Owner is required', type: 'negative' });
+  });
+
+  it('skips required-breaking peers, writes the rest and says how many were skipped', async () => {
+    const edited = row('r1', { owner: 'Avery', st: { index: 0 } });
+    const filledPeer = row('r2', { owner: 'Blake', st: { index: 0 } });
+    const emptyPeer = row('r3', { st: { index: 0 } });
+    const ok = await tableActions.setCellBulk(ctx(), edited, 'st', { index: 1 }, [
+      filledPeer,
+      emptyPeer,
+    ]);
+    expect(ok).toBe(true);
+    expect(mocks.setValueMany).toHaveBeenCalledWith('u1', 'b1', 'st', [
+      { id: 'r1', value: { index: 1 } },
+      { id: 'r2', value: { index: 1 } },
+    ]);
+    expect(toasts().at(-1)?.text).toBe('Updated 2 of 3 items; 1 skipped (locked or required)');
+  });
+
+  it('explains a required-rule permission denial in plain words', async () => {
+    mocks.setValueMany.mockRejectedValue(
+      Object.assign(new Error('denied'), { code: 'permission-denied' }),
+    );
+    const ok = await tableActions.setCellBulk(
+      ctx({
+        requiredColumnIds: [
+          ...Array.from({ length: REQUIRED_COLUMN_RULE_CAP }, (_, i) => `x${i}`),
+          'owner',
+        ],
+      }),
+      row('r1', { owner: 'Avery' }),
+      'owner',
+      'Blake',
+      [row('r2', { owner: 'Avery' })],
+    );
+    expect(ok).toBe(false);
+    expect(toasts().at(-1)?.type).toBe('negative');
+    expect(toasts().at(-1)?.text).toBe(REQUIRED_CAP_MESSAGE);
   });
 });
