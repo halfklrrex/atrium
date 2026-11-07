@@ -1,4 +1,4 @@
-import type { AccountStatus } from '@atrium/shared';
+import { isApprovedClaims, type AccountStatus } from '@atrium/shared';
 import {
   getRedirectResult,
   GoogleAuthProvider,
@@ -8,13 +8,21 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
+import { onSnapshot } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { writes } from '../data/firestore';
+import { plainRefs, writes } from '../data/firestore';
 import { callBootstrapUser } from '../lib/callables';
 import { auth } from '../lib/firebase';
 import { getErrorCode, isSilentSignInError } from './auth-errors';
+import { setBlockedNotice } from './blocked-notice';
 import { ensureApprovedToken } from './ensure-approved-token';
 import { AuthContext, type AuthContextValue, type AuthStatus } from './auth-context';
+
+/** Pause between claim checks in `refreshAccount`, and how many extra checks it makes. */
+const CLAIM_RETRY_DELAY_MS = 1000;
+const CLAIM_RETRY_COUNT = 5;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const toError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
 
@@ -68,6 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sessionIdRef = useRef(0);
   // Sessions whose ID token was already force-refreshed once for the account gate (loop guard).
   const refreshedSessions = useRef(new Set<number>());
+  // True while a `blocked` status on the user document has already been acted on.
+  const blockHandled = useRef(false);
   useEffect(() => {
     userRef.current = user;
     sessionIdRef.current = session?.id ?? 0;
@@ -108,6 +118,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [key]);
 
   const current = outcome && outcome.key === key ? outcome : null;
+  // An approved session (a missing status behaves like approved) watches its own user document so a
+  // block cuts it off within seconds instead of when the ID token expires (up to an hour).
+  const watchOwnAccount =
+    !!user && !!current && !current.error && (current.accountStatus ?? 'approved') === 'approved';
+  const watchedUser = watchOwnAccount ? user : null;
+  useEffect(() => {
+    if (!watchedUser) return;
+    // One attempt per status change: `blockHandled` is set when a `blocked` snapshot is handled and
+    // cleared only when the document reports anything else, so re-attaching this listener (after
+    // the bootstrap re-runs) can never repeat the attempt for the same block.
+    return onSnapshot(
+      plainRefs.user(watchedUser.uid),
+      (snap) => {
+        if (snap.data()?.accountStatus !== 'blocked') {
+          blockHandled.current = false;
+          return;
+        }
+        if (blockHandled.current) return;
+        blockHandled.current = true;
+        watchedUser.getIdToken(true).then(
+          // Unexpected: a fresh token was minted. It carries `blocked`, so bootstrap again and the
+          // gate shows the blocked screen.
+          () => setAttempt((n) => n + 1),
+          // The expected outcome: the refresh token was revoked. Leave a notice for the login page.
+          (e: unknown) => {
+            console.warn('Signed out after the account was blocked', getErrorCode(e) ?? '');
+            setBlockedNotice();
+            firebaseSignOut(auth).catch((err: unknown) => {
+              console.error('Sign-out after block failed', err);
+            });
+          },
+        );
+      },
+      // The document may be unreadable (a rules change, offline): keep the session as it is.
+      () => {},
+    );
+  }, [watchedUser]);
+
   let status: AuthStatus;
   if (!session) status = 'loading';
   else if (!user) status = 'signedOut';
@@ -140,9 +188,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const retryBootstrap = useCallback(() => setAttempt((n) => n + 1), []);
 
-  // A pending account was approved: the new claim only applies after a token refresh.
+  // A pending or blocked account was approved: the new claim only applies after a token refresh.
+  // The server writes the user document before the claim, so the first refresh can still carry the
+  // old claim: check it and retry (up to 5 times, 1 second apart) before re-running the bootstrap.
   const refreshAccount = useCallback(async () => {
-    await user?.getIdToken(true);
+    if (user) {
+      await user.getIdToken(true);
+      for (let retry = 0; retry <= CLAIM_RETRY_COUNT; retry += 1) {
+        const { claims } = await user.getIdTokenResult();
+        if (isApprovedClaims(claims) || retry === CLAIM_RETRY_COUNT) break;
+        await sleep(CLAIM_RETRY_DELAY_MS);
+        await user.getIdToken(true);
+      }
+    }
     setAttempt((n) => n + 1);
   }, [user]);
 

@@ -385,6 +385,22 @@ describe('server-managed column callables', () => {
 });
 
 describe('describeCallableError', () => {
+  it('maps the account-not-approved reason, whatever the message says', () => {
+    const error = {
+      code: 'functions/permission-denied',
+      message: "Your account can't do this.",
+      details: { reason: 'account-not-approved', status: 'blocked' },
+    };
+    expect(describeCallableError(error, 'Fallback')).toBe("Your account isn't approved yet.");
+    // Other permission errors keep the server's own message.
+    expect(
+      describeCallableError(
+        { code: 'permission-denied', message: 'Only a site admin can do this.', details: {} },
+        'Fallback',
+      ),
+    ).toBe('Only a site admin can do this.');
+  });
+
   it('maps permission-denied with or without functions/ prefix to default friendly text', () => {
     expect(describeCallableError({ code: 'permission-denied' }, 'Fallback')).toBe(
       'You do not have permission to perform this action.',

@@ -1,5 +1,5 @@
 import { Button, Heading, Text } from '@vibe/core';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import {
@@ -8,6 +8,11 @@ import {
   isKnownSignInError,
   signInErrorMessage,
 } from '../auth/auth-errors';
+import {
+  ACCOUNT_BLOCKED_NOTICE,
+  clearBlockedNotice,
+  hasBlockedNotice,
+} from '../auth/blocked-notice';
 import { BrandMark } from '../components/BrandMark';
 import { FullPageLoader } from '../components/FullPage';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
@@ -19,6 +24,11 @@ export function LoginPage() {
   const location = useLocation();
   const [pending, setPending] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+  // Set when the app signed a blocked person out; read once, then cleared (also safe in StrictMode).
+  const [blockedNotice] = useState(hasBlockedNotice);
+  useEffect(() => {
+    clearBlockedNotice();
+  }, []);
 
   if (status === 'loading') return <FullPageLoader label="Loading…" />;
 
@@ -98,6 +108,12 @@ export function LoginPage() {
                 onClick={() => void handleSignIn()}
                 loading={signingIn}
               />
+
+              {blockedNotice && !errorMessage ? (
+                <p className={styles.error} role="status">
+                  {ACCOUNT_BLOCKED_NOTICE}
+                </p>
+              ) : null}
 
               {errorMessage ? (
                 <p className={styles.error} role="alert">

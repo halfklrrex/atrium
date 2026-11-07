@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/auth-context';
+import { ACCOUNT_DISABLED_MESSAGE } from '../auth/auth-errors';
+import { ACCOUNT_BLOCKED_NOTICE, hasBlockedNotice, setBlockedNotice } from '../auth/blocked-notice';
 import { LoginPage } from './LoginPage';
 
 function authValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue {
@@ -40,6 +42,32 @@ const googleButton = () => screen.getByRole('button', { name: /continue with goo
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    sessionStorage.clear();
+  });
+
+  it('shows the blocked notice once after a forced sign-out, then clears the flag', () => {
+    setBlockedNotice();
+    const first = renderLogin(authValue());
+    expect(screen.getByText(ACCOUNT_BLOCKED_NOTICE)).toBeInTheDocument();
+    expect(ACCOUNT_BLOCKED_NOTICE).toBe(
+      'Your account was blocked. Sign in again to see why and to send an appeal.',
+    );
+    expect(hasBlockedNotice()).toBe(false);
+    first.unmount();
+    renderLogin(authValue());
+    expect(screen.queryByText(ACCOUNT_BLOCKED_NOTICE)).not.toBeInTheDocument();
+  });
+
+  it('shows no blocked notice on a normal visit', () => {
+    renderLogin(authValue());
+    expect(screen.queryByText(ACCOUNT_BLOCKED_NOTICE)).not.toBeInTheDocument();
+  });
+
+  it('keeps the user-disabled message as the fallback for console-disabled accounts', async () => {
+    const error = Object.assign(new Error('disabled'), { code: 'auth/user-disabled' });
+    renderLogin(authValue({ signInWithGoogle: vi.fn().mockRejectedValue(error) }));
+    await userEvent.click(googleButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent(ACCOUNT_DISABLED_MESSAGE);
   });
 
   it('links to the source code from the footnote (AGPL section 13)', () => {
