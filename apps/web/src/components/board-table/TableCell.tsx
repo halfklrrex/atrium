@@ -87,29 +87,57 @@ export const TableCell = memo(function TableCell({
   const itemId = item.id;
   // Bulk edit: outline this column in every selected row while one of its cells is hovered or
   // being edited. A narrow boolean selector: only the cells of that column re-render.
-  const bulkOutlined = useTableStore((s) => s.bulkColumnId === columnId && s.selected.has(itemId));
-  const bulkCount = useTableStore((s) => (bulkOutlined ? s.selected.size : 0));
-  const startBulkHover = () => {
+  const bulkOutlined = useTableStore(
+    (s) => s.bulkColumnId === columnId && s.selected.has(itemId) && s.selected.size >= 2,
+  );
+  // True while the pointer is over this cell (or its editor is open): who may clear the outline.
+  const ownsOutline = useRef(false);
+  const showBulkOutline = () => {
     const store = useTableStore.getState();
     if (!canEdit || !isBulkEditableType(column.def.type) || !store.selected.has(itemId)) return;
     if (store.selected.size < 2) return;
     if (bulkPeers(ctx.getItems?.() ?? env.getItems(), store.selected, item).length === 0) return;
+    ownsOutline.current = true;
     store.setBulkColumn(columnId);
+  };
+  const startBulkHover = () => {
+    // Another cell's editor is open: the outline stays where it is.
+    if (useTableStore.getState().editing) return;
+    showBulkOutline();
   };
   const endBulkHover = () => {
     const store = useTableStore.getState();
-    // While this cell's editor is open the outline stays, even if the pointer leaves.
-    if (store.bulkColumnId === columnId && !(editing && store.editing?.itemId === itemId)) {
+    ownsOutline.current = false;
+    // While an editor of this column is open the outline stays, even if the pointer leaves.
+    if (store.bulkColumnId === columnId && store.editing?.columnId !== columnId) {
       store.setBulkColumn(null);
     }
   };
-  // The editor closing ends the outline; opening it (re)starts it.
+  // The editor opening (re)starts the outline; only a true-to-false change ends it, so a cell that
+  // merely mounts (virtualisation, a new row, an expanded group) never touches another cell's.
+  const wasEditing = useRef(false);
   useEffect(() => {
-    if (editing) startBulkHover();
-    else if (useTableStore.getState().bulkColumnId === columnId && !ref.current?.matches(':hover'))
-      useTableStore.getState().setBulkColumn(null);
+    const was = wasEditing.current;
+    wasEditing.current = editing;
+    if (editing) showBulkOutline();
+    else if (was) {
+      ownsOutline.current = false;
+      const store = useTableStore.getState();
+      if (store.bulkColumnId === columnId && !ref.current?.matches(':hover')) {
+        store.setBulkColumn(null);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the editor opening/closing only
   }, [editing]);
+  // The cell that owns the outline unmounting (row deleted, filtered, scrolled away) fires no
+  // pointerleave: clear it here so the outline does not get stuck.
+  useEffect(
+    () => () => {
+      const store = useTableStore.getState();
+      if (ownsOutline.current && store.bulkColumnId === columnId) store.setBulkColumn(null);
+    },
+    [columnId],
+  );
   const onChange = useCallback(
     (next: unknown) => {
       if (!canEdit) return;
@@ -174,7 +202,7 @@ export const TableCell = memo(function TableCell({
       aria-selected={active || editing}
       title={readOnlyTooltip}
       data-bulk-outlined={bulkOutlined ? 'true' : undefined}
-      aria-description={bulkOutlined ? `Changes all ${bulkCount} selected items` : undefined}
+      aria-description={bulkOutlined ? 'Changes the selected items' : undefined}
       onClick={onClick}
       onPointerEnter={startBulkHover}
       onPointerLeave={endBulkHover}

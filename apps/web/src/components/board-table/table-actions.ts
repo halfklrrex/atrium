@@ -375,21 +375,30 @@ export const tableActions = {
      * value and the toast says so.
      */
     const undoRows = (ids: readonly string[]) => () => {
-      const live = ctx.getItems?.() ?? [];
-      const current = ids.map((id) => {
-        const fromLive = live.find((i) => i.id === id);
-        if (fromLive) return fromLive;
-        // No live read: the captured row, as the bulk write left it.
-        const row = rowsById.get(id);
-        return { id, values: { ...(row?.values ?? {}), [columnId]: value } };
-      });
+      const liveItems = ctx.getItems?.();
+      const liveById = liveItems ? new Map(liveItems.map((i) => [i.id, i] as const)) : null;
+      const current: Pick<ItemDoc, 'id' | 'values'>[] = [];
+      const gone: string[] = [];
+      for (const id of ids) {
+        const fromLive = liveById?.get(id);
+        if (fromLive) current.push(fromLive);
+        else if (liveById)
+          gone.push(id); // deleted or archived since: nothing to restore
+        else {
+          // No live read: the captured row, as the bulk write left it.
+          const row = rowsById.get(id);
+          current.push({ id, values: { ...(row?.values ?? {}), [columnId]: value } });
+        }
+      }
       const lockCtx = lockCtxOf(ctx);
       const locked = lockCtx ? !canEditColumn(lockCtx.boardRole, lockCtx.board, columnId) : false;
       const undoPlan = planBulkUndo({
         columns: ctx.columns,
         columnId,
         previousById,
+        written: value,
         current,
+        gone,
         locked,
       });
       if (undoPlan.restore.length === 0) {
