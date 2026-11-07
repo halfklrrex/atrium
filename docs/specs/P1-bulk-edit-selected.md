@@ -86,3 +86,40 @@ Writes go out in chunks of 400 rows (Firestore's batch limit), so a bulk edit ov
 ## Owner check (add to `docs/plans/owner-check-list.md` in the PR)
 
 On a scratch board (not your real boards): tick one row, shift+click another several rows below it: everything in between is selected, including across a group boundary and skipping a collapsed group. With 3+ selected, change a Status on one of them: all selected rows change at once, with no popup, a toast with Undo, and Undo puts every value back. Deselect down to one row: editing it changes only that row. Try it in light and dark and compare with the monday recording.
+
+---
+
+# v3 (2026-11-07 evening): Undo permission error and the column highlight
+
+Owner feedback on #153: "Undo does not work, it says I don't have permission to do that" and "make it more evident that all selected items will change. Monday does this by highlighting the corresponding column for all the selected items (as shown in the video)". Branch `claude/bulk-undo-highlight`. Plan: `docs/plans/2026-11-07-owner-feedback-round-2.md` items 2a and 2b.
+
+## A. Bulk Undo is refused (bug, high)
+
+**What Undo does today:** `tableActions.setCellBulk` (`apps/web/src/components/board-table/table-actions.ts`) captures each row's previous value; Undo calls `itemWrites.setValueMany` with one batch of field-path writes, and a row whose previous value was empty gets `deleteField()`. One refused row fails the whole batch, and Undo passes no `explain`, so the toast is the generic "You don't have permission to do that."
+
+**Most likely cause:** the showcase Status column is required. If a selected row had an empty required cell before the bulk edit, Undo tries to empty it again, `requiredCellsOk` in `firestore.rules` refuses the update, and the whole batch fails. The forward write is fine because it fills the cell. The existing test mocks the write, so the rules never saw this.
+
+**Step 1, reproduce with a rules test (no rule change):** add a test in `tests/rules/` (find the existing required-columns tests and follow their seeding): a board with a required Status column, an item whose Status is empty (created while exempt, as item creation is), then (a) the forward write setting Status passes, (b) the Undo shape (delete `values.<statusId>`, plus `updatedAt`/`updatedBy` as the web write sends them) is refused. If this does NOT reproduce, say so in the PR and try the other hypotheses in the plan (locked column; another clause of the item update rule); the lead may reproduce live on the showcase board.
+
+**Step 2, fix (never loosen the rules):**
+
+- New pure `planBulkUndo` in `bulk-edit.ts`: for each row, run `checkRequiredWrite(columns, columnId, previous, currentItem)` (the same check the forward path uses, against the item's CURRENT state) and the lock check. Rows that can be restored go in one `setValueMany` batch; the others keep the new value.
+- The Undo toast result says what happened and never silently skips: "Undid 2 of 3 items; 1 kept the new value because Status is required" (use the column's name).
+- Pass an `explain` to the Undo `attempt` (the same `explainRequiredDenied` the forward path uses) so a rules refusal shows the friendly message instead of the generic one. Apply the same planning to the partial-failure Undo from v2.
+- Tests: `planBulkUndo` unit tests (restorable, required-empty kept, locked kept, all kept, none kept); component test through the table (3 rows, one with an empty required cell: Undo restores the two and the toast names the third); the rules test above stays as documentation of why.
+
+## B. Highlight the column in every selected row (feature, medium)
+
+**Target (monday video, about 13 to 17 s):** when the pointer is over a bulk-editable cell in a selected row, and other rows of the same level are selected, the cell of that column in EVERY selected row gets an inset outline in the primary blue (the same look as the active-cell outline). It stays while the editor is open, and goes away on mouse leave or when the editor closes. No animation. Nothing changes with 0 or 1 rows selected, or for non-bulk-editable column types.
+
+**Implementation:**
+
+- `table-store.ts`: add `bulkColumnId: string | null` and `setBulkColumn(id | null)`. Cleared by `reset` and `clearSelection`.
+- `TableCell.tsx`: on pointer enter (and when the editor opens) set it, only when `isBulkEditableType`, the row is selected and `bulkPeers` is non-empty; clear on leave and when the editor closes (not while the editor is open and the pointer leaves).
+- Each cell subscribes with a narrow selector (`s => s.bulkColumnId === columnId && s.selected.has(itemId)`) so only that column's cells re-render, not the whole table. Check this does not regress large boards (virtualized groups).
+- `table.module.css`: a class using `box-shadow: inset 0 0 0 var(--border-width) var(--primary-color)` (tokens only; use the same token the active-cell outline uses if there is one). Add `title`/`aria-description` "Changes all N selected items" on the hovered cell if it is cheap.
+- Tests: store action; a component test (select 3 rows, hover a Status cell in one: the Status cells of all 3 have the class, other columns and unselected rows do not; leaving clears it; the editor open keeps it).
+
+## Checks and owner check
+
+`pnpm lint`, `pnpm -r --workspace-concurrency=1 typecheck`, `LC_ALL=en_US.UTF-8 pnpm test`, `PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH pnpm test:rules` (a rules test is added), `pnpm build`. Owner check (on the showcase): select 3 rows including one with an empty Status, hover a Status cell: all three Status cells are outlined. Set Status to Done, click Undo: the rows that had a value go back, the empty one is named in the toast as kept (Status is required).
