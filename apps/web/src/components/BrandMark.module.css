@@ -1,0 +1,25 @@
+.icon {
+  display: inline-flex;
+}
+
+.mark,
+.iconLight,
+.iconDark {
+  display: block;
+  flex: none;
+}
+
+/* The theme is a class on <html>: light shows the light icon, dark and black show the dark one. */
+.iconDark {
+  display: none;
+}
+
+:global(.dark-app-theme) .iconLight,
+:global(.black-app-theme) .iconLight {
+  display: none;
+}
+
+:global(.dark-app-theme) .iconDark,
+:global(.black-app-theme) .iconDark {
+  display: block;
+}

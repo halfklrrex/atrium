@@ -1,6 +1,6 @@
 import { Modal, ModalBasicLayout, ModalContent, ModalFooter, ModalHeader } from '@vibe/core';
 import { APP_VERSION, aboutLinks } from '../../lib/about';
-import { AtriumMark } from '../AtriumLogo';
+import { BrandMark } from '../BrandMark';
 import styles from './dialogs.module.css';
 
 /** "About Atrium": version and the AGPL section 13 source offer. */
@@ -12,7 +12,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         <ModalHeader title="About Atrium" />
         <ModalContent>
           <div className={styles.about}>
-            <AtriumMark size={48} title="Atrium" />
+            <BrandMark variant="icon" size={64} title="Atrium" />
             <dl className={styles.aboutMeta}>
               <dt>Version</dt>
               <dd>

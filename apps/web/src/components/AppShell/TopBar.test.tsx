@@ -26,6 +26,14 @@ const renderBar = () =>
     </MemoryRouter>,
   );
 
+describe('TopBar brand', () => {
+  it('shows the Atrium mark next to the wordmark', () => {
+    renderBar();
+    expect(screen.getByRole('img', { name: 'Atrium' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Atrium workboards home' })).toBeInTheDocument();
+  });
+});
+
 describe('TopBar notifications badge', () => {
   beforeEach(() => {
     mockUnread = 0;

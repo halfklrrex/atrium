@@ -2,6 +2,14 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## New logo (live)
+
+- **What changed:** the four-bars mark is replaced by the new glazed-atrium logo everywhere: favicon, header, login page, About dialog and the full-page account screens.
+- **Favicon:** check the browser tab in a light and in a dark browser theme (the light and dark favicons switch with the browser).
+- **Header mark:** look at the mark next to "Atrium workboards" in light, dark and black themes.
+- **Login and About:** the login card and the About dialog show the full icon, in the light or dark version to match the theme.
+- **iPhone:** Add to Home Screen is not available until the PWA work (no web app manifest yet).
+
 ## Bulk edit v3: Undo and the column highlight (live)
 
 - **Highlight:** on the showcase board select 3 rows and hover a Status cell in one of them: the Status cells of all 3 rows get a blue outline. It follows the pointer to other columns, stays while the editor is open, and disappears when you deselect down to one row.
