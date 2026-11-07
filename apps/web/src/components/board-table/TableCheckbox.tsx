@@ -9,7 +9,8 @@ export function TableCheckbox({
   disabled = false,
 }: {
   checked: boolean | 'mixed';
-  onChange: (next: boolean) => void;
+  /** `shift` is true when the click held Shift (range selection). */
+  onChange: (next: boolean, modifiers: { shift: boolean }) => void;
   label: string;
   disabled?: boolean;
 }) {
@@ -22,9 +23,13 @@ export function TableCheckbox({
       aria-label={label}
       disabled={disabled}
       className={classNames(styles.checkbox, on && styles.checkboxOn)}
+      // A shift+click selects a range: keep the browser from also selecting the text in between.
+      onMouseDown={(event) => {
+        if (event.shiftKey) event.preventDefault();
+      }}
       onClick={(event) => {
         event.stopPropagation();
-        onChange(checked !== true);
+        onChange(checked !== true, { shift: event.shiftKey });
       }}
     >
       {checked === true ? (
