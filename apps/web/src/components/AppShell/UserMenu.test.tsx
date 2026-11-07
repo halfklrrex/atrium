@@ -22,11 +22,19 @@ const auth: AuthContextValue = {
 } as unknown as AuthContextValue;
 
 const adminFlag = vi.hoisted(() => ({ value: false }));
+const unread = vi.hoisted(() => ({ value: 0 }));
 vi.mock('../../auth/useIsSiteAdmin', () => ({ useIsSiteAdmin: () => adminFlag.value }));
+vi.mock('../../data/inbox', () => ({
+  useInboxUnreadCount: (enabled: boolean) => ({
+    count: enabled ? unread.value : 0,
+    loading: false,
+  }),
+}));
 
 describe('UserMenu', () => {
   beforeEach(() => {
     adminFlag.value = false;
+    unread.value = 0;
     useUiStore.setState({ dialog: null });
   });
 
@@ -46,6 +54,25 @@ describe('UserMenu', () => {
     await user.click(screen.getByRole('button', { name: /account menu for ada lovelace/i }));
     await screen.findByRole('menuitem', { name: 'Sign out' });
     expect(screen.queryByRole('menuitem', { name: 'Site admin' }) !== null).toBe(shown);
+  });
+
+  it.each([
+    [0, 'Site admin'],
+    [3, 'Site admin (3)'],
+    [250, 'Site admin (99+)'],
+  ])('with %i unread Inbox threads, the entry reads "%s"', async (count, title) => {
+    adminFlag.value = true;
+    unread.value = count;
+    render(
+      <AuthContext.Provider value={auth}>
+        <MemoryRouter>
+          <UserMenu />
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    );
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await user.click(screen.getByRole('button', { name: /account menu for ada lovelace/i }));
+    expect(await screen.findByRole('menuitem', { name: title })).toBeInTheDocument();
   });
 
   it('opens the About dialog from the "About Atrium" item', async () => {

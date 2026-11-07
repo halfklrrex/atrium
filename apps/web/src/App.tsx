@@ -24,6 +24,8 @@ export function App() {
           <Route index element={<HomePage />} />
           <Route path="invite/:workspaceId/:inviteId" element={<InvitePage />} />
           <Route path="admin" element={<AdminPage />} />
+          <Route path="admin/inbox" element={<AdminPage tab="inbox" />} />
+          <Route path="admin/inbox/:threadId" element={<AdminPage tab="inbox" />} />
           <Route path="my-work" element={<MyWorkPage />} />
           <Route path="workspaces" element={<WorkspacesPage />} />
           <Route path="workspaces/:workspaceId" element={<WorkspacePage />} />

@@ -3,6 +3,8 @@ import { Check, Info, LogOut, Team } from '@vibe/icons';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { useIsSiteAdmin } from '../../auth/useIsSiteAdmin';
+import { useInboxUnreadCount } from '../../data/inbox';
+import { formatInboxCount } from '../../pages/admin/inbox';
 import { THEME_OPTIONS, useThemeStore } from '../../theme/theme';
 import { useUiStore } from './ui-store';
 
@@ -43,6 +45,7 @@ export function UserMenu() {
   const openDialog = useUiStore((s) => s.openDialog);
   const name = displayNameOf(user);
   const isSiteAdmin = useIsSiteAdmin();
+  const { count: inboxUnread } = useInboxUnreadCount(isSiteAdmin);
   const navigate = useNavigate();
 
   return (
@@ -66,7 +69,11 @@ export function UserMenu() {
         <MenuDivider />
         <MenuItem title="About Atrium" icon={Info} onClick={() => openDialog({ type: 'about' })} />
         {isSiteAdmin ? (
-          <MenuItem title="Site admin" icon={Team} onClick={() => void navigate('/admin')} />
+          <MenuItem
+            title={inboxUnread > 0 ? `Site admin (${formatInboxCount(inboxUnread)})` : 'Site admin'}
+            icon={Team}
+            onClick={() => void navigate('/admin')}
+          />
         ) : null}
         <MenuItem title="Sign out" icon={LogOut} onClick={() => void signOut()} />
       </Menu>
