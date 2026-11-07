@@ -10,8 +10,8 @@ import classNames from 'classnames';
 import { useContext, useState } from 'react';
 import { getColumnUi } from '../../columns/registry';
 import type { CellContext } from '../../columns/types';
-import { cellDisplayText } from '../../lib/cell-display-text';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
+import { cellDisplayText } from '../../lib/cell-display-text';
 import { isWritableByButton } from '../board-table/button-actions';
 import { TableEnvContext } from '../board-table/table-env';
 import type { ColumnView } from '../board-table/table-model';
@@ -61,12 +61,14 @@ function ValueToken({
   column,
   value,
   boardId,
+  workspaceId,
   label,
   onChange,
 }: {
   column: ColumnView;
   value: unknown;
   boardId: string;
+  workspaceId: string;
   label: string;
   onChange: (value: unknown) => void;
 }) {
@@ -75,8 +77,7 @@ function ValueToken({
   const ui = getColumnUi(column.def.type);
   const [editing, setEditing] = useState(false);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const lookup = useUserLookup();
-  const { members } = useWorkspaceMembers();
+  const lookup = useUserLookup(workspaceId);
   if (!ui) return null;
 
   const ctx: CellContext = {
@@ -95,8 +96,7 @@ function ValueToken({
     try {
       text =
         cellDisplayText(column.def.type, current, column.settings, {
-          personName: (id) =>
-            lookup(id)?.name ?? members.find((m) => m.id === id)?.displayName ?? null,
+          personName: (id) => lookup(id)?.name ?? null,
         }) || 'a value';
     } catch {
       text = 'a value';
@@ -153,9 +153,9 @@ function ValueToken({
   );
 }
 
-function usePeopleOptions(selected: readonly string[]): TokenOption[] {
-  const { members } = useWorkspaceMembers();
-  const lookup = useUserLookup();
+function usePeopleOptions(selected: readonly string[], workspaceId: string): TokenOption[] {
+  const { members } = useWorkspaceMembers(workspaceId);
+  const lookup = useUserLookup(workspaceId);
   const known = new Set(members.map((m) => m.id));
   return [
     ...members.map((m) => ({
@@ -172,12 +172,14 @@ function usePeopleOptions(selected: readonly string[]): TokenOption[] {
 
 function NotifyTokens({
   action,
+  workspaceId,
   onChange,
 }: {
   action: Extract<ButtonAction, { type: 'notify' }>;
+  workspaceId: string;
   onChange: (action: ButtonAction) => void;
 }) {
-  const options = usePeopleOptions(action.uids);
+  const options = usePeopleOptions(action.uids, workspaceId);
   const names = action.uids.map((id) => options.find((o) => o.value === id)?.label ?? 'Someone');
   const set = (uids: string[], message = action.message) =>
     onChange({ type: 'notify', uids, ...(message ? { message } : {}) });
@@ -213,12 +215,14 @@ function CreateItemTokens({
   columns,
   groups,
   boardId,
+  workspaceId,
   onChange,
 }: {
   action: Extract<ButtonAction, { type: 'create_item' }>;
   columns: readonly ColumnView[];
   groups: readonly GroupDef[];
   boardId: string;
+  workspaceId: string;
   onChange: (action: ButtonAction) => void;
 }) {
   const writable = columns.filter(isWritableByButton);
@@ -288,6 +292,7 @@ function CreateItemTokens({
                     column={target}
                     value={value}
                     boardId={boardId}
+                    workspaceId={workspaceId}
                     label={`Value for ${target.def.title}`}
                     onChange={(next) => setValues({ ...values, [columnId]: next })}
                   />
@@ -331,6 +336,8 @@ export interface ActionLineProps {
   columns: readonly ColumnView[];
   groups: readonly GroupDef[];
   boardId: string;
+  /** The board's workspace, for resolving people's names. */
+  workspaceId: string;
   /** Narrows the list of choices (a recurring recipe has no item to act on). */
   allowedTypes?: readonly ButtonAction['type'][];
   /** The first failure of this action, or `null` (also while it still has blanks). */
@@ -352,6 +359,7 @@ export function ActionLine({
   columns,
   groups,
   boardId,
+  workspaceId,
   allowedTypes,
   error,
   canRemove,
@@ -407,6 +415,7 @@ export function ActionLine({
                 column={target}
                 value={action.value}
                 boardId={boardId}
+                workspaceId={workspaceId}
                 label={`Value for ${target.def.title}`}
                 onChange={(value) => onChange({ ...action, value })}
               />
@@ -448,7 +457,9 @@ export function ActionLine({
           </>
         ) : null}
 
-        {action?.type === 'notify' ? <NotifyTokens action={action} onChange={onChange} /> : null}
+        {action?.type === 'notify' ? (
+          <NotifyTokens action={action} workspaceId={workspaceId} onChange={onChange} />
+        ) : null}
 
         {action?.type === 'create_item' ? (
           <CreateItemTokens
@@ -456,6 +467,7 @@ export function ActionLine({
             columns={columns}
             groups={groups}
             boardId={boardId}
+            workspaceId={workspaceId}
             onChange={onChange}
           />
         ) : null}

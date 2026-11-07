@@ -23,7 +23,8 @@ vi.mock('../../lib/firebase', () => ({ db: {}, auth: {} }));
 vi.mock('../../data/user-timezone', () => ({ useUserTimezone: () => mocks.timezone }));
 vi.mock('../../data/members-store', () => ({
   UNKNOWN_PERSON_NAME: 'Board member',
-  useUserLookup: () => () => undefined,
+  useUserLookup: () => (uid: string) =>
+    uid === 'u2' ? { uid, name: 'Avery Quinn', photoURL: null } : undefined,
   useWorkspaceMembers: () => ({
     members: [{ id: 'u2', displayName: 'Avery Quinn', email: 'avery@example.com' }],
   }),

@@ -12,6 +12,7 @@ import {
   type GroupDef,
 } from '@atrium/shared';
 import type { BoardDoc, ItemDoc } from '../../data';
+import { UNKNOWN_PERSON_NAME } from '../../data/members-store';
 import { cellDisplayText } from '../../lib/cell-display-text';
 import { derivedCellValue } from '../board-table/derived';
 import { buildColumnViews, type ColumnView } from '../board-table/table-model';
@@ -58,7 +59,11 @@ function cellFor(
     }
   }
 
-  const text = cellDisplayText(def.type, raw, settings, { personName: personNames });
+  const text = cellDisplayText(def.type, raw, settings, {
+    personName: personNames,
+    // A team keeps the CSV's long-standing fallback (it used to go through `personNames`).
+    teamName: (id) => personNames(id) ?? UNKNOWN_PERSON_NAME,
+  });
   return def.type === 'numbers' || typeof raw === 'number' ? { text, numeric: true } : text;
 }
 
