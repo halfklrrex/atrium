@@ -15,12 +15,13 @@ interface AnchoredPopupProps {
   /** Element the popup hangs from (the cell or header). */
   anchor: HTMLElement | null;
   onClose: () => void;
-  label: string;
+  /** Accessible name of the panel. Omit when the content carries its own named role (a listbox). */
+  label?: string;
   children: ReactNode;
   /** Centre under the anchor instead of aligning the left edges. */
   center?: boolean;
   className?: string;
-  /** Extra width rule: the popup is at least as wide as the anchor. */
+  /** Extra width rule: `min-width` equals the anchor's width. */
   matchAnchorWidth?: boolean;
 }
 
@@ -115,6 +116,17 @@ export function AnchoredPopup({
       ref={panelRef}
       role="dialog"
       aria-label={label}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        // The popup is a React child of any modal it was opened from, so Escape would bubble
+        // (through the React tree) to the modal and close it too. Swallow it here and close only
+        // the popup. The document listener above can't do this: it runs after React dispatched.
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          closeRef.current();
+          anchor.focus();
+        }
+      }}
       data-popup-keep=""
       className={classNames(styles.popup, className)}
       style={layer ? { ...style, zIndex: layer } : style}

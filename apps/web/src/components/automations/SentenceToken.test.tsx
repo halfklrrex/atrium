@@ -91,6 +91,26 @@ describe('SentenceToken', () => {
     document.removeEventListener('keydown', onKeyDown);
   });
 
+  it('moves focus to the selected row on open, with arrows, and back to the token on Escape', () => {
+    render(<Single initial="d" />);
+    const token = screen.getByRole('button', { name: /^Status:/ });
+    fireEvent.click(token);
+    const list = screen.getByRole('listbox');
+    expect(within(list).getByRole('option', { name: /Later/ })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
+    expect(within(list).getByRole('option', { name: 'Done' })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    expect(within(list).getByRole('option', { name: /Later/ })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    expect(token).toHaveFocus();
+  });
+
+  it('focuses the first row when nothing is selected', () => {
+    render(<Single />);
+    fireEvent.click(screen.getByRole('button', { name: /^Status:/ }));
+    expect(screen.getByRole('option', { name: 'Working on it' })).toHaveFocus();
+  });
+
   it('closes on a press outside and on Tab', () => {
     render(
       <>
@@ -172,7 +192,12 @@ describe('SentenceToken list layer', () => {
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^Status:/ }));
-    expect(screen.getByText('Nothing to choose from')).toBeInTheDocument();
+    const empty = screen.getByRole('option', { name: 'Nothing to choose from' });
+    expect(empty).toHaveAttribute('aria-disabled', 'true');
+    // No enabled rows: the navigation keys do nothing and don't throw.
+    fireEvent.keyDown(empty, { key: 'Home' });
+    fireEvent.keyDown(empty, { key: 'ArrowDown' });
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
     rerender(
       <SentenceToken
         label="Status"
