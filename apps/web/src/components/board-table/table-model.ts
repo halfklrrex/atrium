@@ -365,3 +365,41 @@ export function buildGroupModels(input: ModelInput): GroupModel[] {
   }
   return models;
 }
+
+/**
+ * Item ids in on-screen order, for keyboard moves and range selection. With a `parentId` it is that
+ * parent's subitems in position order; otherwise the shown rows of every group that is not
+ * collapsed (after search, filter and sort). Rows of collapsed groups are skipped.
+ */
+export function visibleRowIds(
+  models: readonly GroupModel[],
+  collapsedGroupIds: readonly string[],
+  items: readonly ItemDoc[],
+  parentId: string | null,
+): string[] {
+  if (parentId) {
+    return items
+      .filter((i) => i.parentItemId === parentId)
+      .sort(comparePositions)
+      .map((i) => i.id);
+  }
+  return models
+    .filter((m) => !collapsedGroupIds.includes(m.group.id))
+    .flatMap((m) => m.items.map((i) => i.id));
+}
+
+/**
+ * Ids from `anchorId` to `toId`, inclusive, in `orderedIds` order (either direction). `null` when
+ * the anchor is missing or not in the list, or `toId` is not: the click is then a plain one.
+ */
+export function rangeBetween(
+  orderedIds: readonly string[],
+  anchorId: string | null,
+  toId: string,
+): string[] | null {
+  if (!anchorId) return null;
+  const from = orderedIds.indexOf(anchorId);
+  const to = orderedIds.indexOf(toId);
+  if (from < 0 || to < 0) return null;
+  return orderedIds.slice(Math.min(from, to), Math.max(from, to) + 1);
+}

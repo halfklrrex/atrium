@@ -1,7 +1,7 @@
 import type { GroupDef } from '@atrium/shared';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { BulkOffer } from './bulk-edit';
+import { rangeBetween } from './table-model';
 
 export interface CellRef {
   itemId: string;
@@ -41,8 +41,8 @@ interface TableState {
   pendingGroups: readonly GroupDef[];
   /** The group whose title opens in edit mode when it mounts (a freshly added group). */
   renamingGroupId: string | null;
-  /** "Apply to N selected items" popup offered after a cell edit in a selected row. */
-  bulkOffer: BulkOffer | null;
+  /** The row last toggled by a plain checkbox click: where a shift+click range starts. */
+  anchorId: string | null;
 
   reset: (boardId: string | null) => void;
   setSelected: (ids: ReadonlySet<string>) => void;
@@ -62,7 +62,11 @@ interface TableState {
   addPendingGroup: (group: GroupDef) => void;
   removePendingGroup: (id: string) => void;
   setRenamingGroup: (id: string | null) => void;
-  setBulkOffer: (offer: BulkOffer | null) => void;
+  /**
+   * Shift+click: select the rows from the anchor to `toId` (both ends included) in `orderedIds`,
+   * adding to the selection and keeping the anchor. Without a usable anchor it is a plain toggle.
+   */
+  selectRange: (orderedIds: readonly string[], toId: string) => void;
 }
 
 const NONE: ReadonlySet<string> = new Set();
@@ -82,7 +86,7 @@ export const useTableStore = create<TableState>()((set) => ({
   dropMarker: null,
   pendingGroups: [],
   renamingGroupId: null,
-  bulkOffer: null,
+  anchorId: null,
 
   reset: (boardId) =>
     set({
@@ -100,15 +104,14 @@ export const useTableStore = create<TableState>()((set) => ({
       dropMarker: null,
       pendingGroups: [],
       renamingGroupId: null,
-      bulkOffer: null,
+      anchorId: null,
     }),
-  // Any selection change closes the bulk-edit offer: it counted the old selection.
-  setSelected: (selected) => set({ selected, bulkOffer: null }),
+  setSelected: (selected) => set({ selected }),
   toggleSelected: (id) =>
     set((s) => {
       const next = new Set(s.selected);
       if (!next.delete(id)) next.add(id);
-      return { selected: next, bulkOffer: null };
+      return { selected: next, anchorId: id };
     }),
   setGroupSelected: (ids, on) =>
     set((s) => {
@@ -117,9 +120,9 @@ export const useTableStore = create<TableState>()((set) => ({
         if (on) next.add(id);
         else next.delete(id);
       }
-      return { selected: next, bulkOffer: null };
+      return { selected: next };
     }),
-  clearSelection: () => set({ selected: NONE, bulkOffer: null }),
+  clearSelection: () => set({ selected: NONE, anchorId: null }),
   setActive: (active) => set({ active }),
   setEditing: (editing) => set(editing ? { editing, active: editing } : { editing: null }),
   setRenamingItem: (renamingItemId) => set({ renamingItemId }),
@@ -144,7 +147,17 @@ export const useTableStore = create<TableState>()((set) => ({
       renamingGroupId: s.renamingGroupId === id ? null : s.renamingGroupId,
     })),
   setRenamingGroup: (renamingGroupId) => set({ renamingGroupId }),
-  setBulkOffer: (bulkOffer) => set({ bulkOffer }),
+  selectRange: (orderedIds, toId) =>
+    set((s) => {
+      const range = rangeBetween(orderedIds, s.anchorId, toId);
+      const next = new Set(s.selected);
+      if (!range) {
+        if (!next.delete(toId)) next.add(toId);
+        return { selected: next, anchorId: toId };
+      }
+      for (const id of range) next.add(id);
+      return { selected: next };
+    }),
 }));
 
 /** Per-user table preferences that are not shared with the board: collapsed groups, name width. */

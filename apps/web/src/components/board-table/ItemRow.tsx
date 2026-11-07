@@ -32,8 +32,8 @@ import { Highlight } from './Highlight';
 import { openItem, openItemFull } from './open-item';
 import { tableActions } from './table-actions';
 import { isRowDone, useTableEnv } from './table-env';
-import { NAME_COLUMN } from './table-model';
-import { useTableStore } from './table-store';
+import { NAME_COLUMN, visibleRowIds } from './table-model';
+import { useTablePrefs, useTableStore } from './table-store';
 import { TableCell } from './TableCell';
 import { TableCheckbox } from './TableCheckbox';
 import styles from './table.module.css';
@@ -279,7 +279,20 @@ export function ItemRowBody({
           <TableCheckbox
             checked={selected}
             label={`Select ${item.name}`}
-            onChange={() => useTableStore.getState().toggleSelected(item.id)}
+            onChange={(_next, { shift }) => {
+              const store = useTableStore.getState();
+              if (!shift) return store.toggleSelected(item.id);
+              // Shift+click: the rows between the anchor and this one, in on-screen order, same level.
+              store.selectRange(
+                visibleRowIds(
+                  env.getModels(),
+                  useTablePrefs.getState().collapsed[env.boardId] ?? [],
+                  env.getItems(),
+                  item.parentItemId ?? null,
+                ),
+                item.id,
+              );
+            }}
           />
         </div>
         <NameCell

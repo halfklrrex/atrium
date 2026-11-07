@@ -24,7 +24,9 @@ import {
   buildGroupModels,
   gridTemplate,
   itemMatchesSearch,
+  rangeBetween,
   tableWidth,
+  visibleRowIds,
 } from './table-model';
 
 const sortBy = (columnId: string, direction: 'asc' | 'desc') => ({
@@ -394,5 +396,55 @@ describe('newItemValues (column defaults on a new item)', () => {
     const a = newItemValues([tags])!;
     (a.tags as { tag_ids: number[] }).tag_ids.push(2);
     expect(tags.defaultValue).toEqual({ tag_ids: [1] });
+  });
+});
+
+describe('visible row order and range selection', () => {
+  const columns = buildColumnViews([column('n', 'numbers', 'a0')]);
+  const groups = [group('g1', 'a0'), group('g2', 'a1'), group('g3', 'a2')];
+  const items = [
+    item('a', 'g1', 'a0', 'A', { n: 3 }),
+    item('b', 'g1', 'a1', 'B', { n: 1 }),
+    item('c', 'g2', 'a0', 'C', { n: 2 }),
+    item('d', 'g2', 'a1', 'D', { n: 4 }),
+    item('e', 'g3', 'a0', 'E', { n: 5 }),
+    { ...item('s2', 'g1', 'a6'), parentItemId: 'a' },
+    { ...item('s1', 'g1', 'a5'), parentItemId: 'a' },
+  ];
+  const models = buildGroupModels({ groups, items, columns, search: '' });
+
+  it('lists groups in order and skips collapsed groups and subitems', () => {
+    expect(visibleRowIds(models, [], items, null)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(visibleRowIds(models, ['g2'], items, null)).toEqual(['a', 'b', 'e']);
+  });
+
+  it('follows sort and search, and orders subitems by position under their parent', () => {
+    const sorted = buildGroupModels({
+      groups,
+      items,
+      columns,
+      search: '',
+      filterState: sortBy('n', 'asc'),
+    });
+    expect(visibleRowIds(sorted, [], items, null)).toEqual(['b', 'a', 'c', 'd', 'e']);
+    const searched = buildGroupModels({ groups, items, columns, search: 'e' });
+    expect(visibleRowIds(searched, [], items, null)).toEqual(['e']);
+    expect(visibleRowIds(models, [], items, 'a')).toEqual(['s1', 's2']);
+  });
+
+  it('computes an inclusive range in either direction', () => {
+    const order = ['a', 'b', 'c', 'd', 'e'];
+    expect(rangeBetween(order, 'b', 'd')).toEqual(['b', 'c', 'd']);
+    expect(rangeBetween(order, 'd', 'b')).toEqual(['b', 'c', 'd']);
+    expect(rangeBetween(order, 'c', 'c')).toEqual(['c']);
+  });
+
+  it('has no range without a visible anchor or target (plain click)', () => {
+    const order = ['a', 'b', 'c'];
+    expect(rangeBetween(order, null, 'b')).toBeNull();
+    expect(rangeBetween(order, 'gone', 'b')).toBeNull();
+    expect(rangeBetween(order, 'a', 'gone')).toBeNull();
+    // A top-level anchor is not in a subitem list: cross-level is a plain click.
+    expect(rangeBetween(['s1', 's2'], 'a', 's2')).toBeNull();
   });
 });
