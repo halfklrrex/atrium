@@ -51,7 +51,8 @@ export interface RecipeBuilderProps {
   /** A starter or other preset a new recipe begins from. */
   initial?: AutomationInput;
   onCancel: () => void;
-  onSaved: () => void;
+  /** Called after a save, with the id of the created or edited recipe. */
+  onSaved: (automationId: string) => void;
 }
 
 interface Label {
@@ -710,12 +711,17 @@ export function RecipeBuilder({
     };
     const ctx = { boardId: board.id, uid, board, role };
     try {
-      if (automation) await automationWrites.update(ctx, automation.id, input, others);
-      else await automationWrites.create(ctx, input, existingCount, { others });
+      let savedId: string;
+      if (automation) {
+        await automationWrites.update(ctx, automation.id, input, others);
+        savedId = automation.id;
+      } else {
+        savedId = await automationWrites.create(ctx, input, existingCount, { others });
+      }
       showToast(automation ? 'Automation saved' : 'Automation created and switched on', {
         type: 'positive',
       });
-      onSaved();
+      onSaved(savedId);
     } catch (error) {
       console.error('Could not save the automation.', error);
       showToast(

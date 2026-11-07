@@ -231,6 +231,51 @@ describe('Center shell', () => {
   });
 });
 
+describe('Builder pickers inside the real modal', () => {
+  const pickRow = (name: RegExp, option: string | RegExp) => {
+    fireEvent.click(screen.getByRole('button', { name }));
+    fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: option }));
+  };
+
+  it('opens a status value editor above the modal and sets the action value', async () => {
+    render(<AutomationCenter board={board} role="owner" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Create from scratch/ }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    pickRow(/^Trigger:/, 'an item is created');
+    pickRow(/^Action:/, /set a value/);
+    pickRow(/^Column to set:/, 'Status');
+    fireEvent.click(within(form).getByRole('button', { name: 'Value for Status: a value' }));
+    const layer = screen
+      .getAllByRole('dialog')
+      .find((d) => d.style.zIndex === 'var(--atrium-z-modal-popup)');
+    expect(layer).toBeDefined();
+    expect(layer?.parentElement).toBe(document.body);
+    fireEvent.click(within(layer!).getByText('Done'));
+    await waitFor(() =>
+      expect(
+        within(form).getByRole('button', { name: 'Value for Status: Done' }),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('lists the condition values in an unclipped layer', () => {
+    render(<AutomationCenter board={board} role="owner" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Create from scratch/ }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    pickRow(/^Trigger:/, 'an item is created');
+    fireEvent.click(within(form).getByRole('button', { name: /Add a condition/ }));
+    pickRow(/^Column:/, 'Status');
+    fireEvent.click(within(form).getByRole('button', { name: /^Value:/ }));
+    const list = screen.getByRole('listbox');
+    expect((list.closest('[role="dialog"]') as HTMLElement).style.zIndex).toBe(
+      'var(--atrium-z-modal-popup)',
+    );
+    expect(list.closest('[role="dialog"]')?.parentElement).toBe(document.body);
+    fireEvent.click(within(list).getByRole('option', { name: 'Done' }));
+    expect(within(form).getByRole('button', { name: 'Value: Done' })).toBeInTheDocument();
+  });
+});
+
 describe('Recipes tab', () => {
   it('shows the empty state with Create for an owner, and a plain note for others', () => {
     open('owner');

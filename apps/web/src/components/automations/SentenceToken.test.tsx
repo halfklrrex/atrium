@@ -135,6 +135,58 @@ describe('SentenceToken', () => {
   });
 });
 
+describe('SentenceToken list layer', () => {
+  it('renders the list in a portal on <body>, outside the token span', () => {
+    const { container } = render(<Single />);
+    fireEvent.click(screen.getByRole('button', { name: /^Status:/ }));
+    const list = screen.getByRole('listbox', { name: 'Status' });
+    expect(container).not.toContainElement(list);
+    expect(list.closest('[role="dialog"]')?.parentElement).toBe(document.body);
+  });
+
+  it('closes on Escape and keeps the list open for a press inside it', () => {
+    render(<Single />);
+    fireEvent.click(screen.getByRole('button', { name: /^Status:/ }));
+    const list = screen.getByRole('listbox');
+    fireEvent.mouseDown(within(list).getByRole('option', { name: 'Done' }));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    fireEvent.keyDown(within(list).getByRole('option', { name: 'Done' }), { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('closes on a press outside', () => {
+    render(<Single />);
+    fireEvent.click(screen.getByRole('button', { name: /^Status:/ }));
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('shows an empty row instead of a blank list', () => {
+    const { rerender } = render(
+      <SentenceToken
+        label="Status"
+        placeholder="a status"
+        value={null}
+        options={[]}
+        onChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Status:/ }));
+    expect(screen.getByText('Nothing to choose from')).toBeInTheDocument();
+    rerender(
+      <SentenceToken
+        label="Status"
+        placeholder="a status"
+        value={null}
+        options={[]}
+        emptyText="No status column on this board"
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('No status column on this board')).toBeInTheDocument();
+  });
+});
+
 describe('SentenceMultiToken', () => {
   const people: TokenOption[] = [
     { value: 'u1', label: 'Avery Quinn', uid: 'u1' },

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { usePopupZIndex } from './PopupLayer';
 import styles from './Popover.module.css';
 
 const GAP = 4;
@@ -46,6 +47,7 @@ export function Popover({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const layer = usePopupZIndex();
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' });
 
   useLayoutEffect(() => {
@@ -114,7 +116,7 @@ export function Popover({
               role="dialog"
               aria-label={label}
               className={classNames(styles.panel, panelClassName)}
-              style={style}
+              style={layer ? { ...style, zIndex: layer } : style}
             >
               {children}
             </div>,
