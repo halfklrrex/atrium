@@ -6,7 +6,7 @@ Author: Ophelia (Opus, planning subagent) · Date: 2026-11-07 · Code read at `o
 
 - Roadmap items with Actionable = Yes or Agents (12 items, incl. the Bug inbox), plus Export & print (3306251527) and the VF compare item (3333664237).
 - Every update and every threaded reply since 2026-11-07T08:00Z, read in full through GraphQL (`updates { replies { text_body } }`), plus a board-wide pass over the latest 100 updates. The newest owner reply is 10:55Z. Agent updates start with "Ophelia:"; everything else is the owner.
-- The two videos in `[Felix Items]/` were frame-extracted to the session scratchpad (not the repo). The monday video shows the bulk-edit column highlight (item 2b below).
+- The two videos in the owner's local reference folder were frame-extracted to the session scratchpad (not the repo). The monday video shows the bulk-edit column highlight (item 2b below).
 - The Bug inbox has no new owner update since 2026-11-06 (its latest owner post, bulk edit and view-tab font size, is already handled: items 3338507208 and 3338527201).
 
 ## 1. Owner reports and requests
