@@ -17,6 +17,7 @@ import './theme/form-tokens.css';
 import './theme/dashboard-tokens.css';
 import './theme/scrollbar-tokens.css';
 import './theme/editor-tokens.css';
+import './theme/emoji-tokens.css';
 import './index.css';
 import { startThemeSync } from './theme/theme';
 
