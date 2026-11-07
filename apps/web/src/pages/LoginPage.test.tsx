@@ -104,6 +104,10 @@ describe('LoginPage', () => {
   it.each([
     ['auth/unauthorized-domain', "This address isn't allowed to sign in yet."],
     ['auth/network-request-failed', 'Check your connection and try again.'],
+    [
+      'auth/user-disabled',
+      'Your account has been disabled. If you think this is an error, contact the site admin.',
+    ],
   ])('maps %s to a friendly message', async (code, message) => {
     const error = Object.assign(new Error('boom'), { code });
     renderLogin(authValue({ signInWithGoogle: vi.fn().mockRejectedValue(error) }));

@@ -2,6 +2,12 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Blocked sign-in message
+
+- Sign in with the blocked second account on the login page.
+- The red message reads "Your account has been disabled. If you think this is an error, contact the site admin."
+- No appeal link yet (a later epic adds the appeal form).
+
 ## Bulk edit v2: range select and immediate apply
 
 On a scratch board, not your real boards:
