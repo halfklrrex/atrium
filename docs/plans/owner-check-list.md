@@ -2,6 +2,13 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+<<<<<<< HEAD
+
+## Automation: people read as names (web)
+
+- **What changed:** a People value in the automation builder, the "Reads as" panel and the Manage list now shows the person's name instead of an id, and Manage sentences show bold names and coloured label chips like "Reads as".
+- **To check (showcase board, Automate, Create from scratch, light and dark):** add an action "set Owner to" and pick yourself. The blue token and "Reads as" say your name, never a long id. Save it switched off: Manage shows the same sentence with bold column names and a coloured chip for any status label. Search Manage for your name or for a label and the row is found.
+
 ## Blocked sign-in message
 
 - Sign in with the blocked second account on the login page.

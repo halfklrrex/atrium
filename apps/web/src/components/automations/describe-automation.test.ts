@@ -348,3 +348,41 @@ describe('describeAutomationParts', () => {
     expect(parts.map((p) => p.text).join('')).toContain('a deleted column');
   });
 });
+
+describe('people values', () => {
+  const peopleBoard: DescribeBoard = {
+    columns: [{ id: 'owner', type: 'people', title: 'Owner', settings: {} }],
+    groups: [],
+  };
+  const value = { personsAndTeams: [{ id: 'u2', kind: 'person' as const }] };
+  const options = { personName: (uid: string) => (uid === 'u2' ? 'Avery Quinn' : null) };
+
+  it('reads a people value in a condition and a set-value action as names', () => {
+    const sentence = describeAutomation(
+      {
+        trigger: { type: 'item_created' },
+        conditions: [{ columnId: 'owner', op: 'is', value }],
+        actions: [{ type: 'set_value', columnId: 'owner', value }],
+      },
+      peopleBoard,
+      options,
+    );
+    expect(sentence).toBe(
+      'When an item is created and Owner is Avery Quinn, then set Owner to Avery Quinn',
+    );
+    expect(sentence).not.toContain('u2');
+  });
+
+  it('falls back to a generic name for an unknown person, never the uid', () => {
+    const sentence = describeAutomation(
+      {
+        trigger: { type: 'item_created' },
+        conditions: [],
+        actions: [{ type: 'set_value', columnId: 'owner', value }],
+      },
+      peopleBoard,
+    );
+    expect(sentence).toContain('set Owner to Board member');
+    expect(sentence).not.toContain('u2');
+  });
+});

@@ -1,7 +1,6 @@
 import {
   BUTTON_ACTION_LABELS,
   BUTTON_LIMITS,
-  columnRegistry,
   type ButtonAction,
   type GroupDef,
 } from '@atrium/shared';
@@ -11,6 +10,7 @@ import classNames from 'classnames';
 import { useContext, useState } from 'react';
 import { getColumnUi } from '../../columns/registry';
 import type { CellContext } from '../../columns/types';
+import { cellDisplayText } from '../../lib/cell-display-text';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
 import { isWritableByButton } from '../board-table/button-actions';
 import { TableEnvContext } from '../board-table/table-env';
@@ -75,6 +75,8 @@ function ValueToken({
   const ui = getColumnUi(column.def.type);
   const [editing, setEditing] = useState(false);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const lookup = useUserLookup();
+  const { members } = useWorkspaceMembers();
   if (!ui) return null;
 
   const ctx: CellContext = {
@@ -91,7 +93,11 @@ function ValueToken({
   if (cleared) text = 'empty';
   else if (current !== null) {
     try {
-      text = columnRegistry.toText(column.def.type, current, column.settings) || 'a value';
+      text =
+        cellDisplayText(column.def.type, current, column.settings, {
+          personName: (id) =>
+            lookup(id)?.name ?? members.find((m) => m.id === id)?.displayName ?? null,
+        }) || 'a value';
     } catch {
       text = 'a value';
     }

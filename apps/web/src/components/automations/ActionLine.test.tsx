@@ -49,7 +49,9 @@ function Line({
   initial,
   onChange,
   allowedTypes,
+  cols = columns,
 }: {
+  cols?: typeof columns;
   initial: ButtonAction | null;
   onChange?: (action: ButtonAction | null) => void;
   allowedTypes?: readonly ButtonAction['type'][];
@@ -61,7 +63,7 @@ function Line({
         action={action}
         index={0}
         keyword="then"
-        columns={columns}
+        columns={cols}
         groups={groups}
         boardId="b1"
         allowedTypes={allowedTypes}
@@ -283,5 +285,24 @@ describe('ActionLine', () => {
     render(<Line initial={{ type: 'archive_item' }} />);
     fireEvent.click(screen.getByRole('button', { name: 'Remove action 1' }));
     expect(screen.getByRole('button', { name: 'Action: do something' })).toBeInTheDocument();
+  });
+
+  it('shows a picked person by name, never by uid', () => {
+    const peopleColumns = buildColumnViews([
+      { id: 'owner', type: 'people', title: 'Owner', position: 'a0', settings: {} },
+    ]);
+    render(
+      <Line
+        cols={peopleColumns}
+        initial={{
+          type: 'set_value',
+          columnId: 'owner',
+          value: { personsAndTeams: [{ id: 'u2', kind: 'person' }] },
+        }}
+      />,
+    );
+    const token = screen.getByRole('button', { name: 'Value for Owner: Avery Quinn' });
+    expect(token).toHaveTextContent('Avery Quinn');
+    expect(screen.queryByText('u2')).toBeNull();
   });
 });

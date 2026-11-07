@@ -1,0 +1,5 @@
+.chip {
+  padding: 0 var(--space-8);
+  border-radius: var(--border-radius-small);
+  color: var(--atrium-table-on-fill);
+}
