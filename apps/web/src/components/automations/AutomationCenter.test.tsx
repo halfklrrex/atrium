@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AutomationDoc, AutomationRunDoc } from '../../data/automations';
 import { makeBoard, makeItem, ts } from '../../test/fixtures';
 
@@ -614,6 +614,17 @@ describe('Recipes tab', () => {
 });
 
 describe('Run history tab', () => {
+  // The run fixtures are "5 minutes ago" and the table says "Today HH:MM", so pin the clock to
+  // midday (local) or the test fails in the first minutes after midnight. Only Date is faked:
+  // waitFor and userEvent still need real timers.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const goToHistory = () => fireEvent.click(screen.getByRole('tab', { name: 'Run history' }));
 
   it('is a "no access" state for non-owners', () => {
