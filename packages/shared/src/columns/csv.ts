@@ -8,8 +8,16 @@ const FORMULA_PREFIX = /^[=+\-@\t\r]/;
 /** A plain number such as `-5` or `-12.50`; the only text the formula guard lets through. */
 const PLAIN_NUMBER = /^-?\d+(?:\.\d+)?$/;
 
-/** A cell of a CSV row: plain text, or text from a numeric cell (negative numbers stay numbers). */
-export type CsvCell = string | { text: string; numeric: true };
+/**
+ * A cell of an export row: plain text, text from a numeric cell (negative numbers stay numbers),
+ * text from a date cell (`YYYY-MM-DD` or `YYYY-MM-DD HH:MM:SS`) or from a checkbox (empty when
+ * unticked). The CSV writes all of them as text; the Excel writer uses the kind.
+ */
+export type CsvCell =
+  | string
+  | { text: string; numeric: true }
+  | { text: string; date: true }
+  | { text: string; checkbox: true };
 
 /**
  * One CSV field: formula-guarded, then quoted when it holds `"`, `,`, CR or LF (`"` doubled).
@@ -32,7 +40,7 @@ export function buildCsv(rows: readonly (readonly CsvCell[])[]): string {
         .map((cell) =>
           typeof cell === 'string'
             ? csvEscapeField(cell)
-            : csvEscapeField(cell.text, { numeric: true }),
+            : csvEscapeField(cell.text, { numeric: 'numeric' in cell }),
         )
         .join(','),
     )
@@ -43,8 +51,17 @@ const MAX_FILE_NAME = 80;
 
 /** `<board name>.csv` with characters not allowed in file names replaced by `-`. */
 export function csvFileName(boardName: string): string {
+  return exportFileName(boardName, 'csv');
+}
+
+/** `<board name>.xlsx`, same cleaning as `csvFileName`. */
+export function xlsxFileName(boardName: string): string {
+  return exportFileName(boardName, 'xlsx');
+}
+
+function exportFileName(boardName: string, extension: string): string {
   // eslint-disable-next-line no-control-regex -- control characters are not allowed in file names
   const cleaned = boardName.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').trim();
   const base = cleaned.slice(0, MAX_FILE_NAME).trim();
-  return `${base || 'board'}.csv`;
+  return `${base || 'board'}.${extension}`;
 }

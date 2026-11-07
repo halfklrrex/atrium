@@ -60,6 +60,7 @@ export * from './column-locks';
 export * from './column-validation';
 export * from './convert';
 export * from './csv';
+export * from './xlsx';
 export * from './phone';
 export * from './progress';
 export * from './rating';
