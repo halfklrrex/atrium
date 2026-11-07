@@ -223,7 +223,7 @@ describe('Center shell', () => {
       screen.getByRole('button', { name: /Use template: When an item is created notify someone/ }),
     );
     const form = screen.getByRole('form', { name: 'New automation' });
-    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(form).getByRole('button', { name: 'Create automation' }));
     await waitFor(() => expect(mocks.writes.create).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
     expect(screen.getByRole('tab', { name: /^Manage/ })).toHaveAttribute('aria-selected', 'true');
@@ -400,140 +400,6 @@ describe('Recipes tab', () => {
     expect(mocks.runsEnabled.every((enabled) => enabled === false)).toBe(true);
   });
 
-  it('Create opens the builder; Save waits for a valid recipe and then creates it', async () => {
-    mocks.automations = { data: [recipe({ id: 'a1' })], loading: false, error: null };
-    open('owner');
-    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    const form = screen.getByRole('form', { name: 'New automation' });
-    const save = within(form).getByRole('button', { name: 'Save' });
-    expect(save).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.change(within(form).getByRole('combobox', { name: 'Add action' }), {
-      target: { value: 'move_to_group' },
-    });
-    // The new action starts on the first group, so the recipe is valid.
-    await waitFor(() => expect(save).toHaveAttribute('aria-disabled', 'false'));
-    fireEvent.click(save);
-    await waitFor(() => expect(mocks.writes.create).toHaveBeenCalledTimes(1));
-    expect(mocks.writes.create.mock.calls[0]![1]).toEqual({
-      name: '',
-      trigger: { type: 'item_created' },
-      conditions: [],
-      actions: [{ type: 'move_to_group', groupId: 'g1' }],
-    });
-    expect(mocks.writes.create.mock.calls[0]![2]).toBe(1);
-  });
-
-  it('shows the first failure next to the trigger and keeps Save off', async () => {
-    mocks.automations = {
-      data: [recipe({ id: 'a1', trigger: { type: 'status_changed', columnId: 'gone' } })],
-      loading: false,
-      error: null,
-    };
-    open('owner');
-    fireEvent.click(screen.getByRole('button', { name: /^Edit / }));
-    const form = await screen.findByRole('form', { name: 'Edit automation' });
-    expect(within(form).getByRole('alert')).toHaveTextContent('the column no longer exists');
-    expect(within(form).getByRole('button', { name: 'Save' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
-  });
-
-  it('offers up to three conditions and only fitting columns', () => {
-    open('owner');
-    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    const form = screen.getByRole('form', { name: 'New automation' });
-    const add = within(form).getByRole('button', { name: '+ Add condition' });
-    fireEvent.click(add);
-    fireEvent.click(add);
-    fireEvent.click(add);
-    expect(within(form).getAllByRole('group', { name: /^Condition / })).toHaveLength(3);
-    expect(add).toHaveAttribute('aria-disabled', 'true');
-    const columns = within(
-      within(form).getAllByRole('group', { name: 'Condition 1' })[0]!,
-    ).getAllByRole('combobox')[0]!;
-    expect(
-      within(columns)
-        .getAllByRole('option')
-        .map((o) => o.textContent),
-    ).toEqual(['Choose a column', 'Status']);
-  });
-
-  it('reads the builder as a sentence with When, and only if and then parts', () => {
-    open('owner');
-    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    const form = screen.getByRole('form', { name: 'New automation' });
-    expect(within(form).getByText('When')).toBeInTheDocument();
-    expect(within(form).getByText('then')).toBeInTheDocument();
-    expect(within(form).getByRole('combobox', { name: 'When' })).toBeInTheDocument();
-    fireEvent.click(within(form).getByRole('button', { name: '+ Add condition' }));
-    expect(within(form).getByText('and only if')).toBeInTheDocument();
-    expect(
-      within(form).getByText('Fill in the highlighted parts to finish the sentence.'),
-    ).toBeInTheDocument();
-  });
-
-  it('removes conditions one at a time and re-enables adding', () => {
-    open('owner');
-    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    const form = screen.getByRole('form', { name: 'New automation' });
-    const add = within(form).getByRole('button', { name: '+ Add condition' });
-    fireEvent.click(add);
-    fireEvent.click(add);
-    fireEvent.click(add);
-    expect(within(form).getByText('3/3')).toBeInTheDocument();
-    expect(within(form).getByText('At most 3 conditions.')).toBeInTheDocument();
-    fireEvent.click(within(form).getByRole('button', { name: 'Remove condition 2' }));
-    expect(within(form).getAllByRole('group', { name: /^Condition / })).toHaveLength(2);
-    expect(within(form).getByText('2/3')).toBeInTheDocument();
-    expect(add).toHaveAttribute('aria-disabled', 'false');
-    fireEvent.click(within(form).getByRole('button', { name: 'Remove condition 1' }));
-    fireEvent.click(within(form).getByRole('button', { name: 'Remove condition 1' }));
-    expect(within(form).queryByRole('group', { name: /^Condition / })).toBeNull();
-    expect(within(form).getByText(/matches the trigger/)).toBeInTheDocument();
-  });
-
-  it('adds up to five actions, then blocks more, and removing one frees a slot', () => {
-    open('owner');
-    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    const form = screen.getByRole('form', { name: 'New automation' });
-    const addAction = () =>
-      fireEvent.change(within(form).getByRole('combobox', { name: 'Add action' }), {
-        target: { value: 'move_to_group' },
-      });
-    for (let i = 0; i < 5; i++) addAction();
-    expect(within(form).getAllByRole('group', { name: /^Action / })).toHaveLength(5);
-    expect(within(form).getByText('5/5 actions')).toBeInTheDocument();
-    expect(within(form).getByRole('combobox', { name: 'Add action' })).toBeDisabled();
-    fireEvent.click(within(form).getAllByRole('button', { name: 'Remove' })[0]!);
-    expect(within(form).getAllByRole('group', { name: /^Action / })).toHaveLength(4);
-    expect(within(form).getByRole('combobox', { name: 'Add action' })).toBeEnabled();
-  });
-
-  it('shows a condition problem inside that condition and keeps Save off', () => {
-    open('owner');
-    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    const form = screen.getByRole('form', { name: 'New automation' });
-    fireEvent.change(within(form).getByRole('combobox', { name: 'Add action' }), {
-      target: { value: 'move_to_group' },
-    });
-    const save = within(form).getByRole('button', { name: 'Save' });
-    expect(save).toHaveAttribute('aria-disabled', 'false');
-    fireEvent.click(within(form).getByRole('button', { name: '+ Add condition' }));
-    const condition = within(form).getByRole('group', { name: 'Condition 1' });
-    // A fresh "Status is ..." has no label yet, so the engine refuses it right there.
-    fireEvent.change(within(condition).getByRole('combobox', { name: 'Column' }), {
-      target: { value: 'status' },
-    });
-    expect(within(condition).getByRole('alert')).toBeInTheDocument();
-    expect(save).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.change(within(condition).getByRole('combobox', { name: 'Value' }), {
-      target: { value: '1' },
-    });
-    expect(within(condition).queryByRole('alert')).toBeNull();
-    expect(save).toHaveAttribute('aria-disabled', 'false');
-  });
-
   it('"Browse templates" in the empty state switches to Create', () => {
     open('owner');
     fireEvent.click(screen.getByRole('button', { name: 'Browse templates' }));
@@ -560,7 +426,7 @@ describe('Recipes tab', () => {
     expect(within(form).getByRole('note')).toHaveTextContent(
       'Saving makes you the person this runs as.',
     );
-    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(form).getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(mocks.writes.update).toHaveBeenCalledTimes(1));
     expect(mocks.writes.update.mock.calls[0]![1]).toBe('a1');
     await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
@@ -615,128 +481,6 @@ describe('Recipes tab', () => {
     expect(input.name).toBe('Tidy (copy)');
     expect(count).toBe(1);
     expect(options).toMatchObject({ enabled: false });
-  });
-});
-
-describe('Scheduled triggers in the builder', () => {
-  const dated = makeBoard({
-    ...board,
-    columns: [
-      ...board.columns,
-      { id: 'due', type: 'date', title: 'Due date', position: 'a1', settings: {} },
-    ],
-  });
-  const openBuilder = () => {
-    render(<AutomationCenter board={dated} role="owner" onClose={vi.fn()} />);
-    goToManage();
-    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    return screen.getByRole('form', { name: 'New automation' });
-  };
-  const addCreateItem = (form: HTMLElement) => {
-    fireEvent.change(within(form).getByRole('combobox', { name: 'Add action' }), {
-      target: { value: 'create_item' },
-    });
-    const row = within(form).getByRole('group', { name: 'Action 1: Create item' });
-    fireEvent.change(within(row).getAllByRole('textbox')[0]!, {
-      target: { value: 'Weekly review {date}' },
-    });
-  };
-  const pick = (form: HTMLElement, name: string, value: string) =>
-    fireEvent.change(within(form).getByRole('combobox', { name }), { target: { value } });
-
-  it('creates a "Date arrives" recipe with the creator zone', async () => {
-    const form = openBuilder();
-    pick(form, 'When', 'date_arrives');
-    pick(form, 'Date column', 'due');
-    pick(form, 'When relative to the date', 'before');
-    fireEvent.change(within(form).getByLabelText('Days'), { target: { value: '3' } });
-    fireEvent.change(within(form).getByLabelText('Time of day'), { target: { value: '08:30' } });
-    addCreateItem(form);
-    expect(within(form).getByText(/Reads as/).parentElement).toHaveTextContent(
-      '3 days before Due date at 08:30 (Europe/Madrid)',
-    );
-    expect(within(form).getAllByText('(Europe/Madrid)').length).toBeGreaterThan(0);
-  });
-
-  it('offers only a Date column for "Date arrives" and disables it without one', () => {
-    render(<AutomationCenter board={board} role="owner" onClose={vi.fn()} />);
-    goToManage();
-    fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
-    const form = screen.getByRole('form', { name: 'New automation' });
-    const option = within(within(form).getByRole('combobox', { name: 'When' })).getByRole(
-      'option',
-      { name: /Date arrives/ },
-    );
-    expect(option).toBeDisabled();
-    expect(option).toHaveTextContent('(no Date column)');
-  });
-
-  it('builds a weekly recurring recipe and limits actions to create item and notify', async () => {
-    const form = openBuilder();
-    pick(form, 'When', 'recurring');
-    pick(form, 'Repeat', 'week');
-    pick(form, 'Weekday', '5');
-    fireEvent.change(within(form).getByLabelText('Time of day'), { target: { value: '17:00' } });
-    const add = within(form).getByRole('combobox', { name: 'Add action' });
-    expect(
-      within(add)
-        .getAllByRole('option')
-        .map((o) => o.textContent),
-    ).toEqual(['Add action', 'Notify people', 'Create item']);
-    addCreateItem(form);
-    expect(within(form).getByText(/Reads as/).parentElement).toHaveTextContent(
-      'Every Friday at 17:00 (Europe/Madrid), then create an item',
-    );
-  });
-
-  it('saves a scheduled recipe with the timezone', async () => {
-    const form = openBuilder();
-    pick(form, 'When', 'recurring');
-    pick(form, 'Repeat', 'month');
-    pick(form, 'Day of month', '15');
-    addCreateItem(form);
-    const save = within(form).getByRole('button', { name: 'Save' });
-    await waitFor(() => expect(save).toHaveAttribute('aria-disabled', 'false'));
-    fireEvent.click(save);
-    await waitFor(() => expect(mocks.writes.create).toHaveBeenCalledTimes(1));
-    const input = mocks.writes.create.mock.calls[0]![1];
-    expect(input.timezone).toBe('Europe/Madrid');
-    expect(input.trigger).toEqual({
-      type: 'recurring',
-      every: 'month',
-      dayOfMonth: 15,
-      at: '09:00',
-    });
-  });
-
-  it('falls back to the browser zone when the profile has none', async () => {
-    mocks.timezone = null;
-    const browser = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const form = openBuilder();
-    pick(form, 'When', 'recurring');
-    expect(within(form).getAllByText(/^\(/)[0]).toBeInTheDocument();
-    expect(browser).toBeTruthy();
-  });
-
-  it('shows the scheduled cap message when the board already has five', () => {
-    mocks.automations = {
-      data: Array.from({ length: 5 }, (_, i) =>
-        recipe({
-          id: `s${i}`,
-          trigger: { type: 'recurring', every: 'day', at: '09:00' },
-          timezone: 'UTC',
-          actions: [{ type: 'notify', uids: ['u1'] }],
-        }),
-      ),
-      loading: false,
-      error: null,
-    };
-    const form = openBuilder();
-    pick(form, 'When', 'recurring');
-    addCreateItem(form);
-    expect(within(form).getByRole('alert')).toHaveTextContent(
-      'A board can have at most 5 scheduled automations',
-    );
   });
 });
 

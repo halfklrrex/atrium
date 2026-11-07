@@ -1,0 +1,255 @@
+/* An inline blank in the automation sentence, and the list it opens. Sized by the surrounding text. */
+.wrap {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.token,
+.blank,
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+  margin: 0;
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--motion-productive-short) var(--motion-timing-transition);
+}
+
+.token {
+  background: var(--primary-selected-color);
+  font-weight: var(--atrium-font-weight-semibold);
+}
+
+.token:hover,
+.tokenOpen.token {
+  background: var(--primary-selected-hover-color);
+}
+
+/* An unfilled blank: link-coloured text on a 2px underline. */
+.blank {
+  border-radius: 0;
+  box-shadow: inset 0 calc(var(--border-width) * -2) 0 var(--link-color);
+  color: var(--link-color);
+  font-weight: var(--font-weight-normal);
+}
+
+.blank:hover,
+.tokenOpen.blank {
+  background: var(--primary-background-hover-color);
+}
+
+/* "Change trigger": small link-coloured text next to the sentence. */
+.link {
+  padding-inline: var(--space-4);
+  color: var(--link-color);
+  font: var(--font-text2-normal);
+}
+
+.link:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.token:focus-visible,
+.blank:focus-visible,
+.link:focus-visible,
+.input:focus-visible {
+  outline: var(--border-width) var(--border-style) var(--primary-color);
+  outline-offset: var(--border-width);
+}
+
+.token:disabled,
+.blank:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.chevron {
+  flex-shrink: 0;
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+.panel {
+  composes: atrium-scroll from global;
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-4));
+  inset-inline-start: 0;
+  z-index: var(--atrium-z-chrome);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: var(--atrium-automation-picker-min-width);
+  max-height: var(--atrium-automation-picker-max-height);
+  padding: var(--space-8);
+  overflow-y: auto;
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--dialog-background-color);
+  box-shadow: var(--box-shadow-medium);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  animation: pick-in var(--motion-productive-short) var(--motion-timing-enter);
+}
+
+@keyframes pick-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space-4) * -1));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: var(--space-32);
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.option:hover,
+.option:focus-visible {
+  background: var(--primary-background-hover-color);
+  outline: 0;
+}
+
+.optionOn {
+  background: var(--primary-selected-color);
+}
+
+.option:disabled {
+  color: var(--disabled-text-color);
+  cursor: default;
+}
+
+.option:disabled:hover {
+  background: transparent;
+}
+
+.rowContent {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.chip {
+  padding: 0 var(--space-8);
+  border-radius: var(--border-radius-small);
+  color: var(--atrium-table-on-fill);
+}
+
+.dot {
+  flex-shrink: 0;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: 50%;
+}
+
+.hint {
+  color: var(--secondary-text-color);
+}
+
+.badge {
+  margin-inline-start: auto;
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--allgrey-background-color);
+  color: var(--primary-text-color);
+  font: var(--atrium-automation-badge-font);
+}
+
+.check {
+  flex-shrink: 0;
+  width: var(--space-16);
+  height: var(--space-16);
+  color: var(--primary-color);
+}
+
+.problem {
+  margin: 0;
+  color: var(--negative-color);
+  font: var(--font-text2-normal);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4) var(--space-8);
+  color: var(--secondary-text-color);
+}
+
+/* A typed blank: filled it reads as a token with a link-coloured underline. */
+.input {
+  width: 15ch;
+  max-width: 100%;
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 0 calc(var(--border-width) * -2) 0 var(--link-color);
+  background: var(--primary-background-hover-color);
+  color: var(--primary-text-color);
+  font: inherit;
+  font-weight: var(--atrium-font-weight-semibold);
+}
+
+.input[data-blank] {
+  background: transparent;
+  font-weight: var(--font-weight-normal);
+}
+
+.input::placeholder {
+  color: var(--link-color);
+  opacity: 1;
+}
+
+.input:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.input:focus {
+  background: var(--primary-selected-color);
+  box-shadow: inset 0 calc(var(--border-width) * -2) 0 var(--primary-color);
+}
+
+.inputWide {
+  width: 32ch;
+}
+
+.inputNarrow {
+  width: 5ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+
+  .token,
+  .blank,
+  .link {
+    transition: none;
+  }
+}

@@ -1,15 +1,25 @@
+/*
+ * The builder fills the center's builder area edge to edge: the canvas on the left, the "Reads as"
+ * panel on the right, the footer under both. The area around it (CenterShell .builderScroll) pads
+ * its content, so the form takes that padding back with negative margins.
+ */
 .builder {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-24);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--atrium-automation-builder-side-width);
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: calc(100% + var(--space-40) * 2);
+  min-height: var(--atrium-automation-min-height);
+  margin: calc(var(--space-40) * -1);
 }
 
-.sentence {
+.canvas {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  font: var(--font-text1-normal);
+  padding: var(--space-40);
+  overflow-y: auto;
   color: var(--primary-text-color);
+  font: var(--atrium-automation-sentence-font);
 }
 
 .part {
@@ -41,12 +51,16 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-8);
-  min-height: var(--atrium-automation-sentence-line-height);
+  gap: var(--space-4);
+}
+
+/* A condition sits one step in from "When" and "then". */
+.sub {
+  padding-inline-start: var(--space-24);
 }
 
 .keyword {
-  min-width: var(--atrium-automation-keyword-width);
+  min-width: 5.5ch;
   color: var(--secondary-text-color);
 }
 
@@ -56,114 +70,129 @@
 }
 
 .word {
-  color: var(--secondary-text-color);
-}
-
-.token,
-.tokenInput {
-  max-width: 100%;
-  min-height: var(--atrium-automation-token-height);
-  padding: var(--space-2) var(--space-8);
-  border: var(--border-width) var(--border-style) transparent;
-  border-radius: var(--border-radius-small);
-  background: var(--primary-selected-color);
   color: var(--primary-text-color);
-  font: var(--font-text1-medium);
-  cursor: pointer;
-  transition: background-color var(--motion-productive-short) var(--motion-timing-transition);
 }
 
-.tokenInput {
-  width: var(--atrium-automation-token-input-width);
-  cursor: text;
-}
-
-.token:hover,
-.tokenInput:hover {
-  background: var(--primary-selected-hover-color);
-}
-
-.token:focus-visible,
-.tokenInput:focus-visible {
-  outline: var(--border-width) var(--border-style) var(--primary-color);
-  outline-offset: var(--border-width);
-}
-
-.problem {
-  margin: 0;
-  padding-inline-start: var(--atrium-automation-sentence-indent);
-  color: var(--negative-color);
-  font: var(--font-text2-normal);
-}
-
-.hint,
-.count {
-  margin: 0;
+.note {
   color: var(--secondary-text-color);
   font: var(--font-text2-normal);
 }
 
-.hint {
-  padding-inline-start: var(--atrium-automation-sentence-indent);
+.count {
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
 }
 
 .addRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-self: flex-start;
   gap: var(--space-8);
-  padding-inline-start: var(--atrium-automation-sentence-indent);
+  font: var(--font-text2-normal);
 }
 
-.actions {
-  padding-inline-start: var(--atrium-automation-sentence-indent);
+/* The "Reads as" panel. */
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-24);
+  overflow-y: auto;
+  border-inline-start: var(--border-width) var(--border-style) var(--layout-border-color);
+  background: var(--atrium-automation-sidebar-bg);
+  color: var(--primary-text-color);
+}
+
+.sideHeading {
+  margin: 0;
+  font: var(--font-h3-normal);
 }
 
 .reads {
   margin: 0;
   padding: var(--space-12);
-  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
   border-radius: var(--border-radius-small);
-  background: var(--secondary-background-color);
-  color: var(--primary-text-color);
+  background: var(--modal-background-color);
   font: var(--font-text2-normal);
 }
 
-.readsLabel {
-  color: var(--secondary-text-color);
-  font-weight: var(--font-weight-bold);
-}
-
-.note {
-  margin: 0;
-  padding: var(--space-8) var(--space-12);
+.chip {
+  padding: 0 var(--space-8);
   border-radius: var(--border-radius-small);
-  background: var(--secondary-background-color);
-  color: var(--primary-text-color);
-  font: var(--font-text2-normal);
+  color: var(--atrium-table-on-fill);
 }
 
-.footer {
+.soon {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--font-text2-normal);
+}
+
+.soon li {
+  display: flex;
+  align-items: flex-start;
   gap: var(--space-8);
 }
 
+.badge {
+  flex-shrink: 0;
+  padding: 0 var(--space-8);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--allgrey-background-color);
+  font: var(--atrium-automation-badge-font);
+}
+
+.footnote {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.footer {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-16) var(--space-40);
+  border-block-start: var(--border-width) var(--border-style) var(--layout-border-color);
+  background: var(--primary-background-color);
+}
+
 .nameField {
-  flex: 1 1 var(--atrium-automation-field-min-width);
+  width: var(--atrium-automation-name-width);
+  max-width: 100%;
+}
+
+.message {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
   min-width: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .token,
-  .tokenInput {
-    transition: none;
-  }
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
 }
 
-.tokenNumber {
-  composes: tokenInput;
-  width: var(--atrium-automation-token-number-width);
+.statusIcon {
+  width: var(--space-16);
+  height: var(--space-16);
+  color: var(--positive-color);
+}
+
+.takeOver {
+  font: var(--font-text3-normal);
 }

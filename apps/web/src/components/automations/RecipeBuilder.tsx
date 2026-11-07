@@ -1,6 +1,5 @@
 import {
   AUTOMATION_LIMITS,
-  AUTOMATION_TRIGGER_LABELS,
   BUTTON_LIMITS,
   isScheduledTrigger,
   type AutomationCondition,
@@ -10,22 +9,21 @@ import {
   type ColumnDef,
 } from '@atrium/shared';
 import { Button, IconButton, TextField } from '@vibe/core';
-import { CloseSmall } from '@vibe/icons';
-import classNames from 'classnames';
+import { Add, Check, CloseSmall } from '@vibe/icons';
 import { useId, useMemo, useState } from 'react';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
 import { useUserTimezone } from '../../data/user-timezone';
 import { automationWrites, type AutomationDoc, type AutomationInput } from '../../data/automations';
 import type { BoardDoc } from '../../data/model';
 import { buildColumnViews } from '../board-table/table-model';
-import { ButtonActionsEditor } from '../board-table/ButtonActionsEditor';
 import { describeError } from '../boards/board-actions';
 import { showToast } from '../toast-store';
+import { ActionLine } from './ActionLine';
 import {
   RECURRING_ACTION_TYPES,
   TRIGGER_TYPES,
   WEEKDAY_NAMES,
-  checkDraft,
+  checkBlankableDraft,
   conditionColumns,
   conditionOps,
   defaultTrigger,
@@ -35,7 +33,8 @@ import {
   resolveRecipeTimezone,
   triggerColumns,
 } from './recipe-draft';
-import { describeAutomation } from './describe-automation';
+import { describeAutomationParts, type DescribePart } from './describe-automation';
+import { SentenceProblem, SentenceToken, TokenInput, type TokenOption } from './SentenceToken';
 import styles from './RecipeBuilder.module.css';
 
 export interface RecipeBuilderProps {
@@ -55,17 +54,11 @@ export interface RecipeBuilderProps {
   onSaved: () => void;
 }
 
-const EMPTY_INPUT: AutomationInput = {
-  name: '',
-  trigger: { type: 'item_created' },
-  conditions: [],
-  actions: [],
-};
-
 interface Label {
   index: number;
   id: string | number;
   label: string;
+  color?: string;
 }
 
 function labelsOf(column: ColumnDef | undefined): Label[] {
@@ -73,66 +66,60 @@ function labelsOf(column: ColumnDef | undefined): Label[] {
   return Array.isArray(labels) ? labels : [];
 }
 
-/** A native select styled as a sentence token; `label` is its accessible name. */
-function TokenSelect({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string | number;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <select
-      className={styles.token}
-      aria-label={label}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      {children}
-    </select>
-  );
+/** The status or dropdown labels of a column as list rows, each a chip in the label's own colour. */
+function labelOptions(column: ColumnDef | undefined, key: 'index' | 'id'): TokenOption[] {
+  return labelsOf(column)
+    .filter((l) => l.label !== '')
+    .map((l) => ({ value: String(l[key]), label: l.label, chip: l.color }));
 }
 
-function Problem({ message }: { message: string | null }) {
-  return message ? (
-    <p role="alert" className={styles.problem}>
-      {message}
-    </p>
-  ) : null;
-}
+/** How each trigger reads in the list of choices. */
+const TRIGGER_PHRASE: Record<AutomationTrigger['type'], string> = {
+  item_created: 'an item is created',
+  item_moved: 'an item is moved to a group',
+  person_assigned: 'a person is assigned',
+  status_changed: 'a status changes',
+  button_clicked: 'a button is clicked',
+  date_arrives: 'a date arrives',
+  recurring: 'every day, week or month',
+};
 
-function ColumnSelect({
+const MISSING_COLUMN: Partial<Record<AutomationTrigger['type'], string>> = {
+  status_changed: '(no Status column)',
+  button_clicked: '(no Button column)',
+  person_assigned: '(no People column)',
+  date_arrives: '(no Date column)',
+};
+
+/** A column as a token: blank while none is chosen, "a deleted column" when it is gone. */
+function ColumnToken({
   label,
   columns,
   value,
+  placeholder = 'a column',
   onChange,
 }: {
   label: string;
   columns: readonly ColumnDef[];
   value: string;
+  placeholder?: string;
   onChange: (id: string) => void;
 }) {
   const known = columns.some((c) => c.id === value);
   return (
-    <TokenSelect label={label} value={known ? value : ''} onChange={onChange}>
-      <option value="" disabled>
-        {value && !known ? 'Deleted column' : 'Choose a column'}
-      </option>
-      {columns.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.title}
-        </option>
-      ))}
-    </TokenSelect>
+    <SentenceToken
+      label={label}
+      placeholder={placeholder}
+      value={value === '' ? null : value}
+      display={value !== '' && !known ? 'a deleted column' : undefined}
+      options={columns.map((c) => ({ value: c.id, label: c.title }))}
+      onChange={onChange}
+    />
   );
 }
 
 /** "Anyone" or one workspace member (a person who has left stays selectable so it can be changed). */
-function AssigneeSelect({
+function AssigneeToken({
   value,
   onChange,
 }: {
@@ -143,283 +130,310 @@ function AssigneeSelect({
   const lookup = useUserLookup();
   const known = value === undefined || members.some((m) => m.id === value);
   return (
-    <TokenSelect label="Assigned person" value={value ?? ''} onChange={onChange}>
-      <option value="">anyone</option>
-      {known ? null : <option value={value}>Former member</option>}
-      {members.map((m) => (
-        <option key={m.id} value={m.id}>
-          {lookup(m.id)?.name ?? UNKNOWN_PERSON_NAME}
-        </option>
-      ))}
-    </TokenSelect>
+    <SentenceToken
+      label="Assigned person"
+      placeholder="anyone"
+      value={value ?? ''}
+      display={value === undefined ? 'anyone' : known ? undefined : 'a former member'}
+      options={[
+        { value: '', label: 'anyone' },
+        ...members.map((m) => ({
+          value: m.id,
+          label: lookup(m.id)?.name ?? UNKNOWN_PERSON_NAME,
+          uid: m.id,
+        })),
+      ]}
+      onChange={onChange}
+    />
   );
 }
 
 /** The trigger part of the sentence, after "When". */
-function TriggerFields({
+function TriggerLine({
   board,
   trigger,
   timezone,
   onChange,
 }: {
   board: BoardDoc;
-  trigger: AutomationTrigger;
+  trigger: AutomationTrigger | null;
   /** The zone a scheduled recipe will be saved with, shown next to its time. */
   timezone: string;
   onChange: (trigger: AutomationTrigger) => void;
 }) {
-  const hasDate = triggerColumns(board, 'date').length > 0;
-  const hasStatus = triggerColumns(board, 'status').length > 0;
-  const hasButton = triggerColumns(board, 'button').length > 0;
-  const hasPeople = triggerColumns(board, 'people').length > 0;
   const fits = (type: AutomationTrigger['type']) => {
-    if (type === 'status_changed') return hasStatus;
-    if (type === 'button_clicked') return hasButton;
-    if (type === 'person_assigned') return hasPeople;
-    if (type === 'date_arrives') return hasDate;
+    if (type === 'status_changed') return triggerColumns(board, 'status').length > 0;
+    if (type === 'button_clicked') return triggerColumns(board, 'button').length > 0;
+    if (type === 'person_assigned') return triggerColumns(board, 'people').length > 0;
+    if (type === 'date_arrives') return triggerColumns(board, 'date').length > 0;
     return true;
   };
-  const missing: Partial<Record<AutomationTrigger['type'], string>> = {
-    status_changed: ' (no Status column)',
-    button_clicked: ' (no Button column)',
-    person_assigned: ' (no People column)',
-    date_arrives: ' (no Date column)',
-  };
+  const typeOptions: TokenOption[] = TRIGGER_TYPES.map((type) => ({
+    value: type,
+    label: TRIGGER_PHRASE[type],
+    disabled: !fits(type) && type !== trigger?.type,
+    hint: fits(type) ? undefined : MISSING_COLUMN[type],
+  }));
+  const pickType = (type: string) =>
+    onChange(defaultTrigger(type as AutomationTrigger['type'], board));
+  // The type list is a token for a blank trigger and "an item is created / moved"; the other
+  // triggers read as their own phrase and offer "Change trigger" instead.
+  const changeTrigger = (
+    <SentenceToken
+      variant="link"
+      label="Change trigger"
+      placeholder="Change trigger"
+      display="Change trigger"
+      value={trigger?.type ?? null}
+      options={typeOptions}
+      onChange={pickType}
+    />
+  );
 
+  if (trigger === null) {
+    return (
+      <SentenceToken
+        label="Trigger"
+        placeholder="something happens"
+        value={null}
+        options={typeOptions}
+        onChange={pickType}
+      />
+    );
+  }
+
+  if (trigger.type === 'item_created' || trigger.type === 'item_moved') {
+    const missing = trigger.groupId && !board.groups.some((g) => g.id === trigger.groupId);
+    return (
+      <>
+        <SentenceToken
+          label="Trigger"
+          placeholder="something happens"
+          value={trigger.type}
+          display={TRIGGER_PHRASE[trigger.type].replace(' to a group', '')}
+          options={typeOptions}
+          onChange={pickType}
+        />
+        <span className={styles.word}>{trigger.type === 'item_moved' ? 'to' : 'in'}</span>
+        <SentenceToken
+          label={trigger.type === 'item_moved' ? 'Moved to group' : 'In group'}
+          placeholder="any group"
+          value={trigger.groupId ?? ''}
+          display={missing ? 'a deleted group' : undefined}
+          options={[
+            { value: '', label: 'any group' },
+            ...board.groups.map((g) => ({ value: g.id, label: g.title, dot: g.color })),
+          ]}
+          onChange={(groupId) =>
+            onChange(groupId ? { type: trigger.type, groupId } : { type: trigger.type })
+          }
+        />
+      </>
+    );
+  }
+
+  if (trigger.type === 'status_changed') {
+    const column = board.columns.find((c) => c.id === trigger.columnId);
+    return (
+      <>
+        <ColumnToken
+          label="Status column"
+          columns={triggerColumns(board, 'status')}
+          value={trigger.columnId}
+          onChange={(columnId) => onChange({ type: 'status_changed', columnId })}
+        />
+        <span className={styles.word}>changes to</span>
+        <SentenceToken
+          label="Changes to"
+          placeholder="anything"
+          value={trigger.toLabelId === undefined ? '' : String(trigger.toLabelId)}
+          display={
+            trigger.toLabelId === undefined
+              ? 'anything'
+              : (labelsOf(column).find((l) => l.index === trigger.toLabelId)?.label ?? 'a label')
+          }
+          options={[{ value: '', label: 'anything' }, ...labelOptions(column, 'index')]}
+          onChange={(next) =>
+            onChange({
+              type: 'status_changed',
+              columnId: trigger.columnId,
+              ...(next === '' ? {} : { toLabelId: Number(next) }),
+            })
+          }
+        />
+        {changeTrigger}
+      </>
+    );
+  }
+
+  if (trigger.type === 'button_clicked') {
+    return (
+      <>
+        <ColumnToken
+          label="Button column"
+          columns={triggerColumns(board, 'button')}
+          value={trigger.columnId}
+          onChange={(columnId) => onChange({ type: 'button_clicked', columnId })}
+        />
+        <span className={styles.word}>is clicked</span>
+        {changeTrigger}
+      </>
+    );
+  }
+
+  if (trigger.type === 'person_assigned') {
+    return (
+      <>
+        <AssigneeToken
+          value={trigger.uid}
+          onChange={(uid) =>
+            onChange({
+              type: 'person_assigned',
+              columnId: trigger.columnId,
+              ...(uid === '' ? {} : { uid }),
+            })
+          }
+        />
+        <span className={styles.word}>is assigned to</span>
+        <ColumnToken
+          label="People column"
+          columns={triggerColumns(board, 'people')}
+          value={trigger.columnId}
+          onChange={(columnId) =>
+            onChange({
+              type: 'person_assigned',
+              columnId,
+              ...(trigger.uid === undefined ? {} : { uid: trigger.uid }),
+            })
+          }
+        />
+        {changeTrigger}
+      </>
+    );
+  }
+
+  if (trigger.type === 'date_arrives') {
+    return (
+      <>
+        {trigger.offsetDays !== 0 ? (
+          <TokenInput
+            label="Days"
+            type="number"
+            min={1}
+            max={30}
+            size="narrow"
+            value={String(Math.abs(trigger.offsetDays))}
+            onChange={(_text, number) => {
+              const days = Math.min(30, Math.max(1, Math.trunc(number) || 1));
+              onChange({ ...trigger, offsetDays: trigger.offsetDays < 0 ? -days : days });
+            }}
+          />
+        ) : null}
+        <SentenceToken
+          label="When relative to the date"
+          placeholder="on the day"
+          value={trigger.offsetDays < 0 ? 'before' : trigger.offsetDays > 0 ? 'after' : 'on'}
+          options={[
+            { value: 'on', label: 'on the day' },
+            { value: 'before', label: 'days before' },
+            { value: 'after', label: 'days after' },
+          ]}
+          onChange={(when) =>
+            onChange({
+              ...trigger,
+              offsetDays:
+                when === 'on'
+                  ? 0
+                  : when === 'before'
+                    ? -Math.abs(trigger.offsetDays || 1)
+                    : Math.abs(trigger.offsetDays || 1),
+            })
+          }
+        />
+        <ColumnToken
+          label="Date column"
+          columns={triggerColumns(board, 'date')}
+          value={trigger.columnId}
+          onChange={(columnId) => onChange({ ...trigger, columnId })}
+        />
+        <span className={styles.word}>{trigger.offsetDays === 0 ? 'arrives at' : 'at'}</span>
+        <TokenInput
+          label="Time of day"
+          type="time"
+          value={trigger.at ?? ''}
+          placeholder="its own time"
+          onChange={(value) => {
+            const { at: _at, ...rest } = trigger;
+            onChange(value ? { ...rest, at: value } : rest);
+          }}
+        />
+        <span className={styles.note}>
+          {trigger.at ? `(${timezone})` : `(the date's own time, else 09:00, ${timezone})`}
+        </span>
+        {changeTrigger}
+      </>
+    );
+  }
+
+  // recurring
   return (
     <>
-      <TokenSelect
-        label="When"
-        value={trigger.type}
-        onChange={(type) => onChange(defaultTrigger(type as AutomationTrigger['type'], board))}
-      >
-        {TRIGGER_TYPES.map((type) => (
-          <option key={type} value={type} disabled={!fits(type) && type !== trigger.type}>
-            {AUTOMATION_TRIGGER_LABELS[type]}
-            {fits(type) ? '' : missing[type]}
-          </option>
-        ))}
-      </TokenSelect>
-
-      {trigger.type === 'item_created' || trigger.type === 'item_moved' ? (
-        <>
-          <span className={styles.word}>{trigger.type === 'item_moved' ? 'to' : 'in'}</span>
-          <TokenSelect
-            label={trigger.type === 'item_moved' ? 'Moved to group' : 'In group'}
-            value={trigger.groupId ?? ''}
-            onChange={(groupId) =>
-              onChange(groupId ? { type: trigger.type, groupId } : { type: trigger.type })
-            }
-          >
-            <option value="">any group</option>
-            {trigger.groupId && !board.groups.some((g) => g.id === trigger.groupId) ? (
-              <option value={trigger.groupId}>Deleted group</option>
-            ) : null}
-            {board.groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.title}
-              </option>
-            ))}
-          </TokenSelect>
-        </>
-      ) : null}
-
-      {trigger.type === 'status_changed' ? (
+      <span className={styles.word}>every</span>
+      <SentenceToken
+        label="Repeat"
+        placeholder="day"
+        value={trigger.every}
+        options={[
+          { value: 'day', label: 'day' },
+          { value: 'week', label: 'week' },
+          { value: 'month', label: 'month' },
+        ]}
+        onChange={(every) => {
+          if (every === 'week') onChange({ type: 'recurring', every, weekday: 1, at: trigger.at });
+          else if (every === 'month') {
+            onChange({ type: 'recurring', every, dayOfMonth: 1, at: trigger.at });
+          } else onChange({ type: 'recurring', every: 'day', at: trigger.at });
+        }}
+      />
+      {trigger.every === 'week' ? (
         <>
           <span className={styles.word}>on</span>
-          <ColumnSelect
-            label="Status column"
-            columns={triggerColumns(board, 'status')}
-            value={trigger.columnId}
-            onChange={(columnId) => onChange({ type: 'status_changed', columnId })}
+          <SentenceToken
+            label="Weekday"
+            placeholder="Monday"
+            value={String(trigger.weekday ?? 1)}
+            options={WEEKDAY_NAMES.map((name, i) => ({ value: String(i), label: name }))}
+            onChange={(weekday) => onChange({ ...trigger, weekday: Number(weekday) })}
           />
-          <span className={styles.word}>to</span>
-          <TokenSelect
-            label="Changes to"
-            value={trigger.toLabelId ?? ''}
-            onChange={(next) =>
-              onChange({
-                type: 'status_changed',
-                columnId: trigger.columnId,
-                ...(next === '' ? {} : { toLabelId: Number(next) }),
-              })
-            }
-          >
-            <option value="">any status</option>
-            {labelsOf(board.columns.find((c) => c.id === trigger.columnId)).map((l) => (
-              <option key={l.index} value={l.index}>
-                {l.label}
-              </option>
-            ))}
-          </TokenSelect>
         </>
       ) : null}
-
-      {trigger.type === 'person_assigned' ? (
+      {trigger.every === 'month' ? (
         <>
-          <span className={styles.word}>in</span>
-          <ColumnSelect
-            label="People column"
-            columns={triggerColumns(board, 'people')}
-            value={trigger.columnId}
-            onChange={(columnId) =>
-              onChange({
-                type: 'person_assigned',
-                columnId,
-                ...(trigger.uid === undefined ? {} : { uid: trigger.uid }),
-              })
-            }
-          />
-          <span className={styles.word}>is</span>
-          <AssigneeSelect
-            value={trigger.uid}
-            onChange={(uid) =>
-              onChange({
-                type: 'person_assigned',
-                columnId: trigger.columnId,
-                ...(uid === '' ? {} : { uid }),
-              })
-            }
+          <span className={styles.word}>on day</span>
+          <SentenceToken
+            label="Day of month"
+            placeholder="1"
+            value={String(trigger.dayOfMonth ?? 1)}
+            options={Array.from({ length: 28 }, (_, i) => ({
+              value: String(i + 1),
+              label: String(i + 1),
+            }))}
+            onChange={(day) => onChange({ ...trigger, dayOfMonth: Number(day) })}
           />
         </>
       ) : null}
-
-      {trigger.type === 'date_arrives' ? (
-        <>
-          <span className={styles.word}>in</span>
-          <ColumnSelect
-            label="Date column"
-            columns={triggerColumns(board, 'date')}
-            value={trigger.columnId}
-            onChange={(columnId) => onChange({ ...trigger, columnId })}
-          />
-          <span className={styles.word}>:</span>
-          {trigger.offsetDays !== 0 ? (
-            <input
-              className={styles.tokenNumber}
-              aria-label="Days"
-              type="number"
-              min={1}
-              max={30}
-              value={Math.abs(trigger.offsetDays)}
-              onChange={(event) => {
-                const days = Math.min(30, Math.max(1, Math.trunc(event.target.valueAsNumber) || 1));
-                onChange({ ...trigger, offsetDays: trigger.offsetDays < 0 ? -days : days });
-              }}
-            />
-          ) : null}
-          <TokenSelect
-            label="When relative to the date"
-            value={trigger.offsetDays < 0 ? 'before' : trigger.offsetDays > 0 ? 'after' : 'on'}
-            onChange={(when) =>
-              onChange({
-                ...trigger,
-                offsetDays:
-                  when === 'on'
-                    ? 0
-                    : when === 'before'
-                      ? -Math.abs(trigger.offsetDays || 1)
-                      : Math.abs(trigger.offsetDays || 1),
-              })
-            }
-          >
-            <option value="on">on the day</option>
-            <option value="before">days before</option>
-            <option value="after">days after</option>
-          </TokenSelect>
-          <span className={styles.word}>at</span>
-          <input
-            className={styles.tokenInput}
-            aria-label="Time of day"
-            type="time"
-            value={trigger.at ?? ''}
-            onChange={(event) => {
-              const { at: _at, ...rest } = trigger;
-              onChange(event.target.value ? { ...rest, at: event.target.value } : rest);
-            }}
-          />
-          <span className={styles.word}>
-            {trigger.at ? `(${timezone})` : `(the date's own time, else 09:00, ${timezone})`}
-          </span>
-        </>
-      ) : null}
-
-      {trigger.type === 'recurring' ? (
-        <>
-          <span className={styles.word}>every</span>
-          <TokenSelect
-            label="Repeat"
-            value={trigger.every}
-            onChange={(every) => {
-              if (every === 'week')
-                onChange({ type: 'recurring', every, weekday: 1, at: trigger.at });
-              else if (every === 'month') {
-                onChange({ type: 'recurring', every, dayOfMonth: 1, at: trigger.at });
-              } else onChange({ type: 'recurring', every: 'day', at: trigger.at });
-            }}
-          >
-            <option value="day">day</option>
-            <option value="week">week</option>
-            <option value="month">month</option>
-          </TokenSelect>
-          {trigger.every === 'week' ? (
-            <>
-              <span className={styles.word}>on</span>
-              <TokenSelect
-                label="Weekday"
-                value={trigger.weekday ?? 1}
-                onChange={(weekday) => onChange({ ...trigger, weekday: Number(weekday) })}
-              >
-                {WEEKDAY_NAMES.map((name, i) => (
-                  <option key={name} value={i}>
-                    {name}
-                  </option>
-                ))}
-              </TokenSelect>
-            </>
-          ) : null}
-          {trigger.every === 'month' ? (
-            <>
-              <span className={styles.word}>on day</span>
-              <TokenSelect
-                label="Day of month"
-                value={trigger.dayOfMonth ?? 1}
-                onChange={(day) => onChange({ ...trigger, dayOfMonth: Number(day) })}
-              >
-                {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </TokenSelect>
-            </>
-          ) : null}
-          <span className={styles.word}>at</span>
-          <input
-            className={styles.tokenInput}
-            aria-label="Time of day"
-            type="time"
-            value={trigger.at}
-            required
-            onChange={(event) => {
-              if (event.target.value) onChange({ ...trigger, at: event.target.value });
-            }}
-          />
-          <span className={styles.word}>({timezone})</span>
-        </>
-      ) : null}
-
-      {trigger.type === 'button_clicked' ? (
-        <>
-          <span className={styles.word}>in</span>
-          <ColumnSelect
-            label="Button column"
-            columns={triggerColumns(board, 'button')}
-            value={trigger.columnId}
-            onChange={(columnId) => onChange({ type: 'button_clicked', columnId })}
-          />
-        </>
-      ) : null}
+      <span className={styles.word}>at</span>
+      <TokenInput
+        label="Time of day"
+        type="time"
+        value={trigger.at}
+        required
+        onChange={(value) => {
+          if (value) onChange({ ...trigger, at: value });
+        }}
+      />
+      <span className={styles.note}>({timezone})</span>
+      {changeTrigger}
     </>
   );
 }
@@ -437,53 +451,37 @@ function ConditionValue({
   if (column.type === 'status') {
     const current = (value as { index?: number } | undefined)?.index;
     return (
-      <TokenSelect
+      <SentenceToken
         label="Value"
-        value={current ?? ''}
-        onChange={(next) => onChange(next === '' ? undefined : { index: Number(next) })}
-      >
-        <option value="" disabled>
-          Choose a label
-        </option>
-        {labelsOf(column).map((l) => (
-          <option key={l.index} value={l.index}>
-            {l.label}
-          </option>
-        ))}
-      </TokenSelect>
+        placeholder="a value"
+        value={current === undefined ? null : String(current)}
+        options={labelOptions(column, 'index')}
+        onChange={(next) => onChange({ index: Number(next) })}
+      />
     );
   }
   if (column.type === 'dropdown') {
     const current = (value as { ids?: number[] } | undefined)?.ids?.[0];
     return (
-      <TokenSelect
+      <SentenceToken
         label="Value"
-        value={current ?? ''}
-        onChange={(next) => onChange(next === '' ? undefined : { ids: [Number(next)] })}
-      >
-        <option value="" disabled>
-          Choose an option
-        </option>
-        {labelsOf(column).map((l) => (
-          <option key={String(l.id)} value={l.id}>
-            {l.label}
-          </option>
-        ))}
-      </TokenSelect>
+        placeholder="a value"
+        value={current === undefined ? null : String(current)}
+        options={labelOptions(column, 'id')}
+        onChange={(next) => onChange({ ids: [Number(next)] })}
+      />
     );
   }
   if (column.type === 'numbers') {
-    const current = typeof value === 'number' ? String(value) : '';
     return (
-      <input
-        className={styles.tokenInput}
-        aria-label="Value"
+      <TokenInput
+        label="Value"
         type="number"
-        value={current}
-        onChange={(event) => {
-          const parsed = event.target.valueAsNumber;
-          onChange(event.target.value === '' || !Number.isFinite(parsed) ? undefined : parsed);
-        }}
+        placeholder="a number"
+        value={typeof value === 'number' ? String(value) : ''}
+        onChange={(text, number) =>
+          onChange(text === '' || !Number.isFinite(number) ? undefined : number)
+        }
       />
     );
   }
@@ -495,14 +493,12 @@ function ConditionValue({
         ? value
         : '';
   return (
-    <input
-      className={styles.tokenInput}
-      aria-label="Value"
+    <TokenInput
+      label="Value"
       placeholder="a value"
       value={text}
       maxLength={1000}
-      onChange={(event) => {
-        const next = event.target.value;
+      onChange={(next) => {
         if (next === '') onChange(undefined);
         else onChange(column.type === 'long_text' ? { text: next } : next);
       }}
@@ -510,7 +506,7 @@ function ConditionValue({
   );
 }
 
-function ConditionRow({
+function ConditionLine({
   index,
   condition,
   board,
@@ -530,18 +526,20 @@ function ConditionRow({
   const ops = column ? conditionOps(column.type) : [];
   return (
     <li role="group" aria-label={`Condition ${index + 1}`} className={styles.item}>
-      <div className={styles.line}>
+      <div className={`${styles.line} ${styles.sub}`}>
         <span className={styles.keyword}>and only if</span>
-        <ColumnSelect
+        <ColumnToken
           label="Column"
           columns={columns}
           value={condition.columnId}
           onChange={(columnId) => onChange(newCondition(columns.find((c) => c.id === columnId)))}
         />
         {column ? (
-          <TokenSelect
+          <SentenceToken
             label="Operator"
+            placeholder="is"
             value={condition.op}
+            options={ops.map((o) => ({ value: o.op, label: o.label }))}
             onChange={(next) => {
               const op = next as AutomationCondition['op'];
               onChange({
@@ -552,13 +550,7 @@ function ConditionRow({
                   : {}),
               });
             }}
-          >
-            {ops.map((o) => (
-              <option key={o.op} value={o.op}>
-                {o.label}
-              </option>
-            ))}
-          </TokenSelect>
+          />
         ) : null}
         {column && needsValue(condition.op) ? (
           <ConditionValue
@@ -576,21 +568,46 @@ function ConditionRow({
         <IconButton
           icon={CloseSmall}
           kind="tertiary"
-          size="xxs"
+          size="small"
           aria-label={`Remove condition ${index + 1}`}
           onClick={onRemove}
         />
       </div>
-      <Problem message={problem} />
+      <SentenceProblem message={problem} />
     </li>
   );
 }
 
+/** The described sentence with bold names and coloured label chips. */
+function RichSentence({ parts }: { parts: readonly DescribePart[] }) {
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.color ? (
+          <span key={i} className={styles.chip} style={{ backgroundColor: part.color }}>
+            {part.text}
+          </span>
+        ) : part.strong ? (
+          <strong key={i}>{part.text}</strong>
+        ) : (
+          <span key={i}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+const COMING_SOON = [
+  { badge: 'P9', text: 'Email, calendar and chat apps' },
+  { badge: 'P5c', text: 'A connected item changes status' },
+] as const;
+
 /**
  * The recipe builder as one sentence: "When [trigger], and only if [condition], then [action]".
- * Each part is an inline picker. Save stays disabled until the draft would pass
- * `validateAutomation`; the first failure shows next to the part it is about. Rendered inside the
- * Automation center's shell.
+ * Each part is an inline blank that opens a short list. A "Reads as" panel shows the finished
+ * sentence, and the footer counts the blanks left. Save stays disabled until none is left and the
+ * draft would pass `validateAutomation`; the first failure shows next to the part it is about.
+ * Rendered inside the Automation center's shell, under its back bar.
  */
 export function RecipeBuilder({
   board,
@@ -606,17 +623,26 @@ export function RecipeBuilder({
   const start = automation
     ? {
         name: automation.name,
-        trigger: automation.trigger,
+        trigger: automation.trigger as AutomationTrigger | null,
         conditions: automation.conditions,
-        actions: automation.actions,
+        actions: automation.actions as (ButtonAction | null)[],
       }
-    : (initial ?? EMPTY_INPUT);
+    : initial
+      ? { ...initial, trigger: initial.trigger as AutomationTrigger | null }
+      : // From scratch: a blank trigger and a blank action to fill in.
+        {
+          name: '',
+          trigger: null as AutomationTrigger | null,
+          conditions: [] as AutomationCondition[],
+          actions: [null] as (ButtonAction | null)[],
+        };
   const [name, setName] = useState(start.name);
-  const [trigger, setTrigger] = useState<AutomationTrigger>(start.trigger);
-  const [conditions, setConditions] = useState<AutomationCondition[]>(start.conditions);
-  const [actions, setActions] = useState<ButtonAction[]>(start.actions);
+  const [trigger, setTrigger] = useState<AutomationTrigger | null>(start.trigger);
+  const [conditions, setConditions] = useState<AutomationCondition[]>([...start.conditions]);
+  const [actions, setActions] = useState<(ButtonAction | null)[]>([...start.actions]);
   const [saving, setSaving] = useState(false);
   const noteId = useId();
+  const readsId = useId();
 
   // A scheduled recipe keeps the zone it was saved with; saving it as someone else (or a new one)
   // uses the saver's profile zone, else the browser's.
@@ -630,38 +656,65 @@ export function RecipeBuilder({
     [existing, automation?.id],
   );
 
+  const { members } = useWorkspaceMembers();
+  const lookup = useUserLookup();
+  const describeOptions = useMemo(
+    () => ({
+      personName: (id: string) =>
+        lookup(id)?.name ?? members.find((m) => m.id === id)?.displayName ?? null,
+    }),
+    [lookup, members],
+  );
+
   const columnViews = useMemo(() => buildColumnViews(board.columns), [board.columns]);
-  const problems = useMemo(
+  const { problems, blanks } = useMemo(
     () =>
-      checkDraft({ trigger, conditions, actions }, board, role, automation ? null : existingCount, {
-        timezone,
-        others,
-      }),
+      checkBlankableDraft(
+        { trigger, conditions, actions },
+        board,
+        role,
+        automation ? null : existingCount,
+        { timezone, others },
+      ),
     [trigger, conditions, actions, board, role, automation, existingCount, timezone, others],
   );
-  const canSave = isDraftOk(problems, actions.length) && !saving;
+  const complete = blanks.total === 0 && isDraftOk(problems, actions.length);
+  const canSave = complete && !saving;
   const takesOver = automation !== null && automation.runAs !== uid;
   const eligible = conditionColumns(board);
   const atConditionCap = conditions.length >= AUTOMATION_LIMITS.maxConditions;
-  const reads = isDraftOk(problems, actions.length)
-    ? describeAutomation({ trigger, conditions, actions, timezone }, board)
-    : 'Fill in the highlighted parts to finish the sentence.';
+  const atActionCap = actions.length >= BUTTON_LIMITS.maxActions;
+  const readsParts =
+    blanks.total === 0 && trigger
+      ? describeAutomationParts(
+          {
+            trigger,
+            conditions,
+            actions: actions.filter((a): a is ButtonAction => a !== null),
+            timezone,
+          },
+          board,
+          describeOptions,
+        )
+      : null;
 
   const save = async () => {
-    if (!canSave) return;
+    if (!canSave || trigger === null) return;
     setSaving(true);
     const input: AutomationInput = {
       name: name.trim(),
       trigger,
       conditions,
-      actions,
+      actions: actions.filter((a): a is ButtonAction => a !== null),
       ...(isScheduledTrigger(trigger) ? { timezone } : {}),
     };
     const ctx = { boardId: board.id, uid, board, role };
     try {
       if (automation) await automationWrites.update(ctx, automation.id, input, others);
       else await automationWrites.create(ctx, input, existingCount, { others });
-      showToast(automation ? 'Automation saved.' : 'Automation created.', { type: 'positive' });
+      showToast(automation ? 'Automation saved' : 'Automation created and switched on', {
+        type: 'positive',
+      });
       onSaved();
     } catch (error) {
       console.error('Could not save the automation.', error);
@@ -675,6 +728,13 @@ export function RecipeBuilder({
     }
   };
 
+  const status =
+    blanks.total > 0
+      ? `${blanks.total} ${blanks.total === 1 ? 'blank' : 'blanks'} left to fill`
+      : complete
+        ? 'Ready'
+        : 'Fix the problem marked in red to continue';
+
   return (
     <form
       className={styles.builder}
@@ -684,25 +744,25 @@ export function RecipeBuilder({
         void save();
       }}
     >
-      <div className={styles.sentence}>
+      <div className={styles.canvas}>
         <section className={styles.part} aria-label="Trigger">
           <div className={styles.line}>
-            <span className={classNames(styles.keyword, styles.keywordStrong)}>When</span>
-            <TriggerFields
+            <span className={`${styles.keyword} ${styles.keywordStrong}`}>When</span>
+            <TriggerLine
               board={board}
               trigger={trigger}
               timezone={timezone}
               onChange={setTrigger}
             />
           </div>
-          <Problem message={problems.trigger} />
+          <SentenceProblem message={problems.trigger} />
         </section>
 
         <section className={styles.part} aria-label="Conditions">
           {conditions.length > 0 ? (
             <ol className={styles.list} aria-label="Conditions">
               {conditions.map((condition, i) => (
-                <ConditionRow
+                <ConditionLine
                   key={i}
                   index={i}
                   condition={condition}
@@ -713,20 +773,19 @@ export function RecipeBuilder({
                 />
               ))}
             </ol>
-          ) : (
-            <p className={styles.hint}>Every {board.itemTerminology} that matches the trigger.</p>
-          )}
+          ) : null}
           <div className={styles.addRow}>
             <Button
               kind="tertiary"
               size="small"
-              disabled={atConditionCap || eligible.length === 0}
+              leftIcon={Add}
+              disabled={atConditionCap || eligible.length === 0 || trigger === null}
               onClick={() => setConditions([...conditions, newCondition(eligible[0])])}
             >
-              + Add condition
+              Add a condition
             </Button>
             <span className={styles.count}>
-              {conditions.length}/{AUTOMATION_LIMITS.maxConditions}
+              ({conditions.length}/{AUTOMATION_LIMITS.maxConditions})
             </span>
             {atConditionCap ? (
               <span className={styles.count}>
@@ -740,38 +799,68 @@ export function RecipeBuilder({
         </section>
 
         <section className={styles.part} aria-label="Actions">
-          <div className={styles.line}>
-            <span className={classNames(styles.keyword, styles.keywordStrong)}>then</span>
+          <ol className={styles.list} aria-label="Actions">
+            {actions.map((action, i) => (
+              <ActionLine
+                key={i}
+                action={action}
+                index={i}
+                keyword={i === 0 ? 'then' : 'and'}
+                columns={columnViews}
+                groups={board.groups}
+                boardId={board.id}
+                allowedTypes={trigger?.type === 'recurring' ? RECURRING_ACTION_TYPES : undefined}
+                error={problems.actions[i] ?? null}
+                canRemove={actions.length > 1}
+                onChange={(next) => setActions(actions.map((a, j) => (j === i ? next : a)))}
+                onRemove={() => setActions(actions.filter((_, j) => j !== i))}
+              />
+            ))}
+          </ol>
+          <div className={styles.addRow}>
+            <Button
+              kind="tertiary"
+              size="small"
+              leftIcon={Add}
+              disabled={atActionCap}
+              onClick={() => setActions([...actions, null])}
+            >
+              Add an action
+            </Button>
             <span className={styles.count}>
-              {actions.length}/{BUTTON_LIMITS.maxActions} actions
+              ({actions.length}/{BUTTON_LIMITS.maxActions})
             </span>
           </div>
-          <div className={styles.actions}>
-            <ButtonActionsEditor
-              actions={actions}
-              errors={problems.actions}
-              columns={columnViews}
-              groups={board.groups}
-              boardId={board.id}
-              allowAutomationOnly
-              allowedTypes={trigger.type === 'recurring' ? RECURRING_ACTION_TYPES : undefined}
-              emptyHint="Add at least one action: what should happen."
-              onChange={setActions}
-            />
-          </div>
-          <Problem message={problems.general} />
+          <SentenceProblem message={problems.general} />
         </section>
       </div>
 
-      <p className={styles.reads} aria-live="polite">
-        <span className={styles.readsLabel}>Reads as</span> {reads}
-      </p>
-
-      {takesOver ? (
-        <p id={noteId} className={styles.note} role="note">
-          Saving makes you the person this runs as.
+      <aside className={styles.side} aria-label="About this automation">
+        <h3 className={styles.sideHeading} id={readsId}>
+          Reads as
+        </h3>
+        <p className={styles.reads} role="status" aria-labelledby={readsId}>
+          {readsParts ? (
+            <RichSentence parts={readsParts} />
+          ) : (
+            'Fill in the blue blanks to finish the sentence.'
+          )}
         </p>
-      ) : null}
+        <h3 className={styles.sideHeading}>Coming soon to the builder</h3>
+        <ul className={styles.soon}>
+          {COMING_SOON.map((row) => (
+            <li key={row.badge}>
+              <span className={styles.badge}>{row.badge}</span>
+              <span>{row.text}</span>
+            </li>
+          ))}
+        </ul>
+        <p className={styles.footnote}>
+          {`Each automation runs at most ${AUTOMATION_LIMITS.maxRunsPerHour} times an hour, and a chain of automations stops after ${AUTOMATION_LIMITS.maxDepth} steps. `}
+          Use {'{name}'} for the item&apos;s name and {'{date}'} for today&apos;s date in names and
+          updates.
+        </p>
+      </aside>
 
       <div className={styles.footer}>
         <div className={styles.nameField}>
@@ -782,22 +871,33 @@ export function RecipeBuilder({
             value={name}
             onChange={(value: string) => setName(value)}
             maxLength={AUTOMATION_LIMITS.name}
-            placeholder="Shown instead of the sentence"
-            size="medium"
+            placeholder="e.g. Escalate blocked work"
+            size="small"
           />
         </div>
-        <Button kind="tertiary" size="medium" onClick={onCancel} disabled={saving}>
+        <div className={styles.message}>
+          <span role="status" aria-label="Blanks left" className={styles.status}>
+            {complete ? <Check className={styles.statusIcon} aria-hidden="true" /> : null}
+            {status}
+          </span>
+          {takesOver ? (
+            <span id={noteId} className={styles.takeOver} role="note">
+              Saving makes you the person this runs as.
+            </span>
+          ) : null}
+        </div>
+        <Button kind="secondary" size="small" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
         <Button
           kind="primary"
-          size="medium"
+          size="small"
           type="submit"
           disabled={!canSave}
           loading={saving}
           aria-describedby={takesOver ? noteId : undefined}
         >
-          Save
+          {automation ? 'Save changes' : 'Create automation'}
         </Button>
       </div>
     </form>
