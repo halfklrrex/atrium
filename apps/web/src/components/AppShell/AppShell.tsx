@@ -14,6 +14,7 @@ import { ItemCardDrawer } from '../item-card/ItemCardDrawer';
 import { TopBar } from './TopBar';
 import { useCurrentWorkspace } from './useCurrentWorkspace';
 import { useSearchShortcut } from './useSearchShortcut';
+import { usePrinting } from '../../lib/use-printing';
 import { useUiStore } from './ui-store';
 
 /**
@@ -45,6 +46,8 @@ export function AppShell() {
   }, [uid]);
 
   useSearchShortcut();
+  // Subscribes the app to print events: the light theme and the fit-to-page scale apply to every page.
+  usePrinting();
 
   return (
     <div className={styles.shell} data-print="reset">
