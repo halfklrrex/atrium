@@ -95,8 +95,12 @@ const runDoc = (over: Partial<AutomationRunDoc> & { id: string }): AutomationRun
 
 const SENTENCE = 'When Status changes to Done, then move the item to Done items';
 
+/** The center opens on Create; most tests live on Manage. */
+const goToManage = () => fireEvent.click(screen.getByRole('tab', { name: /^Manage/ }));
+
 function open(role: 'owner' | 'editor' | 'viewer' | null = 'owner', onClose = vi.fn()) {
   render(<AutomationCenter board={board} role={role} onClose={onClose} />);
+  goToManage();
   return onClose;
 }
 
@@ -113,14 +117,112 @@ beforeEach(() => {
 });
 
 describe('Center shell', () => {
-  it('is titled with the board name and toggles between Manage and Create', () => {
-    open('owner');
-    expect(screen.getByRole('dialog', { name: `Automations: ${board.name}` })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Manage' })).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+  const renderCenter = (role: 'owner' | 'editor' = 'owner') =>
+    render(<AutomationCenter board={board} role={role} onClose={vi.fn()} />);
+
+  it('is named by a title with the product in bold and the board name after it', () => {
+    renderCenter();
+    const dialog = screen.getByRole('dialog', { name: `Automations ${board.name}` });
+    expect(dialog).toBeInTheDocument();
+    const title = within(dialog).getByRole('heading', { level: 2 });
+    expect(within(title).getByText('Automations').tagName).toBe('STRONG');
+    expect(title).toHaveTextContent(`Automations ${board.name}`);
+  });
+
+  it('opens on Create', () => {
+    renderCenter();
+    expect(screen.getByRole('tab', { name: /^Create/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /^Manage/ })).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByText('Start with the basics')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Run history' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Manage' }));
+  });
+
+  it('switches between Create and Manage with a tablist, and arrow keys move between them', () => {
+    renderCenter();
+    const tablist = screen.getByRole('tablist', { name: 'Automation center view' });
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('tab', { name: /^Manage/ }));
+    expect(screen.getByRole('tab', { name: 'Run history' })).toBeInTheDocument();
+    expect(screen.queryByText('Start with the basics')).toBeNull();
+    fireEvent.keyDown(screen.getByRole('tab', { name: /^Manage/ }), { key: 'ArrowLeft' });
+    expect(screen.getByRole('tab', { name: /^Create/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /^Create/ })).toHaveFocus();
+  });
+
+  it('shows how many automations the board has next to Manage', () => {
+    mocks.automations = {
+      data: [recipe({ id: 'a1' }), recipe({ id: 'a2' }), recipe({ id: 'a3' })],
+      loading: false,
+      error: null,
+    };
+    renderCenter();
+    expect(screen.getByRole('tab', { name: 'Manage 3' })).toBeInTheDocument();
+  });
+
+  it('keeps the header outside the scrolling body', () => {
+    renderCenter();
+    const header = screen.getByRole('banner');
+    const panel = screen.getByRole('tabpanel');
+    expect(header.contains(panel)).toBe(false);
+    expect(panel.contains(header)).toBe(false);
+    expect(panel).toHaveAttribute('aria-labelledby', 'automation-center-tab-create');
+  });
+
+  it('has one Close button that calls onClose', () => {
+    const onClose = vi.fn();
+    render(<AutomationCenter board={board} role="owner" onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the builder under a back bar for a scratch recipe, and Back returns to Create', () => {
+    renderCenter();
+    fireEvent.click(screen.getByRole('button', { name: /Create from scratch/ }));
+    // The header stays and the origin segment stays selected.
+    expect(screen.getByRole('tab', { name: /^Create/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('New automation from scratch')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New automation' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to templates' }));
+    expect(screen.queryByRole('form')).toBeNull();
+    expect(screen.getByText('Start with the basics')).toBeInTheDocument();
+  });
+
+  it('names the editing crumb and goes Back to Manage', async () => {
+    mocks.automations = { data: [recipe({ id: 'a1', name: 'Tidy' })], loading: false, error: null };
+    renderCenter();
+    goToManage();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await user.click(screen.getByRole('button', { name: 'Options for Tidy' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    expect(await screen.findByText('Editing: Tidy')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Manage' }));
+    expect(screen.queryByRole('form')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Run history' })).toBeInTheDocument();
+  });
+
+  it('shows the template sentence in the crumb', () => {
+    renderCenter();
+    fireEvent.click(screen.getByRole('button', { name: /notify the board owner/ }));
+    expect(screen.getByText(/^From template: /)).toBeInTheDocument();
+  });
+
+  it('clicking Manage while building leaves the builder', () => {
+    renderCenter();
+    fireEvent.click(screen.getByRole('button', { name: /Create from scratch/ }));
+    expect(screen.getByRole('form', { name: 'New automation' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: /^Manage/ }));
+    expect(screen.queryByRole('form')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Run history' })).toBeInTheDocument();
+  });
+
+  it('switches to Manage > Board automations after a save', async () => {
+    renderCenter();
+    fireEvent.click(screen.getByRole('button', { name: /notify the board owner/ }));
+    const form = screen.getByRole('form', { name: 'New automation' });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.writes.create).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+    expect(screen.getByRole('tab', { name: /^Manage/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Run history' })).toBeInTheDocument();
   });
 });
@@ -420,6 +522,7 @@ describe('Recipes tab', () => {
         onOpenBuilder={onOpenBuilder}
       />,
     );
+    goToManage();
     fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
     expect(onOpenBuilder).toHaveBeenCalledWith({ mode: 'create' });
   });
@@ -460,6 +563,7 @@ describe('Scheduled triggers in the builder', () => {
   });
   const openBuilder = () => {
     render(<AutomationCenter board={dated} role="owner" onClose={vi.fn()} />);
+    goToManage();
     fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
     return screen.getByRole('form', { name: 'New automation' });
   };
@@ -491,6 +595,7 @@ describe('Scheduled triggers in the builder', () => {
 
   it('offers only a Date column for "Date arrives" and disables it without one', () => {
     render(<AutomationCenter board={board} role="owner" onClose={vi.fn()} />);
+    goToManage();
     fireEvent.click(screen.getByRole('button', { name: 'Create automation' }));
     const form = screen.getByRole('form', { name: 'New automation' });
     const option = within(within(form).getByRole('combobox', { name: 'When' })).getByRole(

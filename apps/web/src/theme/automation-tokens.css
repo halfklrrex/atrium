@@ -10,9 +10,9 @@
   --atrium-automation-run-recipe-width: 200px;
   --atrium-automation-run-item-width: 160px;
   --atrium-automation-run-status-width: 88px;
-  --atrium-automation-sidebar-width: 200px; /* Create tab categories column */
-  --atrium-automation-card-min-width: 260px;
-  --atrium-automation-card-min-height: 132px;
+  --atrium-automation-sidebar-width: 280px; /* Create tab categories column */
+  --atrium-automation-card-min-width: 220px;
+  --atrium-automation-card-min-height: 236px;
   --atrium-automation-create-search-width: 360px;
   --atrium-automation-switch-width: 56px;
   --atrium-automation-field-min-width: 160px; /* recipe builder pickers wrap below this */
@@ -24,4 +24,46 @@
   --atrium-automation-token-height: 32px;
   --atrium-automation-token-input-width: 160px;
   --atrium-automation-token-number-width: 72px;
+
+  /* Chosen mockup (P5e fidelity gaps): shell, header, segmented control */
+  --atrium-automation-header-height: 64px;
+  --atrium-automation-segment-min-width: 144px;
+  --atrium-automation-segment-height: 38px;
+
+  /* Create tab: cards, headings, placeholders */
+  --atrium-automation-card-icon-size: 32px;
+  --atrium-automation-card-font: 400 18px/27px var(--font-family);
+  --atrium-automation-section-font: 400 24px/30px var(--title-font-family);
+  --atrium-automation-badge-font: 600 11px/18px var(--font-family);
+  --atrium-automation-scratch-plus-font: 300 44px/1 var(--font-family);
+  --atrium-automation-integration-width: 190px;
+  --atrium-automation-integration-height: 64px;
+
+  /* Sentence builder canvas, side panel, picker, footer */
+  --atrium-automation-sentence-font: 400 22px/2.1 var(--font-family);
+  --atrium-automation-builder-side-width: 300px;
+  --atrium-automation-picker-min-width: 240px;
+  --atrium-automation-picker-max-height: 320px;
+  --atrium-automation-name-width: 280px;
+
+  /* Manage tab */
+  --atrium-automation-manage-search-width: 240px;
+  --atrium-automation-avatar-size: 24px;
+
+  /* Theme-dependent colours (light values; dark and black below) */
+  --atrium-automation-sidebar-bg: var(--grey-background-color);
+  --atrium-automation-soon-bg: var(--primary-surface-color);
+  --atrium-automation-card-icon-fg: var(--primary-color);
+}
+
+.dark-app-theme {
+  --atrium-automation-sidebar-bg: #292c48;
+  --atrium-automation-soon-bg: #22254a;
+  --atrium-automation-card-icon-fg: var(--primary-text-color);
+}
+
+.black-app-theme {
+  --atrium-automation-sidebar-bg: var(--secondary-background-color);
+  --atrium-automation-soon-bg: var(--allgrey-background-color);
+  --atrium-automation-card-icon-fg: var(--primary-text-color);
 }
