@@ -297,3 +297,19 @@ describe('items: the 10 column cap', () => {
     await assertFails(writeCell(uid, CAP11_BOARD, 'c0', deleteField()));
   });
 });
+
+describe('bulk edit Undo (P1-bulk-edit-selected v3): why it must plan around required cells', () => {
+  it('lets the forward write fill an empty required cell, then refuses the Undo that empties it again', async () => {
+    const uid = USERS.member;
+    // Forward bulk write: the cell was empty, now it is filled.
+    await assertSucceeds(writeCell(uid, REQ_BOARD, 'title', 'Done', 'empty'));
+    // Undo shape of setValueMany for a row whose previous value was empty: deleteField().
+    await assertFails(writeCell(uid, REQ_BOARD, 'title', deleteField(), 'empty'));
+    // A row that had a value restores fine in the same Undo.
+    await assertSucceeds(writeCell(uid, REQ_BOARD, 'title', 'T', 'i1'));
+  });
+
+  it('allows deleting a required cell that is still empty (nothing changes), so only a filled one is refused', async () => {
+    await assertSucceeds(writeCell(USERS.member, REQ_BOARD, 'title', deleteField(), 'empty'));
+  });
+});
