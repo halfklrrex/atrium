@@ -11,6 +11,7 @@ import {
   type SetAccountStatusRequest,
   type SetAccountStatusResult,
 } from '@atrium/shared';
+import { logger } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
 import type { Identity } from './bootstrap';
 import { notificationId, type NewNotification, type NotificationStore } from './notifications';
@@ -68,6 +69,11 @@ export interface AccountStore {
   /** Appends to `system/accountAudit/entries` with a server timestamp. */
   appendAudit(entry: AccountAuditEntry): Promise<void>;
   createNotification: NotificationStore['createNotification'];
+  /**
+   * Closes this person's open or answered appeals with `outcome: 'unblocked'` (ADMIN-4). Called on
+   * approve and unblock only, after the claim; the caller treats a failure as non-fatal.
+   */
+  closeOpenAppeals(uid: string): Promise<unknown>;
 }
 
 /** Placeholder ids for notification fields that point at boards; account notices have none. */
@@ -137,6 +143,13 @@ export async function setAccountStatus(
     if (target.disabled) await auth.setDisabled(uid, false);
     // The claim is last: it is what opens the rules, and a retry re-runs the steps above.
     await auth.setClaims(uid, mergeAccountClaims(target.claims, 'approved'));
+    // Best effort (ADMIN-4): a failure is logged and never fails the unblock; an admin can still
+    // close the appeal by hand.
+    try {
+      await store.closeOpenAppeals(uid);
+    } catch (error) {
+      logger.error('Could not close the open appeals of an approved account', { uid, error });
+    }
     if (from === 'pending') {
       const doc: NewNotification = {
         kind: 'account_approved',
