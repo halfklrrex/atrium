@@ -2,8 +2,6 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
-<<<<<<< HEAD
-
 ## Automation: people read as names (web)
 
 - **What changed:** a People value in the automation builder, the "Reads as" panel and the Manage list now shows the person's name instead of an id, and Manage sentences show bold names and coloured label chips like "Reads as".
