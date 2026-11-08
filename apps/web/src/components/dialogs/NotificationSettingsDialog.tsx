@@ -12,7 +12,10 @@ import { notificationWrites, useNotificationPrefs } from '../../data/notificatio
 import { showToast } from '../toast-store';
 import styles from './dialogs.module.css';
 
-const KINDS: readonly { kind: keyof NotificationPrefs; label: string; hint: string }[] = [
+/** The bell switches; the optional `push` map has its own UI in PWA-4. */
+type BellKind = Exclude<keyof NotificationPrefs, 'push'>;
+
+const KINDS: readonly { kind: BellKind; label: string; hint: string }[] = [
   { kind: 'assigned', label: 'Assigned to me', hint: 'Someone adds you to a People column.' },
   { kind: 'reply', label: 'Replies', hint: 'Someone replies to an update you wrote.' },
   { kind: 'mention', label: 'Mentions', hint: 'Someone mentions you in an update or reply.' },
@@ -30,7 +33,7 @@ export function NotificationSettingsDialog({ onClose }: { onClose: () => void })
   const uid = user?.uid;
   const { prefs, loading } = useNotificationPrefs(uid);
 
-  const change = (kind: keyof NotificationPrefs, on: boolean) => {
+  const change = (kind: BellKind, on: boolean) => {
     if (!uid) return;
     notificationWrites.setPrefs(uid, { ...prefs, [kind]: on }).catch(() => {
       showToast('Could not save your notification settings.', { type: 'negative' });
