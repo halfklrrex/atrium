@@ -123,11 +123,21 @@ service cloud.firestore {
       // Which notification kinds the user wants (P4); a missing key or map means all on.
       function validNotificationPrefs(p) {
         return p is map
-          && p.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation'])
+          && p.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation', 'push'])
           && p.keys().hasAll(['assigned', 'reply', 'mention'])
           && p.assigned is bool && p.reply is bool && p.mention is bool
           && (!('button' in p.keys()) || p.button is bool)
-          && (!('automation' in p.keys()) || p.automation is bool);
+          && (!('automation' in p.keys()) || p.automation is bool)
+          && (!('push' in p.keys()) || validPushPrefs(p.push));
+      }
+
+      // Per-kind push switches (PWA-2): when present, exactly these six booleans.
+      function validPushPrefs(q) {
+        return q is map
+          && q.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation', 'account'])
+          && q.keys().hasAll(['assigned', 'reply', 'mention', 'button', 'automation', 'account'])
+          && q.assigned is bool && q.reply is bool && q.mention is bool
+          && q.button is bool && q.automation is bool && q.account is bool;
       }
 
       allow read: if authed() && uid() == userId;
@@ -147,6 +157,35 @@ service cloud.firestore {
           || (request.resource.data.lastWorkspaceId is string
               && isWsMember(request.resource.data.lastWorkspaceId))
         );
+    }
+
+    // ---------------------------------------------------------------------
+    // users/{uid}/pushTokens/{tokenId} (PWA-2): one doc per opted-in device. The id is the sha-256
+    // hex of the FCM token. Approved owner only (create, read, refresh `lastSeenAt`, delete); no
+    // one else, not even admins or workspace members. Functions (Admin SDK) read and prune them.
+    // ---------------------------------------------------------------------
+    match /users/{userId}/pushTokens/{tokenId} {
+      function validPushToken(d) {
+        return d.keys().hasOnly(['token', 'userAgent', 'platform', 'createdAt', 'lastSeenAt'])
+          && d.keys().hasAll(['token', 'userAgent', 'platform', 'createdAt', 'lastSeenAt'])
+          && d.token is string && d.token.size() >= 1 && d.token.size() <= 4096
+          && d.userAgent is string && d.userAgent.size() <= 200
+          && d.platform in ['ios', 'android', 'desktop']
+          && d.createdAt is timestamp && d.lastSeenAt is timestamp;
+      }
+
+      allow read: if signedIn() && uid() == userId;
+      allow create: if signedIn() && uid() == userId
+        && tokenId.matches('^[0-9a-f]{64}$')
+        && validPushToken(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lastSeenAt == request.time;
+      // Only `lastSeenAt` may change, to the server time.
+      allow update: if signedIn() && uid() == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt'])
+        && validPushToken(request.resource.data)
+        && request.resource.data.lastSeenAt == request.time;
+      allow delete: if signedIn() && uid() == userId;
     }
 
     // ---------------------------------------------------------------------
