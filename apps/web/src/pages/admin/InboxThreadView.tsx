@@ -1,11 +1,5 @@
+import { INBOX_LIMITS, normalizeInboxText, type InboxThread } from '@atrium/shared';
 import {
-  INBOX_ADMIN_LABEL,
-  INBOX_LIMITS,
-  normalizeInboxText,
-  type InboxThread,
-} from '@atrium/shared';
-import {
-  Avatar,
   Button,
   Label,
   Loader,
@@ -23,16 +17,16 @@ import { Delete, NavigationChevronLeft } from '@vibe/icons';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
+import { MessageList } from '../../components/inbox/MessageList';
 import { showToast } from '../../components/toast-store';
 import {
   inboxWrites,
   useInboxMessages,
   useInboxThread,
-  type InboxMessageDoc,
   type InboxThreadDoc,
 } from '../../data/inbox';
 import { accountAdminCalls, describeCallableError, inboxCalls } from '../../lib/callables';
-import { formatDate, formatRelativeShort } from '../../lib/format';
+import { formatDate } from '../../lib/format';
 import { InboxNote } from './InboxNote';
 import {
   OUTCOME_LABELS,
@@ -46,38 +40,6 @@ import styles from './Inbox.module.css';
 import { SenderAvatar } from './SenderAvatar';
 
 type Confirm = 'unblock' | 'keepBlocked' | 'delete' | null;
-
-function Message({ message, thread }: { message: InboxMessageDoc; thread: InboxThreadDoc }) {
-  const isAdmin = message.authorRole === 'admin';
-  const name = isAdmin ? INBOX_ADMIN_LABEL : (message.authorName ?? senderLabel(thread));
-  return (
-    <article className={styles.message} aria-label={isAdmin ? 'Admin message' : 'Message'}>
-      <header className={styles.messageHeader}>
-        <div className={styles.avatar}>
-          {isAdmin ? (
-            <Avatar
-              type="text"
-              text="SA"
-              size="medium"
-              backgroundColor="winter"
-              aria-label={name}
-            />
-          ) : (
-            <SenderAvatar
-              name={name}
-              photoURL={message.authorPhotoURL ?? thread.senderPhotoURL}
-              size="medium"
-            />
-          )}
-        </div>
-        <span className={styles.author}>{name}</span>
-        <span className={styles.messageTime}>{formatRelativeShort(message.createdAt)}</span>
-      </header>
-      {/* Plain text only: React escapes it and `pre-wrap` keeps the line breaks. */}
-      <div className={styles.messageText}>{message.text}</div>
-    </article>
-  );
-}
 
 function Counter({ length }: { length: number }) {
   const over = length > INBOX_LIMITS.text;
@@ -411,11 +373,7 @@ export function InboxThreadView() {
               Could not load the messages.
             </p>
           ) : null}
-          <div className={styles.messages} aria-label="Messages">
-            {messages.map((m) => (
-              <Message key={m.id} message={m} thread={thread} />
-            ))}
-          </div>
+          <MessageList messages={messages} thread={thread} />
           {canReply(thread) ? (
             <ReplyBox threadId={threadId} />
           ) : (
