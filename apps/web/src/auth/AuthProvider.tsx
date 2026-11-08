@@ -183,6 +183,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Remove this device's push token while still signed in (best effort, never blocks sign-out).
+    try {
+      const [{ removeDeviceOnSignOut }, { pushDeps }] = await Promise.all([
+        import('../lib/push'),
+        import('../lib/push-runtime'),
+      ]);
+      await removeDeviceOnSignOut(pushDeps, auth.currentUser?.uid);
+    } catch {
+      // Push is optional.
+    }
     await firebaseSignOut(auth);
   }, []);
 
