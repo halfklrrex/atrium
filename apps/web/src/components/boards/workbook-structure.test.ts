@@ -636,6 +636,18 @@ describe('the Excel workbook structure', () => {
     expect(sheetNames).toEqual(['Summary', 'Items']);
     expect(data.figures).toMatchObject({ items: 4, done: 1, overdue: 1, dueSoon: 1, people: 3 });
     expect(texts['xl/charts/chart1.xml']).toContain('Items by status');
+    // Date cells are real dates with the month-first format (owner decision).
+    const styles = texts['xl/styles.xml'] as string;
+    const fmt = /<numFmt numFmtId="(\d+)" formatCode="mmm d, yyyy"\/>/.exec(styles);
+    expect(fmt).not.toBeNull();
+    const xfs = styles
+      .slice(styles.indexOf('<cellXfs'), styles.indexOf('</cellXfs>'))
+      .split('<xf ')
+      .slice(1);
+    const dateXf = xfs.findIndex((x) => x.includes(`numFmtId="${fmt?.[1]}"`));
+    expect(texts['xl/worksheets/sheet2.xml']).toMatch(
+      new RegExp(`<c r="G5" s="${dateXf}"><v>46336</v>`),
+    );
   });
 
   it('is valid for a board with subitems, long and awkward text', async () => {

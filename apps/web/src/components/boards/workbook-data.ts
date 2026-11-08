@@ -43,12 +43,14 @@ export interface WorkbookDataInput extends Omit<BoardCsvInput, 'typed'> {
 
 const isPriority = (def: ColumnDef) => /priority/i.test(def.title);
 
-const EXPORTED_FORMAT = new Intl.DateTimeFormat('en-GB', {
+/** "Nov 8, 2026, 14:32": the same month-first style as the workbook's date cells. */
+const EXPORTED_FORMAT = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   month: 'short',
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
+  hourCycle: 'h23',
 });
 
 const addDays = (iso: string, days: number): string => {

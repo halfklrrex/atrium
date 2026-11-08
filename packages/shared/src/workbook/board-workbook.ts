@@ -6,7 +6,17 @@
 import type { CsvCell } from '../columns/csv';
 import type { ChartSpec } from './chart';
 import { buildPackage } from './package';
-import { Look, ROW_H, SUMMARY_SHEET, header, medium, subtitleText, thin } from './look';
+import {
+  DATE_FORMAT,
+  DATE_TIME_FORMAT,
+  Look,
+  ROW_H,
+  SUMMARY_SHEET,
+  header,
+  medium,
+  subtitleText,
+  thin,
+} from './look';
 import { PALETTE } from './palette';
 import { SheetWriter, type Range } from './sheet';
 import type { BorderSide, StyleSpec } from './styles';
@@ -59,7 +69,7 @@ export interface WorkbookItemRow {
 
 export interface BoardWorkbookData {
   boardName: string;
-  /** Shown in the subtitle and the source line: "8 Nov 2026, 14:32". */
+  /** Shown in the subtitle and the source line: "Nov 8, 2026, 14:32". */
   exportedLabel: string;
   /** ISO 8601 time for the document properties. */
   createdAt: string;
@@ -566,7 +576,7 @@ function buildItems(look: Look, data: BoardWorkbookData): SheetWriter {
         spec = {
           fill,
           border: rule,
-          numFmt: 'd mmm yyyy',
+          numFmt: DATE_FORMAT,
           align: { h: 'left', v: 'center', indent: 1 },
         };
         break;
@@ -574,7 +584,7 @@ function buildItems(look: Look, data: BoardWorkbookData): SheetWriter {
         spec = {
           fill,
           border: rule,
-          numFmt: 'd mmm yyyy hh:mm',
+          numFmt: DATE_TIME_FORMAT,
           align: { h: 'left', v: 'center', indent: 1 },
         };
         break;
@@ -646,7 +656,7 @@ function buildItems(look: Look, data: BoardWorkbookData): SheetWriter {
         const date = excelSerialDate(cell.text);
         if (date) {
           sheet.number(col, r, date.serial, styleFor(date.hasTime ? 'datetime' : 'date', isBand));
-          measured(date.hasTime ? 17 : 11);
+          measured(date.hasTime ? 18 : 12);
         } else {
           sheet.text(col, r, guardFormula(cell.text), styleFor('text', isBand));
           measured(cell.text.length);

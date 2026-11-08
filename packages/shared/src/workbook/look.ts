@@ -6,6 +6,13 @@ import { StyleRegistry, type BorderSide } from './styles';
 import { quoteSheet } from './xml';
 
 export const SUMMARY_SHEET = 'Summary';
+/**
+ * Number format of date cells (owner decision 2026-11-08): "Nov 26, 2026". The cells stay real
+ * dates (serial numbers) so they sort and filter; a number format cannot add "26th".
+ */
+export const DATE_FORMAT = 'mmm d, yyyy';
+/** Date and time cells: "Nov 26, 2026 14:05" (24-hour: no AM/PM in the code). */
+export const DATE_TIME_FORMAT = 'mmm d, yyyy h:mm';
 /** Default height of a table row, in points. */
 export const ROW_H = 20;
 

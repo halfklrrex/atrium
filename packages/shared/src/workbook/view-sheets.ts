@@ -5,7 +5,7 @@
  */
 import type { BoardWorkbookData } from './board-workbook';
 import { SERIES_COLORS, type ChartSpec } from './chart';
-import { type Look, ROW_H, header, medium, subtitleText, thin } from './look';
+import { DATE_FORMAT, type Look, ROW_H, header, medium, subtitleText, thin } from './look';
 import { PALETTE, textOn } from './palette';
 import { SheetWriter } from './sheet';
 import type { BorderSide, StyleSpec } from './styles';
@@ -463,8 +463,8 @@ function timelineSheet(look: Look, data: BoardWorkbookData, view: TimelineViewDa
 
   sheet.setWidth(0, 1.3);
   sheet.setWidth(1, 32);
-  sheet.setWidth(2, 11);
-  sheet.setWidth(3, 11);
+  sheet.setWidth(2, 13);
+  sheet.setWidth(3, 13);
   sheet.setWidth(4, 7);
   if (gantt) {
     sheet.setWidth(5, 24);
@@ -552,7 +552,7 @@ function timelineSheet(look: Look, data: BoardWorkbookData, view: TimelineViewDa
       ...spec,
     });
   const dateStyle = textStyle({
-    numFmt: 'd mmm yyyy',
+    numFmt: DATE_FORMAT,
     align: { h: 'right', v: 'center', indent: 1 },
   });
   const numStyle = textStyle({ align: { h: 'right', v: 'center', indent: 1 } });
