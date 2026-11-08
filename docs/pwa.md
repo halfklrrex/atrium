@@ -63,7 +63,7 @@ Open the bell, the gear, **Notification settings**. The dialog has three parts: 
 | --------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | iPhone, not installed | iOS and not running from the Home Screen (checked first: Safari hides the push APIs until installed)    | "Install Atrium first: tap Share, then Add to Home Screen", no Enable button |
 | Not supported         | the browser lacks `Notification`, service workers, `PushManager` or `isSupported()`                     | "This browser can't receive push notifications."                             |
-| Not set up yet        | `VAPID_PUBLIC_KEY` is empty                                                                             | "Push notifications are not set up yet.", no prompt                          |
+| Not set up yet        | `VAPID_PUBLIC_KEY` is empty (not the case now)                                                          | "Push notifications are not set up yet.", no prompt                          |
 | Blocked               | `Notification.permission` is `denied`                                                                   | how to allow notifications in the site settings                              |
 | Off                   | none of the above                                                                                       | **Enable**                                                                   |
 | On                    | permission granted, this browser remembers the device for the signed-in person and its token doc exists | "This device receives push notifications." and **Disable**                   |
@@ -90,7 +90,7 @@ On every app load an enabled device refreshes `lastSeenAt` (only that key) at mo
 
 ### How the VAPID key is set
 
-`VAPID_PUBLIC_KEY` in `apps/web/src/lib/firebase.ts` is public by design, like the web config. It is empty until the owner generates a key pair (Firebase console > Project settings > Cloud Messaging > Web Push certificates > Generate key pair) and the public key is pasted there in a PR. While empty, no code path asks for permission or calls `getToken`.
+`VAPID_PUBLIC_KEY` in `apps/web/src/lib/firebase.ts` is public by design, like the web config. It was generated in the Firebase console (Project settings > Cloud Messaging > Web Push certificates) on 2026-11-08. To rotate it, generate a new key pair there and replace the value in a PR; devices that enabled push with the old key must press Disable and Enable again. If the value is ever empty, no code path asks for permission or calls `getToken` and the dialog says push is not set up yet.
 
 ### Not tested by agents
 

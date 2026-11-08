@@ -805,14 +805,20 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `notifications-panel-empty-${theme}`);
     });
 
-    test('notification settings dialog, push not set up yet', async ({ page }) => {
+    test('notification settings dialog, push not supported', async ({ page }) => {
+      // Deterministic whatever the browser build offers: hide the push API so the section always
+      // shows "can't receive push notifications".
+      await page.addInitScript(() => {
+        Reflect.deleteProperty(window, 'PushManager');
+      });
       await page.goto('/');
       await homeReady(page);
       await page.getByRole('button', { name: 'Notifications', exact: true }).click();
       await page.getByRole('button', { name: 'Notification settings' }).click();
       const dialog = page.getByRole('dialog', { name: 'Notification settings' });
-      // The VAPID key is empty in the repo, so the "On this device" section says so.
-      await expect(dialog.getByText('Push notifications are not set up yet.')).toBeVisible();
+      await expect(
+        dialog.getByText("This browser can't receive push notifications."),
+      ).toBeVisible();
       // The content scrolls inside the dialog: bring "On this device" to the top of the view.
       await dialog.getByRole('heading', { name: 'On this device' }).evaluate((el) => {
         el.scrollIntoView({ block: 'start' });
