@@ -157,3 +157,15 @@ PWA-1 of the web push epic: Atrium can be installed as an app. Nothing else chan
 - **Android Chrome:** menu > **Add to Home screen** (or **Install app**). Check the icon and the name "Atrium", and that it opens full screen without the browser bar.
 - **iPhone Safari:** Share > **Add to Home Screen**. Check the icon and the name "Atrium", and that it opens without the Safari bars.
 - **Confirm nothing else changed:** the site loads, signs in and updates after a deploy exactly as before. No permission prompt appears anywhere, and with no network the app does not work offline (by design).
+
+## Push notifications (live, after the VAPID key is set)
+
+PWA-4 of the web push epic. Until the VAPID key is pasted into `apps/web/src/lib/firebase.ts`, Notification settings > **On this device** says "Push notifications are not set up yet." and nothing asks for permission. Only you can do the first step; the sending side also needs the one-time IAM step in `docs/pwa.md`.
+
+- **Set the key:** Firebase console > Project settings > Cloud Messaging > Web Push certificates > Generate key pair. Copy the key pair's public key into `VAPID_PUBLIC_KEY` in `apps/web/src/lib/firebase.ts` (it is public by design) and tell Claude, who opens the PR.
+- **Desktop Chrome:** open the bell > the gear > **Notification settings**. Under **On this device** press **Enable** and allow the browser prompt. It now says "This device receives push notifications." From a second account, mention you, reply to you, or assign you. A system notification appears (while Atrium is open in front of you only the bell shows, by design). Click it: Atrium focuses and opens the item.
+- **iPhone:** in Safari open the site, Share > **Add to Home Screen**, then open Atrium **from the Home Screen icon**. Notification settings > **Enable**. In plain Safari the section says to install first and has no Enable button. Trigger a notification from another account with the phone locked.
+- **Switches:** under **Push notifications** turn a kind off (try Replies), repeat the trigger and confirm no push arrives while the bell still gets it. Check **Inbox messages** (send yourself feedback from a second account as the admin, or reply to a feedback thread) and **Account requests and approvals** (a new sign-in request notifies admins).
+- **Disable and sign out:** press **Disable**: the status flips back and no more pushes arrive. Enable again, then **sign out**: this device stops receiving pushes (its token is removed), also on desktop. Sign in again and the section is back to "off".
+- **Blocked:** deny the prompt once; the section explains how to allow notifications in the browser's site settings.
+- **Known:** I could not test a real push or a permission prompt here (the prompt and push services need a real browser session); only mocked tests and screenshots of the dialog.

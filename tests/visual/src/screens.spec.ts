@@ -805,6 +805,21 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `notifications-panel-empty-${theme}`);
     });
 
+    test('notification settings dialog, push not set up yet', async ({ page }) => {
+      await page.goto('/');
+      await homeReady(page);
+      await page.getByRole('button', { name: 'Notifications', exact: true }).click();
+      await page.getByRole('button', { name: 'Notification settings' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Notification settings' });
+      // The VAPID key is empty in the repo, so the "On this device" section says so.
+      await expect(dialog.getByText('Push notifications are not set up yet.')).toBeVisible();
+      // The content scrolls inside the dialog: bring "On this device" to the top of the view.
+      await dialog.getByRole('heading', { name: 'On this device' }).evaluate((el) => {
+        el.scrollIntoView({ block: 'start' });
+      });
+      await shoot(page, `notification-settings-dialog-${theme}`);
+    });
+
     test('notifications panel open, with notifications', async ({ page }) => {
       await seedNotifications();
       await page.goto('/');
