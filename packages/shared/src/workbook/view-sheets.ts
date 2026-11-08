@@ -5,7 +5,7 @@
  */
 import type { BoardWorkbookData } from './board-workbook';
 import { SERIES_COLORS, type ChartSpec } from './chart';
-import { Look, ROW_H, header, medium, subtitleText, thin } from './look';
+import { type Look, ROW_H, header, medium, subtitleText, thin } from './look';
 import { PALETTE, textOn } from './palette';
 import { SheetWriter } from './sheet';
 import type { BorderSide, StyleSpec } from './styles';
