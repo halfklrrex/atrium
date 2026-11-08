@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_PUSH_PREFS,
   NOTIFICATION_LIMITS,
+  PUSH_TOKEN_ID_PATTERN,
   UPDATE_CONTENT_DOC_MAX_BYTES,
   createItemUpdateInputSchema,
   createUpdateReplyInputSchema,
@@ -8,6 +10,8 @@ import {
   mentionsSchema,
   notificationPrefsSchema,
   notificationSchema,
+  pushPrefsSchema,
+  pushTokenSchema,
   updateReplySchema,
   userProfileUpdateSchema,
   userSchema,
@@ -34,6 +38,12 @@ const notification = {
 };
 
 describe('notificationSchema', () => {
+  it('accepts the inbox kinds (ADMIN-4)', () => {
+    for (const kind of ['inbox_new', 'inbox_reply']) {
+      expect(notificationSchema.safeParse({ ...notification, kind }).success, kind).toBe(true);
+    }
+  });
+
   it('accepts a valid notification', () => {
     expect(notificationSchema.safeParse(notification).success).toBe(true);
     expect(notificationSchema.safeParse({ ...notification, readAt: ts }).success).toBe(true);
@@ -172,5 +182,78 @@ describe('contentDoc on updates and replies (spec P1d)', () => {
     expect(
       createUpdateReplyInputSchema.safeParse({ content: '   ', contentDoc: richDoc }).success,
     ).toBe(false);
+  });
+});
+
+describe('pushPrefsSchema (PWA-2)', () => {
+  const full = {
+    assigned: true,
+    reply: true,
+    mention: true,
+    button: true,
+    automation: false,
+    account: true,
+    inbox: true,
+  };
+
+  it('accepts exactly the seven booleans', () => {
+    expect(pushPrefsSchema.safeParse(full).success).toBe(true);
+  });
+
+  it('rejects a missing key, an extra key and a non-boolean', () => {
+    const { account: _account, ...missing } = full;
+    const { inbox: _inbox, ...noInbox } = full;
+    expect(pushPrefsSchema.safeParse(missing).success).toBe(false);
+    expect(pushPrefsSchema.safeParse(noInbox).success).toBe(false);
+    expect(pushPrefsSchema.safeParse({ ...full, inbox: 1 }).success).toBe(false);
+    expect(pushPrefsSchema.safeParse({ ...full, email: true }).success).toBe(false);
+    expect(pushPrefsSchema.safeParse({ ...full, reply: 'yes' }).success).toBe(false);
+  });
+
+  it('defaults: everything on except automation (inbox on)', () => {
+    expect(DEFAULT_PUSH_PREFS).toEqual(full);
+    expect(pushPrefsSchema.safeParse(DEFAULT_PUSH_PREFS).success).toBe(true);
+  });
+
+  it('is an optional map on notificationPrefs, and old prefs still parse', () => {
+    expect(notificationPrefsSchema.parse({}).push).toBeUndefined();
+    expect(notificationPrefsSchema.parse({ push: full }).push).toEqual(full);
+    expect(notificationPrefsSchema.safeParse({ push: { ...full, extra: true } }).success).toBe(
+      false,
+    );
+    expect(notificationPrefsSchema.safeParse({ push: { assigned: true } }).success).toBe(false);
+  });
+});
+
+describe('pushTokenSchema (PWA-2)', () => {
+  const token = {
+    token: 'fcm-token-abc',
+    userAgent: 'Mozilla/5.0 (test)',
+    platform: 'ios',
+    createdAt: ts,
+    lastSeenAt: ts,
+  };
+
+  it('accepts a valid token doc on each platform', () => {
+    for (const platform of ['ios', 'android', 'desktop']) {
+      expect(pushTokenSchema.safeParse({ ...token, platform }).success, platform).toBe(true);
+    }
+  });
+
+  it('rejects empty or oversized fields, a bad platform, extra and missing keys', () => {
+    expect(pushTokenSchema.safeParse({ ...token, token: '' }).success).toBe(false);
+    expect(pushTokenSchema.safeParse({ ...token, token: 'x'.repeat(4097) }).success).toBe(false);
+    expect(pushTokenSchema.safeParse({ ...token, userAgent: 'x'.repeat(201) }).success).toBe(false);
+    expect(pushTokenSchema.safeParse({ ...token, platform: 'tv' }).success).toBe(false);
+    expect(pushTokenSchema.safeParse({ ...token, extra: 1 }).success).toBe(false);
+    const { lastSeenAt: _l, ...missing } = token;
+    expect(pushTokenSchema.safeParse(missing).success).toBe(false);
+  });
+
+  it('PUSH_TOKEN_ID_PATTERN is 64 lowercase hex chars', () => {
+    expect(PUSH_TOKEN_ID_PATTERN.test('a'.repeat(64))).toBe(true);
+    expect(PUSH_TOKEN_ID_PATTERN.test('A'.repeat(64))).toBe(false);
+    expect(PUSH_TOKEN_ID_PATTERN.test('a'.repeat(63))).toBe(false);
+    expect(PUSH_TOKEN_ID_PATTERN.test('a'.repeat(65))).toBe(false);
   });
 });

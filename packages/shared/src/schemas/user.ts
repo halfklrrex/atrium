@@ -56,3 +56,20 @@ export type RecentWrite = WriteDoc<Recent>;
 
 /** How many recently visited boards the UI keeps and shows. */
 export const MAX_RECENTS = 12;
+
+/** Document id of a push token: the sha-256 hex (64 lowercase hex chars) of the FCM token. */
+export const PUSH_TOKEN_ID_PATTERN = /^[0-9a-f]{64}$/;
+
+/** `users/{uid}/pushTokens/{tokenId}` - one doc per opted-in device (PWA-2). Owner-only. */
+export const pushTokenSchema = z
+  .object({
+    /** The FCM registration token of this device. */
+    token: z.string().min(1).max(4096),
+    userAgent: z.string().max(200),
+    platform: z.enum(['ios', 'android', 'desktop']),
+    createdAt: timestampSchema,
+    lastSeenAt: timestampSchema,
+  })
+  .strict();
+export type PushToken = z.infer<typeof pushTokenSchema>;
+export type PushTokenWrite = WriteDoc<PushToken>;

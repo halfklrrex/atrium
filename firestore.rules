@@ -15,9 +15,21 @@ service cloud.firestore {
     }
 
     // Signed in with any account state. ONLY for a person reading their own `users/{uid}` document,
-    // so the app can show the waiting or blocked screen. Never use it for anything else.
+    // so the app can show the waiting or blocked screen. Never use it for anything else. (The one
+    // other state-blind read is a blocked person reading their own appeal threads, which uses
+    // `isBlockedAccount()` inside `senderMayRead` below and nowhere else.)
     function authed() {
       return request.auth != null;
+    }
+
+    // Site admin (ADMIN-4): approved and carrying the `admin` claim (set only by Functions and scripts).
+    function isSiteAdmin() {
+      return signedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    // A blocked account (ADMIN-4). ONLY for a blocked person reading their own appeal threads.
+    function isBlockedAccount() {
+      return request.auth != null && request.auth.token.get('acct', '') == 'blocked';
     }
 
     function uid() {
@@ -111,11 +123,21 @@ service cloud.firestore {
       // Which notification kinds the user wants (P4); a missing key or map means all on.
       function validNotificationPrefs(p) {
         return p is map
-          && p.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation'])
+          && p.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation', 'push'])
           && p.keys().hasAll(['assigned', 'reply', 'mention'])
           && p.assigned is bool && p.reply is bool && p.mention is bool
           && (!('button' in p.keys()) || p.button is bool)
-          && (!('automation' in p.keys()) || p.automation is bool);
+          && (!('automation' in p.keys()) || p.automation is bool)
+          && (!('push' in p.keys()) || validPushPrefs(p.push));
+      }
+
+      // Per-kind push switches (PWA-2): when present, exactly these seven booleans.
+      function validPushPrefs(q) {
+        return q is map
+          && q.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation', 'account', 'inbox'])
+          && q.keys().hasAll(['assigned', 'reply', 'mention', 'button', 'automation', 'account', 'inbox'])
+          && q.assigned is bool && q.reply is bool && q.mention is bool
+          && q.button is bool && q.automation is bool && q.account is bool && q.inbox is bool;
       }
 
       allow read: if authed() && uid() == userId;
@@ -135,6 +157,35 @@ service cloud.firestore {
           || (request.resource.data.lastWorkspaceId is string
               && isWsMember(request.resource.data.lastWorkspaceId))
         );
+    }
+
+    // ---------------------------------------------------------------------
+    // users/{uid}/pushTokens/{tokenId} (PWA-2): one doc per opted-in device. The id is the sha-256
+    // hex of the FCM token. Approved owner only (create, read, refresh `lastSeenAt`, delete); no
+    // one else, not even admins or workspace members. Functions (Admin SDK) read and prune them.
+    // ---------------------------------------------------------------------
+    match /users/{userId}/pushTokens/{tokenId} {
+      function validPushToken(d) {
+        return d.keys().hasOnly(['token', 'userAgent', 'platform', 'createdAt', 'lastSeenAt'])
+          && d.keys().hasAll(['token', 'userAgent', 'platform', 'createdAt', 'lastSeenAt'])
+          && d.token is string && d.token.size() >= 1 && d.token.size() <= 4096
+          && d.userAgent is string && d.userAgent.size() <= 200
+          && d.platform in ['ios', 'android', 'desktop']
+          && d.createdAt is timestamp && d.lastSeenAt is timestamp;
+      }
+
+      allow read: if signedIn() && uid() == userId;
+      allow create: if signedIn() && uid() == userId
+        && tokenId.matches('^[0-9a-f]{64}$')
+        && validPushToken(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lastSeenAt == request.time;
+      // Only `lastSeenAt` may change, to the server time.
+      allow update: if signedIn() && uid() == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt'])
+        && validPushToken(request.resource.data)
+        && request.resource.data.lastSeenAt == request.time;
+      allow delete: if signedIn() && uid() == userId;
     }
 
     // ---------------------------------------------------------------------
@@ -185,6 +236,62 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
         && (request.resource.data.readAt == null || request.resource.data.readAt == request.time);
       allow delete: if signedIn() && uid() == userId;
+    }
+
+    // ---------------------------------------------------------------------
+    // Appeals and feedback Inbox (ADMIN-4, docs/specs/ADMIN-4-appeals-inbox.md).
+    // inbox/{threadId} and its messages are readable by the sender and the site admins only; every
+    // create and delete is Functions-only. Nothing admin-only lives in these documents (the admin's
+    // identity is in inboxAudit, the internal note in inboxNotes). Limits below are the literals of
+    // INBOX_LIMITS in packages/shared/src/schemas/inbox.ts.
+    // ---------------------------------------------------------------------
+    match /inbox/{threadId} {
+      // The sender reads their own thread when approved; a blocked sender only their APPEAL threads.
+      // A list query by a blocked sender must therefore filter on `kind == 'appeal'`.
+      function senderMayRead(t) {
+        return request.auth != null && t.senderUid == request.auth.uid
+          && (signedIn() || (isBlockedAccount() && t.kind == 'appeal'));
+      }
+
+      allow read: if isSiteAdmin() || senderMayRead(resource.data);
+      allow create, delete: if false;
+      allow update: if
+        (isSiteAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['adminUnread'])
+          && request.resource.data.adminUnread == false)
+        || (signedIn() && resource.data.senderUid == uid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['senderUnread'])
+          && request.resource.data.senderUnread == false);
+
+      match /messages/{messageId} {
+        allow read: if isSiteAdmin()
+          || senderMayRead(get(/databases/$(database)/documents/inbox/$(threadId)).data);
+        allow write: if false;
+      }
+    }
+
+    // inboxNotes/{threadId}: the admin-only internal note. Never readable by the sender.
+    match /inboxNotes/{threadId} {
+      allow read: if isSiteAdmin();
+      allow create, update: if isSiteAdmin()
+        && exists(/databases/$(database)/documents/inbox/$(threadId))
+        && request.resource.data.keys().hasOnly(['text', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasAll(['text', 'updatedAt', 'updatedBy'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 2000
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == uid();
+      allow delete: if false;
+    }
+
+    // inboxAudit/{threadId}/entries/{entryId}: which admin acted (T6). Admin read only; Functions write.
+    match /inboxAudit/{threadId}/entries/{entryId} {
+      allow read: if isSiteAdmin();
+      allow write: if false;
+    }
+
+    // inboxLimits/{uid}: Functions-only counters. Nobody reads or writes them from a client.
+    match /inboxLimits/{userId} {
+      allow read, write: if false;
     }
 
     // ---------------------------------------------------------------------
