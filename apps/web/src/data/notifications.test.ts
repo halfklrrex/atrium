@@ -192,4 +192,31 @@ describe('notificationWrites', () => {
       },
     );
   });
+
+  it('writes the whole push map when given, and reads it back', async () => {
+    const push = {
+      assigned: true,
+      reply: true,
+      mention: true,
+      button: true,
+      automation: false,
+      account: true,
+      inbox: false,
+    };
+    await notificationWrites.setPrefs('u1', {
+      assigned: true,
+      reply: true,
+      mention: true,
+      button: true,
+      automation: true,
+      push,
+    });
+    expect(mockUpdateDoc).toHaveBeenLastCalledWith(
+      { path: 'users/u1' },
+      { notificationPrefs: expect.objectContaining({ push }) },
+    );
+    mockDocData = { notificationPrefs: { assigned: true, reply: true, mention: true, push } };
+    const { result } = renderHook(() => useNotificationPrefs('u1'));
+    expect(result.current.prefs.push).toEqual(push);
+  });
 });
