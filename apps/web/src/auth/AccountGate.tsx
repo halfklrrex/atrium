@@ -4,11 +4,12 @@ import { onSnapshot } from 'firebase/firestore';
 import { useEffect, useRef } from 'react';
 import { FullPageMessage } from '../components/FullPage';
 import { plainRefs } from '../data/firestore';
+import { AppealPanel } from './AppealPanel';
 import { useAuth } from './auth-context';
 
-/** Interim text until the appeal box arrives (ADMIN-4 PR6 adds "... you can send an appeal below."). */
+/** Shown on the blocked screen above the appeal panel (ADMIN-4 PR6). */
 export const BLOCKED_SCREEN_MESSAGE =
-  "An admin has blocked this account, so you can't use Atrium with it. If you think this is a mistake, contact the site admin.";
+  "An admin has blocked this account, so you can't use Atrium with it. If you think this is a mistake, you can send an appeal below.";
 
 /**
  * Full-page screen for an account that is not approved (ADMIN-3). It renders no app shell and starts
@@ -51,8 +52,9 @@ export function AccountGate({ status }: { status: Extract<AccountStatus, 'pendin
         title="Your account is blocked"
         description={BLOCKED_SCREEN_MESSAGE}
         primary={signOutAction}
+        wide
       >
-        {/* The appeal panel (ADMIN-4 PR6) goes here, between the message and the Sign out button. */}
+        {uid ? <AppealPanel uid={uid} /> : null}
         <Text type="text2" color="secondary">
           Signed in as {name}
         </Text>

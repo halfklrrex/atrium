@@ -59,6 +59,7 @@
   --atrium-members-role-width: 140px; /* role dropdown column in the Members dialog */
   --atrium-members-dialog-min-height: 320px; /* keeps the dialog steady between its tabs */
   --atrium-message-max-width: 440px; /* full-page message column (loading, errors) */
+  --atrium-message-wide-max-width: 600px; /* full-page message with a conversation (blocked screen) */
   --atrium-login-copy-max-width: 420px; /* login brand panel text column */
   --atrium-login-card-width: 400px; /* login form column */
   --atrium-login-watermark-inset: -90px; /* login brand mark bleeds off the panel corner */

@@ -1,0 +1,23 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  align-self: stretch;
+  text-align: start;
+}
+
+.panel[role='status'] {
+  align-items: center;
+}
+
+.note {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.error {
+  margin: 0;
+  color: var(--negative-color);
+  font: var(--font-text2-normal);
+}

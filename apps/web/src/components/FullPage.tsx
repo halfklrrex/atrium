@@ -24,17 +24,20 @@ export function FullPageMessage({
   description,
   primary,
   secondary,
+  wide = false,
   children,
 }: {
   title: string;
   description: string;
   primary?: Action;
   secondary?: Action;
+  /** A wider column, for a screen that carries a conversation. */
+  wide?: boolean;
   children?: ReactNode;
 }) {
   return (
     <div className={styles.page}>
-      <div className={styles.message}>
+      <div className={wide ? `${styles.message} ${styles.messageWide}` : styles.message}>
         <BrandMark size={40} />
         <Heading type="h2">{title}</Heading>
         <Text type="text1" color="secondary">
