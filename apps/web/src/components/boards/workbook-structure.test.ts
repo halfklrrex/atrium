@@ -12,7 +12,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { largeBoard, smallBoard, subitemBoard } from '../../test/workbook-boards';
+import {
+  largeBoard,
+  largeViewsBoard,
+  smallBoard,
+  subitemBoard,
+  viewsBoard,
+} from '../../test/workbook-boards';
 import { boardXlsxBytes } from './board-export';
 import { buildBoardWorkbookData, type WorkbookDataInput } from './workbook-data';
 
@@ -140,6 +146,47 @@ const BAR_SER_ORDER = [
   'cat',
   'val',
   'shape',
+  'extLst',
+];
+const LINE_CHART_ORDER = [
+  'grouping',
+  'varyColors',
+  'ser',
+  'dLbls',
+  'dropLines',
+  'hiLowLines',
+  'upDownBars',
+  'marker',
+  'smooth',
+  'axId',
+  'extLst',
+];
+const LINE_SER_ORDER = [
+  'idx',
+  'order',
+  'tx',
+  'spPr',
+  'marker',
+  'dPt',
+  'dLbls',
+  'trendline',
+  'errBars',
+  'cat',
+  'val',
+  'smooth',
+  'extLst',
+];
+const PIE_CHART_ORDER = ['varyColors', 'ser', 'dLbls', 'firstSliceAng', 'holeSize', 'extLst'];
+const PIE_SER_ORDER = [
+  'idx',
+  'order',
+  'tx',
+  'spPr',
+  'explosion',
+  'dPt',
+  'dLbls',
+  'cat',
+  'val',
   'extLst',
 ];
 const DLBLS_ORDER = [
@@ -534,11 +581,24 @@ async function checkWorkbook(input: WorkbookDataInput, sampleName: string) {
       );
       axIds.add(childNamed(ax, 'axId')[0]!.getAttribute('val') ?? '');
     }
-    for (const bar of childNamed(plot, 'barChart')) {
-      expectOrder(bar, BAR_CHART_ORDER, `${part} barChart`);
+    const kinds = [
+      ['barChart', BAR_CHART_ORDER, BAR_SER_ORDER],
+      ['lineChart', LINE_CHART_ORDER, LINE_SER_ORDER],
+      ['pieChart', PIE_CHART_ORDER, PIE_SER_ORDER],
+      ['doughnutChart', PIE_CHART_ORDER, PIE_SER_ORDER],
+    ] as const;
+    const plotted = kinds.flatMap(([tag, order, serOrder]) =>
+      childNamed(plot, tag).map((el) => ({ el, order, serOrder })),
+    );
+    expect(plotted, `${part}: one chart type`).toHaveLength(1);
+    for (const { el: bar, order, serOrder } of plotted) {
+      expectOrder(bar, order, `${part} ${bar.localName}`);
       for (const id of childNamed(bar, 'axId')) expect(axIds).toContain(id.getAttribute('val'));
+      if (bar.localName === 'doughnutChart' || bar.localName === 'pieChart') {
+        expect(bar.getElementsByTagName('c:dLblPos')).toHaveLength(0);
+      }
       for (const ser of childNamed(bar, 'ser')) {
-        expectOrder(ser, BAR_SER_ORDER, `${part} ser`);
+        expectOrder(ser, serOrder, `${part} ser`);
         for (const lbl of childNamed(ser, 'dLbls')) expectOrder(lbl, DLBLS_ORDER, `${part} dLbls`);
         for (const tag of ['cat', 'val']) {
           const holder = childNamed(ser, tag)[0]!;
@@ -590,4 +650,64 @@ describe('the Excel workbook structure', () => {
     const { data } = await checkWorkbook(largeBoard(3000), 'large-board');
     expect(data.items.rows.length).toBe(3000 + 200);
   }, 60_000);
+
+  it('is valid for a board with every view type', async () => {
+    const { sheetNames, texts, data } = await checkWorkbook(viewsBoard(), 'all-views');
+    expect(sheetNames).toEqual([
+      'Summary',
+      'Items',
+      'Kanban',
+      'Calendar',
+      'Timeline',
+      'Gantt',
+      'Chart',
+      'Workload',
+    ]);
+    // One sheet per view type: the first Chart view (bar), not the second (pie).
+    expect(data.views?.filter((v) => v.type === 'chart')).toHaveLength(1);
+    const summary = texts['xl/worksheets/sheet1.xml'] as string;
+    for (const name of ['Kanban', 'Calendar', 'Timeline', 'Gantt', 'Chart', 'Workload']) {
+      expect(summary).toContain(`location="'${name}'!A1"`);
+    }
+    const gantt = texts['xl/worksheets/sheet6.xml'] as string;
+    expect(gantt).toContain('<t>Yes</t>'); // the critical path
+    expect(gantt).toContain('<t>Brief</t>');
+    // Summary: status and workload charts; Chart and Workload sheets: one each.
+    expect(Object.keys(texts).filter((n) => /^xl\/charts\//.test(n))).toHaveLength(4);
+  });
+
+  it.each(['stacked_bar', 'line', 'donut', 'pie'] as const)(
+    'is valid with a %s Chart view',
+    async (chartType) => {
+      const { texts } = await checkWorkbook(viewsBoard(chartType), `chart-${chartType}`);
+      const charts = Object.entries(texts).filter(([n]) => n.startsWith('xl/charts/'));
+      const tag = {
+        stacked_bar: 'c:barChart',
+        line: 'c:lineChart',
+        donut: 'c:doughnutChart',
+        pie: 'c:pieChart',
+      }[chartType];
+      expect(charts.some(([, t]) => t.includes(`<${tag}>`))).toBe(true);
+    },
+  );
+
+  it('is valid for a large board with every view, and says where the caps cut', async () => {
+    const { data, texts } = await checkWorkbook(largeViewsBoard(), 'large-all-views');
+    const timeline = data.views?.find((v) => v.type === 'timeline');
+    expect(
+      timeline && 'rows' in timeline ? timeline.rows.filter((r) => r.kind === 'item') : [],
+    ).toHaveLength(500);
+    const calendar = data.views?.find((v) => v.type === 'calendar');
+    expect(calendar && 'months' in calendar ? calendar.months : []).toHaveLength(24);
+    expect(texts['xl/worksheets/sheet5.xml']).toContain('Showing the first 500 of 1200 items.');
+    expect(texts['xl/worksheets/sheet4.xml']).toContain('Only the last 24 of');
+  }, 120_000);
+
+  it('leaves view sheets out of a selection export', async () => {
+    const { sheetNames } = await checkWorkbook(
+      { ...viewsBoard(), itemIds: ['v1', 'v2'] },
+      'selection',
+    );
+    expect(sheetNames).toEqual(['Summary', 'Items']);
+  });
 });
