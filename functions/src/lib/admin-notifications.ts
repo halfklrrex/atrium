@@ -1,6 +1,12 @@
 import type { WorkspaceRole } from '@atrium/shared';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
-import type { NotificationPurgeStore, NotificationStore } from './notifications';
+import type {
+  NotificationPurgeStore,
+  NotificationStore,
+  NotificationUpsertStore,
+} from './notifications';
+import { adminPushDeps } from './admin-push';
+import { sendPush, withPushOnCreate } from './push';
 
 /** gRPC status `ALREADY_EXISTS`, which `create()` rejects with when the document is there. */
 const ALREADY_EXISTS = 6;
@@ -9,8 +15,10 @@ const str = (value: unknown): string | undefined =>
   typeof value === 'string' && value ? value : undefined;
 
 /** Adapts the Admin SDK to the narrow store the notification logic reads and writes through. */
-export function adminNotificationStore(firestore: Firestore): NotificationStore {
-  return {
+export function adminNotificationStore(
+  firestore: Firestore,
+): NotificationStore & NotificationUpsertStore {
+  const base: NotificationStore & NotificationUpsertStore = {
     async getBoard(boardId) {
       const snap = await firestore.collection('boards').doc(boardId).get();
       if (!snap.exists) return null;
@@ -66,6 +74,15 @@ export function adminNotificationStore(firestore: Firestore): NotificationStore 
         .get();
       return snap.exists ? (str(snap.get('authorId')) ?? null) : null;
     },
+    async upsertNotification(uid, id, data) {
+      // `set`, not `create`: one card per thread per person, moved to the top and unread again.
+      await firestore
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .doc(id)
+        .set({ ...data, createdAt: FieldValue.serverTimestamp(), readAt: null });
+    },
     async createNotification(uid, id, data) {
       const ref = firestore.collection('users').doc(uid).collection('notifications').doc(id);
       try {
@@ -78,6 +95,11 @@ export function adminNotificationStore(firestore: Firestore): NotificationStore 
       }
     },
   };
+  // Every notification writer builds this store, so this one wrap pushes for all of them (PWA-3).
+  // `getMessaging()` is resolved lazily, only when a notification was actually written.
+  return withPushOnCreate(base, (uid, id, data) =>
+    sendPush(adminPushDeps(firestore), uid, id, data),
+  );
 }
 
 /** Collection-group access for the retention sweep. */

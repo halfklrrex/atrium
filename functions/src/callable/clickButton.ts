@@ -2,17 +2,14 @@ import { clickButtonRequestSchema, clickButtonResultSchema } from '@atrium/share
 import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { actorFromRequest } from '../lib/actor';
 import { adminColumnActionsTx, db } from '../lib/admin';
 import { adminNotificationStore } from '../lib/admin-notifications';
 import { clickButtonInTransaction } from '../lib/column-actions';
 import { deliverButtonNotifications } from '../lib/notifications';
 
 export const clickButton = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in to continue.');
-  }
-
-  const { uid } = request.auth;
+  const { uid } = actorFromRequest(request);
   const parsed = clickButtonRequestSchema.safeParse(request.data ?? {});
   if (!parsed.success) {
     throw new HttpsError('invalid-argument', 'Invalid clickButton request.', parsed.error.issues);

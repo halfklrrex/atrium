@@ -1,5 +1,6 @@
 import { revertColumnTypeRequestSchema, revertColumnTypeResultSchema } from '@atrium/shared';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { actorFromRequest } from '../lib/actor';
 import { adminColumnTypeChangeStore, db } from '../lib/admin';
 import { revertColumnTypeLogic } from '../lib/column-type-change';
 
@@ -7,9 +8,7 @@ import { revertColumnTypeLogic } from '../lib/column-type-change';
 export const revertColumnType = onCall(
   { timeoutSeconds: 540, memory: '512MiB' },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Sign in to continue.');
-    }
+    const actor = actorFromRequest(request);
     const parsed = revertColumnTypeRequestSchema.safeParse(request.data ?? {});
     if (!parsed.success) {
       throw new HttpsError(
@@ -20,7 +19,7 @@ export const revertColumnType = onCall(
     }
     const result = await revertColumnTypeLogic(
       adminColumnTypeChangeStore(db()),
-      request.auth.uid,
+      actor.uid,
       parsed.data,
     );
     return revertColumnTypeResultSchema.parse(result);

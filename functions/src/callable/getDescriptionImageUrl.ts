@@ -3,13 +3,12 @@ import {
   getDescriptionImageUrlResultSchema,
 } from '@atrium/shared';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { actorFromRequest } from '../lib/actor';
 import { adminDescriptionImageTx, adminFileStorageBucket, db } from '../lib/admin';
 import { getDescriptionImageUrlInTransaction } from '../lib/description-images';
 
 export const getDescriptionImageUrl = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in to continue.');
-  }
+  const actor = actorFromRequest(request);
   const parsed = getDescriptionImageUrlRequestSchema.safeParse(request.data ?? {});
   if (!parsed.success) {
     throw new HttpsError(
@@ -18,7 +17,7 @@ export const getDescriptionImageUrl = onCall(async (request) => {
       parsed.error.issues,
     );
   }
-  const { uid } = request.auth;
+  const { uid } = actor;
   const firestore = db();
   const bucket = adminFileStorageBucket();
   const result = await firestore.runTransaction((tx) =>

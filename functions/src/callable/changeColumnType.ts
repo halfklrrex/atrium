@@ -1,5 +1,6 @@
 import { changeColumnTypeRequestSchema, changeColumnTypeResultSchema } from '@atrium/shared';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { actorFromRequest } from '../lib/actor';
 import { adminColumnTypeChangeStore, db } from '../lib/admin';
 import { changeColumnTypeLogic } from '../lib/column-type-change';
 
@@ -10,9 +11,7 @@ import { changeColumnTypeLogic } from '../lib/column-type-change';
 export const changeColumnType = onCall(
   { timeoutSeconds: 540, memory: '512MiB' },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Sign in to continue.');
-    }
+    const actor = actorFromRequest(request);
     const parsed = changeColumnTypeRequestSchema.safeParse(request.data ?? {});
     if (!parsed.success) {
       throw new HttpsError(
@@ -23,7 +22,7 @@ export const changeColumnType = onCall(
     }
     const result = await changeColumnTypeLogic(
       adminColumnTypeChangeStore(db()),
-      request.auth.uid,
+      actor.uid,
       parsed.data,
     );
     return changeColumnTypeResultSchema.parse(result);

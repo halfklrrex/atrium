@@ -3,13 +3,12 @@ import {
   finalizeUpdateAttachmentResultSchema,
 } from '@atrium/shared';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { actorFromRequest } from '../lib/actor';
 import { adminFileStorageBucket, adminUpdateAttachmentTx, db } from '../lib/admin';
 import { finalizeUpdateAttachmentInTransaction } from '../lib/update-attachments';
 
 export const finalizeUpdateAttachment = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in to continue.');
-  }
+  const actor = actorFromRequest(request);
   const parsed = finalizeUpdateAttachmentRequestSchema.safeParse(request.data ?? {});
   if (!parsed.success) {
     throw new HttpsError(
@@ -18,7 +17,7 @@ export const finalizeUpdateAttachment = onCall(async (request) => {
       parsed.error.issues,
     );
   }
-  const { uid } = request.auth;
+  const { uid } = actor;
   const firestore = db();
   const bucket = adminFileStorageBucket();
   const outcome = await firestore.runTransaction((tx) =>

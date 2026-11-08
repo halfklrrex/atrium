@@ -1,12 +1,11 @@
 import { requestFileUploadRequestSchema, requestFileUploadResultSchema } from '@atrium/shared';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { actorFromRequest } from '../lib/actor';
 import { adminFileStorageBucket, adminFileStorageTx, db } from '../lib/admin';
 import { requestFileUploadInTransaction } from '../lib/file-storage';
 
 export const requestFileUpload = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in to continue.');
-  }
+  const actor = actorFromRequest(request);
 
   const parsed = requestFileUploadRequestSchema.safeParse(request.data ?? {});
   if (!parsed.success) {
@@ -17,7 +16,7 @@ export const requestFileUpload = onCall(async (request) => {
     );
   }
 
-  const { uid } = request.auth;
+  const { uid } = actor;
   const firestore = db();
   const bucket = adminFileStorageBucket();
 
