@@ -33,8 +33,9 @@ import { useTableStore } from '../board-table/table-store';
 import { useUiStore } from '../AppShell/ui-store';
 import { FavoriteFilled } from './FavoriteStar';
 import { boardActions } from './board-actions';
-import { buildBoardCsvRows } from './board-export';
+import { buildBoardCsvRows, type BoardCsvInput } from './board-export';
 import { runExport, type ExportFormat } from './export-run';
+import { buildBoardWorkbookData } from './workbook-data';
 
 import { canLeaveBoard } from './board-sharing';
 import { folderChoices } from './folder-choices';
@@ -121,34 +122,38 @@ function BoardMenuContent({
     }
   };
 
+  /** The rows and columns to export: the open view's (filters, search, hidden columns) or all. */
+  const exportInput = (): BoardCsvInput => {
+    const allColumns = buildColumnViews(board.columns);
+    const models = buildGroupModels({
+      groups: board.groups,
+      items,
+      columns: allColumns,
+      subitemColumns: buildColumnViews(board.subitemColumns ?? []),
+      search: exportOpenView ? search.trim() : '',
+      filterState: exportOpenView ? filterState : undefined,
+      userLookup: (id) => memberLookup(id)?.name,
+    });
+    return {
+      board,
+      items: models.flatMap((m) => m.items),
+      subitems: items.filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
+      columns: board.columns,
+      subitemColumns: board.subitemColumns ?? [],
+      hiddenColumnIds: exportOpenView ? viewHiddenIds : [],
+      groups: board.groups,
+      personNames: (id) => memberLookup(id)?.name,
+    };
+  };
+
   const exportBoard = (format: ExportFormat) =>
     runExport({
       format,
       boardName: board.name,
       itemCount: items.length,
-      buildRows: (fmt) => {
-        const allColumns = buildColumnViews(board.columns);
-        const models = buildGroupModels({
-          groups: board.groups,
-          items,
-          columns: allColumns,
-          subitemColumns: buildColumnViews(board.subitemColumns ?? []),
-          search: exportOpenView ? search.trim() : '',
-          filterState: exportOpenView ? filterState : undefined,
-          userLookup: (id) => memberLookup(id)?.name,
-        });
-        return buildBoardCsvRows({
-          board,
-          items: models.flatMap((m) => m.items),
-          subitems: items.filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
-          columns: board.columns,
-          subitemColumns: board.subitemColumns ?? [],
-          hiddenColumnIds: exportOpenView ? viewHiddenIds : [],
-          groups: board.groups,
-          personNames: (id) => memberLookup(id)?.name,
-          typed: fmt === 'xlsx',
-        });
-      },
+      buildRows: () => buildBoardCsvRows(exportInput()),
+      buildWorkbook: () =>
+        buildBoardWorkbookData({ ...exportInput(), boardName: board.name, now: new Date() }),
     });
 
   return (

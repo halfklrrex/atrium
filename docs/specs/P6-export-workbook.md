@@ -53,7 +53,7 @@ Slices 1 and 2 (`P6-export-csv.md`) built the CSV, a plain one-sheet `.xlsx` (`p
 | Links                     | Figtree 10 brand blue, underlined.                                                                                                                                                                       |
 | Notes and source line     | Figtree 9 italic `#676879`.                                                                                                                                                                              |
 | Number formats            | Numbers `General` (right aligned); counts `#,##0`; shares `0%`; dates `d mmm yyyy`; date and time `d mmm yyyy hh:mm`.                                                                                    |
-| Gridlines and tabs        | `showGridLines="0"` on every designed sheet; tab colours: Summary brand blue, Items `#00C875`, view sheets `#A25DDC`.                                                                                    |
+| Gridlines and tabs        | `showGridLines="0"` on every designed sheet; tab colours: Summary brand blue, Items `#00C875`, view sheets `#9D50DD`.                                                                                    |
 
 ## Summary sheet (intro dashboard)
 

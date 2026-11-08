@@ -9,8 +9,9 @@ import {
 } from '@vibe/core';
 import { Archive, Close, Delete, Download, Duplicate } from '@vibe/icons';
 import { useMemo } from 'react';
-import { buildBoardCsvRows } from '../boards/board-export';
+import { buildBoardCsvRows, type BoardCsvInput } from '../boards/board-export';
 import { runExport, type ExportFormat } from '../boards/export-run';
+import { buildBoardWorkbookData } from '../boards/workbook-data';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import { useTableStore } from './table-store';
@@ -43,24 +44,31 @@ export function BatchBar() {
       format,
       boardName: env.boardName ?? 'Board',
       itemCount: items.length,
-      buildRows: (fmt) => {
-        const shown = new Set(env.columns.map((c) => c.def.id));
-        return buildBoardCsvRows({
-          board: { id: env.boardId },
-          items: env.getModels().flatMap((m) => m.items),
-          itemIds: ids,
-          subitems: env
-            .getItems()
-            .filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
-          columns: ctx.columns,
-          subitemColumns: ctx.subitemColumns ?? [],
-          hiddenColumnIds: ctx.columns.map((c) => c.id).filter((id) => !shown.has(id)),
-          groups: env.groups,
-          personNames: env.userLookup ?? (() => undefined),
-          typed: fmt === 'xlsx',
-        });
-      },
+      buildRows: () => buildBoardCsvRows(selectionInput()),
+      // The Summary and Items describe the selection only; view sheets are left out (spec).
+      buildWorkbook: () =>
+        buildBoardWorkbookData({
+          ...selectionInput(),
+          boardName: env.boardName ?? 'Board',
+          now: new Date(),
+        }),
     });
+  const selectionInput = (): BoardCsvInput => {
+    const shown = new Set(env.columns.map((c) => c.def.id));
+    return {
+      board: { id: env.boardId },
+      items: env.getModels().flatMap((m) => m.items),
+      itemIds: ids,
+      subitems: env
+        .getItems()
+        .filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
+      columns: ctx.columns,
+      subitemColumns: ctx.subitemColumns ?? [],
+      hiddenColumnIds: ctx.columns.map((c) => c.id).filter((id) => !shown.has(id)),
+      groups: env.groups,
+      personNames: env.userLookup ?? (() => undefined),
+    };
+  };
   const exportButton = (
     <Dialog
       showTrigger={['click']}
