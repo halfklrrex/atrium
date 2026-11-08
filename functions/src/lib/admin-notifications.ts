@@ -5,6 +5,8 @@ import type {
   NotificationStore,
   NotificationUpsertStore,
 } from './notifications';
+import { adminPushDeps } from './admin-push';
+import { sendPush, withPushOnCreate } from './push';
 
 /** gRPC status `ALREADY_EXISTS`, which `create()` rejects with when the document is there. */
 const ALREADY_EXISTS = 6;
@@ -16,7 +18,7 @@ const str = (value: unknown): string | undefined =>
 export function adminNotificationStore(
   firestore: Firestore,
 ): NotificationStore & NotificationUpsertStore {
-  return {
+  const base: NotificationStore & NotificationUpsertStore = {
     async getBoard(boardId) {
       const snap = await firestore.collection('boards').doc(boardId).get();
       if (!snap.exists) return null;
@@ -93,6 +95,11 @@ export function adminNotificationStore(
       }
     },
   };
+  // Every notification writer builds this store, so this one wrap pushes for all of them (PWA-3).
+  // `getMessaging()` is resolved lazily, only when a notification was actually written.
+  return withPushOnCreate(base, (uid, id, data) =>
+    sendPush(adminPushDeps(firestore), uid, id, data),
+  );
 }
 
 /** Collection-group access for the retention sweep. */
