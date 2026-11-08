@@ -10,6 +10,13 @@ import { Look, ROW_H, SUMMARY_SHEET, header, medium, subtitleText, thin } from '
 import { PALETTE } from './palette';
 import { SheetWriter, type Range } from './sheet';
 import type { BorderSide, StyleSpec } from './styles';
+import {
+  VIEW_SHEET_NAMES,
+  VIEW_SHEET_ORDER,
+  buildViewSheet,
+  viewSheetDescription,
+  type ViewSheetData,
+} from './view-sheets';
 import { absRange, quoteSheet } from './xml';
 
 /** One row of a breakdown table (status labels, groups, people). */
@@ -65,6 +72,8 @@ export interface BoardWorkbookData {
   priority: WorkbookBreakdown | null;
   groups: WorkbookBreakdown;
   people: WorkbookBreakdown | null;
+  /** View sheets, one per view type (a selection export has none). */
+  views?: ViewSheetData[];
   items: {
     /** Header texts: Item, Group, Parent item (when `hasSubitems`), then the board columns. */
     header: string[];
@@ -381,7 +390,6 @@ function buildSummary(
   if (data.status) tables.push({ table: data.status, third: 'share', first: 'Label' });
   if (data.priority) tables.push({ table: data.priority, third: 'share', first: 'Label' });
   tables.push({ table: data.groups, third: 'done', first: 'Group' });
-  if (data.people) tables.push({ table: data.people, third: 'done', first: 'Person' });
 
   const toSection =
     (t: (typeof tables)[number]): Section =>
@@ -416,14 +424,48 @@ function buildSummary(
     row = end + 1;
   }
 
-  const rest: Section[] = [...tables.slice(1).map(toSection), linksSection(look, links)];
-  for (let i = 0; i < rest.length; i += 2) {
+  const pair = (sections: Section[]) => {
+    for (let i = 0; i < sections.length; i += 2) {
+      const top = row;
+      const leftEnd = sections[i]!(sheet, top, LEFT);
+      const right = sections[i + 1];
+      const rightEnd = right ? right(sheet, top, RIGHT) : top;
+      row = Math.max(leftEnd, rightEnd) + 1;
+    }
+  };
+  pair(tables.slice(1).map(toSection));
+
+  // Workload by person, with a native bar chart of the same counts on the right.
+  if (data.people) {
     const top = row;
-    const leftEnd = rest[i]!(sheet, top, LEFT);
-    const right = rest[i + 1];
-    const rightEnd = right ? right(sheet, top, RIGHT) : top;
-    row = Math.max(leftEnd, rightEnd) + 1;
+    const placed = breakdownTable(sheet, look, top, LEFT, data.people, 'done', 'Person');
+    sectionBar(sheet, look, top, RIGHT, 'Workload chart');
+    const people = data.people;
+    if (people.rows.length > 0) {
+      const q = quoteSheet(sheet.name);
+      const height = Math.max(CHART_ROWS, Math.min(30, people.rows.length + 4));
+      sheet.addChart({
+        kind: 'bar',
+        direction: 'bar',
+        title: 'Items by person',
+        categoriesRef: `${q}!${absRange(placed.labels.c1, placed.labels.r1, placed.labels.c2, placed.labels.r2)}`,
+        categories: people.rows.map((r) => r.label),
+        series: [
+          {
+            name: 'Items',
+            valuesRef: `${q}!${absRange(placed.counts.c1, placed.counts.r1, placed.counts.c2, placed.counts.r2)}`,
+            values: people.rows.map((r) => r.count),
+            color: PALETTE.brand,
+          },
+        ],
+        anchor: { fromCol: RIGHT, fromRow: top, toCol: RIGHT + 3, toRow: top + height },
+      });
+      const end = Math.max(placed.next, top + 1 + height);
+      for (let r = placed.next; r < end; r += 1) sheet.setHeight(r, ROW_H);
+      row = end + 1;
+    } else row = placed.next + 1;
   }
+  pair([linksSection(look, links)]);
 
   const scope = data.selection
     ? 'Figures describe the selected items only.'
@@ -661,10 +703,20 @@ export function buildBoardWorkbookParts(data: BoardWorkbookData): Record<string,
       description: `Every exported row (${itemCount} ${itemCount === 1 ? 'row' : 'rows'}) with its visible columns`,
     },
   ];
+  // One sheet per view type, in a fixed order; never for a selection (spec).
+  const views = data.selection
+    ? []
+    : VIEW_SHEET_ORDER.flatMap((type) =>
+        (data.views ?? []).filter((v) => v.type === type).slice(0, 1),
+      );
+  for (const v of views) {
+    links.push({ name: VIEW_SHEET_NAMES[v.type], description: viewSheetDescription(v) });
+  }
   const summary = buildSummary(look, data, links);
   const items = buildItems(look, data);
+  const viewSheets = views.map((v) => buildViewSheet(look, data, v));
   return buildPackage({
-    sheets: [summary, items],
+    sheets: [summary, items, ...viewSheets],
     styles: look.st,
     title: data.boardName || 'Board',
     createdAt: data.createdAt,
