@@ -882,12 +882,6 @@
   background: var(--layout-border-color);
 }
 
-.batchExport {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
 .batchActions {
   display: flex;
   align-items: center;

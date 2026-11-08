@@ -1,4 +1,12 @@
-import { Button, Icon, IconButton, Menu, MenuButton, MenuItem } from '@vibe/core';
+import {
+  Button,
+  Dialog,
+  DialogContentContainer,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuItem,
+} from '@vibe/core';
 import { Archive, Close, Delete, Download, Duplicate } from '@vibe/icons';
 import { useMemo } from 'react';
 import { buildBoardCsvRows } from '../boards/board-export';
@@ -54,18 +62,24 @@ export function BatchBar() {
       },
     });
   const exportButton = (
-    <MenuButton
-      aria-label="Export"
-      component={ExportLabel}
-      size="small"
-      closeMenuOnItemClick
-      dialogPosition="top-start"
+    <Dialog
+      showTrigger={['click']}
+      hideTrigger={['clickoutside', 'esckey', 'onContentClick']}
+      position="top-start"
+      moveBy={{ main: 0, secondary: 0 }}
+      content={
+        <DialogContentContainer>
+          <Menu id="batch-export-menu" size="medium">
+            <MenuItem title="CSV" onClick={() => void exportSelection('csv')} />
+            <MenuItem title="Excel (.xlsx)" onClick={() => void exportSelection('xlsx')} />
+          </Menu>
+        </DialogContentContainer>
+      }
     >
-      <Menu id="batch-export-menu" size="medium">
-        <MenuItem title="CSV" onClick={() => void exportSelection('csv')} />
-        <MenuItem title="Excel (.xlsx)" onClick={() => void exportSelection('xlsx')} />
-      </Menu>
-    </MenuButton>
+      <Button kind="tertiary" size="small" leftIcon={Download} aria-haspopup="menu">
+        Export
+      </Button>
+    </Dialog>
   );
   const afterAction = (ok: boolean | void) => {
     if (ok !== false) clear();
@@ -161,15 +175,5 @@ export function BatchBar() {
         </span>
       </div>
     </div>
-  );
-}
-
-/** The Export button's face: the download icon and its label (a MenuButton has no text prop). */
-function ExportLabel() {
-  return (
-    <span className={styles.batchExport}>
-      <Icon icon={Download} size={16} />
-      Export
-    </span>
   );
 }
