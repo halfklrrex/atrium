@@ -2,6 +2,19 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Excel workbook redesign (branch `claude/export-workbook`, not merged yet)
+
+Spec: `docs/specs/P6-export-workbook.md`. Export a board from the board menu > Export > Excel (.xlsx), and a few selected rows from the batch bar > Export > Excel. Open each file in **Excel** and in **Numbers**.
+
+- **Font:** everything is in Figtree. A file cannot carry a font: if Figtree is not installed, Excel shows a sans-serif instead, and Numbers (or Quick Look) may show a serif font. Installing Figtree from Google Fonts (free) shows it as designed. Tell me if you prefer Arial (Q1 in the spec).
+- **Summary (first sheet):** blue banner with the board name, the export date and the item count; a colour stripe in your status colours; eight cards (Items, Done, In progress, Overdue, Due in 7 days, No date, People, Groups); a Status table with the label colours, item counts with blue in-cell bars and shares; a column chart of the same in the label colours; Priority (when a status column is called "Priority"), Groups and Workload by person tables; "In this workbook" with a link to Items. Check that the numbers match the board, that the chart shows, and that the link jumps to Items.
+- **Items:** frozen header row and Item column (scroll right and down), filter arrows on the header, a thin coloured edge in the group colour on each row, the Group in its colour, status and priority cells filled like in the table (empty ones grey), dates as dates (8 Nov 2026), numbers as numbers, ticked checkboxes as a green ✓, long text wrapped, subitems indented under their parent with the parent's group. "‹ Summary" (top right) goes back.
+- **Selection export:** the subtitle says "Selection of N items (of M on the board)" and the Summary describes only those items. No view sheets (Q4).
+- **CSV:** same columns as before; subitem rows now show their parent's Group, and two columns with the same name come out as "Status" and "Status (2)".
+- **Known in Numbers:** no in-cell data bars, tab colours may not show, links between sheets may not work, the chart may look restyled. Excel shows all of them.
+- **Printing:** Items prints landscape, one page wide, with the header row repeated; the Summary prints portrait, one page wide.
+- **Not checked by me:** I could not open the files in Excel or Numbers. They pass a strict structure test, the official ECMA-376 schemas, and a second reader (openpyxl); Quick Look renders the tables but does not draw charts, so the charts are only checked structurally.
+
 ## Appeals and feedback Inbox (live)
 
 - **Send feedback (any approved account):** profile menu > Send feedback: pick a category, write a subject and message, Send. A toast says "Thanks, your feedback was sent." with a View link. Also try the Home page's Give feedback button and the icon in the Automation center header. Profile menu > My feedback lists your conversations; open one to read a reply and answer.
