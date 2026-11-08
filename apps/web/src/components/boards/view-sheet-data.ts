@@ -20,6 +20,7 @@ import {
   defaultKanbanSettings,
   defaultTimelineViewSettings,
   defaultWorkloadSettings,
+  monthFirstDate,
   type BoardFilterState,
   type CalendarEntry,
   type ColumnDef,
@@ -132,7 +133,9 @@ function kanban(ctx: Ctx, view: BoardViewDoc): ViewSheetData {
             ctx.input.personNames,
             ctx.itemNames,
           );
-          return text ? `${c.def.title}: ${text.replace(/\s*\n\s*/g, ' ')}` : '';
+          // Dates read like the workbook's date cells ("Nov 2, 2026"); the CSV keeps ISO.
+          const shown = c.def.type === 'date' ? monthFirstDate(text) : text;
+          return shown ? `${c.def.title}: ${shown.replace(/\s*\n\s*/g, ' ')}` : '';
         }),
       })),
     })),

@@ -10,6 +10,7 @@ export {
   type WorkbookFigures,
   type WorkbookItemRow,
 } from './board-workbook';
+export { monthFirstDate } from './look';
 export { PALETTE as WORKBOOK_PALETTE, WORKBOOK_FONT } from './palette';
 export { stripIllegalXmlChars, xlsxColumnName, xmlEscape } from './xml';
 export {

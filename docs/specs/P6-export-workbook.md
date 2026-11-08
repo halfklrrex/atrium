@@ -104,8 +104,9 @@ The owner reviewed the workbook in Excel and asked for "Nov 26, 2026" instead of
 Where dates appear:
 
 - **Date cells (number format):** Items, every Date column and the date part of date-time values; Timeline and Gantt, the Start and End columns.
+- **Kanban card lines:** a Date column's value reads "Due date: Nov 2, 2026" ("Nov 2, 2026 14:05" with a time), written by `monthFirstDate` in `look.ts` with fixed English month names (not locale-dependent), because card lines are text.
 - **Text in the same month-first style:** the "Exported Nov 8, 2026, 14:32" subtitle on every sheet and the Summary's source line (`Intl` `en-US`, 24-hour).
-- **Unchanged text labels:** the Calendar's month titles ("NOVEMBER 2026") and day numbers, the Timeline and Gantt month row ("Nov 2026") and day-of-month row, the Workload period labels (the app's own "W45 9 - 15"), the Chart view's date buckets (the app's labels), and the Kanban card lines (the CSV's `toText`, `2026-11-02`). These are headings or app text, not date cells.
+- **Unchanged text labels:** the Calendar's month titles ("NOVEMBER 2026") and day numbers, the Timeline and Gantt month row ("Nov 2026") and day-of-month row, the Workload period labels (the app's own "W45 9 - 15") and the Chart view's date buckets (the app's labels). These are headings or app text, not date cells.
 - The CSV keeps ISO dates (`2026-11-26`), the format import tools read.
 
 ## Charts in OOXML (rules the writer follows)
