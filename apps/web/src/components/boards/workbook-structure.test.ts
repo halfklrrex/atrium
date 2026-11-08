@@ -694,9 +694,8 @@ describe('the Excel workbook structure', () => {
   it('is valid for a large board with every view, and says where the caps cut', async () => {
     const { data, texts } = await checkWorkbook(largeViewsBoard(), 'large-all-views');
     const timeline = data.views?.find((v) => v.type === 'timeline');
-    expect(
-      timeline && 'rows' in timeline ? timeline.rows.filter((r) => r.kind === 'item') : [],
-    ).toHaveLength(500);
+    if (timeline?.type !== 'timeline') throw new Error('no timeline');
+    expect(timeline.rows.filter((r) => r.kind === 'item')).toHaveLength(500);
     const calendar = data.views?.find((v) => v.type === 'calendar');
     expect(calendar && 'months' in calendar ? calendar.months : []).toHaveLength(24);
     expect(texts['xl/worksheets/sheet5.xml']).toContain('Showing the first 500 of 1200 items.');
