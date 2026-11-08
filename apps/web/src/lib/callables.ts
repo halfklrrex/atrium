@@ -1,10 +1,21 @@
 import {
   LIST_ACCOUNTS_CALLABLE,
+  MANAGE_INBOX_THREAD_CALLABLE,
+  SEND_INBOX_MESSAGE_CALLABLE,
   SET_ACCOUNT_STATUS_CALLABLE,
+  manageInboxThreadRequestSchema,
+  manageInboxThreadResultSchema,
+  sendInboxMessageRequestSchema,
+  sendInboxMessageResultSchema,
   listAccountsRequestSchema,
   listAccountsResultSchema,
   setAccountStatusRequestSchema,
   setAccountStatusResultSchema,
+  type InboxErrorReason,
+  type ManageInboxThreadRequest,
+  type ManageInboxThreadResult,
+  type SendInboxMessageRequest,
+  type SendInboxMessageResult,
   type ListAccountsRequest,
   type ListAccountsResult,
   type SetAccountStatusRequest,
@@ -269,6 +280,20 @@ export const accountAdminCalls = {
   ),
 };
 
+/** Appeals and feedback Inbox (ADMIN-4): `send` is the sender side, `manage` the admin side. */
+export const inboxCalls = {
+  send: validatedCallable<SendInboxMessageRequest, SendInboxMessageResult>(
+    SEND_INBOX_MESSAGE_CALLABLE,
+    (r) => sendInboxMessageRequestSchema.parse(r),
+    (d) => sendInboxMessageResultSchema.parse(d),
+  ),
+  manage: validatedCallable<ManageInboxThreadRequest, ManageInboxThreadResult>(
+    MANAGE_INBOX_THREAD_CALLABLE,
+    (r) => manageInboxThreadRequestSchema.parse(r),
+    (d) => manageInboxThreadResultSchema.parse(d),
+  ),
+};
+
 export const callClickButton = validatedCallable<ClickButtonRequest, ClickButtonResult>(
   'clickButton',
   (r) => clickButtonRequestSchema.parse(r),
@@ -418,10 +443,16 @@ const FRIENDLY_CALLABLE_CODE_MESSAGES: Record<string, string> = {
   'resource-exhausted': 'Rate limit or quota reached. Please wait a moment and try again.',
 };
 
+const ACCOUNT_NOT_APPROVED_REASON: InboxErrorReason = 'account-not-approved';
+
 /** Message for a failed callable: the server explains refusals, anything else gets the fallback. */
 export function describeCallableError(error: unknown, fallback: string): string {
   const code = (error as { code?: string } | null)?.code ?? '';
   const message = (error as { message?: string } | null)?.message;
+  // Every callable refuses accounts that are not approved (ADMIN-4 PR3); the pages behind
+  // `RequireAuth` should never get here, so this is only a safety net.
+  const reason = (error as { details?: { reason?: unknown } } | null)?.details?.reason;
+  if (reason === ACCOUNT_NOT_APPROVED_REASON) return "Your account isn't approved yet.";
   const explained = [
     'functions/permission-denied',
     'permission-denied',

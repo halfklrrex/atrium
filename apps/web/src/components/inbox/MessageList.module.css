@@ -1,0 +1,50 @@
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+/* Message card: the same flat look as an item update. */
+.message {
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--primary-background-color);
+}
+
+.messageHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-16);
+}
+
+.avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-inline-end: var(--space-4);
+}
+
+.avatar > * {
+  width: var(--atrium-update-avatar-size);
+  height: var(--atrium-update-avatar-size);
+}
+
+.author {
+  font: var(--font-text2-bold);
+  color: var(--primary-text-color);
+}
+
+.messageTime {
+  font: var(--font-text2-normal);
+  color: var(--secondary-text-color);
+}
+
+.messageText {
+  padding: 0 var(--space-16) var(--space-16);
+  color: var(--primary-text-color);
+  font: var(--atrium-update-body-font);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
