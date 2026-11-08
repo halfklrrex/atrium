@@ -4,6 +4,8 @@ import { AppShell } from './components/AppShell/AppShell';
 import { DashboardPage } from './components/dashboard/DashboardPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { BoardPage } from './pages/BoardPage';
+import { FeedbackThreadView } from './pages/feedback/FeedbackThreadView';
+import { MyFeedbackPage } from './pages/feedback/MyFeedbackPage';
 import { FormPage } from './pages/FormPage';
 import { HomePage } from './pages/HomePage';
 import { InvitePage } from './pages/InvitePage';
@@ -26,6 +28,8 @@ export function App() {
           <Route path="admin" element={<AdminPage />} />
           <Route path="admin/inbox" element={<AdminPage tab="inbox" />} />
           <Route path="admin/inbox/:threadId" element={<AdminPage tab="inbox" />} />
+          <Route path="feedback" element={<MyFeedbackPage />} />
+          <Route path="feedback/:threadId" element={<FeedbackThreadView />} />
           <Route path="my-work" element={<MyWorkPage />} />
           <Route path="workspaces" element={<WorkspacesPage />} />
           <Route path="workspaces/:workspaceId" element={<WorkspacePage />} />
