@@ -16,6 +16,7 @@ import type { BoardDoc } from '../../data/model';
 import { useUserLookup } from '../../data/members-store';
 import { describeError } from '../boards/board-actions';
 import { openItem } from '../board-table/open-item';
+import { useUiStore } from '../AppShell/ui-store';
 import { PopupLayer } from '../PopupLayer';
 import { showToast } from '../toast-store';
 import { CENTER_PANEL_ID, CENTER_TAB_ID, CenterHeader, type CenterView } from './CenterHeader';
@@ -89,6 +90,7 @@ function CenterBody({
   onViewChange: (view: CenterView) => void;
 }) {
   const { user } = useAuth();
+  const openDialog = useUiStore((st) => st.openDialog);
   const uid = user?.uid ?? '';
   const isOwner = canManageBoard(role);
   const [tab, setTab] = useState<ManageTab>('recipes');
@@ -309,6 +311,9 @@ function CenterBody({
         view={view}
         onViewChange={changeView}
         manageCount={automations.data.length}
+        onGiveFeedback={() =>
+          openDialog({ type: 'feedback', category: 'idea', subject: 'Automation center' })
+        }
       />
       <div
         className={shell.body}

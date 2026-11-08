@@ -172,6 +172,17 @@ describe('Center shell', () => {
     expect(panel).toHaveAttribute('aria-labelledby', 'automation-center-tab-create');
   });
 
+  it('Give feedback opens the feedback dialog with Idea and "Automation center"', async () => {
+    useUiStore.setState({ dialog: null });
+    renderCenter();
+    fireEvent.click(screen.getByRole('button', { name: 'Give feedback' }));
+    expect(useUiStore.getState().dialog).toEqual({
+      type: 'feedback',
+      category: 'idea',
+      subject: 'Automation center',
+    });
+  });
+
   it('has one Close button that calls onClose', () => {
     const onClose = vi.fn();
     render(<AutomationCenter board={board} role="owner" onClose={onClose} />);

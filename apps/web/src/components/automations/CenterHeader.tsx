@@ -1,3 +1,5 @@
+import { IconButton } from '@vibe/core';
+import { Feedback } from '@vibe/icons';
 import type { KeyboardEvent } from 'react';
 import styles from './CenterHeader.module.css';
 
@@ -15,6 +17,8 @@ export interface CenterHeaderProps {
   onViewChange: (view: CenterView) => void;
   /** How many automations the board has; shown next to Manage. */
   manageCount: number;
+  /** Opens the Send feedback dialog; the icon button is left out when this is not given. */
+  onGiveFeedback?: () => void;
 }
 
 const VIEWS: readonly { view: CenterView; label: string }[] = [
@@ -32,6 +36,7 @@ export function CenterHeader({
   view,
   onViewChange,
   manageCount,
+  onGiveFeedback,
 }: CenterHeaderProps) {
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -79,6 +84,18 @@ export function CenterHeader({
           );
         })}
       </div>
+      {onGiveFeedback ? (
+        <div className={styles.actions}>
+          <IconButton
+            icon={Feedback}
+            kind="tertiary"
+            size="small"
+            ariaLabel="Give feedback"
+            tooltipContent="Give feedback"
+            onClick={onGiveFeedback}
+          />
+        </div>
+      ) : null}
     </header>
   );
 }
