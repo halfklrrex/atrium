@@ -1,10 +1,4 @@
-import {
-  canEditBoard,
-  canManageBoard,
-  csvFileName,
-  resolveBoardRole,
-  xlsxFileName,
-} from '@atrium/shared';
+import { canEditBoard, canManageBoard, resolveBoardRole } from '@atrium/shared';
 import { Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
 import {
   Archive,
@@ -36,21 +30,12 @@ import {
 import { useBoardFilter, useHiddenColumnIds } from '../board-filters';
 import { buildColumnViews, buildGroupModels } from '../board-table/table-model';
 import { useTableStore } from '../board-table/table-store';
-import { showToast, updateToast } from '../toast-store';
 import { useUiStore } from '../AppShell/ui-store';
 import { FavoriteFilled } from './FavoriteStar';
 import { boardActions } from './board-actions';
-import {
-  boardCsvText,
-  boardXlsxBytes,
-  buildBoardCsvRows,
-  downloadCsv,
-  downloadXlsx,
-} from './board-export';
+import { buildBoardCsvRows } from './board-export';
+import { runExport, type ExportFormat } from './export-run';
 
-/** Above this many items the "Exporting..." toast is shown before the file is built. */
-const LARGE_EXPORT_ROWS = 5000;
-const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 import { canLeaveBoard } from './board-sharing';
 import { folderChoices } from './folder-choices';
 
@@ -136,49 +121,35 @@ function BoardMenuContent({
     }
   };
 
-  const exportBoard = async (format: 'csv' | 'xlsx') => {
-    // Tell the user first and let the toast paint before the heavy work blocks the main thread.
-    const busyToast =
-      items.length > LARGE_EXPORT_ROWS ? showToast('Exporting...', { loading: true }) : null;
-    if (busyToast !== null) await nextTask();
-    try {
-      const allColumns = buildColumnViews(board.columns);
-      const models = buildGroupModels({
-        groups: board.groups,
-        items,
-        columns: allColumns,
-        subitemColumns: buildColumnViews(board.subitemColumns ?? []),
-        search: exportOpenView ? search.trim() : '',
-        filterState: exportOpenView ? filterState : undefined,
-        userLookup: (id) => memberLookup(id)?.name,
-      });
-      const rows = buildBoardCsvRows({
-        board,
-        items: models.flatMap((m) => m.items),
-        subitems: items.filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
-        columns: board.columns,
-        subitemColumns: board.subitemColumns ?? [],
-        hiddenColumnIds: exportOpenView ? viewHiddenIds : [],
-        groups: board.groups,
-        personNames: (id) => memberLookup(id)?.name,
-        typed: format === 'xlsx',
-      });
-      const count = rows.length - 1;
-      if (format === 'xlsx') {
-        downloadXlsx(xlsxFileName(board.name), await boardXlsxBytes(rows));
-      } else {
-        downloadCsv(csvFileName(board.name), boardCsvText(rows));
-      }
-      const done = `Exported ${count} ${count === 1 ? 'item' : 'items'}`;
-      if (busyToast !== null) updateToast(busyToast, done, { type: 'positive' });
-      else showToast(done, { type: 'positive' });
-    } catch (error) {
-      console.error('Could not export the board', error);
-      const failed = 'Could not export the board';
-      if (busyToast !== null) updateToast(busyToast, failed, { type: 'negative' });
-      else showToast(failed, { type: 'negative' });
-    }
-  };
+  const exportBoard = (format: ExportFormat) =>
+    runExport({
+      format,
+      boardName: board.name,
+      itemCount: items.length,
+      buildRows: (fmt) => {
+        const allColumns = buildColumnViews(board.columns);
+        const models = buildGroupModels({
+          groups: board.groups,
+          items,
+          columns: allColumns,
+          subitemColumns: buildColumnViews(board.subitemColumns ?? []),
+          search: exportOpenView ? search.trim() : '',
+          filterState: exportOpenView ? filterState : undefined,
+          userLookup: (id) => memberLookup(id)?.name,
+        });
+        return buildBoardCsvRows({
+          board,
+          items: models.flatMap((m) => m.items),
+          subitems: items.filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
+          columns: board.columns,
+          subitemColumns: board.subitemColumns ?? [],
+          hiddenColumnIds: exportOpenView ? viewHiddenIds : [],
+          groups: board.groups,
+          personNames: (id) => memberLookup(id)?.name,
+          typed: fmt === 'xlsx',
+        });
+      },
+    });
 
   return (
     <Menu id={`board-menu-${board.id}`} size="medium">

@@ -174,6 +174,48 @@ describe('buildBoardCsvRows', () => {
   });
 });
 
+describe('buildBoardCsvRows with itemIds (export from the selection)', () => {
+  const p1 = makeItem({ id: 'p1', name: 'Parent 1' });
+  const p2 = makeItem({ id: 'p2', name: 'Parent 2', values: { price: '3' } });
+  const p3 = makeItem({ id: 'p3', name: '=HYPERLINK("x")' });
+  const subs = [
+    makeItem({ id: 's1', name: 'Sub of 1', parentItemId: 'p1' }),
+    makeItem({ id: 's2', name: 'Sub of 2', parentItemId: 'p2' }),
+  ];
+  const withSubs = { ...base, items: [p1, p2, p3], subitems: subs };
+
+  it('exports only the selected items, in the order of the items it is given', () => {
+    const rows = buildBoardCsvRows({ ...withSubs, itemIds: ['p3', 'p1'] });
+    expect(rows.slice(1).map((r) => r[0])).toEqual(['Parent 1', 'Sub of 1', '=HYPERLINK("x")']);
+  });
+
+  it('keeps the formula-injection guard in the file text', () => {
+    const rows = buildBoardCsvRows({ ...withSubs, itemIds: ['p3'] });
+    expect(boardCsvText(rows)).toContain(`"'=HYPERLINK(""x"")"`);
+  });
+
+  it('includes the subitems of a selected parent and none of an unselected one', () => {
+    const rows = buildBoardCsvRows({ ...withSubs, itemIds: ['p2'] });
+    expect(rows.slice(1).map((r) => r[0])).toEqual(['Parent 2', 'Sub of 2']);
+  });
+
+  it('keeps the same columns, skips hidden ones and ignores unknown ids', () => {
+    const all = buildBoardCsvRows({ ...withSubs, hiddenColumnIds: ['status'] });
+    const some = buildBoardCsvRows({
+      ...withSubs,
+      hiddenColumnIds: ['status'],
+      itemIds: ['p2', 'nope'],
+    });
+    expect(some[0]).toEqual(all[0]);
+    expect(some[0]).not.toContain('Status');
+    expect(some).toHaveLength(3);
+  });
+
+  it('exports nothing but the header for an empty selection', () => {
+    expect(buildBoardCsvRows({ ...withSubs, itemIds: [] })).toHaveLength(1);
+  });
+});
+
 describe('boardCsvText', () => {
   it('starts with the BOM and escapes through the shared helpers', () => {
     const rows = buildBoardCsvRows({
