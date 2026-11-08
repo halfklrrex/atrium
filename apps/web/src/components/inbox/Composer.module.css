@@ -1,0 +1,32 @@
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-16);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--primary-background-color);
+  text-align: start;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.counter {
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.counterOver {
+  color: var(--negative-color);
+}
+
+.error {
+  margin: 0;
+  color: var(--negative-color);
+  font: var(--font-text2-normal);
+}

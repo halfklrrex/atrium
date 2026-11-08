@@ -27,6 +27,8 @@ const account = (uid: string, over: Partial<AuthAccount> = {}): AuthAccount => (
 });
 
 class FakeAuth implements AccountAuth {
+  /** Shared with the store: every mutating call in order, across both fakes. */
+  order: string[] = [];
   users = new Map<string, AuthAccount>();
   calls: string[] = [];
   constructor(...accounts: AuthAccount[]) {
@@ -37,15 +39,18 @@ class FakeAuth implements AccountAuth {
   }
   setClaims(uid: string, claims: Record<string, unknown>) {
     this.calls.push(`claims:${uid}`);
+    this.order.push(`claims:${uid}`);
     this.users.get(uid)!.claims = claims;
     return Promise.resolve();
   }
   revokeRefreshTokens(uid: string) {
     this.calls.push(`revoke:${uid}`);
+    this.order.push(`revoke:${uid}`);
     return Promise.resolve();
   }
   setDisabled(uid: string, disabled: boolean) {
     this.calls.push(`disabled:${uid}:${disabled}`);
+    this.order.push(`disabled:${uid}:${disabled}`);
     this.users.get(uid)!.disabled = disabled;
     return Promise.resolve();
   }
@@ -64,6 +69,8 @@ class FakeAuth implements AccountAuth {
 }
 
 class FakeStore implements AccountStore {
+  order: string[] = [];
+  failOnStatusWrite = false;
   statuses = new Map<string, AccountStatus>();
   workspaces: string[] = [];
   audit: AccountAuditEntry[] = [];
@@ -81,12 +88,23 @@ class FakeStore implements AccountStore {
     return Promise.resolve(`ws-${identity.uid}`);
   }
   setAccountStatus(uid: string, status: AccountStatus) {
+    if (this.failOnStatusWrite) return Promise.reject(new Error('write failed'));
+    this.order.push(`doc:${uid}:${status}`);
     this.statuses.set(uid, status);
     return Promise.resolve();
   }
   appendAudit(entry: AccountAuditEntry) {
+    this.order.push(`audit:${entry.action}`);
     this.audit.push(entry);
     return Promise.resolve();
+  }
+  closedAppeals: string[] = [];
+  failCloseAppeals = false;
+  closeOpenAppeals(uid: string) {
+    this.order.push(`appeals:${uid}`);
+    if (this.failCloseAppeals) return Promise.reject(new Error('appeals failed'));
+    this.closedAppeals.push(uid);
+    return Promise.resolve(1);
   }
   createNotification(uid: string, id: string, data: NewNotification) {
     if (this.notes.some((n) => n.uid === uid && n.id === id)) return Promise.resolve(false);
@@ -101,6 +119,7 @@ const adminAccount = () => account('a1', { claims: { acct: 'approved', admin: tr
 function setup(...extra: AuthAccount[]) {
   const auth = new FakeAuth(adminAccount(), ...extra);
   const store = new FakeStore();
+  store.order = auth.order;
   return { auth, store, deps: { auth, store } };
 }
 
@@ -169,15 +188,41 @@ describe('setAccountStatus: approve', () => {
 });
 
 describe('setAccountStatus: block and unblock', () => {
-  it('blocks: disables, revokes tokens, sets the blocked claim and drops admin', async () => {
+  it('blocks in order: claims, revoke, user document, audit; the Auth user is not disabled', async () => {
     const { auth, store, deps } = setup(account('u1', { claims: { acct: 'approved', x: 1 } }));
+    store.statuses.set('u1', 'approved');
+    auth.order.length = 0;
     const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
     expect(result.changed).toBe(true);
-    expect(auth.calls).toEqual(['disabled:u1:true', 'revoke:u1', 'claims:u1']);
+    expect(auth.order).toEqual(['claims:u1', 'revoke:u1', 'doc:u1:blocked', 'audit:block']);
+    expect(auth.calls.some((c) => c.startsWith('disabled:'))).toBe(false);
     expect(auth.users.get('u1')!.claims).toEqual({ x: 1, acct: 'blocked' });
-    expect(auth.users.get('u1')!.disabled).toBe(true);
+    expect(auth.users.get('u1')!.disabled).toBe(false);
     expect(store.statuses.get('u1')).toBe('blocked');
     expect(store.audit[0]).toMatchObject({ action: 'block', from: 'approved', to: 'blocked' });
+  });
+
+  it('never touches disabled on block, even for an account disabled in the console', async () => {
+    const { auth, deps } = setup(account('u1', { disabled: true, claims: { acct: 'approved' } }));
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(auth.calls.some((c) => c.startsWith('disabled:'))).toBe(false);
+    expect(auth.users.get('u1')!.disabled).toBe(true);
+  });
+
+  it('a failing document write leaves the claim and revoke done and no audit entry', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
+    store.statuses.set('u1', 'approved');
+    store.failOnStatusWrite = true;
+    await expect(setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' })).rejects.toThrow(
+      'write failed',
+    );
+    expect(auth.users.get('u1')!.claims).toEqual({ acct: 'blocked' });
+    expect(store.audit).toEqual([]);
+    // The retry is not a no-op: the document still says approved.
+    store.failOnStatusWrite = false;
+    const retry = await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(retry.changed).toBe(true);
+    expect(store.statuses.get('u1')).toBe('blocked');
   });
 
   it('blocking a second admin removes their admin claim', async () => {
@@ -189,6 +234,7 @@ describe('setAccountStatus: block and unblock', () => {
   it('a second block is a no-op', async () => {
     const { auth, store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
     await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(store.statuses.get('u1')).toBe('blocked');
     const calls = [...auth.calls];
     const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
     expect(result.changed).toBe(false);
@@ -196,14 +242,49 @@ describe('setAccountStatus: block and unblock', () => {
     expect(store.audit).toHaveLength(1);
   });
 
-  it('finishes a half-done block on retry (claim blocked but not yet disabled)', async () => {
-    const { auth, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+  it('finishes a half-done block on retry (claim blocked, document still approved)', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    store.statuses.set('u1', 'approved');
     const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
     expect(result.changed).toBe(true);
-    expect(auth.users.get('u1')!.disabled).toBe(true);
+    expect(store.statuses.get('u1')).toBe('blocked');
+    expect(auth.calls.some((c) => c.startsWith('disabled:'))).toBe(false);
   });
 
-  it('unblocks: re-enables the user and sets approved', async () => {
+  it('is not a no-op when the document has no status, even if the claim agrees', async () => {
+    const { store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(result.changed).toBe(true);
+    expect(store.statuses.get('u1')).toBe('blocked');
+  });
+
+  it('is not a no-op when the document says blocked but the claim is still approved', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
+    store.statuses.set('u1', 'blocked');
+    const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(result.changed).toBe(true);
+    expect(auth.users.get('u1')!.claims).toEqual({ acct: 'blocked' });
+  });
+
+  it('is a no-op only when claim, document and target all agree (approved too)', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
+    store.statuses.set('u1', 'approved');
+    const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(result.changed).toBe(false);
+    expect(auth.calls).toEqual([]);
+    expect(store.audit).toEqual([]);
+  });
+
+  it('unblock of a signed-in blocked person (not disabled) does not call setDisabled', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    store.statuses.set('u1', 'blocked');
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(auth.calls).toEqual(['claims:u1']);
+    expect(auth.order.at(-3)).toBe('claims:u1');
+    expect(auth.users.get('u1')!.claims).toEqual({ acct: 'approved' });
+  });
+
+  it('unblocks: re-enables a legacy-disabled user and sets approved', async () => {
     const { auth, store, deps } = setup(
       account('u1', { disabled: true, claims: { acct: 'blocked' } }),
     );
@@ -213,6 +294,33 @@ describe('setAccountStatus: block and unblock', () => {
     expect(auth.users.get('u1')!.claims).toEqual({ acct: 'approved' });
     expect(store.audit[0]).toMatchObject({ action: 'unblock', from: 'blocked', to: 'approved' });
     expect(store.notes).toHaveLength(0);
+  });
+
+  it('approve and unblock close the open appeals after the claim', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    store.statuses.set('u1', 'blocked');
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(store.closedAppeals).toEqual(['u1']);
+    const order = auth.order;
+    expect(order.indexOf('claims:u1')).toBeLessThan(order.indexOf('appeals:u1'));
+  });
+
+  it('a failing appeal close is logged and never fails the unblock', async () => {
+    const { auth, store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    store.statuses.set('u1', 'blocked');
+    store.failCloseAppeals = true;
+    const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(result).toEqual({ uid: 'u1', status: 'approved', changed: true });
+    expect(auth.users.get('u1')!.claims).toEqual({ acct: 'approved' });
+    expect(store.audit[0]).toMatchObject({ action: 'unblock' });
+  });
+
+  it('blocking and a no-op never close appeals', async () => {
+    const { store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
+    store.statuses.set('u1', 'approved');
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(store.closedAppeals).toEqual([]);
   });
 
   it('refuses blocking yourself', async () => {

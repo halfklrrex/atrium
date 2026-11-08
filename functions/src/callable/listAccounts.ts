@@ -7,8 +7,8 @@ import { adminAccountAuth, adminAccountStore } from '../lib/admin-account';
 
 /** One page of accounts for the admin screen. Site admins only; emails never leave through rules. */
 export const listAccounts = onCall(async (request) => {
-  actorFromRequest(request);
-  assertAdminToken(request.auth?.token as Record<string, unknown> | undefined);
+  const actor = actorFromRequest(request);
+  assertAdminToken(actor.claims);
   const input = parseInput(listAccountsRequestSchema, request.data, 'listAccounts');
   const result = await run({ auth: adminAccountAuth(), store: adminAccountStore(db()) }, input);
   return listAccountsResultSchema.parse(result);

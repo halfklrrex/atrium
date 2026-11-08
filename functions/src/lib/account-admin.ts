@@ -11,6 +11,7 @@ import {
   type SetAccountStatusRequest,
   type SetAccountStatusResult,
 } from '@atrium/shared';
+import { logger } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
 import type { Identity } from './bootstrap';
 import { notificationId, type NewNotification, type NotificationStore } from './notifications';
@@ -68,6 +69,11 @@ export interface AccountStore {
   /** Appends to `system/accountAudit/entries` with a server timestamp. */
   appendAudit(entry: AccountAuditEntry): Promise<void>;
   createNotification: NotificationStore['createNotification'];
+  /**
+   * Closes this person's open or answered appeals with `outcome: 'unblocked'` (ADMIN-4). Called on
+   * approve and unblock only, after the claim; the caller treats a failure as non-fatal.
+   */
+  closeOpenAppeals(uid: string): Promise<unknown>;
 }
 
 /** Placeholder ids for notification fields that point at boards; account notices have none. */
@@ -89,8 +95,9 @@ export interface Caller {
 
 /**
  * Approve (also unblock) or block one account. A repeat of the state it is already in is a no-op.
- * Idempotent under retries: the claim, which the rules read, is written last, so a half-finished
- * attempt is finished by the next call.
+ * Idempotent under retries. Approve writes the claim, which the rules read, last; block writes it
+ * first and the user document last (see the steps below). A half-finished attempt is finished by the
+ * next call.
  */
 export async function setAccountStatus(
   deps: { auth: AccountAuth; store: AccountStore },
@@ -110,8 +117,11 @@ export async function setAccountStatus(
   if (!target) throw new HttpsError('not-found', 'No such account.');
 
   const from = statusOf(target);
-  const done = from === status && target.disabled === (status === 'blocked');
-  if (done) return { uid, status, changed: false };
+  // A no-op only when the claim, the user document and the target all agree. The Auth `disabled`
+  // flag does not count (blocking no longer disables the user), so a half-finished block (claim set,
+  // document not yet) or a missing document field is finished by a retry.
+  const docStatus = (await store.getAccountStatuses([uid])).get(uid) ?? null;
+  if (from === status && docStatus === status) return { uid, status, changed: false };
 
   if (status === 'blocked' && isAdminClaims(target.claims)) {
     const admins = await auth.listAdminUids();
@@ -133,6 +143,13 @@ export async function setAccountStatus(
     if (target.disabled) await auth.setDisabled(uid, false);
     // The claim is last: it is what opens the rules, and a retry re-runs the steps above.
     await auth.setClaims(uid, mergeAccountClaims(target.claims, 'approved'));
+    // Best effort (ADMIN-4): a failure is logged and never fails the unblock; an admin can still
+    // close the appeal by hand.
+    try {
+      await store.closeOpenAppeals(uid);
+    } catch (error) {
+      logger.error('Could not close the open appeals of an approved account', { uid, error });
+    }
     if (from === 'pending') {
       const doc: NewNotification = {
         kind: 'account_approved',
@@ -152,12 +169,16 @@ export async function setAccountStatus(
       await store.createNotification(uid, notificationId('account_approved', uid, uid), doc);
     }
   } else {
-    await store.setAccountStatus(uid, 'blocked', caller.uid);
-    await auth.setDisabled(uid, true);
-    await auth.revokeRefreshTokens(uid);
-    // A blocked admin loses the admin claim too, so a token they still hold cannot call the admin
-    // callables once it refreshes (`setAccountStatus` checks the token's `admin` claim).
+    // Order matters (docs/specs/ADMIN-4-appeals-inbox.md, "setAccountStatus after"):
+    // 1. claims first, so any token minted after the revoke carries `blocked`. A blocked admin loses
+    //    the admin claim too (`setAccountStatus` checks the token's `admin` claim);
     await auth.setClaims(uid, mergeAccountClaims(target.claims, 'blocked', false));
+    // 2. revoke the refresh tokens, so an open client's forced refresh fails;
+    await auth.revokeRefreshTokens(uid);
+    // 3. the user document last: an open client listens to it, and by then the refresh is revoked.
+    await store.setAccountStatus(uid, 'blocked', caller.uid);
+    // The Auth user is NOT disabled: the person can sign in and see the blocked screen. Never touch
+    // `disabled` here (an account an operator disabled in the console stays disabled).
   }
 
   await store.appendAudit({

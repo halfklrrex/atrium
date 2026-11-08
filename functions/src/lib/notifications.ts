@@ -55,6 +55,15 @@ export interface NotificationStore {
   createNotification(uid: string, id: string, data: NewNotification): Promise<boolean>;
 }
 
+/**
+ * Overwrite-style write for the Inbox kinds (ADMIN-4): one doc per thread per person, `set` with a
+ * fresh `createdAt` and `readAt: null`, so a long exchange keeps one card that moves to the top and
+ * turns unread again. Every other kind keeps the create-only `createNotification`.
+ */
+export interface NotificationUpsertStore {
+  upsertNotification(uid: string, id: string, data: NewNotification): Promise<void>;
+}
+
 export const notificationId = (kind: NotificationKind, eventId: string, uid: string): string =>
   `${kind}-${eventId}-${uid}`;
 
@@ -72,13 +81,22 @@ const KIND_PRIORITY: Record<NotificationKind, number> = {
   automation_disabled: 1,
   account_request: 0,
   account_approved: 0,
+  inbox_new: 0,
+  inbox_reply: 0,
 };
 
 /** The prefs switch behind a kind: `automation_disabled` follows the `automation` switch. */
 const prefKeyOf = (kind: NotificationKind): keyof NotificationPrefs | null => {
   // The account kinds have no switch (the prefs map is strict and its rules are a hot spot); they
-  // are written by the account code, not by `deliverNotifications`.
-  if (kind === 'account_request' || kind === 'account_approved') return null;
+  // are written by the account code, not by `deliverNotifications`. The Inbox kinds (ADMIN-4) too.
+  if (
+    kind === 'account_request' ||
+    kind === 'account_approved' ||
+    kind === 'inbox_new' ||
+    kind === 'inbox_reply'
+  ) {
+    return null;
+  }
   return kind === 'automation_disabled' ? 'automation' : kind;
 };
 

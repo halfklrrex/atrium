@@ -4,7 +4,9 @@ import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import { adminBootstrapTx } from './admin';
 import type { AccountAuth, AccountStore, AuthAccount } from './account-admin';
 import { bootstrapUserInTransaction } from './bootstrap';
+import { adminInboxStore } from './admin-inbox';
 import { adminNotificationStore } from './admin-notifications';
+import { closeOpenAppeals } from './inbox';
 
 const iso = (value: string | undefined): string | null => {
   if (!value) return null;
@@ -112,6 +114,7 @@ export function adminAccountStore(firestore: Firestore): AccountStore {
         .collection('entries')
         .add({ ...entry, at: FieldValue.serverTimestamp() });
     },
+    closeOpenAppeals: (uid) => closeOpenAppeals({ store: adminInboxStore(firestore) }, uid),
     createNotification: (uid, id, data) =>
       adminNotificationStore(firestore).createNotification(uid, id, data),
   };

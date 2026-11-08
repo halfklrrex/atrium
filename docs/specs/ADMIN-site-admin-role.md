@@ -11,7 +11,7 @@ The owner's account becomes the site-wide admin. Every account has a state: **pe
 1. **Existing accounts stay approved.** Only new sign-ups wait.
 2. **A pending person sees a "waiting for approval" screen** after Google sign-in (sign-in is not refused).
 3. **The admin gets a bell notification** for each new request, plus the admin screen.
-4. **Blocking signs the person out and refuses all their reads and writes.**
+4. **Blocking signs the person out and refuses all their reads and writes.** _Updated by ADMIN-4 PR3 (owner, 2026-11-07): blocking no longer disables the Auth user. The open app signs the person out within seconds, and they can sign in again to see a blocked screen with an appeal box. See `docs/specs/ADMIN-4-appeals-inbox.md`, "Blocking: today and after"._
 
 ## Facts this design rests on
 
@@ -45,8 +45,8 @@ The owner's account becomes the site-wide admin. Every account has a state: **pe
 
 - `setAccountStatus({ uid, status: 'approved' | 'blocked' })`:
   - **approve:** set claim `acct: 'approved'`, update the user document, create the personal workspace if missing, send the person an in-app notification.
-  - **block:** set claim `acct: 'blocked'`, `revokeRefreshTokens(uid)` and **disable the Auth user**, so they are signed out and can't sign in again. An admin can't block themselves or the last admin.
-  - **unblock:** re-enable the Auth user and set `approved`.
+  - **block:** set claim `acct: 'blocked'` (and drop `admin`), `revokeRefreshTokens(uid)`, then write `users/{uid}.accountStatus = 'blocked'`, in that order. Since ADMIN-4 PR3 the Auth user is **not** disabled: the person can sign in and see the blocked screen. An admin can't block themselves or the last admin. (Originally this also disabled the Auth user.)
+  - **unblock:** set `approved`; the Auth user is re-enabled only if it is still disabled (a legacy block).
   - Each change appends a line to `system/accountAudit` (who, whom, what, when); admins read it, nobody writes it from a client.
 - `listAccounts` (callable, admin only): the admin screen's data (display name, email, status, created, last sign-in), paged. A callable rather than a rules read, because the email must not be readable from `users` by other people.
 
@@ -64,7 +64,7 @@ A dry-run-by-default script (`scripts/migrations/`, patterned on the other backf
 
 ## Honest limits
 
-- A claim lives in the ID token, which stays valid up to **one hour**. Blocking revokes refresh tokens and disables the account, so the person can't get a new token, but a token they already hold can still read and write until it expires (at most an hour). If the owner wants zero tolerance, the alternative is a `get(users/{uid})` check in `signedIn()`; it costs one extra document access per request, and Storage can't do it at all. I recommend the claim approach for a family-and-friends app.
+- A claim lives in the ID token, which stays valid up to **one hour**. Blocking revokes refresh tokens, so the person can't get a new approved token, but a token they already hold can still read and write until it expires (at most an hour). Since ADMIN-4 PR3 a normal open client ends that window itself: it listens to the own user document and signs out when it turns `blocked`, and every callable refuses a token without `acct: 'approved'`; a modified client's direct reads and writes keep working until the token expires. If the owner wants zero tolerance, the alternative is a `get(users/{uid})` check in `signedIn()`; it costs one extra document access per request, and Storage can't do it at all. I recommend the claim approach for a family-and-friends app.
 - Existing sessions of an approved person pick up a status change on their next token refresh (up to an hour) unless the app force-refreshes, which it does for approval.
 - The MCP connector and scripts that use the Admin SDK bypass rules as before.
 
@@ -112,7 +112,7 @@ The scripts call the Identity Toolkit REST API (`GET /v1/projects/{project}/acco
 
 ## ADMIN-1b: what the gate PR does, rollout order and rollback
 
-**What it changes.** `firestore.rules`: `signedIn()` is now "signed in and `request.auth.token.get('acct', '') == 'approved'`". The new `authed()` (signed in, any state) is used in exactly one place: reading your own `users/{uid}` document, so the app can show the waiting or blocked screen. Every other rule goes through `signedIn()`, and no inline `request.auth != null` is left. A pending person still cannot write their own `users/{uid}`. No `isSiteAdmin()` helper: the admin screen uses callables, so nothing in the rules needs the `admin` claim. `storage.rules` stay deny-all (no client access at all, so nothing to gate; a test pins it for pending and blocked tokens too). Callables and Functions use the Admin SDK and are unaffected, as are public forms (served through callables).
+**What it changes.** `firestore.rules`: `signedIn()` is now "signed in and `request.auth.token.get('acct', '') == 'approved'`". The new `authed()` (signed in, any state) is used in exactly one place: reading your own `users/{uid}` document, so the app can show the waiting or blocked screen. Every other rule goes through `signedIn()`, and no inline `request.auth != null` is left. A pending person still cannot write their own `users/{uid}`. The admin screen itself uses callables, so these rules needed no `isSiteAdmin()` helper at the time; ADMIN-4 (`docs/specs/ADMIN-4-appeals-inbox.md`) adds one (`isSiteAdmin()`: approved and carrying the `admin` claim) for the Inbox collections, and `isBlockedAccount()` for a blocked person reading their own appeal threads. `storage.rules` stay deny-all (no client access at all, so nothing to gate; a test pins it for pending and blocked tokens too). Callables and Functions use the Admin SDK and are unaffected, as are public forms (served through callables).
 
 **Also in the PR.** (1) The web app force-refreshes the ID token once per session when the bootstrap says approved (or reports no status) but the token has no `acct: 'approved'` claim, before data subscriptions start, so sessions that pre-date the claim keep working; a failure is logged and never blocks sign-in. (2) `bootstrapUser` heals an existing account whose token has no `acct` claim: it sets `acct: 'approved'` when the profile says approved, or has no status while the approval flag is off. It never touches pending or blocked profiles, an existing claim, or a disabled user. (3) The emulator users that visual and e2e scripts create now carry the approved claim.
 

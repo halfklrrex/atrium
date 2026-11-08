@@ -16,28 +16,26 @@ import { bootstrapUserInTransaction, type Identity } from '../lib/bootstrap';
 import { syncMemberProfiles } from '../lib/membership';
 import { adminMemberProfileStore } from '../lib/membership-admin';
 
-const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
-
 /**
  * Called by the web app once after every sign-in. Creates `users/{uid}` and a personal workspace on
  * first use; afterwards simply returns the workspace to open.
  */
 export const bootstrapUser = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in to continue.');
-  }
+  // The only callable open to every account state (it is how the app learns the state), with
+  // `sendInboxMessage` (PR4). `approved-only.test.ts` keeps the opt-outs on this short list.
+  const actor = actorFromRequest(request, { allow: ['approved', 'pending', 'blocked'] });
 
   const parsed = bootstrapUserRequestSchema.safeParse(request.data ?? {});
   if (!parsed.success) {
     throw new HttpsError('invalid-argument', 'Invalid bootstrapUser request.', parsed.error.issues);
   }
 
-  const { uid, token } = request.auth;
+  const { uid, claims: token } = actor;
   const identity: Identity = {
     uid,
-    displayName: str(token.name),
-    email: str(token.email),
-    photoURL: str(token.picture),
+    displayName: actor.displayName,
+    email: actor.email,
+    photoURL: actor.photoURL,
   };
 
   const firestore = db();
@@ -90,11 +88,16 @@ export const bootstrapUser = onCall(async (request) => {
     }
   }
 
-  // Keep the caller's name and photo current on their member docs (best effort, never blocks sign-in).
-  try {
-    await syncMemberProfiles(adminMemberProfileStore(firestore), actorFromRequest(request));
-  } catch (error) {
-    logger.warn('Member profile sync failed', error);
+  // Keep the caller's name and photo current on their member docs (best effort, never blocks
+  // sign-in). Approved callers only: a pending or blocked person never writes member documents.
+  // The status is read from the token as it was when the call was made; a token minted just
+  // before an approval skips one sync, which the next sign-in repeats.
+  if (actor.accountStatus === 'approved') {
+    try {
+      await syncMemberProfiles(adminMemberProfileStore(firestore), actor);
+    } catch (error) {
+      logger.warn('Member profile sync failed', error);
+    }
   }
 
   return bootstrapUserResultSchema.parse(result);
