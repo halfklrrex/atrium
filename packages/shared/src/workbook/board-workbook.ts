@@ -537,7 +537,7 @@ function buildSummary(
       firstTable.third,
       firstTable.first,
     );
-    sectionBar(sheet, look, top, RIGHT, 'Chart');
+    sectionBar(sheet, look, top, RIGHT, `${firstTable.table.title} chart`);
     const chart = distributionChart(
       sheet,
       firstTable.table,

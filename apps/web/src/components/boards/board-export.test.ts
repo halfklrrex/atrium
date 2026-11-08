@@ -1,7 +1,8 @@
 import type { ColumnDef, GroupDef } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
 import { makeItem } from '../../test/fixtures';
-import { boardCsvText, boardXlsxBytes, buildBoardCsvRows } from './board-export';
+import { boardCsvText, boardXlsxBytes, buildBoardCsvRows, uniqueHeaders } from './board-export';
+import { buildBoardWorkbookData } from './workbook-data';
 
 const col = (
   id: string,
@@ -144,7 +145,7 @@ describe('buildBoardCsvRows', () => {
     expect(rows.slice(1).map((r) => r[0])).toEqual(['B', 'A']);
   });
 
-  it('puts subitems under their parent with the parent name and no group', () => {
+  it('puts subitems under their parent with the parent name and its group', () => {
     const rows = buildBoardCsvRows({
       ...base,
       subitemColumns: [col('status', 'status', 'Status', 'a1', statusSettings)],
@@ -165,10 +166,10 @@ describe('buildBoardCsvRows', () => {
     expect(rows[0]!.slice(0, 3)).toEqual(['Item', 'Group', 'Parent item']);
     expect(rows.slice(1).map((r) => [r[0], r[1], r[2]])).toEqual([
       ['Parent 1', 'Backlog', ''],
-      ['First', '', 'Parent 1'],
-      ['Second', '', 'Parent 1'],
+      ['First', 'Backlog', 'Parent 1'],
+      ['Second', 'Backlog', 'Parent 1'],
       ['Parent 2', 'Backlog', ''],
-      ['Other', '', 'Parent 2'],
+      ['Other', 'Backlog', 'Parent 2'],
     ]);
     expect(rows[2]![3]).toBe('Done');
   });
@@ -231,12 +232,40 @@ describe('boardCsvText', () => {
   });
 });
 
-describe('xlsx export', () => {
-  it('zips the workbook parts', async () => {
-    const { unzipSync, strFromU8 } = await import('fflate');
+describe('buildBoardCsvRows headers and typed cells', () => {
+  it('makes repeated column titles unique', () => {
+    expect(uniqueHeaders(['Item', 'Status', 'status', 'Status'])).toEqual([
+      'Item',
+      'Status',
+      'status (2)',
+      'Status (3)',
+    ]);
     const rows = buildBoardCsvRows({
       ...base,
-      typed: true,
+      columns: [...columns, col('status2', 'status', 'Status', 'a9', statusSettings)],
+      items: [full],
+    });
+    expect(rows[0]).toContain('Status (2)');
+  });
+
+  it('gives status cells their label colour, and empty ones none, only when typed', () => {
+    const empty = makeItem({ id: 'e' });
+    const typed = buildBoardCsvRows({ ...base, typed: true, items: [full, empty] });
+    expect(typed[1]![2]).toEqual({ text: 'Stuck', color: '#df2f4a' });
+    expect(typed[2]![2]).toEqual({ text: '', color: null });
+    const plain = buildBoardCsvRows({ ...base, items: [full, empty] });
+    expect(plain[1]![2]).toBe('Stuck');
+    expect(plain[2]![2]).toBe('');
+  });
+});
+
+describe('xlsx export', () => {
+  it('zips the designed workbook: Summary and Items', async () => {
+    const { unzipSync, strFromU8 } = await import('fflate');
+    const data = buildBoardWorkbookData({
+      ...base,
+      boardName: 'Launch',
+      now: new Date(2026, 0, 6, 9, 0),
       items: [
         makeItem({
           id: 'i1',
@@ -246,20 +275,23 @@ describe('xlsx export', () => {
         }),
       ],
     });
-    const files = unzipSync(await boardXlsxBytes(rows));
-    expect(Object.keys(files).sort()).toEqual(
-      [
+    const files = unzipSync(await boardXlsxBytes(data));
+    expect(Object.keys(files)).toEqual(
+      expect.arrayContaining([
         '[Content_Types].xml',
-        '_rels/.rels',
-        'xl/_rels/workbook.xml.rels',
-        'xl/styles.xml',
         'xl/workbook.xml',
+        'xl/styles.xml',
         'xl/worksheets/sheet1.xml',
-      ].sort(),
+        'xl/worksheets/sheet2.xml',
+      ]),
     );
-    const sheet = strFromU8(files['xl/worksheets/sheet1.xml'] as Uint8Array);
-    expect(sheet).toContain('state="frozen"');
-    expect(sheet).toContain('<v>5</v>');
-    expect(sheet).toContain('<v>46027</v>');
+    const workbook = strFromU8(files['xl/workbook.xml'] as Uint8Array);
+    expect(workbook).toContain('<sheet name="Summary" sheetId="1"');
+    expect(workbook).toContain('<sheet name="Items" sheetId="2"');
+    const items = strFromU8(files['xl/worksheets/sheet2.xml'] as Uint8Array);
+    expect(items).toContain('state="frozen"');
+    expect(items).toContain('<v>5</v>');
+    expect(items).toContain('<v>46027</v>');
+    expect(items).toContain('<t>✓</t>');
   });
 });
