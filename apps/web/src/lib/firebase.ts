@@ -28,11 +28,12 @@ export const firebaseConfig = {
 
 /**
  * Web Push (VAPID) public key for Firebase Cloud Messaging; public by design, like the config above.
- * EMPTY until the owner generates it (Firebase console > Project settings > Cloud Messaging > Web
- * Push certificates) and pastes it here. While it is empty the settings dialog says push is not set
- * up yet and nothing asks for permission. See docs/pwa.md.
+ * Generated in the Firebase console (Cloud Messaging > Web Push certificates) on 2026-11-08. It is
+ * public. To rotate it, generate a new key pair in the console and replace this value. See
+ * docs/pwa.md.
  */
-export const VAPID_PUBLIC_KEY = '';
+export const VAPID_PUBLIC_KEY =
+  'BK4hZJ5rHdrDAm_rPBmH-aTfmSTmLQzx0jpnnvSpkH0mIF9jxDHRI0iz_BKXw29Cu2QWLWjynTFuV2DdCM47AMc';
 
 export const FUNCTIONS_REGION = 'europe-west1';
 export const useEmulators = import.meta.env.VITE_USE_EMULATORS === 'true';

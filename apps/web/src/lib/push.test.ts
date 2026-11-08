@@ -269,3 +269,13 @@ describe('once-a-day lastSeenAt refresh', () => {
     expect(deps.store.touch).not.toHaveBeenCalled();
   });
 });
+
+describe('VAPID_PUBLIC_KEY', () => {
+  it('is a plausible web push key: 87 base64url characters, 65 bytes, uncompressed P-256 point', async () => {
+    const { VAPID_PUBLIC_KEY } = await import('./firebase');
+    expect(VAPID_PUBLIC_KEY).toMatch(/^[A-Za-z0-9_-]{87}$/);
+    const bytes = Uint8Array.from(Buffer.from(VAPID_PUBLIC_KEY, 'base64url'));
+    expect(bytes.length).toBe(65);
+    expect(bytes[0]).toBe(0x04);
+  });
+});
