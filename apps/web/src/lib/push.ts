@@ -10,12 +10,7 @@ export type PushPlatform = PushToken['platform'];
 
 /** What the "On this device" section shows. */
 export type PushDeviceState =
-  | 'unsupported'
-  | 'ios-install'
-  | 'not-configured'
-  | 'blocked'
-  | 'off'
-  | 'on';
+  'unsupported' | 'ios-install' | 'not-configured' | 'blocked' | 'off' | 'on';
 
 /** Remembered in this browser after Enable: which signed-in person's token doc is this device. */
 export interface PushMarker {
@@ -98,7 +93,10 @@ export async function tokenDocId(token: string): Promise<string> {
 }
 
 /** Which state the section shows. `uid` decides whether the remembered device is this person's. */
-export async function getPushState(deps: PushDeps, uid: string | undefined): Promise<PushDeviceState> {
+export async function getPushState(
+  deps: PushDeps,
+  uid: string | undefined,
+): Promise<PushDeviceState> {
   const env = deps.env();
   if (detectPlatform(env.userAgent, env.maxTouchPoints) === 'ios' && !isStandalone(env)) {
     // Safari only exposes push to an installed web app, so the missing APIs here mean "install".
@@ -110,7 +108,11 @@ export async function getPushState(deps: PushDeps, uid: string | undefined): Pro
   if (env.permission === 'denied') return 'blocked';
   if (env.permission === 'granted' && uid) {
     const marker = deps.marker.read();
-    if (marker && marker.uid === uid && (await deps.store.exists(uid, marker.id).catch(() => false))) {
+    if (
+      marker &&
+      marker.uid === uid &&
+      (await deps.store.exists(uid, marker.id).catch(() => false))
+    ) {
       return 'on';
     }
   }
