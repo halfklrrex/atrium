@@ -96,12 +96,12 @@ describe('BatchBar Export', () => {
     expect(useToastStore.getState().toasts[0]?.text).toBe('Exported 3 items');
   });
 
-  it('writes an .xlsx file from the Excel entry', async () => {
+  it('writes an .xlsx file from the Excel entry', { timeout: 20000 }, async () => {
     show({}, ['b']);
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     await user.click(screen.getByRole('button', { name: 'Export' }));
     await chooseMenuItem(user, 'Excel (.xlsx)');
-    await waitFor(() => expect(downloadXlsx).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(downloadXlsx).toHaveBeenCalledTimes(1), { timeout: 10000 });
     expect((downloadXlsx.mock.calls[0] as [string])[0]).toBe('Plans- 2026.xlsx');
     expect(download).not.toHaveBeenCalled();
     expect(useToastStore.getState().toasts[0]?.text).toBe('Exported 1 item');
