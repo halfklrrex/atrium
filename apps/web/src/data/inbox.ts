@@ -10,6 +10,10 @@
  * - list, no filter: `orderBy lastMessageAt desc` (automatic single-field index)
  * - unread count: `adminUnread == true`, `limit 100` (automatic single-field index)
  * - messages: `orderBy seq asc` (automatic single-field index)
+ * - sender, approved ("My feedback"): `senderUid ==`, `kind == 'feedback'`, `orderBy lastMessageAt desc`
+ *   (senderUid+kind+lastMessageAt)
+ * - sender, blocked (blocked screen): `senderUid ==`, `kind == 'appeal'`, `orderBy lastMessageAt desc`,
+ *   `limit 1` (the same index). The rules refuse a blocked list query without `kind == 'appeal'`.
  */
 import {
   INBOX_LIMITS,
@@ -86,6 +90,24 @@ export const inboxQueries = {
   },
   unread: (cap: number = INBOX_UNREAD_CAP): Query<InboxThreadDoc> =>
     query(threadsRef(), where('adminUnread', '==', true), limit(cap)),
+  /** An approved person's own feedback threads, newest message first. */
+  mine: (uid: string): Query<InboxThreadDoc> =>
+    query(
+      threadsRef(),
+      where('senderUid', '==', uid),
+      where('kind', '==', 'feedback'),
+      orderBy('lastMessageAt', 'desc'),
+      limit(INBOX_LIMITS.pageSize),
+    ),
+  /** A blocked person's latest appeal thread. Must filter `kind == 'appeal'` (the rules require it). */
+  latestAppeal: (uid: string): Query<InboxThreadDoc> =>
+    query(
+      threadsRef(),
+      where('senderUid', '==', uid),
+      where('kind', '==', 'appeal'),
+      orderBy('lastMessageAt', 'desc'),
+      limit(1),
+    ),
   messages: (threadId: string): Query<InboxMessageDoc> =>
     query(
       collection(db, 'inbox', threadId, 'messages').withConverter(messageConverter),
@@ -103,6 +125,19 @@ export function useInboxUnreadCount(enabled: boolean): { count: number; loading:
   const q = useMemo(() => (enabled ? inboxQueries.unread() : null), [enabled]);
   const { data, loading } = useQuerySnapshot(q);
   return { count: data.length, loading };
+}
+
+/** The signed-in approved person's own feedback threads (live). `null` uid turns it off. */
+export function useMyFeedbackThreads(uid: string | null): SnapshotState<InboxThreadDoc[]> {
+  const q = useMemo(() => (uid ? inboxQueries.mine(uid) : null), [uid]);
+  return useQuerySnapshot(q);
+}
+
+/** The blocked person's latest appeal thread (`null` while they have none). */
+export function useMyLatestAppeal(uid: string | null): SnapshotState<InboxThreadDoc | null> {
+  const q = useMemo(() => (uid ? inboxQueries.latestAppeal(uid) : null), [uid]);
+  const { data, loading, error } = useQuerySnapshot(q);
+  return { data: data[0] ?? null, loading, error };
 }
 
 export function useInboxThread(threadId: string | undefined): SnapshotState<InboxThreadDoc | null> {
@@ -236,6 +271,11 @@ export function useInboxList(
 }
 
 export const inboxWrites = {
+  /** Clears the sender's unread dot (the rules allow the sender to set only `senderUnread` to false). */
+  async markSenderRead(threadId: string): Promise<void> {
+    await updateDoc(doc(db, 'inbox', threadId), { senderUnread: false });
+  },
+
   /** Clears the unread dot (the rules allow an admin to set only `adminUnread` to false). */
   async markThreadRead(threadId: string): Promise<void> {
     await updateDoc(doc(db, 'inbox', threadId), { adminUnread: false });
