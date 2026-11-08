@@ -13,6 +13,34 @@ export const SUMMARY_SHEET = 'Summary';
 export const DATE_FORMAT = 'mmm d, yyyy';
 /** Date and time cells: "Nov 26, 2026 14:05" (24-hour: no AM/PM in the code). */
 export const DATE_TIME_FORMAT = 'mmm d, yyyy h:mm';
+
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/**
+ * A `YYYY-MM-DD` or `YYYY-MM-DD HH:MM[:SS]` text in the same style as `DATE_FORMAT` and
+ * `DATE_TIME_FORMAT` ("Nov 2, 2026", "Nov 2, 2026 14:05"), with fixed English month names, for
+ * dates written as text (Kanban card lines). Anything else is returned unchanged.
+ */
+export function monthFirstDate(text: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2})(?::\d{2})?)?$/.exec(text);
+  const month = m ? SHORT_MONTHS[Number(m[2]) - 1] : undefined;
+  if (!m || !month || Number(m[3]) < 1 || Number(m[3]) > 31) return text;
+  const date = `${month} ${Number(m[3])}, ${m[1]}`;
+  return m[4] !== undefined ? `${date} ${Number(m[4])}:${m[5]}` : date;
+}
 /** Default height of a table row, in points. */
 export const ROW_H = 20;
 

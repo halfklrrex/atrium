@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { buildBoardWorkbookParts, type BoardWorkbookData } from './board-workbook';
 import { chartXml } from './chart';
+import { monthFirstDate } from './look';
 import type { ViewSheetData } from './view-sheets';
+
+describe('monthFirstDate', () => {
+  it('writes dates and date-times month first with English month names', () => {
+    expect(monthFirstDate('2026-11-02')).toBe('Nov 2, 2026');
+    expect(monthFirstDate('2026-01-31 14:05')).toBe('Jan 31, 2026 14:05');
+    expect(monthFirstDate('2026-12-09 08:30:00')).toBe('Dec 9, 2026 8:30');
+    expect(monthFirstDate('2026-13-01')).toBe('2026-13-01');
+    expect(monthFirstDate('soon')).toBe('soon');
+  });
+});
 
 const base = (
   views: ViewSheetData[],

@@ -40,7 +40,7 @@ describe('buildViewSheets', () => {
     expect(k.lanes[0]?.cards[0]).toEqual({
       name: 'Brief',
       groupColor: '#579bfc',
-      lines: ['Owner: Avery Quinn, Blake Rivera', 'Due date: 2026-11-02', 'Priority: Critical ⚠️'],
+      lines: ['Owner: Avery Quinn, Blake Rivera', 'Due date: Nov 2, 2026', 'Priority: Critical ⚠️'],
     });
   });
 

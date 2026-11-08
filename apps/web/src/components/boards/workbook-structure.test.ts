@@ -681,6 +681,10 @@ describe('the Excel workbook structure', () => {
     for (const name of ['Kanban', 'Calendar', 'Timeline', 'Gantt', 'Chart', 'Workload']) {
       expect(summary).toContain(`location="'${name}'!A1"`);
     }
+    // Kanban card dates read month first like the date cells; the CSV keeps ISO.
+    const kanban = texts['xl/worksheets/sheet3.xml'] as string;
+    expect(kanban).toContain('<t>Due date: Nov 2, 2026</t>');
+    expect(kanban).not.toContain('2026-11-02');
     const gantt = texts['xl/worksheets/sheet6.xml'] as string;
     expect(gantt).toContain('<t>Yes</t>'); // the critical path
     expect(gantt).toContain('<t>Brief</t>');
