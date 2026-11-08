@@ -1,4 +1,4 @@
-import type { BoardKind } from '@atrium/shared';
+import type { BoardKind, InboxCategory } from '@atrium/shared';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -24,7 +24,8 @@ export type DialogState =
   | { type: 'members'; workspaceId: string; tab?: 'members' | 'invites' }
   | { type: 'notificationSettings' }
   | { type: 'search'; initialTerm?: string }
-  | { type: 'about' };
+  | { type: 'about' }
+  | { type: 'feedback'; category?: InboxCategory; subject?: string };
 
 interface UiState {
   /** Off-canvas sidebar on narrow screens; ignored on desktop. */

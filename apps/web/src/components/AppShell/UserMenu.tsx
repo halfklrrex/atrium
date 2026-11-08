@@ -1,5 +1,5 @@
 import { Avatar, Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
-import { Check, Info, LogOut, Team } from '@vibe/icons';
+import { Check, Feedback, Inbox, Info, LogOut, Team } from '@vibe/icons';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { useIsSiteAdmin } from '../../auth/useIsSiteAdmin';
@@ -67,6 +67,12 @@ export function UserMenu() {
           />
         ))}
         <MenuDivider />
+        <MenuItem
+          title="Send feedback"
+          icon={Feedback}
+          onClick={() => openDialog({ type: 'feedback' })}
+        />
+        <MenuItem title="My feedback" icon={Inbox} onClick={() => void navigate('/feedback')} />
         <MenuItem title="About Atrium" icon={Info} onClick={() => openDialog({ type: 'about' })} />
         {isSiteAdmin ? (
           <MenuItem

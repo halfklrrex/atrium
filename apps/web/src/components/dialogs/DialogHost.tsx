@@ -1,5 +1,6 @@
 import { useUiStore } from '../AppShell/ui-store';
 import { AboutDialog } from './AboutDialog';
+import { FeedbackDialog } from './FeedbackDialog';
 import { ShareBoardDialog } from '../boards/ShareBoardDialog';
 import { ShareDashboardDialog } from '../dashboard/ShareDashboardDialog';
 import { NewBoardDialog } from './BoardDialogs';
@@ -76,5 +77,13 @@ export function DialogHost() {
       return <SearchDialog initialTerm={dialog.initialTerm} onClose={close} />;
     case 'about':
       return <AboutDialog onClose={close} />;
+    case 'feedback':
+      return (
+        <FeedbackDialog
+          initialCategory={dialog.category}
+          initialSubject={dialog.subject}
+          onClose={close}
+        />
+      );
   }
 }
