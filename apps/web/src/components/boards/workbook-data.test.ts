@@ -17,7 +17,7 @@ describe('buildBoardWorkbookData', () => {
       noDate: 1,
       people: 3,
     });
-    expect(data.exportedLabel).toBe('8 Nov 2026, 14:32');
+    expect(data.exportedLabel).toBe('Nov 8, 2026, 14:32');
     expect(data.selection).toBeNull();
   });
 

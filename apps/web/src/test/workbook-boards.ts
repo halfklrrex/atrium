@@ -78,7 +78,7 @@ const iso = (base: string, days: number): string => {
   return d.toISOString().slice(0, 10);
 };
 
-/** The "now" all samples use: 8 Nov 2026, 14:32 local time. */
+/** The "now" all samples use: Nov 8, 2026, 14:32 local time. */
 export const SAMPLE_NOW = new Date(2026, 10, 8, 14, 32);
 
 function base(name: string, items: ItemDoc[], subitems: ItemDoc[] = []): WorkbookDataInput {

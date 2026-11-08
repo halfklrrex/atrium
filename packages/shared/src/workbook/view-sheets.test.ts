@@ -8,7 +8,7 @@ const base = (
   selection: BoardWorkbookData['selection'] = null,
 ): BoardWorkbookData => ({
   boardName: 'Launch',
-  exportedLabel: '8 Nov 2026, 14:32',
+  exportedLabel: 'Nov 8, 2026, 14:32',
   createdAt: '2026-11-08T13:32:00Z',
   selection,
   stripe: ['#00c875'],

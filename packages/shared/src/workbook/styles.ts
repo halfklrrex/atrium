@@ -44,7 +44,7 @@ export interface StyleSpec {
   /** Solid fill colour `#RRGGBB`; none when omitted. */
   fill?: string;
   border?: BorderSpec;
-  /** A number format code (`0%`, `d mmm yyyy`); `General` when omitted. */
+  /** A number format code (`0%`, `mmm d, yyyy`); `General` when omitted. */
   numFmt?: string;
   align?: AlignSpec;
 }

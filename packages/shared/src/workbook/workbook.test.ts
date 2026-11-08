@@ -100,9 +100,9 @@ describe('StyleRegistry', () => {
 
   it('writes the style sheet in schema order with Figtree and the required fills', () => {
     const st = new StyleRegistry();
-    st.style({ numFmt: 'd mmm yyyy' });
+    st.style({ numFmt: 'mmm d, yyyy' });
     st.style({ numFmt: '0%' });
-    st.style({ numFmt: 'd mmm yyyy', font: { italic: true } });
+    st.style({ numFmt: 'mmm d, yyyy', font: { italic: true } });
     st.dxf({ fill: '#fdab3d', bold: true });
     const xml = st.xml();
     const order = [
@@ -118,7 +118,7 @@ describe('StyleRegistry', () => {
     const positions = order.map((tag) => xml.indexOf(tag));
     expect(positions.every((p) => p > 0)).toBe(true);
     expect([...positions].sort((x, y) => x - y)).toEqual(positions);
-    expect(xml).toContain('<numFmts count="1"><numFmt numFmtId="164" formatCode="d mmm yyyy"/>');
+    expect(xml).toContain('<numFmts count="1"><numFmt numFmtId="164" formatCode="mmm d, yyyy"/>');
     expect(xml).toContain('numFmtId="9"');
     expect(xml).toContain('<name val="Figtree"/><family val="2"/><scheme val="none"/>');
     expect(xml).toContain(
@@ -275,7 +275,7 @@ describe('charts', () => {
 function sampleData(overrides: Partial<BoardWorkbookData> = {}): BoardWorkbookData {
   return {
     boardName: 'Launch & <plan>',
-    exportedLabel: '8 Nov 2026, 14:32',
+    exportedLabel: 'Nov 8, 2026, 14:32',
     createdAt: '2026-11-08T13:32:00Z',
     selection: null,
     stripe: ['#fdab3d', '#00c875'],
@@ -370,7 +370,7 @@ describe('buildBoardWorkbookParts', () => {
   it('lays out the Summary banner, cards, tables and links', () => {
     expect(summary).toContain('<mergeCell ref="A1:I1"/>');
     expect(summary).toContain('<t>Launch &amp; &lt;plan&gt;</t>');
-    expect(summary).toContain('Board summary · 3 items · Exported 8 Nov 2026, 14:32');
+    expect(summary).toContain('Board summary · 3 items · Exported Nov 8, 2026, 14:32');
     for (const label of ['ITEMS', 'DONE', 'OVERDUE', 'DUE IN 7 DAYS', 'PEOPLE', 'GROUPS']) {
       expect(summary).toContain(`<t>${label}</t>`);
     }
@@ -387,6 +387,9 @@ describe('buildBoardWorkbookParts', () => {
     expect(items).toContain('<autoFilter ref="B4:H6"/>');
     expect(items).toContain(`<t>'=SUM(A1)</t>`);
     expect(items).toContain('<v>46027</v>');
+    // Real dates shown month first: "Jan 5, 2026" (owner decision).
+    expect(parts['xl/styles.xml']).toContain('formatCode="mmm d, yyyy"');
+    expect(parts['xl/styles.xml']).not.toContain('d mmm yyyy');
     expect(items).toContain('<v>-4.5</v>');
     expect(items).toContain(`<t>${CHECK_MARK}</t>`);
     expect(items).toContain('<t xml:space="preserve">line 1\nline 2</t>');

@@ -52,7 +52,7 @@ Slices 1 and 2 (`P6-export-csv.md`) built the CSV, a plain one-sheet `.xlsx` (`p
 | Group marker              | A narrow first column (width 1.3) filled with the row's group colour, like the group edge in the table; the Group cell's text is the group colour, bold.                                                 |
 | Links                     | Figtree 10 brand blue, underlined.                                                                                                                                                                       |
 | Notes and source line     | Figtree 9 italic `#676879`.                                                                                                                                                                              |
-| Number formats            | Numbers `General` (right aligned); counts `#,##0`; shares `0%`; dates `d mmm yyyy`; date and time `d mmm yyyy hh:mm`.                                                                                    |
+| Number formats            | Numbers `General` (right aligned); counts `#,##0`; shares `0%`; dates `mmm d, yyyy` ("Nov 26, 2026"); date and time `mmm d, yyyy h:mm` (24-hour). See "Date format".                                     |
 | Gridlines and tabs        | `showGridLines="0"` on every designed sheet; tab colours: Summary brand blue, Items `#00C875`, view sheets `#9D50DD`.                                                                                    |
 
 ## Summary sheet (intro dashboard)
@@ -76,7 +76,7 @@ Every number on the Summary is a value, not a formula: it is computed in the app
 
 - Rows 1 to 3: banner, subtitle (with a "‹ Summary" link in the last header column), stripe. Row 4: the table header. Freeze panes below row 4 and right of the Item column (`xSplit=2, ySplit=4`). Autofilter on the header row. Print titles repeat row 4; landscape, fit to one page wide.
 - Columns: **group marker** (no header text), **Item**, **Group**, **Parent item** (only when the board has subitems), then the visible board columns in view order (the CSV's columns, same rules as slice 1).
-- Cells: status columns (including priority) filled with the label colour; numbers right aligned with `General`; dates and date-times as serial dates (`d mmm yyyy`, `d mmm yyyy hh:mm`); checkboxes as a green check mark "✓" (ticked) or empty, centred (not boolean cells: Quick Look, and so probably Numbers, does not draw TRUE/FALSE cells); an empty status cell is grey, as in the table; long text and multi-line text wrap; everything else is the registry's `toText`, as in the CSV.
+- Cells: status columns (including priority) filled with the label colour; numbers right aligned with `General`; dates and date-times as serial dates (`mmm d, yyyy`, `mmm d, yyyy h:mm`); checkboxes as a green check mark "✓" (ticked) or empty, centred (not boolean cells: Quick Look, and so probably Numbers, does not draw TRUE/FALSE cells); an empty status cell is grey, as in the table; long text and multi-line text wrap; everything else is the registry's `toText`, as in the CSV.
 - Subitem rows: the Item cell is indented two levels and in secondary colour, the row has the parent's group marker and Group.
 - Banding: alternate white and `#F6F7FB`, by top-level item (a parent and its subitems share a band), written as static fills (not conditional formats) so it survives in Numbers. Re-sorting in Excel scrambles the bands; that is accepted.
 - Widths: from the longest line, header included; Item 28 to 50; other columns 10 to 45; marker 1.3. Wrapped rows get a height for up to 4 lines (15 pt per line + 5), above that the text is cut visually (the cell keeps all of it).
@@ -96,6 +96,17 @@ All view sheets start with the banner, the subtitle (view name, "‹ Summary" li
 | Workload | `resolveWorkloadColumns`, `buildWorkload` (`board-workload/workload-model.ts`)                               | Person by period (the view's zoom; at most 104 periods, a window around today, with a note), cells filled by level (`--atrium-workload-under/balanced/over` light values), today's header filled blue, a Total column with a data bar, then a section "TOTAL BY <PEOPLE COLUMN>" with a native horizontal bar chart of the totals.                                                                                                                                                                                                                 |
 
 Kanban, Calendar and Timeline/Gantt are WP2; Chart, Workload and the Summary's workload chart (a horizontal bar chart next to the Workload by person table) are WP3. Only the first view of each type in tab order gets a sheet (owner decision); a second Chart view, for example, is not exported. The view sheets are built only from the board menu (it reads the views with `useBoardViews`); the batch bar never adds them.
+
+## Date format (owner decision, 2026-11-08)
+
+The owner reviewed the workbook in Excel and asked for "Nov 26, 2026" instead of "26 Nov 2026". Date cells stay **real dates** (Excel serial numbers, so they sort, filter and compute) and use the number format **`mmm d, yyyy`**; date-and-time cells use **`mmm d, yyyy h:mm`** (no AM/PM in the code, so 24-hour). No ordinal suffix ("26th"): a number format cannot produce one, and text dates would break sorting and filtering. The constants are `DATE_FORMAT` and `DATE_TIME_FORMAT` in `packages/shared/src/workbook/look.ts`. Excel shows the month name in its own language setting.
+
+Where dates appear:
+
+- **Date cells (number format):** Items, every Date column and the date part of date-time values; Timeline and Gantt, the Start and End columns.
+- **Text in the same month-first style:** the "Exported Nov 8, 2026, 14:32" subtitle on every sheet and the Summary's source line (`Intl` `en-US`, 24-hour).
+- **Unchanged text labels:** the Calendar's month titles ("NOVEMBER 2026") and day numbers, the Timeline and Gantt month row ("Nov 2026") and day-of-month row, the Workload period labels (the app's own "W45 9 - 15"), the Chart view's date buckets (the app's labels), and the Kanban card lines (the CSV's `toText`, `2026-11-02`). These are headings or app text, not date cells.
+- The CSV keeps ISO dates (`2026-11-26`), the format import tools read.
 
 ## Charts in OOXML (rules the writer follows)
 
