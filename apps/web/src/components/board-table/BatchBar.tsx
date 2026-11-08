@@ -168,7 +168,7 @@ export function BatchBar() {
 function ExportLabel() {
   return (
     <span className={styles.batchExport}>
-      <Icon icon={Download} iconSize={16} />
+      <Icon icon={Download} size={16} />
       Export
     </span>
   );
