@@ -39,6 +39,11 @@ export interface BoardCsvInput {
    * writer. Off by default: the CSV rows then hold plain text for those, as before.
    */
   typed?: boolean;
+  /**
+   * Export only these top-level items (the batch bar's selection), keeping `items` order. Subitems
+   * of an included parent still follow it; ids that are not in `items` are ignored.
+   */
+  itemIds?: readonly string[];
 }
 
 const isActive = (item: ItemDoc): boolean => item.state === 'active';
@@ -101,9 +106,13 @@ export function buildBoardCsvRows(input: BoardCsvInput): CsvCell[][] {
   }
   for (const list of byParent.values()) list.sort(comparePositions);
 
-  const items = input.items.filter(isActive);
+  const only = input.itemIds ? new Set(input.itemIds) : null;
+  const items = input.items.filter((i) => isActive(i) && (only === null || only.has(i.id)));
   const hasSubitems = activeSubitems.length > 0 || subitemColumns.length > 0;
-  const itemNames = new Map([...items, ...activeSubitems].map((i) => [i.id, i.name]));
+  // Dependency cells name any active item, so the names come from the whole board, not the selection.
+  const itemNames = new Map(
+    [...input.items.filter(isActive), ...activeSubitems].map((i) => [i.id, i.name]),
+  );
 
   const header: CsvCell[] = ['Item', 'Group'];
   if (hasSubitems) header.push('Parent item');

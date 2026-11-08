@@ -269,6 +269,8 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
     () => ({
       boardId,
       workspaceId: board.workspaceId,
+      boardName: board.name,
+      userLookup: lookup,
       uid,
       canEdit,
       canManage,
@@ -286,6 +288,8 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
     [
       boardId,
       board.workspaceId,
+      board.name,
+      lookup,
       uid,
       canEdit,
       canManage,

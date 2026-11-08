@@ -11,6 +11,10 @@ export interface TableEnv {
   /** Optional override of readable workspace boards (used by Connect Boards settings tests). */
   workspaceBoards?: readonly { id: string; name: string }[];
   uid: string;
+  /** Board name, for the exported file's name. */
+  boardName?: string;
+  /** Display name of a user id, for the exported people cells. */
+  userLookup?: (uid: string) => string | undefined;
   /** Can this person edit cells and structure (editor or owner on the board)? */
   canEdit: boolean;
   /** Is this person a board owner (can lock/unlock columns and edit locked columns)? */
