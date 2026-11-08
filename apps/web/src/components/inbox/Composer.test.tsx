@@ -19,7 +19,7 @@ function setup(onSubmit = vi.fn().mockResolvedValue(undefined), disabled = false
 describe('Composer', () => {
   it('sends trimmed text with a uuid and clears the box', async () => {
     const { onSubmit, user } = setup();
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
     await user.type(screen.getByRole('textbox', { name: 'Reply' }), '  Hello  ');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(onSubmit).toHaveBeenCalledWith('Hello', expect.stringMatching(/^[0-9a-f-]{36}$/));
@@ -47,12 +47,12 @@ describe('Composer', () => {
     await userEvent.setup().click(box);
     await userEvent.setup().paste('a'.repeat(2001));
     expect(screen.getByText('2001 / 2000')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('is off when disabled', () => {
     setup(undefined, true);
     expect(screen.getByRole('textbox', { name: 'Reply' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
   });
 });
