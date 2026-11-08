@@ -131,13 +131,13 @@ service cloud.firestore {
           && (!('push' in p.keys()) || validPushPrefs(p.push));
       }
 
-      // Per-kind push switches (PWA-2): when present, exactly these six booleans.
+      // Per-kind push switches (PWA-2): when present, exactly these seven booleans.
       function validPushPrefs(q) {
         return q is map
-          && q.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation', 'account'])
-          && q.keys().hasAll(['assigned', 'reply', 'mention', 'button', 'automation', 'account'])
+          && q.keys().hasOnly(['assigned', 'reply', 'mention', 'button', 'automation', 'account', 'inbox'])
+          && q.keys().hasAll(['assigned', 'reply', 'mention', 'button', 'automation', 'account', 'inbox'])
           && q.assigned is bool && q.reply is bool && q.mention is bool
-          && q.button is bool && q.automation is bool && q.account is bool;
+          && q.button is bool && q.automation is bool && q.account is bool && q.inbox is bool;
       }
 
       allow read: if authed() && uid() == userId;
