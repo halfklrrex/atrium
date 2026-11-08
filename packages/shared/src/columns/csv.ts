@@ -11,13 +11,15 @@ const PLAIN_NUMBER = /^-?\d+(?:\.\d+)?$/;
 /**
  * A cell of an export row: plain text, text from a numeric cell (negative numbers stay numbers),
  * text from a date cell (`YYYY-MM-DD` or `YYYY-MM-DD HH:MM:SS`) or from a checkbox (empty when
- * unticked). The CSV writes all of them as text; the Excel writer uses the kind.
+ * unticked), or from a status-like label with its colour (`#RRGGBB`, `null` for no label). The
+ * CSV writes all of them as text; the Excel writer uses the kind.
  */
 export type CsvCell =
   | string
   | { text: string; numeric: true }
   | { text: string; date: true }
-  | { text: string; checkbox: true };
+  | { text: string; checkbox: true }
+  | { text: string; color: string | null };
 
 /**
  * One CSV field: formula-guarded, then quoted when it holds `"`, `,`, CR or LF (`"` doubled).

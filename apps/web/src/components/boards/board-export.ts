@@ -5,12 +5,16 @@
  */
 import {
   CSV_BOM,
+  buildBoardWorkbookParts,
   buildCsv,
-  buildXlsxParts,
   columnRegistry,
+  findStatusLabel,
+  type BoardWorkbookData,
   type ColumnDef,
   type CsvCell,
   type GroupDef,
+  type StatusSettings,
+  type StatusValue,
 } from '@atrium/shared';
 import type { BoardDoc, ItemDoc } from '../../data';
 import { UNKNOWN_PERSON_NAME } from '../../data/members-store';
@@ -62,7 +66,10 @@ function cellFor(
   const raw = columnRegistry.isDerived(def.type)
     ? derivedCellValue(boardId, columnDefs, def, item)
     : item.values[def.id];
-  if (raw === null || raw === undefined) return '';
+  if (raw === null || raw === undefined) {
+    // An empty status cell is grey in the table, and in the workbook.
+    return typed && def.type === 'status' ? { text: '', color: null } : '';
+  }
 
   if (def.type === 'dependency') {
     const ids = (raw as { item_ids?: unknown }).item_ids;
@@ -79,15 +86,54 @@ function cellFor(
   if (def.type === 'numbers' || typeof raw === 'number') return { text, numeric: true };
   if (typed && def.type === 'date') return { text, date: true };
   if (typed && def.type === 'checkbox') return { text, checkbox: true };
+  if (typed && def.type === 'status' && typeof raw === 'object' && !Array.isArray(raw)) {
+    const labels = (settings as StatusSettings | undefined)?.labels;
+    const label = Array.isArray(labels)
+      ? findStatusLabel(raw as StatusValue, settings as StatusSettings)
+      : null;
+    return { text, color: label && text !== '' ? label.color : null };
+  }
   return text;
+}
+
+/** One exported row with what the workbook needs besides the cells. */
+export interface ExportRow {
+  cells: CsvCell[];
+  item: ItemDoc;
+  /** The row's group (a subitem: its parent's). */
+  groupId: string;
+  subitem: boolean;
+}
+
+export interface ExportTable {
+  header: string[];
+  hasSubitems: boolean;
+  rows: ExportRow[];
+}
+
+/** Header texts made unique: a repeated title becomes "Status (2)", "Status (3)". */
+export function uniqueHeaders(titles: readonly string[]): string[] {
+  const seen = new Map<string, number>();
+  return titles.map((title) => {
+    const key = title.trim().toLowerCase();
+    const n = (seen.get(key) ?? 0) + 1;
+    seen.set(key, n);
+    return n === 1 ? title : `${title} (${n})`;
+  });
 }
 
 /**
  * Header plus one row per exported item. First columns: "Item", "Group" and (when the board has
  * subitems) "Parent item", then the visible board columns in view order. Subitem rows follow
- * their parent, leave Group empty and name the parent.
+ * their parent, carry the parent's group and name the parent.
  */
 export function buildBoardCsvRows(input: BoardCsvInput): CsvCell[][] {
+  const table = buildBoardExportTable(input);
+  return [table.header, ...table.rows.map((r) => r.cells)];
+}
+
+/** The rows of `buildBoardCsvRows` with the item, group and subitem flag of each row. */
+export function buildBoardExportTable(input: BoardCsvInput): ExportTable {
   const { board, columns, hiddenColumnIds, groups, personNames } = input;
   const typed = input.typed === true;
   const subitemColumns = input.subitemColumns ?? [];
@@ -114,21 +160,23 @@ export function buildBoardCsvRows(input: BoardCsvInput): CsvCell[][] {
     [...input.items.filter(isActive), ...activeSubitems].map((i) => [i.id, i.name]),
   );
 
-  const header: CsvCell[] = ['Item', 'Group'];
-  if (hasSubitems) header.push('Parent item');
-  for (const v of views) header.push(v.def.title);
-  const rows: CsvCell[][] = [header];
+  const titles = ['Item', 'Group'];
+  if (hasSubitems) titles.push('Parent item');
+  for (const v of views) titles.push(v.def.title);
+  const header = uniqueHeaders(titles);
+  const rows: ExportRow[] = [];
 
   for (const item of items) {
-    const row: CsvCell[] = [item.name, groupTitles.get(item.groupId) ?? ''];
+    const group = groupTitles.get(item.groupId) ?? '';
+    const row: CsvCell[] = [item.name, group];
     if (hasSubitems) row.push('');
     for (const v of views) {
       row.push(cellFor(v, columns, item, board.id, personNames, itemNames, typed));
     }
-    rows.push(row);
+    rows.push({ cells: row, item, groupId: item.groupId, subitem: false });
 
     for (const sub of byParent.get(item.id) ?? []) {
-      const subRow: CsvCell[] = [sub.name, ''];
+      const subRow: CsvCell[] = [sub.name, group];
       if (hasSubitems) subRow.push(item.name);
       for (const v of views) {
         const own = subitemViews.get(v.def.id);
@@ -138,10 +186,10 @@ export function buildBoardCsvRows(input: BoardCsvInput): CsvCell[][] {
             : '',
         );
       }
-      rows.push(subRow);
+      rows.push({ cells: subRow, item: sub, groupId: item.groupId, subitem: true });
     }
   }
-  return rows;
+  return { header, hasSubitems, rows };
 }
 
 /** Builds the file text (with the BOM) from rows made by `buildBoardCsvRows`. */
@@ -152,13 +200,15 @@ export function boardCsvText(rows: readonly (readonly CsvCell[])[]): string {
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 /**
- * Zips the workbook parts of `buildXlsxParts` into an `.xlsx` file. `fflate` is imported here, at
- * click time, so it stays out of the main bundle.
+ * Zips the parts of the designed workbook (`buildBoardWorkbookParts`) into an `.xlsx` file.
+ * `fflate` is imported here, at click time, so it stays out of the main bundle.
  */
-export async function boardXlsxBytes(rows: readonly (readonly CsvCell[])[]): Promise<Uint8Array> {
+export async function boardXlsxBytes(data: BoardWorkbookData): Promise<Uint8Array> {
   const { zipSync, strToU8 } = await import('fflate');
   const files: Record<string, Uint8Array> = {};
-  for (const [name, xml] of Object.entries(buildXlsxParts(rows))) files[name] = strToU8(xml);
+  for (const [name, xml] of Object.entries(buildBoardWorkbookParts(data))) {
+    files[name] = strToU8(xml);
+  }
   return zipSync(files, { level: 6 });
 }
 

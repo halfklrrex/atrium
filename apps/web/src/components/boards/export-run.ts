@@ -1,8 +1,8 @@
 /**
- * Runs one export (CSV or Excel) with the toasts the menus share: "Exporting..." first for a large
- * export, then "Exported N items" or the error.
+ * Runs one export (CSV or the Excel workbook) with the toasts the menus share: "Exporting..."
+ * first for a large export, then "Exported N items" or the error.
  */
-import { csvFileName, xlsxFileName, type CsvCell } from '@atrium/shared';
+import { csvFileName, xlsxFileName, type BoardWorkbookData, type CsvCell } from '@atrium/shared';
 import { showToast, updateToast } from '../toast-store';
 import { boardCsvText, boardXlsxBytes, downloadCsv, downloadXlsx } from './board-export';
 
@@ -18,8 +18,10 @@ export async function runExport(opts: {
   boardName: string;
   /** Items the export starts from, to decide whether it is large. */
   itemCount: number;
-  /** Builds the rows (header first); called after the large-export toast had a chance to paint. */
-  buildRows: (format: ExportFormat) => CsvCell[][];
+  /** CSV: builds the rows (header first); called after the large-export toast had a chance to paint. */
+  buildRows: () => CsvCell[][];
+  /** Excel: builds the workbook data, at the same moment. */
+  buildWorkbook: () => BoardWorkbookData;
 }): Promise<void> {
   const { format, boardName } = opts;
   // Tell the user first and let the toast paint before the heavy work blocks the main thread.
@@ -27,11 +29,14 @@ export async function runExport(opts: {
     opts.itemCount > LARGE_EXPORT_ROWS ? showToast('Exporting...', { loading: true }) : null;
   if (busyToast !== null) await nextTask();
   try {
-    const rows = opts.buildRows(format);
-    const count = rows.length - 1;
+    let count: number;
     if (format === 'xlsx') {
-      downloadXlsx(xlsxFileName(boardName), await boardXlsxBytes(rows));
+      const data = opts.buildWorkbook();
+      count = data.items.rows.length;
+      downloadXlsx(xlsxFileName(boardName), await boardXlsxBytes(data));
     } else {
+      const rows = opts.buildRows();
+      count = rows.length - 1;
       downloadCsv(csvFileName(boardName), boardCsvText(rows));
     }
     const done = `Exported ${count} ${count === 1 ? 'item' : 'items'}`;

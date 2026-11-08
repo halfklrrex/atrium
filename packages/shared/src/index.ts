@@ -37,3 +37,4 @@ export * from './formula';
 export * as formula from './formula';
 export * from './filters';
 export * from './automation-schedule';
+export * from './workbook';
