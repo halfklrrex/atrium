@@ -90,4 +90,24 @@ describe('UserMenu', () => {
       timeout: 5000,
     });
   });
+
+  it('has Send feedback (opens the dialog) and My feedback above About Atrium', async () => {
+    render(
+      <AuthContext.Provider value={auth}>
+        <MemoryRouter>
+          <UserMenu />
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    );
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await user.click(screen.getByRole('button', { name: /account menu for ada lovelace/i }));
+    const titles = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
+    expect(titles.indexOf('Send feedback')).toBeGreaterThan(-1);
+    expect(titles.indexOf('My feedback')).toBe(titles.indexOf('Send feedback') + 1);
+    expect(titles.indexOf('My feedback')).toBeLessThan(titles.indexOf('About Atrium'));
+    await chooseMenuItem(user, 'Send feedback');
+    await waitFor(() => expect(useUiStore.getState().dialog).toEqual({ type: 'feedback' }), {
+      timeout: 5000,
+    });
+  });
 });
