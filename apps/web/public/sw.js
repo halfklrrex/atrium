@@ -1,3 +1,4 @@
+/* global self */
 // Atrium service worker (PWA-1). Deliberately minimal: it takes control immediately and nothing
 // else. No precaching, no runtime caching and no fetch handler, so a deploy is never held back by
 // a stale cache. See docs/pwa.md.
