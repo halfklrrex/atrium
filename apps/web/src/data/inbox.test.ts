@@ -191,3 +191,34 @@ describe('useInboxList', () => {
     expect(result.current.threads.map((t) => t.id)).toEqual(['c1', 'c2']);
   });
 });
+
+describe('sender query shapes (ADMIN-4 PR6)', () => {
+  it("an approved person's feedback is filtered by senderUid and kind", () => {
+    expect((inboxQueries.mine('u1') as unknown as Q).constraints).toEqual([
+      ['where', 'senderUid', '==', 'u1'],
+      ['where', 'kind', '==', 'feedback'],
+      ['orderBy', 'lastMessageAt', 'desc'],
+      ['limit', 20],
+    ]);
+  });
+
+  it("a blocked person's query filters kind == 'appeal' (the rules refuse it otherwise)", () => {
+    const q = inboxQueries.latestAppeal('u1') as unknown as Q;
+    expect(q.constraints).toContainEqual(['where', 'kind', '==', 'appeal']);
+    expect(q.constraints).toContainEqual(['where', 'senderUid', '==', 'u1']);
+    expect(q.constraints).toEqual([
+      ['where', 'senderUid', '==', 'u1'],
+      ['where', 'kind', '==', 'appeal'],
+      ['orderBy', 'lastMessageAt', 'desc'],
+      ['limit', 1],
+    ]);
+  });
+
+  it('opening a thread writes only senderUnread: false', async () => {
+    await inboxWrites.markSenderRead('t1');
+    expect(fb.updateDoc).toHaveBeenCalledTimes(1);
+    const [ref, data] = fb.updateDoc.mock.calls[0]!;
+    expect((ref as { path: string }).path).toBe('inbox/t1');
+    expect(data).toEqual({ senderUnread: false });
+  });
+});
