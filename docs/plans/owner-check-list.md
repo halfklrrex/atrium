@@ -135,3 +135,12 @@ On a scratch board, not your real boards:
 
 - **Button column:** answered (configurable multi-step actions). Slice B, "notify people", is merged (#72); see its check above.
 - **Required columns:** answered 2026-11-05/06 (hard rule: both rules, eventual revert, no bypass). See the REQ-3 check above.
+
+## Install (live)
+
+PWA-1 of the web push epic: Atrium can be installed as an app. Nothing else changes, and there is no offline mode.
+
+- **Chrome or Edge on desktop:** open the site. An install icon appears in the address bar. Install it and check that the app window opens with the Atrium icon and name.
+- **Android Chrome:** menu > **Add to Home screen** (or **Install app**). Check the icon and the name "Atrium", and that it opens full screen without the browser bar.
+- **iPhone Safari:** Share > **Add to Home Screen**. Check the icon and the name "Atrium", and that it opens without the Safari bars.
+- **Confirm nothing else changed:** the site loads, signs in and updates after a deploy exactly as before. No permission prompt appears anywhere, and with no network the app does not work offline (by design).
