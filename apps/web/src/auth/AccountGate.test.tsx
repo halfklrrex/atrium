@@ -20,6 +20,9 @@ vi.mock('firebase/firestore', () => ({
     return mocks.unsubscribe;
   },
 }));
+vi.mock('./AppealPanel', () => ({
+  AppealPanel: ({ uid }: { uid: string }) => <div>appeal panel for {uid}</div>,
+}));
 vi.mock('../data/firestore', () => ({ plainRefs: { user: (uid: string) => ({ uid }) } }));
 
 const signOut = vi.fn();
@@ -75,16 +78,22 @@ describe('AccountGate', () => {
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the blocked screen with the interim text and a sign out button', async () => {
+  it('shows the blocked screen with the appeal text, the appeal panel and a sign out button', async () => {
     renderGate('blocked');
     expect(screen.getByRole('heading', { name: 'Your account is blocked' })).toBeInTheDocument();
     expect(BLOCKED_SCREEN_MESSAGE).toBe(
-      "An admin has blocked this account, so you can't use Atrium with it. If you think this is a mistake, contact the site admin.",
+      "An admin has blocked this account, so you can't use Atrium with it. If you think this is a mistake, you can send an appeal below.",
     );
     expect(screen.getByText(BLOCKED_SCREEN_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByText('appeal panel for u1')).toBeInTheDocument();
     expect(screen.queryByText('the app shell')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show the appeal panel on the pending screen', () => {
+    renderGate('pending');
+    expect(screen.queryByText(/appeal panel/)).not.toBeInTheDocument();
   });
 
   it.each([['approved' as const], [null]])('renders the app for status %s', (status) => {
