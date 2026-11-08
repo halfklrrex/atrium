@@ -160,3 +160,33 @@
 .counterOver {
   color: var(--negative-color);
 }
+
+.settingsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin-block-start: var(--space-24);
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text1-medium);
+}
+
+.deviceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.deviceText {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.settingsSectionFirst {
+  margin-block-start: 0;
+}
