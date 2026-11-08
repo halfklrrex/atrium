@@ -2,10 +2,22 @@
  * Sample boards for the Excel workbook tests: a small board, a board with subitems, dates and
  * awkward text, and a large board. Fictional names only (public repository).
  */
-import type { ColumnDef, GroupDef } from '@atrium/shared';
-import type { ItemDoc } from '../data';
+import {
+  defaultCalendarSettings,
+  defaultChartSettings,
+  defaultGanttSettings,
+  defaultKanbanSettings,
+  defaultTimelineViewSettings,
+  defaultViewSettings,
+  defaultWorkloadSettings,
+  type ColumnDef,
+  type GroupDef,
+  type ViewSettings,
+  type ViewType,
+} from '@atrium/shared';
+import type { BoardViewDoc, ItemDoc } from '../data';
 import type { WorkbookDataInput } from '../components/boards/workbook-data';
-import { makeItem } from './fixtures';
+import { makeItem, ts } from './fixtures';
 
 const col = (
   id: string,
@@ -195,4 +207,128 @@ export function largeBoard(count = 3000): WorkbookDataInput {
     }
   }
   return base('Operations backlog', items, subitems);
+}
+
+function makeView(
+  id: string,
+  type: ViewType,
+  position: string,
+  extra: Partial<ViewSettings>,
+): BoardViewDoc {
+  return {
+    id,
+    name: `${type[0]!.toUpperCase()}${type.slice(1)} view`,
+    type,
+    position,
+    ownerId: null,
+    settings: { ...defaultViewSettings(), ...extra },
+    createdAt: ts(),
+    createdBy: 'u1',
+    updatedAt: ts(),
+    updatedBy: 'u1',
+  } as BoardViewDoc;
+}
+
+/** One view of every type the workbook ports (plus the table, which has no sheet). */
+export function allViews(
+  chartType: 'bar' | 'stacked_bar' | 'line' | 'pie' | 'donut' = 'bar',
+): BoardViewDoc[] {
+  return [
+    makeView('main', 'table', 'a0', {}),
+    makeView('v-kanban', 'kanban', 'a1', {
+      kanban: { ...defaultKanbanSettings(), cardColumnIds: ['owner', 'due', 'priority'] },
+    }),
+    makeView('v-cal', 'calendar', 'a2', {
+      calendar: { ...defaultCalendarSettings(), colorBy: 'status' },
+    }),
+    makeView('v-time', 'timeline', 'a3', {
+      timeline: { ...defaultTimelineViewSettings(), columnId: 'span', colorBy: 'status' },
+    }),
+    makeView('v-gantt', 'gantt', 'a4', {
+      gantt: { ...defaultGanttSettings(), columnId: 'span', dependencyColumnId: 'deps' },
+    }),
+    makeView('v-chart', 'chart', 'a5', { chart: { ...defaultChartSettings(), chartType } }),
+    makeView('v-chart-2', 'chart', 'a6', {
+      chart: { ...defaultChartSettings(), chartType: 'pie' },
+    }),
+    makeView('v-work', 'workload', 'a7', {
+      workload: { ...defaultWorkloadSettings(), columnId: 'span' },
+    }),
+  ];
+}
+
+const VIEW_COLUMNS: ColumnDef[] = [
+  ...COLUMNS,
+  col('span', 'timeline', 'Timeline', 'a8'),
+  col('deps', 'dependency', 'Depends on', 'a9', { strict: false }),
+];
+
+/** A board with every view type: dates, ranges and dependencies around the sample "now". */
+export function viewsBoard(
+  chartType?: 'bar' | 'stacked_bar' | 'line' | 'pie' | 'donut',
+): WorkbookDataInput {
+  const names = [
+    'Brief',
+    'Design',
+    'Build',
+    'Test',
+    'Launch',
+    'Review',
+    'Retro',
+    'Docs',
+    'Support',
+    'Plan Q1',
+  ];
+  const items = names.map((name, i) =>
+    makeItem({
+      id: `v${i}`,
+      name,
+      position: `a${i}`,
+      groupId: (GROUPS[i % 3] as GroupDef).id,
+      values: {
+        owner: person(`u${(i % 4) + 1}`, ...(i % 3 === 0 ? ['u2'] : [])),
+        status: i === 9 ? null : { index: i % 4 },
+        priority: { index: i % 4 },
+        due: { date: iso('2026-11-02', i * 2) },
+        budget: 100 * (i + 1),
+        span: { from: iso('2026-10-26', i * 4), to: iso('2026-10-26', i * 4 + 5 + (i % 3)) },
+        ...(i > 0 ? { deps: { item_ids: [`v${i - 1}`] } } : {}),
+      },
+    }),
+  );
+  return {
+    ...base('Website relaunch', items),
+    columns: VIEW_COLUMNS,
+    views: allViews(chartType),
+    allItems: items,
+  };
+}
+
+/** A large board with every view, wide enough to hit the sheet caps (500 bars, 24 months). */
+export function largeViewsBoard(count = 1200): WorkbookDataInput {
+  const items: ItemDoc[] = [];
+  for (let i = 0; i < count; i += 1) {
+    items.push(
+      makeItem({
+        id: `w${i}`,
+        name: `Job ${i + 1}`,
+        position: `a${String(i).padStart(5, '0')}`,
+        groupId: (GROUPS[i % 3] as GroupDef).id,
+        values: {
+          owner: person(`u${(i % 4) + 1}`),
+          status: { index: i % 4 },
+          priority: { index: (i * 7) % 4 },
+          due: { date: iso('2025-01-01', i) },
+          span: { from: iso('2025-01-01', i), to: iso('2025-01-01', i + 3 + (i % 10)) },
+          ...(i > 0 && i % 2 === 0 ? { deps: { item_ids: [`w${i - 1}`] } } : {}),
+        },
+      }),
+    );
+  }
+  return {
+    ...base('Field operations', items),
+    columns: VIEW_COLUMNS,
+    views: allViews('stacked_bar'),
+    allItems: items,
+  };
 }
