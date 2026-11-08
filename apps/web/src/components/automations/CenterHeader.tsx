@@ -90,7 +90,7 @@ export function CenterHeader({
             icon={Feedback}
             kind="tertiary"
             size="small"
-            ariaLabel="Give feedback"
+            aria-label="Give feedback"
             tooltipContent="Give feedback"
             onClick={onGiveFeedback}
           />
