@@ -40,7 +40,7 @@ export interface BarChartSpec {
   categoriesRef: string;
   categories: readonly string[];
   series: readonly ChartSeriesSpec[];
-  /** Columns (default) or horizontal bars. */
+  /** Columns by default, or horizontal bars. */
   direction?: 'col' | 'bar';
   grouping?: 'clustered' | 'stacked';
   showValues?: boolean;
