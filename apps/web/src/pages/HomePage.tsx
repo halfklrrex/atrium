@@ -66,7 +66,7 @@ export function HomePage() {
             kind="secondary"
             size="medium"
             className={styles.feedbackButton}
-            onClick={() => showComingSoon('Feedback')}
+            onClick={() => openDialog({ type: 'feedback' })}
           >
             Give feedback
           </Button>
