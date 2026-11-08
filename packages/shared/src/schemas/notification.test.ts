@@ -193,20 +193,24 @@ describe('pushPrefsSchema (PWA-2)', () => {
     button: true,
     automation: false,
     account: true,
+    inbox: true,
   };
 
-  it('accepts exactly the six booleans', () => {
+  it('accepts exactly the seven booleans', () => {
     expect(pushPrefsSchema.safeParse(full).success).toBe(true);
   });
 
   it('rejects a missing key, an extra key and a non-boolean', () => {
     const { account: _account, ...missing } = full;
+    const { inbox: _inbox, ...noInbox } = full;
     expect(pushPrefsSchema.safeParse(missing).success).toBe(false);
+    expect(pushPrefsSchema.safeParse(noInbox).success).toBe(false);
+    expect(pushPrefsSchema.safeParse({ ...full, inbox: 1 }).success).toBe(false);
     expect(pushPrefsSchema.safeParse({ ...full, email: true }).success).toBe(false);
     expect(pushPrefsSchema.safeParse({ ...full, reply: 'yes' }).success).toBe(false);
   });
 
-  it('defaults: everything on except automation', () => {
+  it('defaults: everything on except automation (inbox on)', () => {
     expect(DEFAULT_PUSH_PREFS).toEqual(full);
     expect(pushPrefsSchema.safeParse(DEFAULT_PUSH_PREFS).success).toBe(true);
   });

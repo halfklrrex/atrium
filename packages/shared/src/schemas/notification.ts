@@ -66,8 +66,8 @@ export type NotificationWrite = WriteDoc<Notification>;
 
 /**
  * `users/{uid}.notificationPrefs.push`: which kinds also push to the user's devices (PWA-2). When
- * present it holds exactly these six booleans. `account` covers `account_request` and
- * `account_approved`.
+ * present it holds exactly these seven booleans. `account` covers `account_request` and
+ * `account_approved`; `inbox` covers `inbox_new` and `inbox_reply`.
  */
 export const pushPrefsSchema = z
   .object({
@@ -77,6 +77,7 @@ export const pushPrefsSchema = z
     button: z.boolean(),
     automation: z.boolean(),
     account: z.boolean(),
+    inbox: z.boolean(),
   })
   .strict();
 export type PushPrefs = z.infer<typeof pushPrefsSchema>;
@@ -89,6 +90,7 @@ export const DEFAULT_PUSH_PREFS: PushPrefs = {
   button: true,
   automation: false,
   account: true,
+  inbox: true,
 };
 
 /** `users/{uid}.notificationPrefs`: which kinds notify. Missing means all on. */
