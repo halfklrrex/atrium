@@ -20,9 +20,11 @@ import './theme/editor-tokens.css';
 import './theme/print.css';
 import './theme/emoji-tokens.css';
 import './index.css';
+import { registerServiceWorker } from './lib/register-sw';
 import { startThemeSync } from './theme/theme';
 
 startThemeSync();
+registerServiceWorker();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Missing #root element');
