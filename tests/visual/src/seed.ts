@@ -13,7 +13,7 @@ import {
   type ItemWrite,
 } from '@atrium/shared';
 import { initializeApp, getApps, type App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
+import { getAuth, type Auth } from 'firebase-admin/auth';
 import { FieldValue, Timestamp, getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { adminBootstrapTx } from '../../../functions/src/lib/admin';
 import { bootstrapUserInTransaction, type Identity } from '../../../functions/src/lib/bootstrap';
@@ -30,6 +30,17 @@ export const AVERY = {
   email: 'avery@atrium.test',
   password: 'visual-test-password',
   displayName: 'Avery Atrium',
+} as const;
+
+/**
+ * A second emulator user whose account is blocked (ADMIN-4 PR6), for the blocked-screen screenshot.
+ * Fictional person on example.com. `seed()` creates the Auth account and the user document.
+ */
+export const BLAKE = {
+  uid: 'visual-blake',
+  email: 'blake@example.com',
+  password: 'visual-test-password',
+  displayName: 'Blake Rivera',
 } as const;
 
 export const IDS = {
@@ -165,6 +176,8 @@ export async function seed(): Promise<void> {
 
   await clearSeededData(firestore);
   await clearInbox();
+  await clearSenderThreads();
+  await seedBlockedUser(auth, firestore);
 
   // The user doc and personal workspace come out of the same code `bootstrapUser` runs on sign-in,
   // only with a fixed workspace id and the frozen timestamp instead of a server timestamp.
@@ -1526,6 +1539,147 @@ export async function addDashboard(): Promise<void> {
 
 export async function removeDashboard(): Promise<void> {
   await adminDb().collection('dashboards').doc(DASHBOARD_ID).delete();
+}
+
+/** Blake: a blocked account (claim and user document), with no workspace, as an admin block leaves it. */
+async function seedBlockedUser(auth: Auth, firestore: Firestore): Promise<void> {
+  await auth.deleteUser(BLAKE.uid).catch(() => undefined);
+  await auth.createUser({
+    uid: BLAKE.uid,
+    email: BLAKE.email,
+    emailVerified: true,
+    password: BLAKE.password,
+    displayName: BLAKE.displayName,
+  });
+  await auth.setCustomUserClaims(BLAKE.uid, { acct: 'blocked' });
+  await firestore
+    .collection('users')
+    .doc(BLAKE.uid)
+    .set({
+      displayName: BLAKE.displayName,
+      email: BLAKE.email,
+      photoURL: null,
+      timezone: TIMEZONE,
+      locale: LOCALE,
+      lastWorkspaceId: null,
+      theme: 'system',
+      createdAt: ago(30 * DAY),
+      accountStatus: 'blocked',
+      statusChangedAt: ago(2 * DAY),
+      statusChangedBy: AVERY.uid,
+    });
+}
+
+/** Ids of the sender-side threads (ADMIN-4 PR6), kept apart from `INBOX_THREADS` so the admin list stays at three. */
+export const SENDER_THREADS = {
+  blockedAppeal: 'inbox-appeal-blake',
+  myFeedback: 'inbox-feedback-avery',
+} as const;
+
+/**
+ * Blake's appeal, answered by a site administrator, as the Functions would have written it. Remove it
+ * with `clearSenderThreads`.
+ */
+export async function seedBlockedAppeal(): Promise<void> {
+  const firestore = adminDb();
+  const thread = firestore.collection('inbox').doc(SENDER_THREADS.blockedAppeal);
+  const batch = firestore.batch();
+  batch.set(thread, {
+    kind: 'appeal',
+    category: null,
+    subject: 'Appeal',
+    senderUid: BLAKE.uid,
+    senderName: BLAKE.displayName,
+    senderEmail: BLAKE.email,
+    senderPhotoURL: null,
+    status: 'answered',
+    outcome: null,
+    messageCount: 2,
+    lastMessageAt: ago(3 * HOUR),
+    lastMessageBy: 'admin',
+    lastSnippet: 'Thanks for writing. Can you tell us which board the invitations were for?',
+    adminUnread: false,
+    senderUnread: false,
+    createdAt: ago(DAY),
+    updatedAt: ago(3 * HOUR),
+    closedAt: null,
+  });
+  batch.set(thread.collection('messages').doc('m1'), {
+    seq: 1,
+    authorRole: 'sender',
+    authorUid: BLAKE.uid,
+    authorName: BLAKE.displayName,
+    authorPhotoURL: null,
+    text: 'Hello, I think my account was blocked by mistake. I only shared one board with my family.',
+    createdAt: ago(DAY),
+  });
+  batch.set(thread.collection('messages').doc('m2'), {
+    seq: 2,
+    authorRole: 'admin',
+    authorUid: null,
+    authorName: null,
+    authorPhotoURL: null,
+    text: 'Thanks for writing. Can you tell us which board the invitations were for?',
+    createdAt: ago(3 * HOUR),
+  });
+  await batch.commit();
+}
+
+/**
+ * Avery's own feedback thread (an idea answered by a site administrator, with an unread reply).
+ * Remove it with `clearSenderThreads`.
+ */
+export async function seedMyFeedback(): Promise<void> {
+  const firestore = adminDb();
+  const thread = firestore.collection('inbox').doc(SENDER_THREADS.myFeedback);
+  const batch = firestore.batch();
+  batch.set(thread, {
+    kind: 'feedback',
+    category: 'idea',
+    subject: 'Keyboard shortcut for new item',
+    senderUid: AVERY.uid,
+    senderName: AVERY.displayName,
+    senderEmail: AVERY.email,
+    senderPhotoURL: null,
+    status: 'answered',
+    outcome: null,
+    messageCount: 2,
+    lastMessageAt: ago(2 * HOUR),
+    lastMessageBy: 'admin',
+    lastSnippet: 'Good idea, we have added it to the list.',
+    adminUnread: false,
+    senderUnread: true,
+    createdAt: ago(2 * DAY),
+    updatedAt: ago(2 * HOUR),
+    closedAt: null,
+  });
+  batch.set(thread.collection('messages').doc('m1'), {
+    seq: 1,
+    authorRole: 'sender',
+    authorUid: AVERY.uid,
+    authorName: AVERY.displayName,
+    authorPhotoURL: null,
+    text: 'A shortcut to add a new item to the top group would save me a lot of clicks.',
+    createdAt: ago(2 * DAY),
+  });
+  batch.set(thread.collection('messages').doc('m2'), {
+    seq: 2,
+    authorRole: 'admin',
+    authorUid: null,
+    authorName: null,
+    authorPhotoURL: null,
+    text: 'Good idea, we have added it to the list.',
+    createdAt: ago(2 * HOUR),
+  });
+  await batch.commit();
+}
+
+/** Removes the threads `seedBlockedAppeal` and `seedMyFeedback` wrote. */
+export async function clearSenderThreads(): Promise<void> {
+  const firestore = adminDb();
+  for (const id of Object.values(SENDER_THREADS)) {
+    await firestore.recursiveDelete(firestore.collection('inbox').doc(id));
+  }
 }
 
 /** Ids of the Inbox threads `seedInbox` writes (ADMIN-4). */

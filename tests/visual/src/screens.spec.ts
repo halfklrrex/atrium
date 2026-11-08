@@ -17,6 +17,9 @@ import {
   test,
 } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
+import { CONTEXT_OPTIONS, makeDeterministic, setTheme } from './determinism';
+import { WEB_URL } from './env';
+import { signInWithPassword } from './sign-in';
 import {
   FULL_VIEW_ITEM,
   IDS,
@@ -42,6 +45,11 @@ import {
   addView,
   clearActivity,
   clearInbox,
+  clearSenderThreads,
+  seedBlockedAppeal,
+  seedMyFeedback,
+  SENDER_THREADS,
+  BLAKE,
   clearAutomations,
   clearRichUpdate,
   clearRecents,
@@ -845,6 +853,69 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `admin-appeal-thread-${theme}`);
       } finally {
         await clearInbox();
+      }
+    });
+
+    test('blocked screen with an answered appeal', async ({ browser }) => {
+      await seedBlockedAppeal();
+      // Blake is a second, blocked emulator user: a fresh context, not Avery's saved session.
+      const context = await browser.newContext({ ...CONTEXT_OPTIONS, baseURL: WEB_URL });
+      try {
+        await makeDeterministic(context);
+        await setTheme(context, theme);
+        const page = await context.newPage();
+        await page.goto('/login');
+        await expect(page.getByRole('heading', { name: 'Welcome to Atrium' })).toBeVisible();
+        await signInWithPassword(page, BLAKE);
+        await expect(page.getByRole('heading', { name: 'Your account is blocked' })).toBeVisible();
+        await expect(
+          page.getByText('If you think this is a mistake, you can send an appeal below.'),
+        ).toBeVisible();
+        await expect(
+          page.getByText('Can you tell us which board the invitations were for?'),
+        ).toBeVisible();
+        await expect(
+          page.getByLabel('Admin message').getByText('Site Administrator'),
+        ).toBeVisible();
+        await expect(page.getByText("We'll show the reply here.")).toBeVisible();
+        await expect(page.getByRole('textbox', { name: 'Reply' })).toBeVisible();
+        await shoot(page, `blocked-appeal-answered-${theme}`);
+      } finally {
+        await context.close();
+        await clearSenderThreads();
+      }
+    });
+
+    test('Send feedback dialog', async ({ page }) => {
+      await page.goto('/');
+      await homeReady(page);
+      await page.getByRole('button', { name: /account menu for/i }).click();
+      await page.getByRole('menuitem', { name: 'Send feedback' }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByRole('heading', { name: 'Send feedback' })).toBeVisible();
+      await dialog.getByLabel('Subject').fill('Keyboard shortcut for new item');
+      await dialog
+        .getByLabel('Message')
+        .fill('A shortcut to add a new item to the top group would save me a lot of clicks.');
+      await expect(dialog.getByText('78 / 2000')).toBeVisible();
+      await shoot(page, `send-feedback-dialog-${theme}`);
+    });
+
+    test('My feedback thread', async ({ page }) => {
+      await seedMyFeedback();
+      try {
+        await page.goto(`/feedback/${SENDER_THREADS.myFeedback}`);
+        await appReady(page);
+        await expect(
+          page.getByRole('heading', { name: 'Keyboard shortcut for new item', level: 1 }),
+        ).toBeVisible();
+        await expect(
+          page.getByLabel('Admin message').getByText('Site Administrator'),
+        ).toBeVisible();
+        await expect(page.getByRole('textbox', { name: 'Reply' })).toBeVisible();
+        await shoot(page, `my-feedback-thread-${theme}`);
+      } finally {
+        await clearSenderThreads();
       }
     });
 
