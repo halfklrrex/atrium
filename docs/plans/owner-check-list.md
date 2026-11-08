@@ -2,6 +2,19 @@
 
 Live checks only the owner can do, collected per feature while agents build ahead (see `2026-10-31-build-ahead-batch.md`). Agents append a section when a feature merges and tick off what they verified themselves. Delete a section once the owner has signed it off on the Roadmap.
 
+## Appeals and feedback Inbox (live)
+
+- **Send feedback (any approved account):** profile menu > Send feedback: pick a category, write a subject and message, Send. A toast says "Thanks, your feedback was sent." with a View link. Also try the Home page's Give feedback button and the icon in the Automation center header. Profile menu > My feedback lists your conversations; open one to read a reply and answer.
+- **Admin side (your account):** profile menu > Site admin > Inbox tab (unread count on the tab). Open a thread, reply, Close and Reopen, write an internal note (saved by itself, "Only site admins see this"), Delete in the menu. A reply shows to the sender as "Site Administrator", never your name.
+- **Appeal flow (needs a second Google account):** block it from Site admin > Accounts. The blocked person is signed out within seconds of a block and sees the blocked screen with an appeal box when signing in again. They send an appeal; you see it in the Inbox with a notification. Try Unblock (the person is taken into the app without a reload), Keep blocked with a final message (they then wait 7 days to appeal again), and Reopen.
+- **Known:** the forced sign-out and the whole appeal flow were only tested with mocked Firebase and screenshots, not against the live Functions in a browser. Tell me if anything is off.
+
+## Export, batch export and print (live)
+
+- **Excel:** open a board > the board menu > Export > Excel (.xlsx). Open the file in Excel or Numbers: bold frozen header row, dates as dates, numbers as numbers, wide columns not cut off. CSV in the same menu works as before.
+- **Selected rows:** tick a few rows, then Export in the bar at the bottom (after Duplicate): only those rows come out (subitems of a selected parent included). Viewers who can select rows see Export too.
+- **Print:** the board menu > Print. Look at the print preview of a board (light, and again with your dark theme: it prints on white), of an item, and of a dashboard. Known limits: group headers repeat per group and not per page, and very wide tables are scaled down but may still be cut off.
+
 ## Same emoji on every device (live)
 
 - **What changed:** every emoji is now drawn by a font bundled with Atrium (Twemoji style), so it looks the same everywhere and nothing is fetched from another site. The old Windows-only flag pictures are gone.
