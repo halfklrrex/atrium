@@ -64,6 +64,33 @@ export const notificationSchema = z.object({
 export type Notification = z.infer<typeof notificationSchema>;
 export type NotificationWrite = WriteDoc<Notification>;
 
+/**
+ * `users/{uid}.notificationPrefs.push`: which kinds also push to the user's devices (PWA-2). When
+ * present it holds exactly these six booleans. `account` covers `account_request` and
+ * `account_approved`.
+ */
+export const pushPrefsSchema = z
+  .object({
+    assigned: z.boolean(),
+    reply: z.boolean(),
+    mention: z.boolean(),
+    button: z.boolean(),
+    automation: z.boolean(),
+    account: z.boolean(),
+  })
+  .strict();
+export type PushPrefs = z.infer<typeof pushPrefsSchema>;
+
+/** Push defaults for a freshly enabled device (owner decision 2026-11-07): automation is noisy, off. */
+export const DEFAULT_PUSH_PREFS: PushPrefs = {
+  assigned: true,
+  reply: true,
+  mention: true,
+  button: true,
+  automation: false,
+  account: true,
+};
+
 /** `users/{uid}.notificationPrefs`: which kinds notify. Missing means all on. */
 export const notificationPrefsSchema = z
   .object({
@@ -74,6 +101,8 @@ export const notificationPrefsSchema = z
     button: z.boolean().default(true),
     /** Added later, also covers `automation_disabled`; missing means on. */
     automation: z.boolean().default(true),
+    /** Per-kind push switches (PWA-2). Missing means the defaults in `DEFAULT_PUSH_PREFS`. */
+    push: pushPrefsSchema.optional(),
   })
   .strict();
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
