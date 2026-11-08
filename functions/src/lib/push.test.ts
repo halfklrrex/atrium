@@ -323,9 +323,9 @@ describe('sendPush: delivery', () => {
 
 describe('withPushOnCreate', () => {
   const base = (created: boolean) => ({
-    createNotification: vi.fn(async () => created),
-    upsertNotification: vi.fn(async () => undefined),
-    getPrefs: vi.fn(async () => undefined),
+    createNotification: vi.fn(async (_u: string, _i: string, _d: NewNotification) => created),
+    upsertNotification: vi.fn(async (_u: string, _i: string, _d: NewNotification) => undefined),
+    getPrefs: vi.fn(async (_u?: string) => undefined),
   });
 
   it('pushes after a newly created notification only', async () => {
@@ -343,7 +343,7 @@ describe('withPushOnCreate', () => {
     const store = withPushOnCreate(base(true), push);
     await store.upsertNotification('u1', 'n1', note({ kind: 'inbox_new' }));
     expect(push).toHaveBeenCalledWith('u1', 'n1', expect.objectContaining({ kind: 'inbox_new' }));
-    expect(await store.getPrefs()).toBeUndefined();
+    expect(await store.getPrefs('u1')).toBeUndefined();
   });
 
   it('does not push when the write itself fails', async () => {
