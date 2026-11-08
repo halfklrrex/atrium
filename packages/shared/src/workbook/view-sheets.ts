@@ -465,7 +465,7 @@ function timelineSheet(look: Look, data: BoardWorkbookData, view: TimelineViewDa
   sheet.setWidth(1, 32);
   sheet.setWidth(2, 11);
   sheet.setWidth(3, 11);
-  sheet.setWidth(4, 6);
+  sheet.setWidth(4, 7);
   if (gantt) {
     sheet.setWidth(5, 24);
     sheet.setWidth(6, 9);
@@ -724,7 +724,7 @@ function workloadSheet(look: Look, data: BoardWorkbookData, view: WorkloadViewDa
   const sheet = newSheet(VIEW_SHEET_NAMES.workload, { cols: 2, rows: 6 });
   sheet.setWidth(0, 2);
   sheet.setWidth(1, 24);
-  for (let i = 0; i < periods; i += 1) sheet.setWidth(2 + i, 9);
+  for (let i = 0; i < periods; i += 1) sheet.setWidth(2 + i, 11);
   sheet.setWidth(totalCol, 11);
   sheet.setWidth(last, 2);
   header(sheet, look, data, last, subtitleText(data, `Workload: ${view.name}`), true);
