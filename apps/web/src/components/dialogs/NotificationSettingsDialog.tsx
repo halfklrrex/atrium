@@ -10,7 +10,8 @@ import {
 import { useAuth } from '../../auth/auth-context';
 import { notificationWrites, useNotificationPrefs } from '../../data/notifications';
 import { showToast } from '../toast-store';
-import { DeviceSection, PushSwitches, usePushDevice } from './PushSettings';
+import { usePushDevice } from './push-device';
+import { DeviceSection, PushSwitches } from './PushSettings';
 import styles from './dialogs.module.css';
 
 /** The bell switches; the optional `push` map has its own switches in `PushSettings`. */
