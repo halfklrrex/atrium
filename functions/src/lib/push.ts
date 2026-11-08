@@ -27,9 +27,8 @@ const DEAD_TOKEN_CODES: ReadonlySet<string> = new Set([
 
 /**
  * Which push switch a notification kind follows. A kind missing here pushes nothing (fail closed).
- * `automation_disabled` follows `automation`, as in the bell. The owner did not specify the Inbox
- * kinds: they are the same sort of person-to-admin message as the account kinds, so they follow the
- * `account` switch; someone who turns it off still sees them in the bell.
+ * `automation_disabled` follows `automation`, as in the bell. The Inbox kinds have their own
+ * `inbox` switch (owner decision); someone who turns it off still sees them in the bell.
  */
 const PUSH_KEY_OF: Partial<Record<NotificationKind, keyof PushPrefs>> = {
   assigned: 'assigned',
@@ -40,8 +39,8 @@ const PUSH_KEY_OF: Partial<Record<NotificationKind, keyof PushPrefs>> = {
   automation_disabled: 'automation',
   account_request: 'account',
   account_approved: 'account',
-  inbox_new: 'account',
-  inbox_reply: 'account',
+  inbox_new: 'inbox',
+  inbox_reply: 'inbox',
 };
 
 export interface PushTokenRef {

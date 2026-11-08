@@ -203,9 +203,10 @@ describe('users/{uid}.notificationPrefs.push', () => {
     button: true,
     automation: false,
     account: true,
+    inbox: true,
   };
 
-  it('accepts a push map of exactly the six booleans', async () => {
+  it('accepts a push map of exactly the seven booleans', async () => {
     await assertSucceeds(updateDoc(ref(), { notificationPrefs: { ...base, push } }));
   });
 
@@ -231,6 +232,12 @@ describe('users/{uid}.notificationPrefs.push', () => {
   it('refuses a push map with a missing key, an empty map or a non-map', async () => {
     const { account: _account, ...missing } = push;
     await assertFails(updateDoc(ref(), { notificationPrefs: { ...base, push: missing } }));
+    // The old six-key map (no `inbox`) is refused.
+    const { inbox: _inbox, ...sixKeys } = push;
+    await assertFails(updateDoc(ref(), { notificationPrefs: { ...base, push: sixKeys } }));
+    await assertFails(
+      updateDoc(ref(), { notificationPrefs: { ...base, push: { ...push, inbox: 'yes' } } }),
+    );
     await assertFails(updateDoc(ref(), { notificationPrefs: { ...base, push: {} } }));
     await assertFails(updateDoc(ref(), { notificationPrefs: { ...base, push: true } }));
   });

@@ -117,8 +117,8 @@ describe('sendPush: gating', () => {
     ['automation_disabled', 'automation'],
     ['account_request', 'account'],
     ['account_approved', 'account'],
-    ['inbox_new', 'account'],
-    ['inbox_reply', 'account'],
+    ['inbox_new', 'inbox'],
+    ['inbox_reply', 'inbox'],
   ] as const)('%s follows the %s switch', async (kind, key) => {
     const all = {
       assigned: true,
@@ -127,6 +127,7 @@ describe('sendPush: gating', () => {
       button: true,
       automation: true,
       account: true,
+      inbox: true,
     };
     const on = setup({ prefs: { push: all } });
     await sendPush(on.deps, 'u1', 'n1', note({ kind }));
@@ -134,6 +135,28 @@ describe('sendPush: gating', () => {
     const off = setup({ prefs: { push: { ...all, [key]: false } } });
     await sendPush(off.deps, 'u1', 'n1', note({ kind }));
     expect(off.sent).toHaveLength(0);
+  });
+
+  it('inbox and account switches are independent', async () => {
+    const all = {
+      assigned: true,
+      reply: true,
+      mention: true,
+      button: true,
+      automation: true,
+      account: true,
+      inbox: true,
+    };
+    const a = setup({ prefs: { push: { ...all, inbox: false } } });
+    await sendPush(a.deps, 'u1', 'n1', note({ kind: 'inbox_new' }));
+    expect(a.sent).toHaveLength(0);
+    const b = setup({ prefs: { push: { ...all, account: false } } });
+    await sendPush(b.deps, 'u1', 'n1', note({ kind: 'inbox_new' }));
+    await sendPush(b.deps, 'u1', 'n2', note({ kind: 'account_request' }));
+    expect(b.sent).toHaveLength(1);
+    const c = setup({ prefs: { push: { ...all, account: false } } });
+    await sendPush(c.deps, 'u1', 'n1', note({ kind: 'account_approved' }));
+    expect(c.sent).toHaveLength(0);
   });
 
   it('uses the defaults when the push map is missing: automation off, others on', async () => {
@@ -166,6 +189,7 @@ describe('sendPush: payload', () => {
           button: true,
           automation: true,
           account: true,
+          inbox: true,
         },
       },
     });
