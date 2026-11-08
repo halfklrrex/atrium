@@ -52,6 +52,19 @@ export interface BoardCsvInput {
 
 const isActive = (item: ItemDoc): boolean => item.state === 'active';
 
+/** The plain text of one cell, as the CSV writes it (Kanban card lines). */
+export function exportCellText(
+  view: ColumnView,
+  columnDefs: readonly ColumnDef[],
+  item: ItemDoc,
+  boardId: string,
+  personNames: (uid: string) => string | undefined,
+  itemNames: ReadonlyMap<string, string>,
+): string {
+  const cell = cellFor(view, columnDefs, item, boardId, personNames, itemNames, false);
+  return typeof cell === 'string' ? cell : cell.text;
+}
+
 /** Cell of one column for one item: the registry's text, or the computed value for a derived one. */
 function cellFor(
   view: ColumnView,

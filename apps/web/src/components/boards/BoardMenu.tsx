@@ -19,6 +19,7 @@ import {
 import { useMatch, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import {
+  useBoardViews,
   useBoards,
   useFavorites,
   useFolders,
@@ -105,6 +106,7 @@ function BoardMenuContent({
   const { data: folders } = useFolders(board.workspaceId);
   const { data: favorites } = useFavorites(uid);
   const { data: items, loading: itemsLoading } = useItems(board.id);
+  const { data: views } = useBoardViews(board.id, uid);
   const memberLookup = useUserLookup(board.workspaceId);
   const { filterState } = useBoardFilter(board.id);
   const viewHiddenIds = useHiddenColumnIds(board.id);
@@ -153,7 +155,13 @@ function BoardMenuContent({
       itemCount: items.length,
       buildRows: () => buildBoardCsvRows(exportInput()),
       buildWorkbook: () =>
-        buildBoardWorkbookData({ ...exportInput(), boardName: board.name, now: new Date() }),
+        buildBoardWorkbookData({
+          ...exportInput(),
+          boardName: board.name,
+          now: new Date(),
+          views,
+          allItems: items,
+        }),
     });
 
   return (

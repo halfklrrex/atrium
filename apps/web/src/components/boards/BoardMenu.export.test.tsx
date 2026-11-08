@@ -18,6 +18,7 @@ vi.mock('../../data', () => ({
     error: null,
   }),
   useBoards: () => ({ data: [], loading: false, error: null }),
+  useBoardViews: () => ({ data: [], loading: false, error: null }),
   useFolders: () => ({ data: [], loading: false, error: null }),
   useFavorites: () => ({ data: [], loading: false, error: null }),
   useItems: () => ({
