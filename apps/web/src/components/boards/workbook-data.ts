@@ -15,7 +15,7 @@ import type {
   WorkbookCount,
   WorkbookFigures,
 } from '@atrium/shared';
-import type { BoardDoc, ItemDoc } from '../../data';
+import type { BoardDoc, BoardViewDoc, ItemDoc } from '../../data';
 import { UNKNOWN_PERSON_NAME } from '../../data/members-store';
 import { toIsoDate } from '../../columns/format';
 import { comparePositions } from '../../lib/positions';
@@ -26,12 +26,17 @@ import { personsOf } from '../board-workload/workload-model';
 import { buildBatteryModel } from '../dashboard/widgets/battery-model';
 import { readStatusLabel } from '../dashboard/widgets/widget-columns';
 import { buildBoardExportTable, type BoardCsvInput } from './board-export';
+import { buildViewSheets } from './view-sheet-data';
 
 /** People rows on the Summary; the rest is counted in a note. */
 export const SUMMARY_PEOPLE_CAP = 30;
 
 export interface WorkbookDataInput extends Omit<BoardCsvInput, 'typed'> {
   boardName: string;
+  /** The board's views: one sheet per view type (left out for a selection export). */
+  views?: readonly BoardViewDoc[];
+  /** Every active item of the board for the view sheets; `items` plus `subitems` when unset. */
+  allItems?: readonly ItemDoc[];
   /** The export time (tests pass a fixed one). */
   now: Date;
 }
@@ -185,6 +190,20 @@ export function buildBoardWorkbookData(input: WorkbookDataInput): BoardWorkbookD
       })),
     },
     people: peopleTable,
+    views:
+      input.views && !input.itemIds
+        ? buildViewSheets({
+            boardId: input.board.id,
+            views: input.views,
+            items: (input.allItems ?? [...input.items, ...input.subitems]).filter(
+              (i) => i.state === 'active',
+            ),
+            columns,
+            groups,
+            personNames: input.personNames,
+            today,
+          })
+        : [],
     items: {
       header: table.header,
       hasSubitems: table.hasSubitems,
