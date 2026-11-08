@@ -45,6 +45,22 @@ export function AppShell() {
     if (uid) void useInvitesStore.getState().load(uid);
   }, [uid]);
 
+  // An enabled push device refreshes `lastSeenAt` at most once a day (PWA-4). Best effort.
+  useEffect(() => {
+    if (!uid) return;
+    void (async () => {
+      try {
+        const [{ refreshPushLastSeen }, { pushDeps }] = await Promise.all([
+          import('../../lib/push'),
+          import('../../lib/push-runtime'),
+        ]);
+        await refreshPushLastSeen(pushDeps, uid);
+      } catch {
+        // Push is optional.
+      }
+    })();
+  }, [uid]);
+
   useSearchShortcut();
   // Subscribes the app to print events: the light theme and the fit-to-page scale apply to every page.
   usePrinting();
