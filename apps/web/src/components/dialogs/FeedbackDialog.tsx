@@ -73,7 +73,7 @@ export function FeedbackDialog({
   };
 
   return (
-    <Modal id="feedback-dialog" show size="small" onClose={onClose}>
+    <Modal id="feedback-dialog" show size="medium" onClose={onClose}>
       <ModalBasicLayout>
         <ModalHeader title="Send feedback" />
         <ModalContent>
@@ -122,7 +122,7 @@ export function FeedbackDialog({
                 label="Message"
                 aria-label="Message"
                 value={text}
-                rows={6}
+                rows={4}
                 placeholder="Tell us what happened, or what you would like to see"
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                   edited(setText)(e.target.value)

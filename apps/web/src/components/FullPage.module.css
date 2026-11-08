@@ -19,6 +19,12 @@
   text-align: center;
 }
 
+.description {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .messageWide {
   width: 100%;
   max-width: var(--atrium-message-wide-max-width);

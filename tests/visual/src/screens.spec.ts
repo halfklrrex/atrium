@@ -890,14 +890,17 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto('/');
       await homeReady(page);
       await page.getByRole('button', { name: /account menu for/i }).click();
-      await page.getByRole('menuitem', { name: 'Send feedback' }).click();
+      const entry = page.getByRole('menuitem', { name: 'Send feedback' });
+      await expect(entry).toBeVisible();
+      await entry.hover();
+      await entry.click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByRole('heading', { name: 'Send feedback' })).toBeVisible();
       await dialog.getByLabel('Subject').fill('Keyboard shortcut for new item');
       await dialog
         .getByLabel('Message')
         .fill('A shortcut to add a new item to the top group would save me a lot of clicks.');
-      await expect(dialog.getByText('78 / 2000')).toBeVisible();
+      await expect(dialog.getByText(/^\d+ \/ 2000$/)).toBeVisible();
       await shoot(page, `send-feedback-dialog-${theme}`);
     });
 

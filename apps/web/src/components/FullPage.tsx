@@ -40,7 +40,7 @@ export function FullPageMessage({
       <div className={wide ? `${styles.message} ${styles.messageWide}` : styles.message}>
         <BrandMark size={40} />
         <Heading type="h2">{title}</Heading>
-        <Text type="text1" color="secondary">
+        <Text type="text1" color="secondary" className={styles.description}>
           {description}
         </Text>
         {children}
