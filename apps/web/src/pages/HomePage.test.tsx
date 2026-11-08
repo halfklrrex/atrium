@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useUiStore } from '../components/AppShell/ui-store';
+import { useToastStore } from '../components/toast-store';
 import { makeBoard, makeWorkspace, ts } from '../test/fixtures';
 import { HomePage } from './HomePage';
 
@@ -43,6 +45,15 @@ function renderHome() {
 }
 
 describe('HomePage', () => {
+  it('opens the feedback dialog from Give feedback, with no coming-soon toast', () => {
+    useUiStore.getState().closeDialog();
+    useToastStore.setState({ toasts: [] });
+    renderHome();
+    fireEvent.click(screen.getByRole('button', { name: 'Give feedback' }));
+    expect(useUiStore.getState().dialog).toEqual({ type: 'feedback' });
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
   it('greets the user by first name for the time of day', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 9, 23, 19, 30));
