@@ -77,3 +77,10 @@
   border: var(--border-width) var(--border-style) var(--layout-border-color);
   border-radius: var(--border-radius-big);
 }
+
+/* Right column, left of the modal's own close button (32px wide, 24px from the edge). */
+.actions {
+  grid-column: 3;
+  justify-self: end;
+  margin-inline-end: calc(var(--space-32) + var(--space-8));
+}
