@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useUiStore } from '../AppShell/ui-store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AutomationDoc, AutomationRunDoc } from '../../data/automations';
 import { makeBoard, makeItem, ts } from '../../test/fixtures';
