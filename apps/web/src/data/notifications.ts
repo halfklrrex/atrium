@@ -63,6 +63,7 @@ export function useNotificationPrefs(uid: string | undefined): {
   const { data, loading } = useDocSnapshot(ref);
   const prefs = useMemo<NotificationPrefs>(
     () => ({
+      ...(data?.notificationPrefs?.push ? { push: data.notificationPrefs.push } : {}),
       assigned: data?.notificationPrefs?.assigned ?? true,
       reply: data?.notificationPrefs?.reply ?? true,
       mention: data?.notificationPrefs?.mention ?? true,
@@ -100,7 +101,10 @@ export const notificationWrites = {
     await deleteDoc(plainRefs.notification(uid, id));
   },
 
-  /** Saves the switches on the user's own document. */
+  /**
+   * Saves the switches on the user's own document. The optional `push` map is written whole (the
+   * rules require all seven booleans) and only when given, so a bell change keeps it as stored.
+   */
   async setPrefs(uid: string, prefs: NotificationPrefs): Promise<void> {
     await updateDoc(plainRefs.user(uid), {
       notificationPrefs: {
@@ -109,6 +113,19 @@ export const notificationWrites = {
         mention: prefs.mention,
         button: prefs.button,
         automation: prefs.automation,
+        ...(prefs.push
+          ? {
+              push: {
+                assigned: prefs.push.assigned,
+                reply: prefs.push.reply,
+                mention: prefs.push.mention,
+                button: prefs.push.button,
+                automation: prefs.push.automation,
+                account: prefs.push.account,
+                inbox: prefs.push.inbox,
+              },
+            }
+          : {}),
       },
     });
   },
