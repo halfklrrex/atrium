@@ -226,6 +226,7 @@ interface ColumnUi<Value, Settings> {
 ```
 - `CellProps` carries the validated `value` (`null` when empty), the validated `settings`, the column def, a `CellContext` (search term to highlight, whether the row's first status is "done", whether the viewer can edit) and `onChange(value | null)`. `null` clears the cell (the table then deletes `values.<columnId>`).
 - `EditorProps` adds `onClose`, the cell `anchor` element (popovers use the shared `AnchoredPopup`: a portal panel that follows the cell) and `saveSettings(settings)`, which replaces the column's settings (status and dropdown labels) in a transaction.
+- **Default labels** (`packages/shared/src/columns/status.ts`): a new Status column and a new board get `DEFAULT_STATUS_LABELS` (monday's orange/green/red plus the grey empty label at index 5); the Add column menus' "Priority" entry creates a status column titled Priority with `DEFAULT_PRIORITY_LABELS` (Critical red, High orange, Medium blue, Low light blue, #66ccff = palette `chili-blue`). Existing columns keep what they store.
 - To add a column type: write the shared `ColumnType`, then `columns/<type>.tsx` with `defineColumnUi({...})`, then add it to the list in `columns/registry.ts` (and to `ADD_COLUMN_ORDER` to offer it in the picker). The table itself needs no change.
 - Only one editor is open at a time (`useTableStore().editing`); viewers never open one.
 

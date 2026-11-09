@@ -9,6 +9,7 @@
 // it here in the same PR. See docs/showcase.md.
 import {
   DEFAULT_BOARD_STATUS_LABELS,
+  DEFAULT_PRIORITY_LABELS,
   automationSchema,
   boardSchema,
   boardViewSchema,
@@ -126,10 +127,7 @@ const STATUS_LABELS = [
 const STATUS = { working: 0, done: 1, stuck: 2, review: 3 };
 
 const PRIORITY_LABELS = [
-  { id: 'critical', index: 0, label: 'Critical', color: '#333333' },
-  { id: 'high', index: 1, label: 'High', color: '#401694' },
-  { id: 'medium', index: 2, label: 'Medium', color: '#5559df' },
-  { id: 'low', index: 3, label: 'Low', color: '#579bfc' },
+  ...DEFAULT_PRIORITY_LABELS,
   { id: 'priority_empty', index: 5, label: '', color: '#c4c4c4' },
 ];
 const PRIORITY = { critical: 0, high: 1, medium: 2, low: 3 };

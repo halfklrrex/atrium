@@ -28,7 +28,8 @@ import {
 } from '@vibe/icons';
 import classNames from 'classnames';
 import { useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
-import { ADD_COLUMN_ORDER, getColumnUi } from '../../columns/registry';
+import type { AddColumnEntry } from '../../columns/registry';
+import { ADD_COLUMN_ENTRIES, ADD_COLUMN_ORDER, getColumnUi } from '../../columns/registry';
 import { useNow } from '../../lib/use-now';
 import {
   COLUMN_LOCKED_TOOLTIP,
@@ -513,12 +514,12 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
                   size="medium"
                   className={styles.submenuScroll}
                 >
-                  {ADD_COLUMN_ORDER.map((type) => (
+                  {ADD_COLUMN_ENTRIES.map((entry) => (
                     <MenuItem
-                      key={type}
-                      title={columnRegistry.get(type).label}
-                      icon={getColumnUi(type)?.icon}
-                      onClick={() => void addColumn(env.ctx, type, group.id, columnId)}
+                      key={entry.key}
+                      title={entry.label}
+                      icon={getColumnUi(entry.type)?.icon}
+                      onClick={() => void addColumn(env.ctx, entry, group.id, columnId)}
                     />
                   ))}
                 </Menu>
@@ -596,11 +597,11 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
 /** Add a column and start renaming it in the header the request came from. */
 async function addColumn(
   ctx: Parameters<typeof tableActions.addColumn>[0],
-  type: string,
+  entry: AddColumnEntry,
   groupId: string,
   afterColumnId?: string,
 ) {
-  const id = await tableActions.addColumn(ctx, type, afterColumnId);
+  const id = await tableActions.addColumn(ctx, entry.type, afterColumnId, entry.preset);
   if (id) useTableStore.getState().setRenamingColumn({ groupId, columnId: id });
 }
 
@@ -628,23 +629,23 @@ function AddColumnCell({ group }: { group: GroupDef }) {
           <div className={styles.pickerBody}>
             <h3 className={styles.pickerTitle}>Essentials</h3>
             <div className={styles.pickerGrid}>
-              {ADD_COLUMN_ORDER.map((type) => {
-                const ui = getColumnUi(type);
+              {ADD_COLUMN_ENTRIES.map((entry) => {
+                const ui = getColumnUi(entry.type);
                 const Icon = ui?.icon;
                 return (
                   <button
-                    key={type}
+                    key={entry.key}
                     type="button"
                     className={styles.pickerItem}
                     onClick={() => {
                       setOpen(false);
-                      void addColumn(env.ctx, type, group.id);
+                      void addColumn(env.ctx, entry, group.id);
                     }}
                   >
                     <span className={classNames(styles.tile, toneClass(ui?.tone))}>
                       {Icon ? <Icon aria-hidden="true" /> : null}
                     </span>
-                    {columnRegistry.get(type).label}
+                    {entry.label}
                   </button>
                 );
               })}

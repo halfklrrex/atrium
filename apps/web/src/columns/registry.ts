@@ -1,4 +1,4 @@
-import { columnRegistry } from '@atrium/shared';
+import { DEFAULT_PRIORITY_LABELS, columnRegistry } from '@atrium/shared';
 import { autoNumberUi } from './auto-number';
 import { boardRelationUi } from './board-relation';
 import { buttonUi } from './button';
@@ -130,3 +130,38 @@ export const ADD_COLUMN_ORDER: readonly (typeof ADD_COLUMN_TYPES)[number][] = [
     .get(a)
     .label.localeCompare(columnRegistry.get(b).label, 'en', { sensitivity: 'base' }),
 );
+
+/** What a pre-filled entry of the add-column menus creates: a column of `type` with this title and settings. */
+export interface AddColumnPreset {
+  title: string;
+  settings: Record<string, unknown>;
+}
+
+/** One row of the add-column picker and "Add column to the right" menu. */
+export interface AddColumnEntry {
+  /** Unique key: the column type, or the preset's name. */
+  key: string;
+  type: (typeof ADD_COLUMN_TYPES)[number];
+  label: string;
+  /** Set for pre-filled columns (monday's Priority is a status column with its own labels). */
+  preset?: AddColumnPreset;
+}
+
+/** Pre-filled columns offered next to the plain types. */
+const ADD_COLUMN_PRESETS: readonly AddColumnEntry[] = [
+  {
+    key: 'priority',
+    type: 'status',
+    label: 'Priority',
+    preset: {
+      title: 'Priority',
+      settings: { labels: DEFAULT_PRIORITY_LABELS.map((l) => ({ ...l })) },
+    },
+  },
+];
+
+/** The add-column menus' rows: every type plus the presets, sorted alphabetically by label. */
+export const ADD_COLUMN_ENTRIES: readonly AddColumnEntry[] = [
+  ...ADD_COLUMN_ORDER.map((type) => ({ key: type, type, label: columnRegistry.get(type).label })),
+  ...ADD_COLUMN_PRESETS,
+].sort((a, b) => a.label.localeCompare(b.label, 'en', { sensitivity: 'base' }));

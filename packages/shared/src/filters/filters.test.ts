@@ -178,7 +178,7 @@ describe('Filter & Sort Engine', () => {
       expect(
         evaluateCondition(
           workingItem,
-          { columnId: statusCol.id, operator: 'is', value: 'working-on-it' },
+          { columnId: statusCol.id, operator: 'is', value: 'working_orange' },
           allColumns,
         ),
       ).toBe(true);

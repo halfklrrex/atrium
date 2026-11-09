@@ -1,20 +1,13 @@
 import type { ColumnDef, GroupDef } from './schemas/board';
 import { columnRegistry } from './columns';
+import { DEFAULT_STATUS_LABELS } from './columns';
 import type { StatusLabel, StatusSettings } from './columns';
 
 /** Vibe `--color-bright-blue` / `--color-grass-green` as stored hex values (documents hold hex). */
 export const DEFAULT_GROUP_COLORS = ['#579bfc', '#037f4c'] as const;
 
-/**
- * monday's default status labels: orange "Working on it", green "Done", red "Stuck" and the grey
- * empty/default label (index 5, as in monday). Label ids use monday's colour names.
- */
-export const DEFAULT_BOARD_STATUS_LABELS: readonly StatusLabel[] = [
-  { id: 'working_orange', index: 0, label: 'Working on it', color: '#fdab3d' },
-  { id: 'done_green', index: 1, label: 'Done', color: '#00c875', isDone: true },
-  { id: 'stuck_red', index: 2, label: 'Stuck', color: '#df2f4a' },
-  { id: 'default_grey', index: 5, label: '', color: '#c4c4c4' },
-];
+/** Same labels a new Status column gets; kept under this name for board creation. */
+export const DEFAULT_BOARD_STATUS_LABELS: readonly StatusLabel[] = DEFAULT_STATUS_LABELS;
 
 export interface BoardStructure {
   columns: ColumnDef[];
