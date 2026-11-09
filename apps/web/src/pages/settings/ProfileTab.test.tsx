@@ -74,4 +74,29 @@ describe('ProfileTab', () => {
       }),
     );
   });
+
+  it('shows the user ID and copies it', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    render(<ProfileTab />);
+    expect(screen.getByTestId('user-id-value')).toHaveTextContent('u1');
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(writeText).toHaveBeenCalledWith('u1');
+    await vi.waitFor(() =>
+      expect(mocks.showToast).toHaveBeenCalledWith('User ID copied.', { type: 'positive' }),
+    );
+  });
+
+  it('toasts when the clipboard is unavailable', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    render(<ProfileTab />);
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await vi.waitFor(() =>
+      expect(mocks.showToast).toHaveBeenCalledWith(
+        "Couldn't copy. Select the ID and copy it by hand.",
+        { type: 'negative' },
+      ),
+    );
+  });
 });
