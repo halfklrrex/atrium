@@ -67,7 +67,7 @@
   overflow-wrap: anywhere;
 }
 
-.column a {
+.column a:not(.brand) {
   color: var(--link-color);
 }
 
