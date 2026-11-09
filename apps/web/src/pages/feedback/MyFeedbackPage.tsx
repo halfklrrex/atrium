@@ -1,11 +1,12 @@
 import { Button, Label, Loader } from '@vibe/core';
-import { useNavigate } from 'react-router';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { StatusChip } from '../../components/inbox/StatusChip';
 import { useUiStore } from '../../components/AppShell/ui-store';
 import { useMyFeedbackThreads, type InboxThreadDoc } from '../../data/inbox';
 import { formatRelativeShort } from '../../lib/format';
-import { CATEGORY_LABELS, SENDER_STATUS_LABELS } from '../../lib/inbox-sender';
+import { CATEGORY_SHORT_LABELS, SENDER_STATUS_LABELS } from '../../lib/inbox-sender';
 import styles from './Feedback.module.css';
 
 function ThreadRow({ thread, onOpen }: { thread: InboxThreadDoc; onOpen: () => void }) {
@@ -27,7 +28,7 @@ function ThreadRow({ thread, onOpen }: { thread: InboxThreadDoc; onOpen: () => v
         <span className={styles.rowSide}>
           <span className={styles.chips}>
             {thread.category ? (
-              <Label text={CATEGORY_LABELS[thread.category]} color="primary" kind="line" />
+              <Label text={CATEGORY_SHORT_LABELS[thread.category]} color="primary" kind="line" />
             ) : null}
             <StatusChip status={thread.status} labels={SENDER_STATUS_LABELS} />
           </span>
@@ -43,6 +44,23 @@ export function MyFeedbackPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const openDialog = useUiStore((s) => s.openDialog);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const wantsComplaint = searchParams.get('new') === 'complaint';
+
+  // `/feedback?new=complaint` (linked from the privacy notice) opens the dialog once on the
+  // complaint category, then drops the parameter so a reload or Back does not reopen it.
+  useEffect(() => {
+    if (!wantsComplaint) return;
+    openDialog({ type: 'feedback', category: 'complaint' });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('new');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [wantsComplaint, openDialog, setSearchParams]);
   const { data: threads, loading, error } = useMyFeedbackThreads(user?.uid ?? null);
 
   return (

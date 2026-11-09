@@ -5,7 +5,7 @@ import {
   type InboxStatus,
   type InboxThread,
 } from '@atrium/shared';
-import { CATEGORY_LABELS, senderLabel } from '../../lib/inbox-sender';
+import { CATEGORY_SHORT_LABELS, senderLabel } from '../../lib/inbox-sender';
 
 export { INBOX_ADMIN_LABEL };
 
@@ -38,10 +38,11 @@ export function formatInboxCount(count: number): string {
   return count > 99 ? '99+' : String(count);
 }
 
-/** "Appeal", "Feedback" or "Feedback · Bug". */
+/** "Appeal", "Feedback", "Feedback · Bug" or "Complaint". */
 export function kindLabel(t: Pick<InboxThread, 'kind' | 'category'>): string {
   if (t.kind === 'appeal') return 'Appeal';
-  return t.category ? `Feedback · ${CATEGORY_LABELS[t.category]}` : 'Feedback';
+  if (t.category === 'complaint') return CATEGORY_SHORT_LABELS.complaint;
+  return t.category ? `Feedback · ${CATEGORY_SHORT_LABELS[t.category]}` : 'Feedback';
 }
 
 /** The email line, left out when it would repeat the name. */

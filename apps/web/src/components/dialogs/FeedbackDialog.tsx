@@ -100,6 +100,12 @@ export function FeedbackDialog({
                   />
                 ))}
               </div>
+              {category === 'complaint' ? (
+                <p className={styles.categoryHint}>
+                  For a complaint about how Atrium handles your data, or a request to see, correct
+                  or delete it. Only the site admins read it.
+                </p>
+              ) : null}
             </div>
 
             <TextField
@@ -107,7 +113,9 @@ export function FeedbackDialog({
               inputAriaLabel="Subject"
               value={subject}
               onChange={edited(setSubject)}
-              placeholder="A short summary"
+              placeholder={
+                category === 'complaint' ? 'For example: Delete my data' : 'A short summary'
+              }
               autoFocus
               size="medium"
             />
