@@ -71,7 +71,11 @@ function IconsTab({ value, onPick }: { value: string | null; onPick: (stored: st
         size="small"
         onChange={(v: string) => setQuery(v)}
       />
-      <div className={styles.scroll} onKeyDown={handleGridKeys}>
+      <div
+        className={styles.scroll}
+        onKeyDown={handleGridKeys}
+        data-weights-loaded={regularPaths ? 'true' : 'false'}
+      >
         {groups.length ? (
           groups.map((group) => (
             <section key={group.id} aria-label={group.label}>
