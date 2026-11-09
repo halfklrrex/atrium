@@ -92,6 +92,23 @@ describe('FeedbackDialog', () => {
     expect(first).toBe(second);
   });
 
+  it('changing the category starts a new request id', async () => {
+    mocks.send.mockRejectedValueOnce({
+      code: 'functions/resource-exhausted',
+      details: { reason: 'open-thread-limit' },
+    });
+    const { user } = setup();
+    await user.type(subjectBox(), 'Hi');
+    await user.type(messageBox(), 'There');
+    await user.click(sendButton());
+    await screen.findByRole('alert');
+    await user.click(screen.getByRole('radio', { name: 'Bug' }));
+    await user.click(sendButton());
+    const [first, second] = mocks.send.mock.calls.map((c) => c[0].requestId);
+    expect(first).not.toBe(second);
+    expect(mocks.send.mock.calls[1]![0].category).toBe('bug');
+  });
+
   it('refuses a subject over 120 characters', async () => {
     const { user } = setup();
     await user.click(subjectBox());

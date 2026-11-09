@@ -96,7 +96,7 @@ export function FeedbackDialog({
                     text={option.label}
                     value={option.value}
                     checked={category === option.value}
-                    onSelect={() => setCategory(option.value)}
+                    onSelect={() => edited(setCategory)(option.value)}
                   />
                 ))}
               </div>
