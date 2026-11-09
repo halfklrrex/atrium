@@ -183,6 +183,37 @@ describe('useInboxList', () => {
     expect(fb.getDocs).not.toHaveBeenCalled();
   });
 
+  it('a failed Load more keeps the rows and the button, and Load more tries again', async () => {
+    const all = fakeDocs(ids(30));
+    let failNext = true;
+    const limitOf = (q: Q) =>
+      (q.constraints.find((c) => (c as unknown[])[0] === 'limit') as [string, number])[1];
+    fb.onSnapshot.mockImplementation((q: Q, next, error) => {
+      const n = limitOf(q);
+      if (n > 20 && failNext) {
+        failNext = false;
+        error(new Error('offline'));
+      } else {
+        next({ docs: all.slice(0, n) });
+      }
+      return () => undefined;
+    });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { result } = renderHook(() => useInboxList(null, null));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.threads).toHaveLength(20);
+    expect(result.current.hasMore).toBe(true);
+
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.threads).toHaveLength(30));
+    expect(result.current.error).toBeNull();
+    expect(result.current.hasMore).toBe(false);
+    const limits = fb.onSnapshot.mock.calls.map((c) => limitOf(c[0] as Q));
+    expect(limits).toEqual([20, 40, 40]);
+    spy.mockRestore();
+  });
+
   it('a thread arriving between pages is not dropped', async () => {
     let rows = ids(20);
     let push: ((docs: ReturnType<typeof fakeDocs>) => void) | null = null;
