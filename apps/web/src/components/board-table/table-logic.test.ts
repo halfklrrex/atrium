@@ -83,6 +83,11 @@ describe('column default naming', () => {
     expect(defaultColumnTitle('long_text', [])).toBe('Long text');
   });
 
+  it('uses a preset base title and numbers it when taken', () => {
+    expect(defaultColumnTitle('status', ['Status'], 'Priority')).toBe('Priority');
+    expect(defaultColumnTitle('status', ['priority'], 'Priority')).toBe('Priority 1');
+  });
+
   it('appends a number when the title is taken, ignoring case', () => {
     expect(defaultColumnTitle('status', ['Status'])).toBe('Status 1');
     expect(defaultColumnTitle('status', ['status', 'Status 1'])).toBe('Status 2');

@@ -128,7 +128,7 @@ describe('status column', () => {
 
   it('has valid default settings with labels, colours and unique indexes', () => {
     expect(statusSettingsSchema.safeParse(settings).success).toBe(true);
-    expect(settings.labels.map((l) => l.index)).toEqual([0, 1, 2]);
+    expect(settings.labels.map((l) => l.index)).toEqual([0, 1, 2, 5]);
     expect(settings.labels.every((l) => /^#[0-9a-f]{6}$/i.test(l.color))).toBe(true);
   });
 

@@ -814,7 +814,12 @@ export const tableActions = {
   // -------------------------------------------------------------- columns
 
   /** Add a column of `type` (after `afterColumnId`, else at the end). Returns its id or `null`. */
-  async addColumn(ctx: TableCtx, type: string, afterColumnId?: string): Promise<string | null> {
+  async addColumn(
+    ctx: TableCtx,
+    type: string,
+    afterColumnId?: string,
+    preset?: { title: string; settings: Record<string, unknown> },
+  ): Promise<string | null> {
     let id = '';
     const ok = await attempt(
       () =>
@@ -833,9 +838,13 @@ export const tableActions = {
             title: defaultColumnTitle(
               type,
               columns.map((c) => c.title),
+              preset?.title,
             ),
             position,
-            settings: clean(columnRegistry.defaultSettings(type)) as Record<string, unknown>,
+            settings: clean(preset?.settings ?? columnRegistry.defaultSettings(type)) as Record<
+              string,
+              unknown
+            >,
           };
           return columnsPatch(ctx, [...columns, column]);
         }),

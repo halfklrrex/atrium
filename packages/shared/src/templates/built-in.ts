@@ -1,4 +1,5 @@
 import { columnRegistry } from '../columns';
+import { DEFAULT_PRIORITY_LABELS } from '../columns';
 import type { StatusLabel } from '../columns';
 import type { ColumnDef, GroupDef } from '../schemas/board';
 import type { TemplateSampleItem, TemplateStructure } from '../schemas/template';
@@ -87,18 +88,9 @@ const PROJECT_TRACKER: BuiltInTemplate = {
           ['stuck_red', 'Stuck', RED],
         ]),
       ),
-      column(
-        'priority',
-        'status',
-        'Priority',
-        2,
-        statusLabels([
-          ['critical_red', 'Critical', RED],
-          ['high_purple', 'High', PURPLE],
-          ['medium_blue', 'Medium', BLUE],
-          ['low_grey', 'Low', GREY],
-        ]),
-      ),
+      column('priority', 'status', 'Priority', 2, {
+        labels: DEFAULT_PRIORITY_LABELS.map((l) => ({ ...l })),
+      }),
       column('due', 'date', 'Due date', 3),
       column('notes', 'long_text', 'Notes', 4),
     ],

@@ -62,10 +62,27 @@ export function findStatusLabel(value: StatusValue, settings: StatusSettings): S
   return null;
 }
 
+/**
+ * monday's default status labels, what a new Status column and a new board start with: orange
+ * "Working on it", green "Done", red "Stuck" and the grey empty/default label (index 5, as in
+ * monday). Label ids use monday's colour names.
+ */
 export const DEFAULT_STATUS_LABELS: readonly StatusLabel[] = [
-  { id: 'working-on-it', index: 0, label: 'Working on it', color: '#fdab3d' },
-  { id: 'done', index: 1, label: 'Done', color: '#00c875', isDone: true },
-  { id: 'stuck', index: 2, label: 'Stuck', color: '#df2f4a' },
+  { id: 'working_orange', index: 0, label: 'Working on it', color: '#fdab3d' },
+  { id: 'done_green', index: 1, label: 'Done', color: '#00c875', isDone: true },
+  { id: 'stuck_red', index: 2, label: 'Stuck', color: '#df2f4a' },
+  { id: 'default_grey', index: 5, label: '', color: '#c4c4c4' },
+];
+
+/**
+ * Labels of a new Priority column (a status column pre-filled as in monday): Critical red, High
+ * orange, Medium blue, Low light blue. Indexes run 0-3, Critical first.
+ */
+export const DEFAULT_PRIORITY_LABELS: readonly StatusLabel[] = [
+  { id: 'critical_red', index: 0, label: 'Critical', color: '#df2f4a' },
+  { id: 'high_orange', index: 1, label: 'High', color: '#fdab3d' },
+  { id: 'medium_blue', index: 2, label: 'Medium', color: '#579bfc' },
+  { id: 'low_light_blue', index: 3, label: 'Low', color: '#66ccff' },
 ];
 
 /** monday's grey for a cell without a status (`explosive`). */
