@@ -813,12 +813,32 @@ for (const theme of ['light', 'dark'] as const) {
       const dialog = page.getByRole('dialog', { name: 'Add workspace' });
       await dialog.getByRole('textbox', { name: 'Workspace name' }).fill('Family');
       await dialog.getByRole('tab', { name: 'Icons' }).click();
-      await dialog.getByRole('button', { name: 'diversity 3' }).click();
-      await expect(dialog.getByRole('button', { name: 'diversity 3' })).toHaveAttribute(
-        'aria-pressed',
-        'true',
-      );
+      await dialog.getByRole('button', { name: 'users three', exact: true }).click();
+      await expect(
+        dialog.getByRole('button', { name: 'users three', exact: true }),
+      ).toHaveAttribute('aria-pressed', 'true');
+      // The regular-weight paths load lazily with the picker: wait for them before the shot.
+      await page.waitForLoadState('networkidle');
       await shoot(page, `add-workspace-icons-${theme}`);
+    });
+
+    test('new folder dialog, icon picker', async ({ page }) => {
+      await page.goto('/');
+      await homeReady(page);
+      await page.getByRole('button', { name: 'Add to workspace' }).click();
+      const item = page.getByRole('menuitem', { name: 'Folder', exact: true });
+      await item.hover();
+      await item.click({ delay: 100 });
+      const dialog = page.getByRole('dialog', { name: 'New folder' });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole('textbox', { name: 'Folder name' }).fill('Trips');
+      await dialog.getByRole('tab', { name: 'Icons' }).click();
+      await dialog.getByRole('button', { name: 'airplane tilt', exact: true }).click();
+      await expect(
+        dialog.getByRole('button', { name: 'airplane tilt', exact: true }),
+      ).toHaveAttribute('aria-pressed', 'true');
+      await page.waitForLoadState('networkidle');
+      await shoot(page, `new-folder-icons-${theme}`);
     });
 
     test('create board dialog, template gallery', async ({ page }) => {
@@ -1041,7 +1061,8 @@ for (const theme of ['light', 'dark'] as const) {
         await openNewWorkspaceDialog(page);
         const dialog = page.getByRole('dialog', { name: 'Add workspace' });
         await dialog.getByRole('tab', { name: 'Icons' }).click();
-        await expect(dialog.getByRole('button', { name: 'home', exact: true })).toBeVisible();
+        await expect(dialog.getByRole('button', { name: 'house', exact: true })).toBeVisible();
+        await page.waitForLoadState('networkidle');
         await shoot(page, `mobile-add-workspace-icons-${theme}`);
       });
 
