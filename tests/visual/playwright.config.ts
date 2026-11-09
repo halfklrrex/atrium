@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 import { CONTEXT_OPTIONS } from './src/determinism';
 import { HUB_URL, PORT_OFFSET, REPO_ROOT, STORAGE_STATE, WEB_URL } from './src/env';
 
@@ -40,7 +40,28 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
 
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  // `chromium` is the desktop suite (1440x900) and the only one with existing baselines. The two
+  // phone projects run in WebKit as an iPhone 15 (touch, 3x): `mobile-webkit` compares a dozen
+  // light baselines, `mobile-audit` takes no screenshots and checks for layout defects at five
+  // sizes (docs/visual-testing.md). `pnpm test:visual --project=<name>` runs one of them.
+  projects: [
+    {
+      name: 'chromium',
+      use: { browserName: 'chromium' },
+      testIgnore: '**/mobile-*.spec.ts',
+    },
+    {
+      name: 'mobile-webkit',
+      use: { ...devices['iPhone 15'] },
+      testMatch: '**/mobile-screens.spec.ts',
+    },
+    {
+      name: 'mobile-audit',
+      use: { ...devices['iPhone 15'] },
+      testMatch: '**/mobile-audit.spec.ts',
+      timeout: 60_000,
+    },
+  ],
 
   // Fresh, empty emulators (so the seed is the only data) plus the Vite dev server, through the same
   // scripts `pnpm dev` uses, so ATRIUM_PORT_OFFSET applies. Readiness is polled, never slept on.

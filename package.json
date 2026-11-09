@@ -17,6 +17,7 @@
     "test:rules": "node scripts/test-rules.mjs",
     "test:visual": "pnpm --filter @atrium/visual-tests test:visual",
     "test:visual:update": "pnpm --filter @atrium/visual-tests test:visual:update",
+    "test:visual:audit": "pnpm --filter @atrium/visual-tests test:visual:audit",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint . && pnpm lint:css && prettier --check .",
     "lint:css": "stylelint \"apps/web/src/**/*.css\"",
