@@ -41,6 +41,7 @@ import { BoardMenu } from '../boards/BoardMenu';
 import { DashboardMenu } from '../dashboard/DashboardMenu';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { InlineEdit } from '../InlineEdit';
+import { WorkspaceTile } from '../WorkspaceTile';
 import { useUiStore } from '../AppShell/ui-store';
 import { dragClickGuard, guardedNavigate } from './dragClickGuard';
 import styles from './Sidebar.module.css';
@@ -420,12 +421,16 @@ function FolderRowView({
         size={16}
         className={classNames(styles.chevron, expanded && styles.chevronOpen)}
       />
-      <Icon
-        icon={FolderIcon}
-        size={16}
-        className={styles.rowIcon}
-        style={{ color: folder.color }}
-      />
+      {folder.icon ? (
+        <WorkspaceTile icon={folder.icon} color={folder.color} name={folder.name} size="xs" />
+      ) : (
+        <Icon
+          icon={FolderIcon}
+          size={16}
+          className={styles.rowIcon}
+          style={{ color: folder.color }}
+        />
+      )}
     </>
   );
 

@@ -366,9 +366,9 @@ export function renderNotices({ entries }) {
       'It is built on the open-source packages below, each under its own licence. ' +
       "Atrium's UI uses the MIT-licensed Vibe design system (`@vibe/core`, `@vibe/icons`) published by monday.com; " +
       'Atrium is not affiliated with monday.com. ' +
-      'The workspace icons are a curated subset of Material Symbols (outlined), copyright Google LLC, ' +
-      'licensed under the Apache License 2.0 (the full text is in the shared texts below); ' +
-      'see `docs/PROVENANCE.md`.',
+      'The workspace and folder icons are a curated subset of Phosphor Icons (regular and fill weights), ' +
+      'copyright Phosphor Icons, licensed under the MIT License ' +
+      '(https://github.com/phosphor-icons/core/blob/main/LICENSE); see `docs/PROVENANCE.md`.',
   );
   out.push('');
   out.push(

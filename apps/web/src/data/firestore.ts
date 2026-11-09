@@ -51,6 +51,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  deleteField,
   updateDoc,
   where,
   writeBatch,
@@ -403,6 +404,7 @@ export const writes = {
       name: form.name,
       parentFolderId: form.parentFolderId,
       color: form.color,
+      ...(form.icon ? { icon: form.icon } : {}),
       position,
       createdAt: serverTimestamp(),
       createdBy: uid,
@@ -414,10 +416,15 @@ export const writes = {
   async updateFolder(
     workspaceId: string,
     folderId: string,
-    patch: Partial<Pick<Folder, 'name' | 'color' | 'position' | 'parentFolderId'>>,
+    patch: Partial<Pick<Folder, 'name' | 'color' | 'position' | 'parentFolderId'>> & {
+      /** A new icon, or `null` to go back to the default folder glyph. */
+      icon?: string | null;
+    },
   ): Promise<void> {
+    const { icon, ...rest } = patch;
     await updateDoc(doc(db, COLLECTIONS.workspaces, workspaceId, COLLECTIONS.folders, folderId), {
-      ...patch,
+      ...rest,
+      ...(icon === undefined ? {} : { icon: icon === null ? deleteField() : icon }),
       updatedAt: serverTimestamp(),
     });
   },

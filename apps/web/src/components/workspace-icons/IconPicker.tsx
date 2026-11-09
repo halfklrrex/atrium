@@ -1,8 +1,9 @@
-import { workspaceIconKey } from '@atrium/shared';
 import { Button, Tab, TabList, TextField } from '@vibe/core';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { handleGridKeys } from './grid-keys';
 import {
+  findWorkspaceIcon,
+  isIconKeyValue,
   searchWorkspaceIcons,
   toStoredIcon,
   WORKSPACE_ICON_GROUPS,
@@ -21,15 +22,16 @@ const TABS: readonly { id: PickerTab; label: string }[] = [
 
 const clampGlyphs = (text: string, max: number): string => [...text].slice(0, max).join('');
 
-function initialTab(value: string | null): PickerTab {
-  if (value === null) return 'letter';
-  if (value.startsWith('mi:')) return 'icons';
+function initialTab(value: string | null, emptyTab: PickerTab = 'letter'): PickerTab {
+  if (value === null) return emptyTab;
+  if (isIconKeyValue(value)) return 'icons';
   return /^[\p{L}\p{N}]{1,2}$/u.test(value) ? 'letter' : 'emoji';
 }
 
 function IconsTab({ value, onPick }: { value: string | null; onPick: (stored: string) => void }) {
   const [query, setQuery] = useState('');
-  const selectedKey = value ? workspaceIconKey(value) : null;
+  // A legacy `mi:` value resolves to its mapped Phosphor icon, which is marked as selected.
+  const selectedKey = (value ? findWorkspaceIcon(value)?.key : undefined) ?? null;
   const results = useMemo(() => searchWorkspaceIcons(query), [query]);
   const groups = useMemo(
     () =>
@@ -77,12 +79,12 @@ function IconsTab({ value, onPick }: { value: string | null; onPick: (stored: st
                   >
                     <svg
                       className={styles.glyph}
-                      viewBox="0 -960 960 960"
+                      viewBox="0 0 256 256"
                       fill="currentColor"
                       aria-hidden="true"
                       focusable="false"
                     >
-                      <path d={icon.path} />
+                      <path d={icon.key === selectedKey ? icon.fill : icon.regular} />
                     </svg>
                   </button>
                 ))}
@@ -98,21 +100,29 @@ function IconsTab({ value, onPick }: { value: string | null; onPick: (stored: st
 }
 
 /**
- * Icon control for the workspace dialogs: Icons (Material Symbols, searchable), Emoji and Letter.
- * `value` is the stored icon (`mi:<key>`, emoji or letter) or `null` for the automatic first
+ * Icon control for the workspace dialogs: Icons (Phosphor, searchable), Emoji and Letter.
+ * `value` is the stored icon (`ph:<key>` or a legacy `mi:<key>`, emoji or letter) or `null` for the automatic first
  * letter of the name.
+ *
+ * Folders pass `noIconLabel`: `null` then means "no icon" (the default folder glyph), which shows
+ * as a visible choice above the tabs, and there is no automatic letter.
  */
 export function IconPicker({
   value,
   onChange,
   letterPlaceholder,
+  noIconLabel,
 }: {
   value: string | null;
   onChange: (value: string | null) => void;
   /** The automatic letter, shown as the placeholder of the Letter field. */
   letterPlaceholder: string;
+  /** Shows a "no icon" choice with this label; `null` then stands for it instead of the first letter. */
+  noIconLabel?: string;
 }) {
-  const [tab, setTab] = useState<PickerTab>(() => initialTab(value));
+  const [tab, setTab] = useState<PickerTab>(() =>
+    initialTab(value, noIconLabel ? 'icons' : 'letter'),
+  );
   const activeIndex = TABS.findIndex((t) => t.id === tab);
 
   function changeTab(id: number) {
@@ -124,6 +134,18 @@ export function IconPicker({
 
   return (
     <div className={styles.picker} data-grid-root="">
+      {noIconLabel ? (
+        <div>
+          <Button
+            kind="tertiary"
+            size="small"
+            aria-pressed={value === null}
+            onClick={() => onChange(null)}
+          >
+            {noIconLabel}
+          </Button>
+        </div>
+      ) : null}
       <TabList activeTabId={activeIndex} onTabChange={changeTab}>
         {TABS.map((t) => (
           <Tab key={t.id}>{t.label}</Tab>
@@ -138,7 +160,9 @@ export function IconPicker({
       {tab === 'letter' ? (
         <div className={styles.letterPanel}>
           <p className={styles.hint}>
-            The tile shows the first letter of the workspace name unless you type your own.
+            {noIconLabel
+              ? 'Type one or two letters to show on the folder.'
+              : 'The tile shows the first letter of the workspace name unless you type your own.'}
           </p>
           <TextField
             title="Letter"
@@ -151,7 +175,7 @@ export function IconPicker({
               onChange(letters || null);
             }}
           />
-          {value !== null ? (
+          {value !== null && !noIconLabel ? (
             <div>
               <Button kind="tertiary" size="small" onClick={() => onChange(null)}>
                 Use the first letter of the name

@@ -15,11 +15,14 @@ import { positionAfterAll } from '../../lib/positions';
 import { DEFAULT_FOLDER_COLOR } from '../../theme/palette';
 import { describeError, folderActions } from '../boards/board-actions';
 import { showToast } from '../toast-store';
+import { IconPicker } from '../workspace-icons/IconPicker';
 import { ColorSwatches } from './ColorSwatches';
 import styles from './dialogs.module.css';
 import { submitOnEnter } from './submitOnEnter';
 
-/** Folder name and colour: creates folders and sub-folders, and renames/recolours existing ones. */
+const firstGlyph = (text: string): string => [...text.trim()][0]?.toUpperCase() ?? '';
+
+/** Folder name, icon and colour: creates folders and sub-folders, and renames/recolours existing ones. */
 export function FolderDialog({
   workspaceId,
   folderId,
@@ -65,10 +68,17 @@ function FolderForm({
 }) {
   const [name, setName] = useState(existing?.name ?? '');
   const [color, setColor] = useState(existing?.color ?? DEFAULT_FOLDER_COLOR);
+  // `null` is the default folder glyph ("no icon").
+  const [icon, setIcon] = useState<string | null>(existing?.icon ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const parsed = folderInputSchema.safeParse({ name, color, parentFolderId });
+  const parsed = folderInputSchema.safeParse({
+    name,
+    color,
+    parentFolderId,
+    icon: icon ?? undefined,
+  });
 
   async function submit() {
     if (!parsed.success || submitting) return;
@@ -79,6 +89,7 @@ function FolderForm({
         await writes.updateFolder(workspaceId, existing.id, {
           name: parsed.data.name,
           color: parsed.data.color,
+          icon,
         });
       } else {
         await writes.createFolder(uid, workspaceId, parsed.data, positionAfterAll(siblings));
@@ -115,6 +126,15 @@ function FolderForm({
               autoFocus
               size="medium"
             />
+            <div>
+              <span className={styles.fieldLabel}>Icon</span>
+              <IconPicker
+                value={icon}
+                onChange={setIcon}
+                letterPlaceholder={firstGlyph(name) || 'F'}
+                noIconLabel="No icon (folder glyph)"
+              />
+            </div>
             <div>
               <span className={styles.fieldLabel}>Color</span>
               <ColorSwatches label="Folder color" value={color} onChange={setColor} />
