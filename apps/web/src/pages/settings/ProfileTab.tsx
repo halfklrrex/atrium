@@ -26,6 +26,14 @@ export function ProfileTab() {
     });
   };
 
+  const copyUid = () => {
+    if (!uid) return;
+    navigator.clipboard.writeText(uid).then(
+      () => showToast('User ID copied.', { type: 'positive' }),
+      () => showToast("Couldn't copy. Select the ID and copy it by hand.", { type: 'negative' }),
+    );
+  };
+
   const name = user?.displayName ?? user?.email ?? 'Account';
   const device = deviceTimeZone();
 
@@ -43,6 +51,25 @@ export function ProfileTab() {
           </div>
         </div>
         <p className={styles.hint}>From your Google account.</p>
+      </section>
+
+      <section className={styles.section} aria-labelledby="user-id-title">
+        <h2 id="user-id-title" className={styles.sectionTitle}>
+          User ID
+        </h2>
+        <div className={styles.idRow}>
+          <code className={styles.idValue} data-testid="user-id-value">
+            {uid}
+          </code>
+          <Button kind="tertiary" size="small" onClick={copyUid}>
+            Copy
+          </Button>
+        </div>
+        <p className={styles.hint}>
+          Your account&apos;s unique ID. You need it to connect tools such as the Atrium MCP
+          connector. It isn&apos;t secret on its own, but there&apos;s no reason to post it
+          publicly.
+        </p>
       </section>
 
       <section className={styles.section} aria-labelledby="timezone-title">
