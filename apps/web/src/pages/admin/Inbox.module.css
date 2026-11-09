@@ -28,67 +28,43 @@
   font: var(--font-text2-normal);
 }
 
+/* The list and row look is shared with "My feedback" (components/inbox/ThreadList.module.css). */
 .list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  overflow: hidden;
-  border: var(--border-width) var(--border-style) var(--layout-border-color);
-  border-radius: var(--border-radius-medium);
-  background: var(--primary-background-color);
+  composes: list cards from '../../components/inbox/ThreadList.module.css';
 }
 
 .row {
-  display: grid;
-  grid-template-columns: var(--space-8) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-12);
-  width: 100%;
-  padding: var(--space-12) var(--space-16);
-  border: 0;
-  border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
-  background: transparent;
-  color: var(--primary-text-color);
-  font: var(--font-text2-normal);
-  text-align: start;
-  cursor: pointer;
-}
-
-.list > li:last-child .row {
-  border-block-end: 0;
-}
-
-.row:hover {
-  background: var(--primary-background-hover-color);
-}
-
-.row:focus-visible {
-  outline: var(--space-2) var(--border-style) var(--primary-color);
-  outline-offset: calc(var(--space-2) * -1);
+  composes: row from '../../components/inbox/ThreadList.module.css';
 }
 
 .dot {
-  width: var(--space-8);
-  height: var(--space-8);
-  border-radius: 50%;
-  background: transparent;
+  composes: dot from '../../components/inbox/ThreadList.module.css';
 }
 
 .dotOn {
-  background: var(--primary-color);
+  composes: dotOn from '../../components/inbox/ThreadList.module.css';
+}
+
+.rowText {
+  composes: rowText from '../../components/inbox/ThreadList.module.css';
+}
+
+.snippet {
+  composes: snippet from '../../components/inbox/ThreadList.module.css';
+}
+
+.rowSide {
+  composes: rowSide from '../../components/inbox/ThreadList.module.css';
+}
+
+.time {
+  composes: time from '../../components/inbox/ThreadList.module.css';
 }
 
 .rowMain {
   display: flex;
   align-items: center;
   gap: var(--space-12);
-  min-width: 0;
-}
-
-.rowText {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -114,31 +90,8 @@
 }
 
 .subject {
-  overflow: hidden;
+  composes: subject from '../../components/inbox/ThreadList.module.css';
   font: var(--font-text2-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.snippet {
-  overflow: hidden;
-  color: var(--secondary-text-color);
-  font: var(--font-text2-normal);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rowSide {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-4);
-}
-
-.time {
-  color: var(--secondary-text-color);
-  font: var(--font-text2-normal);
-  white-space: nowrap;
 }
 
 .center {
@@ -153,35 +106,6 @@
 .more {
   display: flex;
   justify-content: center;
-}
-
-@media (width <= 640px) {
-  .row {
-    grid-template-columns: var(--space-8) minmax(0, 1fr);
-  }
-
-  .rowSide {
-    grid-column: 2;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .list {
-    border: 0;
-    background: transparent;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
-    overflow: visible;
-  }
-
-  .row,
-  .list > li:last-child .row {
-    border: var(--border-width) var(--border-style) var(--layout-border-color);
-    border-radius: var(--border-radius-medium);
-    background: var(--primary-background-color);
-  }
 }
 
 /* Thread view */
@@ -256,32 +180,6 @@
   flex-direction: column;
   gap: var(--space-16);
   min-width: 0;
-}
-
-.composer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: var(--space-16);
-  border: var(--border-width) var(--border-style) var(--layout-border-color);
-  border-radius: var(--border-radius-medium);
-  background: var(--primary-background-color);
-}
-
-.composerFooter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-8);
-}
-
-.counter {
-  color: var(--secondary-text-color);
-  font: var(--font-text2-normal);
-}
-
-.counterOver {
-  color: var(--negative-color);
 }
 
 .closedNote {

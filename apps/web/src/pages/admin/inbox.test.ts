@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  canReply,
-  emptyMessage,
-  formatInboxCount,
-  kindLabel,
-  senderEmailLine,
-  senderLabel,
-} from './inbox';
+import { canReply, emptyMessage, formatInboxCount, kindLabel, senderEmailLine } from './inbox';
+import { senderLabel } from '../../lib/inbox-sender';
 
 describe('inbox helpers', () => {
   it('caps the badge at 99+', () => {

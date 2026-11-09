@@ -2,18 +2,15 @@ import { INBOX_ADMIN_LABEL, type InboxThread } from '@atrium/shared';
 import { Avatar } from '@vibe/core';
 import type { InboxMessageDoc } from '../../data/inbox';
 import { formatRelativeShort } from '../../lib/format';
-import { SenderAvatar } from '../../pages/admin/SenderAvatar';
+import { senderLabel } from '../../lib/inbox-sender';
+import { SenderAvatar } from './SenderAvatar';
 import styles from './MessageList.module.css';
 
 type ThreadIdentity = Pick<InboxThread, 'senderName' | 'senderEmail' | 'senderPhotoURL'>;
 
-function senderName(t: ThreadIdentity): string {
-  return t.senderName.trim() || t.senderEmail || 'Someone';
-}
-
 function Message({ message, thread }: { message: InboxMessageDoc; thread: ThreadIdentity }) {
   const isAdmin = message.authorRole === 'admin';
-  const name = isAdmin ? INBOX_ADMIN_LABEL : (message.authorName ?? senderName(thread));
+  const name = isAdmin ? INBOX_ADMIN_LABEL : (message.authorName ?? senderLabel(thread));
   return (
     <article className={styles.message} aria-label={isAdmin ? 'Admin message' : 'Message'}>
       <header className={styles.messageHeader}>

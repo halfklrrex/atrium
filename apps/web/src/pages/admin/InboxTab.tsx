@@ -1,8 +1,10 @@
 import { Button, Label, Loader } from '@vibe/core';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { SenderAvatar } from '../../components/inbox/SenderAvatar';
 import { useInboxList, type InboxThreadDoc } from '../../data/inbox';
 import { formatRelativeShort } from '../../lib/format';
+import { senderLabel } from '../../lib/inbox-sender';
 import {
   INBOX_KIND_FILTERS,
   INBOX_KIND_LABELS,
@@ -11,12 +13,10 @@ import {
   emptyMessage,
   kindLabel,
   senderEmailLine,
-  senderLabel,
   type InboxKindFilter,
   type InboxStatusFilter,
 } from './inbox';
 import styles from './Inbox.module.css';
-import { SenderAvatar } from './SenderAvatar';
 
 function FilterGroup<T extends string>({
   label,
