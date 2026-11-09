@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell/AppShell';
 import { DashboardPage } from './components/dashboard/DashboardPage';
@@ -12,6 +12,7 @@ import { InvitePage } from './pages/InvitePage';
 import { LoginPage } from './pages/LoginPage';
 import { MyWorkPage } from './pages/MyWorkPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { SettingsPage } from './pages/settings/SettingsPage';
 import { TrashPage } from './pages/TrashPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { WorkspacesPage } from './pages/WorkspacesPage';
@@ -30,6 +31,8 @@ export function App() {
           <Route path="admin/inbox/:threadId" element={<AdminPage tab="inbox" />} />
           <Route path="feedback" element={<MyFeedbackPage />} />
           <Route path="feedback/:threadId" element={<FeedbackThreadView />} />
+          <Route path="settings" element={<Navigate to="/settings/profile" replace />} />
+          <Route path="settings/:tab" element={<SettingsPage />} />
           <Route path="my-work" element={<MyWorkPage />} />
           <Route path="workspaces" element={<WorkspacesPage />} />
           <Route path="workspaces/:workspaceId" element={<WorkspacePage />} />

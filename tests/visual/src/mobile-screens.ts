@@ -22,7 +22,7 @@ import {
 } from './seed';
 
 /**
- * The phone screens shared by the baseline project (`mobile-screens.spec.ts`, a dozen screenshots)
+ * The phone screens shared by the baseline project (`mobile-screens.spec.ts`, thirteen screenshots)
  * and the defect audit (`mobile-audit.spec.ts`, every screen at five sizes). Each screen knows how
  * to get itself on screen and what to wait for; no timers, only real content.
  */
@@ -92,21 +92,16 @@ async function chooseAccountMenuEntry(page: Page, entry: string, dialogHeading: 
   }).toPass({ timeout: 20_000 });
 }
 
-async function openNotificationSettings(page: Page) {
+/** A Settings tab on a phone: the tab bar and the first heading of the tab are up. */
+async function openSettingsTab(page: Page, tab: string, heading: string) {
   // Deterministic whatever the browser build offers: hide the push API.
   await page.addInitScript(() => {
     Reflect.deleteProperty(window, 'PushManager');
   });
-  await page.goto('/');
-  await homeReady(page);
-  await page.getByRole('button', { name: 'Notifications', exact: true }).click();
-  await page.getByRole('button', { name: 'Notification settings' }).click();
-  await expect(page.getByRole('dialog', { name: 'Notification settings' })).toBeVisible();
-  await expect(
-    page
-      .getByRole('dialog', { name: 'Notification settings' })
-      .getByRole('heading', { name: 'On this device' }),
-  ).toBeVisible();
+  await page.goto(`/settings/${tab}`);
+  await appReady(page);
+  await expect(page.getByRole('navigation', { name: 'Settings sections' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: heading })).toBeVisible();
 }
 
 export const MOBILE_SCREENS: MobileScreen[] = [
@@ -250,10 +245,35 @@ export const MOBILE_SCREENS: MobileScreen[] = [
     },
   },
   {
-    name: 'notification-settings',
-    title: 'Notification settings dialog',
-    overlay: '[role="dialog"]',
-    open: openNotificationSettings,
+    name: 'settings-profile',
+    title: 'Settings: Profile',
+    open: async (page) => {
+      await openSettingsTab(page, 'profile', 'Time zone');
+      await expect(page.getByRole('combobox', { name: 'Your time zone' })).toBeEnabled();
+    },
+  },
+  {
+    name: 'settings-appearance',
+    title: 'Settings: Appearance',
+    open: (page) => openSettingsTab(page, 'appearance', 'Theme'),
+  },
+  {
+    name: 'settings-notifications',
+    title: 'Settings: Notifications',
+    open: async (page) => {
+      await openSettingsTab(page, 'notifications', 'On this device');
+      await expect(page.getByText("This browser can't receive push notifications.")).toBeVisible();
+    },
+  },
+  {
+    name: 'settings-account',
+    title: 'Settings: Account',
+    open: (page) => openSettingsTab(page, 'account', 'Account'),
+  },
+  {
+    name: 'settings-privacy',
+    title: 'Settings: Privacy and data',
+    open: (page) => openSettingsTab(page, 'privacy', 'Your data'),
   },
   {
     name: 'profile-menu',
@@ -339,7 +359,7 @@ export const MOBILE_SCREENS: MobileScreen[] = [
   },
 ];
 
-/** The twelve screens that also get a committed light baseline on a phone. */
+/** The screens that also get a committed light baseline on a phone. */
 export const BASELINE_SCREENS = [
   'login',
   'home',
@@ -349,7 +369,8 @@ export const BASELINE_SCREENS = [
   'kanban',
   'item-view',
   'notifications-panel',
-  'notification-settings',
+  'settings-profile',
+  'settings-notifications',
   'profile-menu',
   'feedback-dialog',
   'admin-inbox',

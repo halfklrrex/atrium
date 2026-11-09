@@ -10,7 +10,6 @@ import { MembersDialog } from '../membership/MembersDialog';
 import { DeleteFolderDialog, FolderDialog } from './FolderDialogs';
 import { SaveAsTemplateDialog } from '../templates/SaveAsTemplateDialog';
 import { SearchDialog } from '../search/SearchDialog';
-import { NotificationSettingsDialog } from './NotificationSettingsDialog';
 import { NewWorkspaceDialog, WorkspaceSettingsDialog } from './WorkspaceDialogs';
 
 /** Renders the single dialog described by the UI store (opened from menus anywhere in the app). */
@@ -71,8 +70,6 @@ export function DialogHost() {
       return (
         <MembersDialog workspaceId={dialog.workspaceId} initialTab={dialog.tab} onClose={close} />
       );
-    case 'notificationSettings':
-      return <NotificationSettingsDialog onClose={close} />;
     case 'search':
       return <SearchDialog initialTerm={dialog.initialTerm} onClose={close} />;
     case 'about':

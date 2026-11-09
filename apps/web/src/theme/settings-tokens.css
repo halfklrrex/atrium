@@ -1,0 +1,10 @@
+/* Settings page (SETTINGS-1): sizes that Vibe has no token for. */
+:root {
+  --atrium-settings-content-max-width: 720px;
+  --atrium-settings-nav-width: 220px;
+  --atrium-settings-nav-item-height: 44px; /* also the minimum height of a row with a control */
+  --atrium-settings-theme-card-min-width: 140px;
+  --atrium-settings-swatch-height: 64px;
+  --atrium-settings-swatch-bar-height: 8px;
+  --atrium-settings-swatch-bar-width: 60%;
+}
