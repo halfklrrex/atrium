@@ -28,6 +28,8 @@ import {
   userProfileUpdateSchema,
   userSchema,
   workspaceSchema,
+  workspaceIconSchema,
+  workspaceIconKey,
   type TimestampLike,
 } from '../index';
 
@@ -101,6 +103,49 @@ describe('user schemas', () => {
   it('only allows self-editable profile fields', () => {
     expect(userProfileUpdateSchema.safeParse({ theme: 'dark' }).success).toBe(true);
     expect(userProfileUpdateSchema.safeParse({ email: 'x@y.z' }).success).toBe(false);
+  });
+});
+
+describe('workspace icons', () => {
+  it('accepts letters, emoji and mi:<key> values', () => {
+    for (const ok of ['A', '🙂', 'abcdefgh', 'mi:home', 'mi:diversity_3', `mi:${'a'.repeat(40)}`]) {
+      expect(workspaceIconSchema.safeParse(ok).success, ok).toBe(true);
+    }
+  });
+
+  it('refuses malformed keys, over-long values and non-strings', () => {
+    const bad = [
+      '',
+      'abcdefghi',
+      'mi:',
+      'mi:Home',
+      'mi:my home',
+      'mi:ho-me',
+      `mi:${'a'.repeat(41)}`,
+      'x'.repeat(49),
+      7,
+      null,
+    ];
+    for (const value of bad)
+      expect(workspaceIconSchema.safeParse(value).success, String(value)).toBe(false);
+  });
+
+  it('extracts the key of a stored icon', () => {
+    expect(workspaceIconKey('mi:home')).toBe('home');
+    expect(workspaceIconKey('A')).toBeNull();
+    expect(workspaceIconKey('mi:Bad')).toBeNull();
+  });
+
+  it('is used by the workspace schemas and the create form', () => {
+    expect(workspaceSchema.safeParse({ ...workspace, icon: 'mi:home' }).success).toBe(true);
+    expect(
+      createWorkspaceInputSchema.safeParse({ name: 'Home', icon: 'mi:home', color: '#579bfc' })
+        .success,
+    ).toBe(true);
+    expect(
+      createWorkspaceInputSchema.safeParse({ name: 'Home', icon: 'mi:Home', color: '#579bfc' })
+        .success,
+    ).toBe(false);
   });
 });
 

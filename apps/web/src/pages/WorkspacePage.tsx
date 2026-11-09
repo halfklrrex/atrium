@@ -120,6 +120,7 @@ export function WorkspacePage() {
           <WorkspaceTile
             icon={workspace.icon}
             color={workspace.color}
+            name={workspace.name}
             size="xl"
             className={styles.avatar}
           />

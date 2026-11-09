@@ -19,9 +19,10 @@ import { showToast } from '../toast-store';
 import { ColorSwatches } from './ColorSwatches';
 import styles from './dialogs.module.css';
 import { submitOnEnter } from './submitOnEnter';
+import { WorkspaceTile } from '../WorkspaceTile';
+import { IconPicker } from '../workspace-icons/IconPicker';
 
 const firstGlyph = (text: string): string => [...text.trim()][0]?.toUpperCase() ?? '';
-const clampGlyphs = (text: string, max: number): string => [...text].slice(0, max).join('');
 
 const KIND_OPTIONS: readonly { value: WorkspaceKind; label: string; hint: string }[] = [
   {
@@ -77,15 +78,7 @@ export function NewWorkspaceDialog({ onClose }: { onClose: () => void }) {
             }}
           >
             <div className={styles.row}>
-              <TextField
-                title="Icon"
-                inputAriaLabel="Icon"
-                onKeyDown={submitOnEnter(() => void submit())}
-                value={icon}
-                onChange={(value: string) => setCustomIcon(clampGlyphs(value, 2))}
-                placeholder="A"
-                size="medium"
-              />
+              <WorkspaceTile icon={icon} color={color} name={name} size="xl" />
               <TextField
                 title="Workspace name"
                 inputAriaLabel="Workspace name"
@@ -96,6 +89,15 @@ export function NewWorkspaceDialog({ onClose }: { onClose: () => void }) {
                 maxLength={80}
                 autoFocus
                 size="medium"
+              />
+            </div>
+
+            <div>
+              <span className={styles.fieldLabel}>Icon</span>
+              <IconPicker
+                value={customIcon}
+                onChange={setCustomIcon}
+                letterPlaceholder={firstGlyph(name) || 'W'}
               />
             </div>
 
@@ -183,12 +185,13 @@ function WorkspaceSettingsForm({
   onClose: () => void;
 }) {
   const [name, setName] = useState(initial.name);
-  const [icon, setIcon] = useState(initial.icon);
+  const [customIcon, setCustomIcon] = useState<string | null>(initial.icon);
   const [color, setColor] = useState(initial.color);
   const [description, setDescription] = useState(initial.description);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const icon = customIcon ?? (firstGlyph(name) || 'W');
   const parsed = createWorkspaceInputSchema.safeParse({ name, icon, color, description });
 
   async function submit() {
@@ -223,14 +226,7 @@ function WorkspaceSettingsForm({
             }}
           >
             <div className={styles.row}>
-              <TextField
-                title="Icon"
-                inputAriaLabel="Icon"
-                onKeyDown={submitOnEnter(() => void submit())}
-                value={icon}
-                onChange={(value: string) => setIcon(clampGlyphs(value, 2))}
-                size="medium"
-              />
+              <WorkspaceTile icon={icon} color={color} name={name} size="xl" />
               <TextField
                 title="Workspace name"
                 inputAriaLabel="Workspace name"
@@ -240,6 +236,14 @@ function WorkspaceSettingsForm({
                 maxLength={80}
                 autoFocus
                 size="medium"
+              />
+            </div>
+            <div>
+              <span className={styles.fieldLabel}>Icon</span>
+              <IconPicker
+                value={customIcon}
+                onChange={setCustomIcon}
+                letterPlaceholder={firstGlyph(name) || 'W'}
               />
             </div>
             <div>

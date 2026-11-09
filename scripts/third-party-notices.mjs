@@ -365,7 +365,10 @@ export function renderNotices({ entries }) {
     'Atrium is licensed under the GNU Affero General Public License v3.0 only (see `LICENSE` and `NOTICE`). ' +
       'It is built on the open-source packages below, each under its own licence. ' +
       "Atrium's UI uses the MIT-licensed Vibe design system (`@vibe/core`, `@vibe/icons`) published by monday.com; " +
-      'Atrium is not affiliated with monday.com.',
+      'Atrium is not affiliated with monday.com. ' +
+      'The workspace icons are a curated subset of Material Symbols (outlined), copyright Google LLC, ' +
+      'licensed under the Apache License 2.0 (the full text is in the shared texts below); ' +
+      'see `docs/PROVENANCE.md`.',
   );
   out.push('');
   out.push(

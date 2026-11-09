@@ -21,6 +21,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint . && pnpm lint:css && prettier --check .",
     "lint:css": "stylelint \"apps/web/src/**/*.css\"",
+    "icons:generate": "node scripts/generate-workspace-icons.mjs",
     "licenses:notices": "node scripts/third-party-notices.mjs",
     "licenses:check": "node scripts/third-party-notices.mjs --check",
     "format": "prettier --write .",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@atrium/shared": "workspace:*",
     "@eslint/js": "^10.0.1",
+    "@material-symbols/svg-400": "0.48.3",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "concurrently": "^10.0.6",
     "eslint": "^10.13.0",

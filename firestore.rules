@@ -298,10 +298,16 @@ service cloud.firestore {
     // workspaces/{workspaceId}
     // ---------------------------------------------------------------------
     match /workspaces/{workspaceId} {
+      // A legacy letter or emoji (1 to 8 characters) or a Material Symbols key `mi:<key>`.
+      function validWorkspaceIcon(i) {
+        return i is string && i.size() >= 1 && i.size() <= 48
+          && (i.matches('^mi:[a-z0-9_]{1,40}$') || (i.size() <= 8 && !i.matches('^mi:.*')));
+      }
+
       function validWorkspaceFields(d) {
         return d.name is string && d.name.size() >= 1 && d.name.size() <= 80
           && d.description is string && d.description.size() <= 500
-          && d.icon is string && d.icon.size() >= 1 && d.icon.size() <= 8
+          && validWorkspaceIcon(d.icon)
           && d.color is string && d.color.matches('^#[0-9a-fA-F]{6}$');
       }
 

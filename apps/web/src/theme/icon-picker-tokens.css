@@ -1,0 +1,6 @@
+/* Sizes of the workspace icon picker (components/workspace-icons/IconPicker). */
+:root {
+  --atrium-icon-picker-cell: 40px;
+  --atrium-icon-picker-glyph: 24px;
+  --atrium-icon-picker-height: 224px;
+}
