@@ -212,7 +212,7 @@ export function InboxThreadView() {
   const [busy, setBusy] = useState(false);
   // One id per opening of the Keep blocked dialog, so a retry after a lost response is the same
   // request on the server. It is dropped when the dialog closes (success, Cancel or another dialog).
-  const keepBlockedRequestId = useRef<string | null>(null);
+  const keepBlockedRequestId = useRef<{ id: string; text: string } | null>(null);
   const setConfirm = (next: Confirm) => {
     keepBlockedRequestId.current = null;
     setConfirmState(next);
@@ -274,6 +274,15 @@ export function InboxThreadView() {
     }
   };
 
+  // The message can be edited after a failed try: an edited text is a new message with a new id,
+  // an unchanged text keeps its id (the server is idempotent on it).
+  const keepBlockedId = (text: string): string => {
+    if (keepBlockedRequestId.current?.text !== text) {
+      keepBlockedRequestId.current = { id: crypto.randomUUID(), text };
+    }
+    return keepBlockedRequestId.current!.id;
+  };
+
   const onConfirm = (finalMessage: string) => {
     if (confirm === 'unblock') {
       void run(
@@ -289,7 +298,7 @@ export function InboxThreadView() {
               ? {
                   action: 'keepBlocked',
                   threadId,
-                  requestId: (keepBlockedRequestId.current ??= crypto.randomUUID()),
+                  requestId: keepBlockedId(text),
                   text,
                 }
               : { action: 'keepBlocked', threadId },

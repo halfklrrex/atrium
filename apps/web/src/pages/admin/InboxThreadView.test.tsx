@@ -343,6 +343,25 @@ describe('appeal actions', () => {
     expect(third).not.toBe(ids[0]);
   });
 
+  it('editing the final message after a failure starts a new request id', async () => {
+    mocks.manage.mockRejectedValueOnce(new Error('Network lost'));
+    renderView();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Keep blocked' }));
+    const dialog = await screen.findByRole('dialog');
+    const box = within(dialog).getByRole('textbox', { name: 'Final message (optional)' });
+    await user.type(box, 'First');
+    await user.click(within(dialog).getByRole('button', { name: 'Keep blocked' }));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalled());
+    await user.type(box, ' edited');
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Keep blocked' }),
+    );
+    await waitFor(() => expect(mocks.manage).toHaveBeenCalledTimes(2));
+    const [first, second] = mocks.manage.mock.calls.map((c) => c[0] as { requestId: string });
+    expect(first!.requestId).not.toBe(second!.requestId);
+  });
+
   it('shows a callable error as a toast and keeps the dialog open', async () => {
     mocks.setStatus.mockRejectedValue(new Error('Not allowed'));
     renderView();
