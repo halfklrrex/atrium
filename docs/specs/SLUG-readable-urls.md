@@ -27,7 +27,9 @@ Keep the Firestore document id as the identity and put a **slug of the name in f
 - Existing tests that assert `/boards/${id}` links are updated to the helper's output. `pnpm lint`, `typecheck`, `test`, `build`; update visual baselines only if a screenshot shows a URL (it should not).
 
 ## Out of scope
+
 Per-workspace unique slugs, custom domains, short links, slugs for folders, items or views, changing stored ids.
 
 ## Work split
+
 One Sonnet 5.5 subagent (medium), worktree `claude/slug-urls`, own `ATRIUM_PORT_OFFSET`. It touches many web files but no hot-spot file except possibly `packages/shared/**` (a new `slugify` module and test: keep that part small). Opus reviews the diff and runs the checks and a Chrome pass (rename a board, open an old link, copy link, browser back button), then merges with `gh pr merge --rebase`.
