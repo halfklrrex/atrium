@@ -308,6 +308,7 @@ export async function sendInboxMessage(
         status: sender.accountStatus,
       });
     }
+    if (input.action === 'appeal') await requireLiveBlocked(deps, sender);
     const subject =
       input.action === 'feedback' ? cleanText(input.subject, INBOX_LIMITS.subject) : 'Appeal';
     outcome = await deps.store.transaction((tx) =>
@@ -316,6 +317,24 @@ export async function sendInboxMessage(
   }
   if (outcome.notice) await notifyAdmins(deps, outcome.notice);
   return outcome.result;
+}
+
+/**
+ * Appeals need the LIVE blocked status, not only the token claim: after an unblock, a stale token
+ * still says `blocked` until it refreshes. Same failed-precondition the admin side uses.
+ */
+async function requireLiveBlocked(deps: InboxDeps, sender: InboxSender): Promise<void> {
+  const live = await deps.auth.getAccountStatus(sender.uid);
+  if (live !== 'blocked') {
+    throw refuse(
+      'failed-precondition',
+      'Your account is no longer blocked.',
+      'account-not-approved',
+      {
+        status: live ?? 'unknown',
+      },
+    );
+  }
 }
 
 function senderFields(sender: InboxSender) {
@@ -482,6 +501,7 @@ async function senderReply(
   if (thread.messageCount >= INBOX_LIMITS.messagesPerThread) {
     throw refuse('resource-exhausted', 'This conversation is full.', 'thread-full');
   }
+  if (thread.kind === 'appeal') await requireLiveBlocked(deps, sender);
   const limits = dailyLimits(await tx.getLimits(sender.uid), now);
   assertDailyMessages(limits, sender.accountStatus);
 
