@@ -13,6 +13,7 @@ describe('inbox helpers', () => {
     expect(kindLabel({ kind: 'appeal', category: null })).toBe('Appeal');
     expect(kindLabel({ kind: 'feedback', category: 'bug' })).toBe('Feedback · Bug');
     expect(kindLabel({ kind: 'feedback', category: null })).toBe('Feedback');
+    expect(kindLabel({ kind: 'feedback', category: 'complaint' })).toBe('Complaint');
   });
 
   it('falls back from name to email to a neutral word', () => {

@@ -51,6 +51,18 @@ describe('normalizeInboxText', () => {
 });
 
 describe('sendInboxMessageRequestSchema', () => {
+  it('accepts a complaint as a feedback category', () => {
+    expect(
+      sendInboxMessageRequestSchema.safeParse({
+        action: 'feedback',
+        requestId: id,
+        category: 'complaint',
+        subject: 'Delete my data',
+        text: 'Please.',
+      }).success,
+    ).toBe(true);
+  });
+
   it('parses each action and normalises the text', () => {
     const feedback = sendInboxMessageRequestSchema.parse({
       action: 'feedback',

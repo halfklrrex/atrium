@@ -39,13 +39,14 @@ function thread(id: string, over: Partial<InboxThreadDoc> = {}): InboxThreadDoc 
 }
 
 function Where() {
-  return <p data-testid="where">{useLocation().pathname}</p>;
+  const location = useLocation();
+  return <p data-testid="where">{location.pathname + location.search}</p>;
 }
 
-function setup() {
+function setup(path = '/feedback') {
   render(
     <AuthContext.Provider value={auth}>
-      <MemoryRouter initialEntries={['/feedback']}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="*" element={<MyFeedbackPage />} />
         </Routes>
@@ -112,5 +113,18 @@ describe('MyFeedbackPage', () => {
     setup();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Send feedback' }));
     expect(useUiStore.getState().dialog).toEqual({ type: 'feedback' });
+  });
+
+  it('?new=complaint opens the dialog on the complaint category once and clears the parameter', () => {
+    mocks.threads.mockReturnValue({ data: [], loading: false, error: null });
+    setup('/feedback?new=complaint');
+    expect(useUiStore.getState().dialog).toEqual({ type: 'feedback', category: 'complaint' });
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/feedback$/);
+  });
+
+  it('ignores other values of the new parameter', () => {
+    mocks.threads.mockReturnValue({ data: [], loading: false, error: null });
+    setup('/feedback?new=other');
+    expect(useUiStore.getState().dialog).toBeNull();
   });
 });

@@ -126,4 +126,25 @@ describe('FeedbackDialog', () => {
     expect(screen.getByText('2001 / 2000')).toBeInTheDocument();
     expect(sendButton()).toHaveAttribute('aria-disabled', 'true');
   });
+
+  it('offers Complaint or data request last, with its hint and subject placeholder', async () => {
+    const { user } = setup();
+    const radios = screen.getAllByRole('radio').map((r) => r.getAttribute('value'));
+    expect(radios).toEqual(['bug', 'idea', 'question', 'other', 'complaint']);
+    expect(screen.queryByText(/Only the site admins read it/)).toBeNull();
+    await user.click(screen.getByRole('radio', { name: 'Complaint or data request' }));
+    expect(screen.getByText(/Only the site admins read it/)).toBeInTheDocument();
+    expect(subjectBox()).toHaveAttribute('placeholder', 'For example: Delete my data');
+  });
+
+  it('opens on the complaint category and sends it', async () => {
+    const { user } = setup({ initialCategory: 'complaint' });
+    expect(screen.getByRole('radio', { name: 'Complaint or data request' })).toBeChecked();
+    await user.type(subjectBox(), 'Delete my data');
+    await user.type(messageBox(), 'Please delete it.');
+    await user.click(sendButton());
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'feedback', category: 'complaint' }),
+    );
+  });
 });

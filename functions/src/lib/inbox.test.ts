@@ -292,6 +292,44 @@ describe('sendInboxMessage: feedback', () => {
     await expect(sendInboxMessage(deps, approved, feedback())).resolves.toBeDefined();
   });
 
+  it('a complaint is never blocked by the open-thread limit, and other feedback still counts it', async () => {
+    const { deps } = setup();
+    for (let i = 0; i < INBOX_LIMITS.openFeedbackThreads; i += 1) {
+      await sendInboxMessage(deps, approved, feedback());
+    }
+    await expect(
+      sendInboxMessage(deps, approved, feedback(uuid(), { category: 'complaint' })),
+    ).resolves.toBeDefined();
+    const error = await refusal(sendInboxMessage(deps, approved, feedback()));
+    expect(detail(error).reason).toBe('open-thread-limit');
+  });
+
+  it('a complaint cannot skip the daily cap: the 6th new thread of the day is refused', async () => {
+    const { store, deps } = setup();
+    for (let i = 0; i < INBOX_LIMITS.feedbackThreadsPerDay; i += 1) {
+      const id = uuid();
+      await sendInboxMessage(deps, approved, feedback(id, { category: 'complaint' }));
+      store.threads.get(id)!.status = 'closed';
+    }
+    const error = await refusal(
+      sendInboxMessage(deps, approved, feedback(uuid(), { category: 'complaint' })),
+    );
+    expect(detail(error).reason).toBe('daily-thread-limit');
+  });
+
+  it('a pending or blocked caller cannot send a complaint', async () => {
+    const { deps } = setup();
+    for (const status of ['pending', 'blocked'] as const) {
+      await expect(
+        sendInboxMessage(
+          deps,
+          { ...approved, accountStatus: status },
+          feedback(uuid(), { category: 'complaint' }),
+        ),
+      ).rejects.toBeDefined();
+    }
+  });
+
   it('counts only the sender own open threads', async () => {
     const { deps } = setup();
     for (let i = 0; i < 3; i += 1) await sendInboxMessage(deps, approved, feedback());

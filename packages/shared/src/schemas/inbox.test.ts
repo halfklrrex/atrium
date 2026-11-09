@@ -57,6 +57,10 @@ describe('inboxThreadSchema', () => {
     ).toBe(true);
   });
 
+  it('accepts the complaint category', () => {
+    expect(inboxThreadSchema.safeParse({ ...thread, category: 'complaint' }).success).toBe(true);
+  });
+
   it('rejects bad enums, long subjects and missing fields', () => {
     expect(inboxThreadSchema.safeParse({ ...thread, kind: 'other' }).success).toBe(false);
     expect(inboxThreadSchema.safeParse({ ...thread, status: 'done' }).success).toBe(false);

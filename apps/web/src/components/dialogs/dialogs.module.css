@@ -203,3 +203,9 @@
     --modal-inline-padding: var(--space-16);
   }
 }
+
+.categoryHint {
+  margin: var(--space-8) 0 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}

@@ -390,12 +390,17 @@ async function senderStart(
         'daily-thread-limit',
       );
     }
-    const open = await tx.findSenderThreads({
-      senderUid: sender.uid,
-      kind: 'feedback',
-      statuses: OPEN_STATUSES,
-      limit: INBOX_LIMITS.openFeedbackThreads,
-    });
+    // A complaint or data request (PRIVACY-1) is never blocked by the open-thread limit. The daily
+    // cap above and every other cap still apply to it; other feedback still counts complaints.
+    const open =
+      input.action === 'feedback' && input.category === 'complaint'
+        ? []
+        : await tx.findSenderThreads({
+            senderUid: sender.uid,
+            kind: 'feedback',
+            statuses: OPEN_STATUSES,
+            limit: INBOX_LIMITS.openFeedbackThreads,
+          });
     if (open.length >= INBOX_LIMITS.openFeedbackThreads) {
       throw refuse(
         'resource-exhausted',

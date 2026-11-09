@@ -9,7 +9,7 @@ import { inboxWrites, useInboxMessages, useInboxThread } from '../../data/inbox'
 import { inboxCalls } from '../../lib/callables';
 import { formatDate } from '../../lib/format';
 import {
-  CATEGORY_LABELS,
+  CATEGORY_SHORT_LABELS,
   SENDER_STATUS_LABELS,
   describeInboxError,
   senderCanReply,
@@ -72,7 +72,7 @@ export function FeedbackThreadView() {
         <h1 className={styles.title}>{thread.subject}</h1>
         <div className={styles.meta}>
           {thread.category ? (
-            <Label text={CATEGORY_LABELS[thread.category]} color="primary" kind="line" />
+            <Label text={CATEGORY_SHORT_LABELS[thread.category]} color="primary" kind="line" />
           ) : null}
           <StatusChip status={thread.status} labels={SENDER_STATUS_LABELS} />
           <span>{`Started ${formatDate(thread.createdAt)}`}</span>
