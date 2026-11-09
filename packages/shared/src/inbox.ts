@@ -18,13 +18,15 @@ export const INBOX_ERROR_REASONS = [
 ] as const;
 export type InboxErrorReason = (typeof INBOX_ERROR_REASONS)[number];
 
-/** Trim and strip control characters except newline and tab (plain text only). */
+/** Trim and strip control and format characters except newline and tab (plain text only). */
 export function normalizeInboxText(raw: string): string {
   return (
     raw
       .replace(/\r\n?/g, '\n')
       // eslint-disable-next-line no-control-regex -- the point is to remove control characters
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+      // Unicode format characters (bidi controls, zero-width, BOM) and line/paragraph separators.
+      .replace(/[\p{Cf}\u2028\u2029]/gu, '')
       .trim()
   );
 }

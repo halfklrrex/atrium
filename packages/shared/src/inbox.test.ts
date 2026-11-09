@@ -26,6 +26,22 @@ describe('normalizeInboxText', () => {
     expect(normalizeInboxText('a\r\nb')).toBe('a\nb');
     expect(normalizeInboxText(' \u0000 ')).toBe('');
   });
+
+  it('strips Unicode format characters and line separators', () => {
+    expect(normalizeInboxText('pay\u202Eexe.txt\u200Bok\u200D\uFEFF\u2028\u2029!')).toBe(
+      'payexe.txtok!',
+    );
+    expect(normalizeInboxText('\u200B\u202E\uFEFF')).toBe('');
+    expect(
+      sendInboxMessageRequestSchema.safeParse({
+        action: 'feedback',
+        requestId: id,
+        category: 'bug',
+        subject: 'ok',
+        text: '\u200B\u202E',
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('sendInboxMessageRequestSchema', () => {
