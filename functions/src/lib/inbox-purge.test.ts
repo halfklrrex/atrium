@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { InboxAuth, InboxStore, ThreadData } from './inbox';
 import {
   INBOX_PURGE_MAX_THREADS,
