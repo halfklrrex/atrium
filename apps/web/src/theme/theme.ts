@@ -13,6 +13,13 @@ export const THEME_OPTIONS: readonly { value: ThemePreference; label: string }[]
   { value: 'black', label: 'Black' },
 ];
 
+/** Browser chrome colours (`<meta name="theme-color">`); the inline script in index.html repeats them. */
+export const THEME_COLORS: Record<ResolvedTheme, string> = {
+  light: '#edf1fc',
+  dark: '#181b34',
+  black: '#111111',
+};
+
 const themeClass = (theme: ResolvedTheme) => `${theme}-app-theme`;
 const ALL_CLASSES = (['light', 'dark', 'black'] as const).map(themeClass);
 
@@ -29,6 +36,9 @@ export function applyTheme(
   root.classList.remove(...ALL_CLASSES);
   root.classList.add(themeClass(theme));
   root.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+  root.ownerDocument
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', THEME_COLORS[theme]);
 }
 
 interface ThemeState {

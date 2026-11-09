@@ -27,7 +27,7 @@ function Swatch({ value }: { value: ThemePreference }) {
   );
 }
 
-/** Settings > Appearance: the theme chooser (System, Light, Dark, Black), kept in this browser. */
+/** Settings > Appearance: the theme chooser (System, Light, Dark, Black), saved to your account. */
 export function AppearanceTab() {
   const preference = useThemeStore((s) => s.preference);
   const setPreference = useThemeStore((s) => s.setPreference);
@@ -37,6 +37,7 @@ export function AppearanceTab() {
       <h2 id="theme-title" className={styles.sectionTitle}>
         Theme
       </h2>
+      <p className={styles.hint}>Your choice follows your account on every device.</p>
       <fieldset className={styles.themeGrid} aria-labelledby="theme-title">
         {THEME_OPTIONS.map(({ value, label }) => {
           const on = preference === value;

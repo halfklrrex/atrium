@@ -17,6 +17,7 @@ import { useCurrentWorkspace } from './useCurrentWorkspace';
 import { useSearchShortcut } from './useSearchShortcut';
 import { usePrinting } from '../../lib/use-printing';
 import { useUiStore } from './ui-store';
+import { useAccountThemeSync } from '../../theme/account-theme';
 
 /**
  * Authenticated layout, modelled on monday's shell: a top bar on the app background, and below it
@@ -62,6 +63,9 @@ export function AppShell() {
       }
     })();
   }, [uid]);
+
+  // The theme follows the account across devices (the device keeps a cache for the first paint).
+  useAccountThemeSync(uid ?? undefined);
 
   useSearchShortcut();
   // Subscribes the app to print events: the light theme and the fit-to-page scale apply to every page.

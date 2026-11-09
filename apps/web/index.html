@@ -4,6 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#edf1fc" />
+    <!--
+      Boot theme: applies the cached theme before first paint so a dark user never sees a light
+      flash. Keep in line with resolveTheme/applyTheme in src/theme/theme.ts (theme-boot.test.ts).
+    -->
+    <script>
+      (function () {
+        try {
+          var p = 'system';
+          try {
+            var s = JSON.parse(localStorage.getItem('atrium.theme') || 'null');
+            var v = s && s.state && s.state.preference;
+            if (v === 'light' || v === 'dark' || v === 'black') p = v;
+          } catch (e) {}
+          var t =
+            p === 'system'
+              ? window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : p;
+          var r = document.documentElement;
+          r.classList.add(t + '-app-theme');
+          r.style.colorScheme = t === 'light' ? 'light' : 'dark';
+          var c = { light: '#edf1fc', dark: '#181b34', black: '#111111' }[t];
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', c);
+        } catch (e) {}
+      })();
+    </script>
     <link
       rel="icon"
       type="image/svg+xml"
