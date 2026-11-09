@@ -93,6 +93,20 @@ describe('purgeClosedThreads', () => {
     expect([...f.threads.keys()].sort()).toEqual(['exact', 'younger']);
   });
 
+  it('lists the admins once per run, not once per thread', async () => {
+    const f = new Fake();
+    for (let i = 0; i < 5; i += 1) f.threads.set(`t${i}`, closed(ago(400, i)));
+    const listAdminUids = vi.fn(async () => ['adm1']);
+    f.auth = { listAdminUids, getAccountStatus: async () => null };
+    expect(await purgeClosedThreads(f.deps())).toHaveLength(5);
+    expect(listAdminUids).toHaveBeenCalledTimes(1);
+    const none = new Fake();
+    const unused = vi.fn(async () => ['adm1']);
+    none.auth = { listAdminUids: unused, getAccountStatus: async () => null };
+    await purgeClosedThreads(none.deps());
+    expect(unused).not.toHaveBeenCalled();
+  });
+
   it('never deletes open or answered threads, however old', async () => {
     const f = new Fake();
     f.threads.set('o', { status: 'open', closedAt: null });

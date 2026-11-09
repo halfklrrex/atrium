@@ -855,19 +855,21 @@ export async function closeOpenAppeals(
  * Deletes a thread for good: the bell cards of every admin and the sender, the messages and the
  * `inboxAudit` entries (in batches), then the note and the thread document last, so a crash midway
  * leaves a thread that can simply be deleted again. `inboxLimits` stays on purpose: deleting a
- * thread must not reset the sender's daily caps or the appeal wait. Reused by the daily purge.
+ * thread must not reset the sender's daily caps or the appeal wait. Reused by the daily purge, which
+ * lists the admins once and passes them in as `adminUids`.
  * Resolves to whether the thread document existed.
  */
 export async function deleteThread(
   deps: Pick<InboxDeps, 'store' | 'auth'>,
   threadId: string,
+  adminUids?: ReadonlyArray<string>,
 ): Promise<boolean> {
   const { store, auth } = deps;
   const thread = await store.getThread(threadId);
   // Current admins, every admin who was ever notified of this thread (they may have lost the role
   // since), and the sender.
   const uids = new Set([
-    ...(await auth.listAdminUids()),
+    ...(adminUids ?? (await auth.listAdminUids())),
     ...(await store.getNotifiedUids(threadId)),
   ]);
   if (thread) uids.add(thread.senderUid);

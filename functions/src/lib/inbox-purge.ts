@@ -47,8 +47,10 @@ export async function purgeClosedThreads(deps: InboxPurgeDeps): Promise<string[]
   const cutoff = new Date(deps.now().getTime() - INBOX_CLOSED_RETENTION_DAYS * DAY_MS);
   const ids = await deps.purgeStore.listClosedThreadIdsBefore(cutoff, INBOX_PURGE_MAX_THREADS);
   const deleted: string[] = [];
+  // One Auth listing for the whole run (it pages through every user), not one per thread.
+  const adminUids = ids.length > 0 ? await deps.auth.listAdminUids() : [];
   for (const id of ids.slice(0, INBOX_PURGE_MAX_THREADS)) {
-    await deleteThread(deps, id);
+    await deleteThread(deps, id, adminUids);
     deleted.push(id);
   }
   deps.logger.info(`Inbox purge: deleted ${deleted.length} closed threads.`, {
