@@ -136,6 +136,54 @@ describe('workspaces', () => {
     }
   });
 
+  describe('icon: legacy letter or emoji, or mi:<key>', () => {
+    const accepted = ['A', '🙂', 'abcdefgh', 'mi:home', 'mi:diversity_3', `mi:${'a'.repeat(40)}`];
+    const refused: [string, unknown][] = [
+      ['uppercase key', 'mi:Home'],
+      ['space in key', 'mi:my home'],
+      ['hyphen in key', 'mi:ho-me'],
+      ['empty key', 'mi:'],
+      ['41-character key', `mi:${'a'.repeat(41)}`],
+      ['49 characters', 'x'.repeat(49)],
+      ['9 characters without prefix', 'abcdefghi'],
+      ['empty string', ''],
+      ['number', 7],
+      ['null', null],
+    ];
+
+    it('accepts legacy letters and emoji and valid mi: keys on create', async () => {
+      for (const [i, icon] of accepted.entries()) {
+        await assertSucceeds(
+          setDoc(
+            doc(as('newbie'), 'workspaces', `icon${i}`),
+            newWorkspacePayload('newbie', { icon }),
+          ),
+        );
+      }
+    });
+
+    it('refuses malformed, over-long and non-string icons on create', async () => {
+      for (const [i, [, icon]] of refused.entries()) {
+        await assertFails(
+          setDoc(
+            doc(as('newbie'), 'workspaces', `badicon${i}`),
+            newWorkspacePayload('newbie', { icon }),
+          ),
+        );
+      }
+    });
+
+    it('applies the same rule to owner updates', async () => {
+      const ref = doc(as(USERS.owner), 'workspaces', WS);
+      for (const icon of accepted) {
+        await assertSucceeds(updateDoc(ref, { icon, updatedAt: serverTimestamp() }));
+      }
+      for (const [, icon] of refused) {
+        await assertFails(updateDoc(ref, { icon, updatedAt: serverTimestamp() }));
+      }
+    });
+  });
+
   it('denies a client-supplied createdAt that is not the server time', async () => {
     await assertFails(
       setDoc(

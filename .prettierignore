@@ -14,3 +14,4 @@ HANDOFF.md
 .claude/worktrees
 THIRD_PARTY_NOTICES.md
 LICENSE
+apps/web/src/components/workspace-icons/icons.generated.ts

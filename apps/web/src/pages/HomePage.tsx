@@ -141,7 +141,12 @@ export function HomePage() {
               {workspaces.map((workspace) => (
                 <li key={workspace.id}>
                   <Link to={`/workspaces/${workspace.id}`} className={styles.workspaceCard}>
-                    <WorkspaceTile icon={workspace.icon} color={workspace.color} size="md" />
+                    <WorkspaceTile
+                      icon={workspace.icon}
+                      color={workspace.color}
+                      name={workspace.name}
+                      size="md"
+                    />
                     <span className={styles.workspaceText}>
                       <span className={styles.workspaceName}>{workspace.name}</span>
                       <span className={styles.workspaceMeta}>
@@ -218,7 +223,12 @@ function BoardCard({ board, workspace }: { board: BoardDoc; workspace: Workspace
       <p className={styles.cardCrumb}>
         {workspace ? (
           <>
-            <WorkspaceTile icon={workspace.icon} color={workspace.color} size="xs" />
+            <WorkspaceTile
+              icon={workspace.icon}
+              color={workspace.color}
+              name={workspace.name}
+              size="xs"
+            />
             <span className={styles.crumbText}>{workspace.name}</span>
           </>
         ) : (

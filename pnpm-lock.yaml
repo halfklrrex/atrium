@@ -172,6 +172,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.13.0(supports-color@10.2.2))
+      '@material-symbols/svg-400':
+        specifier: 0.48.3
+        version: 0.48.3
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(supports-color@10.2.2)(zod@4.6.7)
@@ -1369,6 +1372,9 @@ packages:
 
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
+
+  '@material-symbols/svg-400@0.48.3':
+    resolution: {integrity: sha512-Zzt/m3ITfPnQWjdVl5JwHgeWaJLETMYBRvZqs8qXn0tNO+uAuZK/SaDzWEOIxkxZPIEVJpCXpKnVfQAjHshsAQ==}
 
   '@modelcontextprotocol/sdk@1.32.2':
     resolution: {integrity: sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw==}
@@ -6920,6 +6926,8 @@ snapshots:
       keyv: 5.6.0
 
   '@keyv/serialize@1.1.1': {}
+
+  '@material-symbols/svg-400@0.48.3': {}
 
   '@modelcontextprotocol/sdk@1.32.2(supports-color@10.2.2)(zod@4.6.7)':
     dependencies:

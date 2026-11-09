@@ -3,10 +3,10 @@ import { workspaceKindSchema, workspaceRoleSchema } from '../roles';
 import {
   auditFields,
   hexColorSchema,
-  iconSchema,
   idSchema,
   positionSchema,
   uidSchema,
+  workspaceIconSchema,
   type WriteDoc,
 } from './common';
 
@@ -14,7 +14,7 @@ import {
 export const workspaceSchema = z.object({
   name: z.string().min(1).max(80),
   description: z.string().max(500),
-  icon: iconSchema,
+  icon: workspaceIconSchema,
   color: hexColorSchema,
   ownerId: uidSchema,
   memberIds: z.array(uidSchema).min(1),
@@ -28,7 +28,7 @@ export type WorkspaceWrite = WriteDoc<Workspace>;
 /** What the "New workspace" form collects. */
 export const createWorkspaceInputSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(80),
-  icon: iconSchema,
+  icon: workspaceIconSchema,
   color: hexColorSchema,
   description: z.string().trim().max(500).default(''),
   kind: workspaceKindSchema.default('open'),
