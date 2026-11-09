@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthProvider';
+import './theme/fonts/core.css';
 import './theme/tokens.css';
 import './theme/table-tokens.css';
 import './theme/kanban-tokens.css';

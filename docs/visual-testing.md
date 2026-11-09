@@ -21,7 +21,7 @@ Light and dark for each screen (black as well for Home and the board page):
 - Home with no recents
 - Mobile (390×844): Home with the drawer closed and open
 
-Every run uses the same world: time frozen at 2026-10-24 09:00 UTC, locale `en-GB`, timezone `UTC` (so Home says "Good morning, Avery!"), a 1440×900 viewport at scale 1, animations off, fonts served from pinned `@fontsource` packages instead of Google, and every other external request blocked. The data is seeded fresh into empty emulators with fixed ids and timestamps ("Avery Atrium", two workspaces, a folder with two boards, one root board, a favourite and a few recents).
+Every run uses the same world: time frozen at 2026-10-24 09:00 UTC, locale `en-GB`, timezone `UTC` (so Home says "Good morning, Avery!"), a 1440×900 viewport at scale 1, animations off, fonts self-hosted by the app itself (the same pinned `@fontsource` files, see `scripts/fonts/sync-fonts.mjs`), and every other external request blocked. The data is seeded fresh into empty emulators with fixed ids and timestamps ("Avery Atrium", two workspaces, a folder with two boards, one root board, a favourite and a few recents).
 
 ## Updating baselines after a UI change
 

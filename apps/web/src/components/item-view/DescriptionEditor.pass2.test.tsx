@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DescriptionEditor from './DescriptionEditor';
 import { clearDescriptionImageUrlCache } from './description-image-url';
 import { stripTransientNodes, docToText } from './description';
-import { collectFontKeys, ensureFontLoaded, fontStylesheetUrl } from './editor-fonts';
+import { collectFontKeys, ensureFontLoaded, requestedFontKeys } from './editor-fonts';
 import { createEditorExtensions } from './editor-extensions';
 import { loadRecentEmoji, RECENT_EMOJI_KEY, searchEmojis } from './emoji-data';
 import { filterSlashItems, SlashController } from './slash-menu/slash-controller';
@@ -79,7 +79,7 @@ const mount = (
 beforeEach(() => {
   vi.clearAllMocks();
   clearDescriptionImageUrlCache();
-  document.head.querySelectorAll('link[data-atrium-font]').forEach((l) => l.remove());
+  requestedFontKeys.clear();
   window.localStorage.clear();
 });
 
@@ -207,7 +207,7 @@ describe('font picker', () => {
     expect(span).toHaveAttribute('data-font', 'lora');
     expect(span).toHaveClass('atrium-font-lora');
     expect(trigger).toHaveAccessibleName('Font: Lora');
-    expect(document.head.querySelectorAll('link[data-atrium-font="lora"]')).toHaveLength(1);
+    expect(requestedFontKeys.has('lora')).toBe(true);
 
     act(() => {
       editorOf().commands.selectAll();
@@ -218,23 +218,20 @@ describe('font picker', () => {
     expect(JSON.stringify(editorOf().getJSON())).not.toContain('textStyle');
   });
 
-  it('ensureFontLoaded injects one link per family and skips the preloaded Figtree', () => {
+  it('ensureFontLoaded requests each self-hosted sheet once and skips Figtree and Default', () => {
     ensureFontLoaded('caveat');
     ensureFontLoaded('caveat');
     ensureFontLoaded('figtree');
     ensureFontLoaded('default');
-    const links = document.head.querySelectorAll('link[data-atrium-font]');
-    expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute('href', expect.stringContaining('fonts.googleapis.com'));
-    expect(fontStylesheetUrl('figtree')).toBeNull();
-    expect(fontStylesheetUrl('lora')).toContain('family=Lora:ital,wght@0,400;0,700;1,400;1,700');
+    expect([...requestedFontKeys]).toEqual(['caveat']);
+    expect(document.head.querySelector('link[href*="fonts.googleapis.com"]')).toBeNull();
   });
 
   it('loads the fonts a doc uses when the editor opens', () => {
     const initial = doc(para(text('Mono', [{ type: 'textStyle', attrs: { fontFamily: 'mono' } }])));
     expect(collectFontKeys(initial)).toEqual(new Set(['mono']));
     mount(initial, true);
-    expect(document.head.querySelector('link[data-atrium-font="mono"]')).not.toBeNull();
+    expect(requestedFontKeys.has('mono')).toBe(true);
   });
 });
 

@@ -60,7 +60,7 @@ export default {
   overrides: [
     {
       // The ONLY place for literal colours, lengths and shadows: the token definitions.
-      files: ['apps/web/src/theme/*.css'],
+      files: ['apps/web/src/theme/**/*.css'],
       rules: {
         'color-no-hex': null,
         'function-disallowed-list': null,
