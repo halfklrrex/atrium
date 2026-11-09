@@ -20,7 +20,7 @@ vi.mock('../boards/BoardMenu', () => ({
 
 const folders = [
   makeFolder({ id: 'f2', name: 'Archive', position: 'a1', color: '#ffcb00' }),
-  makeFolder({ id: 'f1', name: 'Planning', position: 'a0' }),
+  makeFolder({ id: 'f1', name: 'Planning', position: 'a0', icon: 'ph:rocket-launch' }),
 ];
 const boards = [
   makeBoard({ id: 'b2', name: 'Zeta board', position: 'a1' }),
@@ -61,6 +61,12 @@ describe('SidebarTree', () => {
     expect(items[1]).toHaveTextContent('Archive');
     expect(items[2]).toHaveTextContent('Alpha board');
     expect(items[3]).toHaveTextContent('Zeta board');
+  });
+
+  it('shows the icon of a folder that has one and the default glyph otherwise', () => {
+    renderTree();
+    const icons = [...document.querySelectorAll('svg[data-icon-key]')];
+    expect(icons.map((i) => i.getAttribute('data-icon-key'))).toEqual(['rocket-launch']);
   });
 
   it('hides the boards of a collapsed folder and shows them when expanded', () => {

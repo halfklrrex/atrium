@@ -62,6 +62,8 @@ export function personalWorkspaceName(
 export const folderInputSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(80),
   color: hexColorSchema,
+  /** Optional folder icon (a letter, an emoji or `ph:<key>`); omitted means the default folder glyph. */
+  icon: workspaceIconSchema.optional(),
   parentFolderId: idSchema.nullable().default(null),
 });
 export type FolderInput = z.input<typeof folderInputSchema>;

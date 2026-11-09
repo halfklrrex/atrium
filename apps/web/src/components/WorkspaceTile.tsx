@@ -7,7 +7,7 @@ export type TileSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 const firstGlyph = (text: string): string => [...text.trim()][0]?.toUpperCase() ?? '';
 
 /**
- * Rounded square showing a workspace's icon on its colour: a Material Symbols icon (`mi:<key>`),
+ * Rounded square showing a workspace's icon on its colour: a Phosphor icon in the fill weight (`ph:<key>`, or a legacy `mi:<key>` through its mapped icon),
  * or a letter or emoji. An icon key that is not in the curated set (removed later) shows the first
  * letter of `name` instead, so the UI never prints the raw key.
  */
@@ -29,12 +29,12 @@ export function WorkspaceTile({
   const content = def ? (
     <svg
       className={styles.glyph}
-      viewBox="0 -960 960 960"
+      viewBox="0 0 256 256"
       fill="currentColor"
       focusable="false"
       data-icon-key={def.key}
     >
-      <path d={def.path} />
+      <path d={def.fill} />
     </svg>
   ) : isIconKeyValue(icon) ? (
     firstGlyph(name ?? '') || 'W'
