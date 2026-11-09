@@ -22,10 +22,10 @@
 <linearGradient id="g-pane-4" gradientUnits="userSpaceOnUse" x1="707" y1="576" x2="956" y2="676"><stop offset="0.000" stop-color="#e8928e"/><stop offset="0.250" stop-color="#cc747d"/><stop offset="0.417" stop-color="#ac5c6d"/><stop offset="0.583" stop-color="#934f61"/><stop offset="0.750" stop-color="#7c4459"/><stop offset="1.000" stop-color="#6d3e54"/></linearGradient>
 <filter id="blur-halo" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="20"/></filter>
 <filter id="blur-floor" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9"/></filter>
-<filter id="blur-edge" x="-10%%" y="-10%%" width="120%%" height="120%%"><feGaussianBlur stdDeviation="3"/></filter>
-<filter id="blur-ray" x="-20%%" y="-20%%" width="140%%" height="140%%"><feGaussianBlur stdDeviation="2.5"/></filter>
-<filter id="blur-soft" x="-5%%" y="-5%%" width="110%%" height="110%%"><feGaussianBlur stdDeviation="0.45"/></filter>
-<filter id="blur-shadow" x="-20%%" y="-20%%" width="140%%" height="140%%"><feGaussianBlur stdDeviation="22"/></filter>
+<filter id="blur-edge" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="blur-ray" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5"/></filter>
+<filter id="blur-soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="0.45"/></filter>
+<filter id="blur-shadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
 <linearGradient id="g-floor" gradientUnits="userSpaceOnUse" x1="0" y1="790" x2="0" y2="990"><stop offset="0" stop-color="#fff0d8" stop-opacity="1"/><stop offset=".1" stop-color="#ffe3b8" stop-opacity="1"/><stop offset=".2" stop-color="#f6d3ac" stop-opacity=".95"/><stop offset=".35" stop-color="#eebf98" stop-opacity=".72"/><stop offset=".55" stop-color="#d9a98c" stop-opacity=".24"/><stop offset=".75" stop-color="#b08c92" stop-opacity=".08"/><stop offset="1" stop-color="#8a7a9a" stop-opacity="0"/></linearGradient>
 <radialGradient id="g-pool" gradientUnits="userSpaceOnUse" cx="516" cy="790" r="430"><stop offset="0" stop-color="#fff"/><stop offset=".35" stop-color="#fff" stop-opacity=".96"/><stop offset=".5" stop-color="#fff" stop-opacity=".62"/><stop offset=".65" stop-color="#fff" stop-opacity=".4"/><stop offset=".8" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="m-pool" maskUnits="userSpaceOnUse" x="0" y="700" width="1024" height="324"><rect x="0" y="700" width="1024" height="324" fill="url(#g-pool)"/></mask>
 </defs>

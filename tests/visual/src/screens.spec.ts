@@ -116,6 +116,31 @@ for (const theme of ['light', 'dark'] as const) {
         await expect(page.getByRole('button', { name: /Google/ })).toBeVisible();
         await shoot(page, `login-${theme}`);
       });
+
+      test('login logo is a PNG srcset image on a 3x screen', async ({ browser }) => {
+        // WebKit blurs SVG filter art, so the logo ships as 1x/2x/3x PNGs (no screenshot here).
+        const context = await browser.newContext({
+          ...CONTEXT_OPTIONS,
+          baseURL: WEB_URL,
+          deviceScaleFactor: 3,
+        });
+        try {
+          await setTheme(context, theme);
+          const page = await context.newPage();
+          await page.goto('/login');
+          await expect(page.getByRole('heading', { name: 'Welcome to Atrium' })).toBeVisible();
+          const shown = page.locator(
+            theme === 'light' ? 'img[class*="iconLight"]' : 'img[class*="iconDark"]',
+          );
+          await expect(shown).toBeVisible();
+          await expect(shown).toHaveAttribute('srcset', /\.png 1x, .*\.png 2x, .*\.png 3x/);
+          await expect(shown).toHaveJSProperty('complete', true);
+          const currentSrc = await shown.evaluate((el) => (el as HTMLImageElement).currentSrc);
+          expect(currentSrc).toMatch(/atrium-icon-(light|dark)-192.*\.png$/);
+        } finally {
+          await context.close();
+        }
+      });
     });
 
     test('home', async ({ page }) => {
