@@ -51,10 +51,15 @@ function sameOriginHref(url) {
   }
 }
 
-// WebKit (iPhone, iPad) revokes a push subscription that receives pushes without showing a
-// notification, so there the in-app suppression below is skipped.
+// WebKit (iPhone, iPad, and Safari on iPadOS or macOS) revokes a push subscription that receives
+// pushes without showing a notification, so there the in-app suppression below is skipped. iPadOS
+// and macOS Safari send a Macintosh user agent; Chromium and Firefox on macOS are not WebKit push.
 function isWebKitPush() {
-  return /iPhone|iPad|iPod/i.test((self.navigator && self.navigator.userAgent) || '');
+  const ua = (self.navigator && self.navigator.userAgent) || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  return (
+    /Macintosh/i.test(ua) && /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox/i.test(ua)
+  );
 }
 
 function atriumIsInFront() {
