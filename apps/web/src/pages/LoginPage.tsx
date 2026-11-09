@@ -99,7 +99,7 @@ export function LoginPage() {
             </>
           ) : (
             <>
-              <Text type="text1" color="secondary">
+              <Text type="text1" color="secondary" ellipsis={false}>
                 Sign in to open your workspaces.
               </Text>
 
@@ -123,7 +123,7 @@ export function LoginPage() {
             </>
           )}
 
-          <Text type="text3" color="secondary" className={styles.legal}>
+          <Text type="text3" color="secondary" className={styles.legal} ellipsis={false}>
             Atrium only uses your Google account to sign you in.{' '}
             <a href={SOURCE_REPO_URL} target="_blank" rel="noopener noreferrer">
               Source code

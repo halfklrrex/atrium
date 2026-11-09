@@ -10,6 +10,12 @@
 :root {
   /* ---- Layout ---- */
   --atrium-topbar-height: 48px;
+
+  /* Notch and home-indicator insets (viewport-fit=cover in index.html): 0 on desktop and in a plain browser tab. */
+  --atrium-safe-top: env(safe-area-inset-top, 0px);
+  --atrium-safe-right: env(safe-area-inset-right, 0px);
+  --atrium-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --atrium-safe-left: env(safe-area-inset-left, 0px);
   --atrium-sidebar-width: 255px;
   --atrium-surface-inset: var(--space-12); /* gap between the window edge and the floating panels */
   --atrium-surface-radius: var(--border-radius-12);
