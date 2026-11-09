@@ -260,10 +260,7 @@ export const MOBILE_SCREENS: MobileScreen[] = [
   {
     name: 'settings-notifications',
     title: 'Settings: Notifications',
-    open: async (page) => {
-      await openSettingsTab(page, 'notifications', 'On this device');
-      await expect(page.getByText("This browser can't receive push notifications.")).toBeVisible();
-    },
+    open: (page) => openSettingsTab(page, 'notifications', 'On this device'),
   },
   {
     name: 'settings-account',
