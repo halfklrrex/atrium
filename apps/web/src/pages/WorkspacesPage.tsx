@@ -7,6 +7,7 @@ import { WorkspaceTile } from '../components/WorkspaceTile';
 import { useWorkspaces } from '../data';
 import home from './Home.module.css';
 import styles from './Pages.module.css';
+import { workspacePath } from '../lib/paths';
 
 /** `/workspaces` - "Browse all": every workspace the user belongs to. */
 export function WorkspacesPage() {
@@ -24,7 +25,7 @@ export function WorkspacesPage() {
         <ul className={home.workspaces}>
           {workspaces.map((workspace) => (
             <li key={workspace.id}>
-              <Link to={`/workspaces/${workspace.id}`} className={home.workspaceCard}>
+              <Link to={workspacePath(workspace)} className={home.workspaceCard}>
                 <WorkspaceTile
                   icon={workspace.icon}
                   color={workspace.color}

@@ -3,6 +3,8 @@ import { Button, Heading, Loader, Text } from '@vibe/core';
 import { Suspense, lazy, useEffect } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { useAuth } from '../auth/auth-context';
+import { CanonicalUrl } from '../components/CanonicalUrl';
+import { boardParam, idFromSlugParam, workspacePath } from '../lib/paths';
 import { boardActions } from '../components/boards/board-actions';
 import { BoardHeader } from '../components/boards/BoardHeader';
 import { CalendarView } from '../components/board-calendar/CalendarView';
@@ -30,7 +32,8 @@ const ItemView = lazy(() =>
  * board opens (or Main table).
  */
 export function BoardPage() {
-  const { boardId, viewId: routeViewId, itemId } = useParams();
+  const { boardId: boardParamValue, viewId: routeViewId, itemId } = useParams();
+  const boardId = idFromSlugParam(boardParamValue);
   const { user, rememberWorkspace } = useAuth();
   const uid = user?.uid ?? null;
   const { data: board, loading } = useBoard(boardId);
@@ -69,6 +72,7 @@ export function BoardPage() {
     const isOwner = canManageBoard(resolveBoardRole(board, uid ?? '', workspace?.roles[uid ?? '']));
     return (
       <div className={styles.center}>
+        <CanonicalUrl param={boardParamValue} canonical={boardParam(board)} />
         <Heading type="h2">
           This board was {board.state === 'archived' ? 'archived' : 'deleted'}
         </Heading>
@@ -78,7 +82,10 @@ export function BoardPage() {
         {isOwner ? (
           <Button onClick={() => void boardActions.restore(board)}>Restore board</Button>
         ) : null}
-        <Link to={`/workspaces/${board.workspaceId}`} className={styles.link}>
+        <Link
+          to={workspacePath({ id: board.workspaceId, name: workspace?.name })}
+          className={styles.link}
+        >
           Back to workspace
         </Link>
       </div>
@@ -100,12 +107,12 @@ export function BoardPage() {
     views.find((v) => v.id === wanted) ??
     (routeViewId ? undefined : views.find((v) => v.id === MAIN_VIEW_ID));
   if (!routeViewId && !itemId && view && view.id !== MAIN_VIEW_ID) {
-    return <Navigate to={boardViewPath(board.id, view.id)} replace />;
+    return <Navigate to={boardViewPath(board, view.id)} replace />;
   }
   // A view that was deleted (or is somebody else's personal one) falls back to Main table.
   if (!view) {
     if (routeViewId && routeViewId !== MAIN_VIEW_ID) {
-      return <Navigate to={boardViewPath(board.id, MAIN_VIEW_ID)} replace />;
+      return <Navigate to={boardViewPath(board, MAIN_VIEW_ID)} replace />;
     }
     return <NotFoundPage />;
   }
@@ -113,6 +120,7 @@ export function BoardPage() {
 
   return (
     <BoardViewsProvider board={board} views={views} view={view} canEdit={canEdit}>
+      <CanonicalUrl param={boardParamValue} canonical={boardParam(board)} />
       <div className={styles.boardPage} data-print="reset" data-print-page="board-page">
         <BoardHeader board={board} />
         <ViewBody board={board} />

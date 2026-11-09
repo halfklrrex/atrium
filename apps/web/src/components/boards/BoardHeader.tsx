@@ -21,6 +21,7 @@ import styles from './BoardHeader.module.css';
 import { FavoriteStar } from './FavoriteStar';
 import { sharedCount } from './board-sharing';
 import { BOARD_KIND_OPTIONS } from './kinds';
+import { workspacePath } from '../../lib/paths';
 
 /** Board title row and the view tabs. */
 export function BoardHeader({ board }: { board: BoardDoc }) {
@@ -88,7 +89,7 @@ export function BoardHeader({ board }: { board: BoardDoc }) {
               <dl className={styles.facts}>
                 <dt>Workspace</dt>
                 <dd>
-                  <Link to={`/workspaces/${board.workspaceId}`}>
+                  <Link to={workspacePath({ id: board.workspaceId, name: workspace?.name })}>
                     {workspace?.name ?? 'Workspace'}
                   </Link>
                 </dd>

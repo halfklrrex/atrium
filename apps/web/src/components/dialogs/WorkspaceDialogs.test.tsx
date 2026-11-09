@@ -2,11 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { REGULAR_PATHS } from '../workspace-icons/icons-regular.generated';
+import { findWorkspaceIcon } from '../workspace-icons/icons';
 import { NewWorkspaceDialog, WorkspaceSettingsDialog } from './WorkspaceDialogs';
 
 const mocks = vi.hoisted(() => ({
   createWorkspace: vi.fn(),
   updateWorkspace: vi.fn(),
+  workspaceIcon: 'H',
 }));
 
 vi.mock('../../lib/firebase', () => ({ db: {} }));
@@ -14,7 +17,7 @@ vi.mock('../../auth/auth-context', () => ({ useAuth: () => ({ user: { uid: 'u1' 
 vi.mock('../../data', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
   useWorkspace: () => ({
-    data: { name: 'Home base', icon: 'H', color: '#579bfc', description: '' },
+    data: { name: 'Home base', icon: mocks.workspaceIcon, color: '#579bfc', description: '' },
     loading: false,
     error: null,
   }),
@@ -24,6 +27,7 @@ vi.mock('../../data', async (importOriginal) => ({
 beforeEach(() => {
   mocks.createWorkspace.mockReset().mockResolvedValue('ws1');
   mocks.updateWorkspace.mockReset().mockResolvedValue(undefined);
+  mocks.workspaceIcon = 'H';
 });
 
 function renderNew() {
@@ -43,12 +47,12 @@ describe('workspace icon picker in the dialogs', () => {
     expect(mocks.createWorkspace.mock.calls[0]![1]).toMatchObject({ icon: 'G' });
   });
 
-  it('searches the icons and submits the chosen mi:<key>', async () => {
+  it('searches the icons and submits the chosen ph:<key>', async () => {
     renderNew();
     await userEvent.type(screen.getByLabelText('Workspace name'), 'Family');
     await userEvent.click(screen.getByRole('tab', { name: 'Icons' }));
     await userEvent.type(screen.getByLabelText('Search icons'), 'rocket');
-    expect(screen.queryByRole('button', { name: 'home' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'house' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'rocket launch' }));
     expect(screen.getByRole('button', { name: 'rocket launch' })).toHaveAttribute(
       'aria-pressed',
@@ -56,7 +60,26 @@ describe('workspace icon picker in the dialogs', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Add workspace' }));
     await waitFor(() => expect(mocks.createWorkspace).toHaveBeenCalled());
-    expect(mocks.createWorkspace.mock.calls[0]![1]).toMatchObject({ icon: 'mi:rocket_launch' });
+    expect(mocks.createWorkspace.mock.calls[0]![1]).toMatchObject({ icon: 'ph:rocket-launch' });
+  });
+
+  it('shows the regular weight in the grid and the fill weight on the selected icon', async () => {
+    renderNew();
+    await userEvent.click(screen.getByRole('tab', { name: 'Icons' }));
+    await userEvent.type(screen.getByLabelText('Search icons'), 'rocket');
+    const button = screen.getByRole('button', { name: 'rocket launch' });
+    await waitFor(() =>
+      expect(button.closest('[data-weights-loaded]')).toHaveAttribute(
+        'data-weights-loaded',
+        'true',
+      ),
+    );
+    const def = findWorkspaceIcon('ph:rocket-launch')!;
+    await waitFor(() =>
+      expect(button.querySelector('path')).toHaveAttribute('d', REGULAR_PATHS['rocket-launch']),
+    );
+    await userEvent.click(button);
+    expect(button.querySelector('path')).toHaveAttribute('d', def.fill);
   });
 
   it('moves between icons with the arrow keys and shows an empty state', async () => {
@@ -77,7 +100,7 @@ describe('workspace icon picker in the dialogs', () => {
     renderNew();
     await userEvent.type(screen.getByLabelText('Workspace name'), 'Zed');
     await userEvent.click(screen.getByRole('tab', { name: 'Icons' }));
-    await userEvent.click(screen.getByRole('button', { name: 'home' }));
+    await userEvent.click(screen.getByRole('button', { name: 'house' }));
     await userEvent.click(screen.getByRole('tab', { name: 'Letter' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add workspace' }));
     await waitFor(() => expect(mocks.createWorkspace).toHaveBeenCalled());
@@ -99,9 +122,19 @@ describe('workspace icon picker in the dialogs', () => {
     render(<WorkspaceSettingsDialog workspaceId="w1" onClose={vi.fn()} />);
     expect(screen.getByRole('tab', { name: 'Letter', selected: true })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'Icons' }));
-    await userEvent.click(screen.getByRole('button', { name: 'diversity 3' }));
+    await userEvent.click(screen.getByRole('button', { name: 'users three' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mocks.updateWorkspace).toHaveBeenCalled());
-    expect(mocks.updateWorkspace.mock.calls[0]![1]).toMatchObject({ icon: 'mi:diversity_3' });
+    expect(mocks.updateWorkspace.mock.calls[0]![1]).toMatchObject({ icon: 'ph:users-three' });
+  });
+
+  it('marks the mapped icon as selected for a legacy mi: value and keeps it when untouched', async () => {
+    mocks.workspaceIcon = 'mi:home';
+    render(<WorkspaceSettingsDialog workspaceId="w1" onClose={vi.fn()} />);
+    expect(screen.getByRole('tab', { name: 'Icons', selected: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'house' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.updateWorkspace).toHaveBeenCalled());
+    expect(mocks.updateWorkspace.mock.calls[0]![1]).toMatchObject({ icon: 'mi:home' });
   });
 });

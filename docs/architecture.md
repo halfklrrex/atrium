@@ -70,7 +70,7 @@ Readable by any signed-in user who shares a workspace with this user (P4; in P0 
 
 ### 5.2 `workspaces/{workspaceId}`
 ```
-name, description, icon (a letter or emoji of 1 to 8 characters, `ph:<key>`, a Phosphor name such as `ph:rocket-launch`, or the legacy `mi:<key>`, a Material Symbols name such as `mi:home`, which stays valid; keys are `[a-z0-9_-]{1,40}`, max 48 characters in all; the curated set lives in `apps/web/src/components/workspace-icons/icons.generated.ts`, an unknown key renders as the first letter of the name), color,
+name, description, icon (a letter or emoji of 1 to 8 characters, `ph:<key>`, a Phosphor name such as `ph:rocket-launch`, or the legacy `mi:<key>`, a Material Symbols name such as `mi:home`, which stays valid and renders as its mapped Phosphor icon through `workspace-icons/legacy-material.ts`; folders have the same optional `icon`; keys are `[a-z0-9_-]{1,40}`, max 48 characters in all; the curated set lives in `apps/web/src/components/workspace-icons/icons.generated.ts`, an unknown key renders as the first letter of the name), color,
 ownerId,
 memberIds: string[]                       // for array-contains queries + rules
 roles: { [uid]: 'owner'|'admin'|'member'|'viewer' }

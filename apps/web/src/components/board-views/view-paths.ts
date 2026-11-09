@@ -1,8 +1,9 @@
 import { MAIN_VIEW_ID } from '@atrium/shared';
+import { boardPath, type BoardRef } from '../../lib/paths';
 
-/** `/boards/:boardId/views/:viewId` - one tab of a board. */
-export const boardViewPath = (boardId: string, viewId: string): string =>
-  `/boards/${boardId}/views/${viewId}`;
+/** `/boards/<slug>-<id>/views/:viewId` - one tab of a board. */
+export const boardViewPath = (board: BoardRef, viewId: string): string =>
+  boardPath(board, `/views/${viewId}`);
 
 const lastViewKey = (boardId: string): string => `atrium.lastView.${boardId}`;
 

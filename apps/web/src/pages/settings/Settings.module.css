@@ -317,3 +317,23 @@
     max-width: none;
   }
 }
+
+.idRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.idValue {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-8) var(--space-12);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  color: var(--primary-text-color);
+  font-family: var(--atrium-font-mono);
+  font-size: var(--font-size-30);
+  word-break: break-all;
+  user-select: all;
+}

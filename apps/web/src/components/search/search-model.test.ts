@@ -76,9 +76,9 @@ describe('groups', () => {
   });
 
   it('builds the paths', () => {
-    expect(resultPath(groups.workspaces[0]!)).toBe('/workspaces/w1');
-    expect(resultPath(groups.boards[0]!)).toBe('/boards/b1');
-    expect(resultPath(groups.items[0]!)).toBe('/boards/b1/items/i1');
+    expect(resultPath(groups.workspaces[0]!)).toBe('/workspaces/home-w1');
+    expect(resultPath(groups.boards[0]!)).toBe('/boards/roadmap-b1');
+    expect(resultPath(groups.items[0]!)).toBe('/boards/roadmap-b1/items/i1');
   });
 });
 

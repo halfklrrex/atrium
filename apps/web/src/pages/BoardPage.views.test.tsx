@@ -72,7 +72,7 @@ describe('board page views', () => {
   it('opens Main table for a board with no remembered view', async () => {
     renderAt('/boards/b1');
     expect(await screen.findByText('the table')).toBeInTheDocument();
-    expect(where()).toBe('/boards/b1');
+    expect(where()).toBe('/boards/roadmap-b1');
     expect(useFilterStore.getState().activeView['b1']).toBe('main');
   });
 
@@ -80,7 +80,7 @@ describe('board page views', () => {
     writeLastView('b1', 'v2');
     renderAt('/boards/b1');
     expect(await screen.findByText('the table')).toBeInTheDocument();
-    expect(where()).toBe('/boards/b1/views/v2');
+    expect(where()).toBe('/boards/roadmap-b1/views/v2');
     expect(useFilterStore.getState().activeView['b1']).toBe('v2');
   });
 
@@ -94,22 +94,35 @@ describe('board page views', () => {
     writeLastView('b1', 'deleted');
     renderAt('/boards/b1');
     expect(await screen.findByText('the table')).toBeInTheDocument();
-    expect(where()).toBe('/boards/b1');
+    expect(where()).toBe('/boards/roadmap-b1');
     expect(useFilterStore.getState().activeView['b1']).toBe('main');
   });
 
   it('redirects a view that does not exist (or is not yours) to Main table', async () => {
     renderAt('/boards/b1/views/nope');
     expect(await screen.findByText('the table')).toBeInTheDocument();
-    expect(where()).toBe('/boards/b1/views/main');
+    expect(where()).toBe('/boards/roadmap-b1/views/main');
   });
 
   it('keeps old item links working on Main table, ignoring the remembered view', async () => {
     writeLastView('b1', 'v2');
     renderAt('/boards/b1/items/i1');
     expect(await screen.findByText('item i1')).toBeInTheDocument();
-    expect(where()).toBe('/boards/b1/items/i1');
+    expect(where()).toBe('/boards/roadmap-b1/items/i1');
     expect(useFilterStore.getState().activeView['b1']).toBe('main');
+  });
+
+  it('replaces an old name slug with the current one, keeping the sub-route', async () => {
+    renderAt('/boards/old-name-b1/items/i1');
+    expect(await screen.findByText('item i1')).toBeInTheDocument();
+    expect(where()).toBe('/boards/roadmap-b1/items/i1');
+  });
+
+  it('navigates only once to canonicalise (no loop)', async () => {
+    renderAt('/boards/old-name-b1/views/v2');
+    expect(await screen.findByText('the table')).toBeInTheDocument();
+    expect(where()).toBe('/boards/roadmap-b1/views/v2');
+    expect(screen.getAllByTestId('where')).toHaveLength(1);
   });
 
   it('opens an item inside a view', async () => {

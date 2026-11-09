@@ -10,6 +10,7 @@ import { Popover } from '../Popover';
 import { useUiStore } from '../AppShell/ui-store';
 import { WorkspaceTile } from '../WorkspaceTile';
 import styles from './Sidebar.module.css';
+import { workspacePath } from '../../lib/paths';
 
 /** Full-width workspace button with monday's dropdown: search, recent, mine, browse all, add. */
 export function WorkspaceSwitcher({
@@ -47,7 +48,7 @@ export function WorkspaceSwitcher({
   const choose = (workspace: WorkspaceDoc) => {
     close();
     onNavigate?.();
-    void navigate(`/workspaces/${workspace.id}`);
+    void navigate(workspacePath(workspace));
   };
 
   const renderItem = (workspace: WorkspaceDoc, scope: string) => (
