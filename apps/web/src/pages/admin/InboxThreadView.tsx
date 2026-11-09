@@ -261,8 +261,15 @@ export function InboxThreadView() {
   const uid = user?.uid ?? '';
   const { data: thread, loading, error } = useInboxThread(threadId);
   const { data: messages, error: messagesError } = useInboxMessages(threadId);
-  const [confirm, setConfirm] = useState<Confirm>(null);
+  const [confirm, setConfirmState] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
+  // One id per opening of the Keep blocked dialog, so a retry after a lost response is the same
+  // request on the server. It is dropped when the dialog closes (success, Cancel or another dialog).
+  const keepBlockedRequestId = useRef<string | null>(null);
+  const setConfirm = (next: Confirm) => {
+    keepBlockedRequestId.current = null;
+    setConfirmState(next);
+  };
 
   // Opening a thread (or a new sender message arriving while it is open) clears the unread dot.
   const unread = thread?.adminUnread === true;
@@ -332,7 +339,12 @@ export function InboxThreadView() {
         () =>
           inboxCalls.manage(
             text
-              ? { action: 'keepBlocked', threadId, requestId: crypto.randomUUID(), text }
+              ? {
+                  action: 'keepBlocked',
+                  threadId,
+                  requestId: (keepBlockedRequestId.current ??= crypto.randomUUID()),
+                  text,
+                }
               : { action: 'keepBlocked', threadId },
           ),
         'Could not update this appeal. Try again.',

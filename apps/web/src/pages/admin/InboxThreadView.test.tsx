@@ -309,6 +309,40 @@ describe('appeal actions', () => {
     expect(arg.requestId).toMatch(UUID);
   });
 
+  it('a Keep blocked retry after a failure reuses the request id; a new opening gets a new one', async () => {
+    mocks.manage.mockRejectedValueOnce(new Error('Network lost'));
+    renderView();
+    const user = userEvent.setup();
+    const open = async () => {
+      await user.click(screen.getByRole('button', { name: 'Keep blocked' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.clear(within(dialog).getByRole('textbox', { name: 'Final message (optional)' }));
+      await user.type(
+        within(dialog).getByRole('textbox', { name: 'Final message (optional)' }),
+        'Not this time.',
+      );
+      return dialog;
+    };
+    const dialog = await open();
+    await user.click(within(dialog).getByRole('button', { name: 'Keep blocked' }));
+    await waitFor(() => expect(mocks.manage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalled());
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Keep blocked' }),
+    );
+    await waitFor(() => expect(mocks.manage).toHaveBeenCalledTimes(2));
+    const ids = mocks.manage.mock.calls.map((c) => (c[0] as { requestId: string }).requestId);
+    expect(ids[0]).toMatch(UUID);
+    expect(ids[1]).toBe(ids[0]);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const again = await open();
+    await user.click(within(again).getByRole('button', { name: 'Keep blocked' }));
+    await waitFor(() => expect(mocks.manage).toHaveBeenCalledTimes(3));
+    const third = (mocks.manage.mock.calls[2]![0] as { requestId: string }).requestId;
+    expect(third).not.toBe(ids[0]);
+  });
+
   it('shows a callable error as a toast and keeps the dialog open', async () => {
     mocks.setStatus.mockRejectedValue(new Error('Not allowed'));
     renderView();
