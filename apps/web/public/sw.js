@@ -58,7 +58,7 @@ function isWebKitPush() {
   const ua = (self.navigator && self.navigator.userAgent) || '';
   if (/iPhone|iPad|iPod/i.test(ua)) return true;
   return (
-    /Macintosh/i.test(ua) && /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox/i.test(ua)
+    /Macintosh/i.test(ua) && /Safari/i.test(ua) && !/Chrome|Chromium|Edg\/|OPR|Firefox/i.test(ua)
   );
 }
 
