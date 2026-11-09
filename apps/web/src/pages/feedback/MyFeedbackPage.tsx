@@ -1,21 +1,12 @@
 import { Button, Label, Loader } from '@vibe/core';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
+import { StatusChip } from '../../components/inbox/StatusChip';
 import { useUiStore } from '../../components/AppShell/ui-store';
 import { useMyFeedbackThreads, type InboxThreadDoc } from '../../data/inbox';
 import { formatRelativeShort } from '../../lib/format';
 import { CATEGORY_LABELS, SENDER_STATUS_LABELS } from '../../lib/inbox-sender';
 import styles from './Feedback.module.css';
-
-export function StatusChip({ status }: { status: InboxThreadDoc['status'] }) {
-  return (
-    <Label
-      text={SENDER_STATUS_LABELS[status]}
-      color={status === 'answered' ? 'positive' : 'primary'}
-      kind={status === 'closed' ? 'line' : 'fill'}
-    />
-  );
-}
 
 function ThreadRow({ thread, onOpen }: { thread: InboxThreadDoc; onOpen: () => void }) {
   const unread = thread.senderUnread;
@@ -38,7 +29,7 @@ function ThreadRow({ thread, onOpen }: { thread: InboxThreadDoc; onOpen: () => v
             {thread.category ? (
               <Label text={CATEGORY_LABELS[thread.category]} color="primary" kind="line" />
             ) : null}
-            <StatusChip status={thread.status} />
+            <StatusChip status={thread.status} labels={SENDER_STATUS_LABELS} />
           </span>
           <span className={styles.time}>{formatRelativeShort(thread.lastMessageAt)}</span>
         </span>

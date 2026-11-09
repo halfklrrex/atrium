@@ -17,7 +17,10 @@ import { Delete, NavigationChevronLeft } from '@vibe/icons';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
+import { Composer, MessageCounter } from '../../components/inbox/Composer';
 import { MessageList } from '../../components/inbox/MessageList';
+import { SenderAvatar } from '../../components/inbox/SenderAvatar';
+import { StatusChip } from '../../components/inbox/StatusChip';
 import { showToast } from '../../components/toast-store';
 import {
   inboxWrites,
@@ -27,80 +30,28 @@ import {
 } from '../../data/inbox';
 import { accountAdminCalls, describeCallableError, inboxCalls } from '../../lib/callables';
 import { formatDate } from '../../lib/format';
+import { senderLabel } from '../../lib/inbox-sender';
 import { InboxNote } from './InboxNote';
-import {
-  OUTCOME_LABELS,
-  canReply,
-  kindLabel,
-  senderEmailLine,
-  senderLabel,
-  statusLabel,
-} from './inbox';
+import { INBOX_STATUS_LABELS, OUTCOME_LABELS, canReply, kindLabel, senderEmailLine } from './inbox';
 import styles from './Inbox.module.css';
-import { SenderAvatar } from './SenderAvatar';
 
 type Confirm = 'unblock' | 'keepBlocked' | 'delete' | null;
 
-function Counter({ length }: { length: number }) {
-  const over = length > INBOX_LIMITS.text;
-  return (
-    <span className={over ? `${styles.counter} ${styles.counterOver}` : styles.counter}>
-      {`${length} / ${INBOX_LIMITS.text}`}
-    </span>
-  );
-}
-
 function ReplyBox({ threadId }: { threadId: string }) {
-  const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
-  const requestId = useRef<string | null>(null);
-  const normalized = normalizeInboxText(text);
-  const invalid = normalized.length === 0 || text.length > INBOX_LIMITS.text;
-
-  const send = async () => {
-    if (invalid || sending) return;
-    // One id per message: a retry after a failure sends the same id (the server is idempotent).
-    requestId.current ??= crypto.randomUUID();
-    setSending(true);
-    try {
-      await inboxCalls.manage({
-        action: 'reply',
-        threadId,
-        requestId: requestId.current,
-        text: normalized,
-      });
-      requestId.current = null;
-      setText('');
-    } catch (e) {
-      showToast(describeCallableError(e, 'Could not send the reply. Try again.'), {
-        type: 'negative',
-      });
-    } finally {
-      setSending(false);
-    }
-  };
-
   return (
-    <div className={styles.composer}>
-      <TextArea
-        label="Reply"
-        aria-label="Reply"
-        value={text}
-        rows={4}
-        placeholder="Write a reply"
-        disabled={sending}
-        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-          requestId.current = null;
-          setText(e.target.value);
-        }}
-      />
-      <div className={styles.composerFooter}>
-        <Counter length={text.length} />
-        <Button size="small" disabled={invalid} loading={sending} onClick={() => void send()}>
-          Send
-        </Button>
-      </div>
-    </div>
+    <Composer
+      label="Reply"
+      placeholder="Write a reply"
+      submitLabel="Send"
+      onSubmit={async (text, requestId) => {
+        await inboxCalls.manage({ action: 'reply', threadId, requestId, text });
+      }}
+      onError={(e) =>
+        showToast(describeCallableError(e, 'Could not send the reply. Try again.'), {
+          type: 'negative',
+        })
+      }
+    />
   );
 }
 
@@ -156,7 +107,7 @@ function ConfirmDialog({
                     setMessage(e.target.value)
                   }
                 />
-                <Counter length={message.length} />
+                <MessageCounter length={message.length} />
               </>
             ) : null}
           </div>
@@ -201,11 +152,7 @@ function ThreadHeader({
         </div>
         <div className={styles.meta}>
           <Label text={kindLabel(thread)} color="primary" kind="line" />
-          <Label
-            text={statusLabel(thread.status)}
-            color={thread.status === 'answered' ? 'positive' : 'primary'}
-            kind={closed ? 'line' : 'fill'}
-          />
+          <StatusChip status={thread.status} labels={INBOX_STATUS_LABELS} />
           <span>{`Started ${formatDate(thread.createdAt)}`}</span>
           {closed && thread.kind === 'appeal' && thread.outcome ? (
             <span>{`Outcome: ${OUTCOME_LABELS[thread.outcome]}`}</span>

@@ -4,12 +4,17 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Composer } from '../../components/inbox/Composer';
 import { MessageList } from '../../components/inbox/MessageList';
+import { StatusChip } from '../../components/inbox/StatusChip';
 import { inboxWrites, useInboxMessages, useInboxThread } from '../../data/inbox';
 import { inboxCalls } from '../../lib/callables';
 import { formatDate } from '../../lib/format';
-import { CATEGORY_LABELS, describeInboxError, senderCanReply } from '../../lib/inbox-sender';
+import {
+  CATEGORY_LABELS,
+  SENDER_STATUS_LABELS,
+  describeInboxError,
+  senderCanReply,
+} from '../../lib/inbox-sender';
 import styles from './Feedback.module.css';
-import { StatusChip } from './MyFeedbackPage';
 
 /** One of the person's feedback conversations (`/feedback/:threadId`): messages and a reply box. */
 export function FeedbackThreadView() {
@@ -69,7 +74,7 @@ export function FeedbackThreadView() {
           {thread.category ? (
             <Label text={CATEGORY_LABELS[thread.category]} color="primary" kind="line" />
           ) : null}
-          <StatusChip status={thread.status} />
+          <StatusChip status={thread.status} labels={SENDER_STATUS_LABELS} />
           <span>{`Started ${formatDate(thread.createdAt)}`}</span>
         </div>
       </header>

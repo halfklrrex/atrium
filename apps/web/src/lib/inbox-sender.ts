@@ -36,6 +36,11 @@ export const SENDER_STATUS_LABELS: Record<InboxStatus, string> = {
   closed: 'Closed',
 };
 
+/** Name for a sender; falls back to the email, then a neutral word. */
+export function senderLabel(t: Pick<InboxThread, 'senderName' | 'senderEmail'>): string {
+  return t.senderName.trim() || t.senderEmail || 'Someone';
+}
+
 function isReason(value: unknown): value is InboxErrorReason {
   return (INBOX_ERROR_REASONS as readonly unknown[]).includes(value);
 }

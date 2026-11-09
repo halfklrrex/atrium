@@ -10,13 +10,26 @@ export interface ComposerProps {
   submitLabel: string;
   /** Sends the text. Throw to show `describeError(error)` under the box and keep the text. */
   onSubmit: (text: string, requestId: string) => Promise<void>;
-  describeError: (error: unknown) => string;
+  /** Text shown under the box for a failure. Not needed when `onError` handles failures. */
+  describeError?: (error: unknown) => string;
+  /** Handles a failure itself (for example a toast) instead of showing `describeError` under the box. */
+  onError?: (error: unknown) => void;
   /** Turns the box and the button off (for example during the wait after a rejected appeal). */
   disabled?: boolean;
 }
 
+/** "123 / 2000", red when over the limit. */
+export function MessageCounter({ length }: { length: number }) {
+  const over = length > INBOX_LIMITS.text;
+  return (
+    <span className={over ? `${styles.counter} ${styles.counterOver}` : styles.counter}>
+      {`${length} / ${INBOX_LIMITS.text}`}
+    </span>
+  );
+}
+
 /**
- * A message box for the sender side (appeal, appeal reply, feedback reply): 2000 characters, a
+ * A message box (appeal, appeal reply, feedback reply, admin reply): 2000 characters, a
  * counter, one `requestId` per message that a retry after a failure reuses (the server is
  * idempotent on it).
  */
@@ -26,6 +39,7 @@ export function Composer({
   submitLabel,
   onSubmit,
   describeError,
+  onError,
   disabled = false,
 }: ComposerProps) {
   const [text, setText] = useState('');
@@ -46,7 +60,8 @@ export function Composer({
       requestId.current = null;
       setText('');
     } catch (e) {
-      setError(describeError(e));
+      if (onError) onError(e);
+      else setError(describeError ? describeError(e) : 'Could not send. Try again.');
     } finally {
       setSending(false);
     }
@@ -73,9 +88,7 @@ export function Composer({
         </p>
       ) : null}
       <div className={styles.footer}>
-        <span className={over ? `${styles.counter} ${styles.counterOver}` : styles.counter}>
-          {`${text.length} / ${INBOX_LIMITS.text}`}
-        </span>
+        <MessageCounter length={text.length} />
         <Button
           size="small"
           disabled={invalid || disabled}

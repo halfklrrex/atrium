@@ -1,11 +1,11 @@
 import {
   INBOX_ADMIN_LABEL,
-  type InboxCategory,
   type InboxKind,
   type InboxOutcome,
   type InboxStatus,
   type InboxThread,
 } from '@atrium/shared';
+import { CATEGORY_LABELS, senderLabel } from '../../lib/inbox-sender';
 
 export { INBOX_ADMIN_LABEL };
 
@@ -33,13 +33,6 @@ export const INBOX_KIND_LABELS: Record<InboxKindFilter, string> = {
   feedback: 'Feedback',
 };
 
-const CATEGORY_LABELS: Record<InboxCategory, string> = {
-  bug: 'Bug',
-  idea: 'Idea',
-  question: 'Question',
-  other: 'Other',
-};
-
 /** The badge on the Inbox tab and the profile menu: the number, or "99+" above 99. */
 export function formatInboxCount(count: number): string {
   return count > 99 ? '99+' : String(count);
@@ -51,18 +44,9 @@ export function kindLabel(t: Pick<InboxThread, 'kind' | 'category'>): string {
   return t.category ? `Feedback · ${CATEGORY_LABELS[t.category]}` : 'Feedback';
 }
 
-/** Name for a sender; falls back to the email, then a neutral word. */
-export function senderLabel(t: Pick<InboxThread, 'senderName' | 'senderEmail'>): string {
-  return t.senderName.trim() || t.senderEmail || 'Someone';
-}
-
 /** The email line, left out when it would repeat the name. */
 export function senderEmailLine(t: Pick<InboxThread, 'senderName' | 'senderEmail'>): string | null {
   return t.senderEmail && t.senderEmail !== senderLabel(t) ? t.senderEmail : null;
-}
-
-export function statusLabel(status: InboxStatus): string {
-  return INBOX_STATUS_LABELS[status];
 }
 
 export const OUTCOME_LABELS: Record<InboxOutcome, string> = {
