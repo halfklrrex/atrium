@@ -70,3 +70,15 @@ M0: Playwright `mobile-webkit` project (`devices['iPhone 15']`) with about 12 li
 8. Inbox threads when an account is deleted? Default: delete at once.
 9. Self-host Google Fonts? Default: yes.
 10. Seasonal and country themes? Default: later Roadmap item, no work now.
+
+## Owner decisions (2026-11-09, answers to the questions above)
+
+1. Icon-set previews: build the preview page (done by a Sonnet agent, posted on item 3340735612). The set is chosen after the owner looks.
+2. Icons for folders too, and keep emoji and letters as options: yes.
+3. Priority colours: Critical red, High orange, Medium blue, Low light blue: approved (item 3340727026).
+4. **A renamed person's new name shows on past updates too** (this reverses the planner's default). S2 design consequence: do not copy names into old documents; resolve the display name from the member or user document when rendering updates, replies, activity and mentions, or rewrite the denormalised copies in the `updateProfile` callable. The spec must pick one (prefer resolving at read time with a small per-board cache) and cover notifications and the activity log.
+5. The theme follows the account across devices: yes (`users.theme`).
+6. **No named data controller.** The owner does not expect real outside users. Instead of a controller name and contact page, add an in-app place to send complaints and data requests: a new "Complaint or data request" category in the Send feedback dialog, arriving in the Site Admin Inbox (a category filter there). The privacy notice stays short and points to it. Still worth a lawyer's look if the app ever opens to the public.
+7. Account deletion: (a) updates and replies in shared boards are kept, shown as "Deleted user": yes. (b) **Correction: nobody is blocked from deleting a workspace they own, and an account deletion is not blocked either.** When someone deletes their account, for every workspace they own that has other members they choose a new owner or choose to delete the workspace; a workspace with no other members is deleted with the account. (c) Inbox threads are deleted at once: yes.
+8. Self-host Google Fonts: yes.
+9. Seasonal and country themes: a later Roadmap item, no work now.
