@@ -1,5 +1,5 @@
 import { Button, Tab, TabList, TextField } from '@vibe/core';
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { handleGridKeys } from './grid-keys';
 import {
   findWorkspaceIcon,
@@ -10,6 +10,23 @@ import {
   type WorkspaceIconDef,
 } from './icons';
 import styles from './IconPicker.module.css';
+
+type RegularPaths = Readonly<Record<string, string>>;
+
+/** The regular-weight paths load with the picker, not with the app; `null` until then (fill is shown). */
+function useRegularPaths(): RegularPaths | null {
+  const [paths, setPaths] = useState<RegularPaths | null>(null);
+  useEffect(() => {
+    let live = true;
+    void import('./icons-regular.generated').then((m) => {
+      if (live) setPaths(m.REGULAR_PATHS);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  return paths;
+}
 
 const EmojiTab = lazy(() => import('./EmojiTab'));
 
@@ -30,6 +47,7 @@ function initialTab(value: string | null, emptyTab: PickerTab = 'letter'): Picke
 
 function IconsTab({ value, onPick }: { value: string | null; onPick: (stored: string) => void }) {
   const [query, setQuery] = useState('');
+  const regularPaths = useRegularPaths();
   // A legacy `mi:` value resolves to its mapped Phosphor icon, which is marked as selected.
   const selectedKey = (value ? findWorkspaceIcon(value)?.key : undefined) ?? null;
   const results = useMemo(() => searchWorkspaceIcons(query), [query]);
@@ -84,7 +102,13 @@ function IconsTab({ value, onPick }: { value: string | null; onPick: (stored: st
                       aria-hidden="true"
                       focusable="false"
                     >
-                      <path d={icon.key === selectedKey ? icon.fill : icon.regular} />
+                      <path
+                        d={
+                          icon.key === selectedKey
+                            ? icon.fill
+                            : (regularPaths?.[icon.key] ?? icon.fill)
+                        }
+                      />
                     </svg>
                   </button>
                 ))}
