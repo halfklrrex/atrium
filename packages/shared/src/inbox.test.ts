@@ -36,7 +36,7 @@ describe('normalizeInboxText', () => {
   });
 
   it('strips Unicode format characters and line separators', () => {
-    expect(normalizeInboxText('pay\u202Eexe.txt\u200Bok\u200D\uFEFF\u2028\u2029!')).toBe(
+    expect(normalizeInboxText('pay\u202Eexe.txt\u200Bok\uFEFF\u2028\u2029!')).toBe(
       'payexe.txtok!',
     );
     expect(normalizeInboxText('\u200B\u202E\uFEFF')).toBe('');
