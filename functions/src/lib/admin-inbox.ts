@@ -1,4 +1,4 @@
-import { Timestamp, type Firestore, type Transaction } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, type Firestore, type Transaction } from 'firebase-admin/firestore';
 import { accountStatusFromClaims } from '@atrium/shared';
 import { adminAccountAuth } from './admin-account';
 import { adminNotificationStore } from './admin-notifications';
@@ -99,8 +99,21 @@ export function adminInboxStore(firestore: Firestore): InboxStore {
       }
       await batch.commit();
     },
+    async addNotifiedUids(threadId, uids) {
+      if (uids.length === 0) return;
+      await firestore
+        .collection('inboxAudit')
+        .doc(threadId)
+        .set({ notifiedUids: FieldValue.arrayUnion(...uids) }, { merge: true });
+    },
+    async getNotifiedUids(threadId) {
+      const snap = await firestore.collection('inboxAudit').doc(threadId).get();
+      const uids: unknown = snap.get('notifiedUids');
+      return Array.isArray(uids) ? uids.filter((u): u is string => typeof u === 'string') : [];
+    },
     async deleteNoteAndThread(threadId) {
       const batch = firestore.batch();
+      batch.delete(firestore.collection('inboxAudit').doc(threadId));
       batch.delete(firestore.collection('inboxNotes').doc(threadId));
       batch.delete(firestore.collection('inbox').doc(threadId));
       await batch.commit();
