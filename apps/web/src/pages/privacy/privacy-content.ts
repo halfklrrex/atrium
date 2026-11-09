@@ -12,7 +12,7 @@ export const PRIVACY_LAST_UPDATED = '9 November 2026';
 
 /** `purgeTrash` (functions/src/lib/purge.ts, `THIRTY_DAYS_MS`) removes deleted boards and items after 30 days. */
 export const TRASH_RETENTION_DAYS = 30;
-/** The Firestore scheduled backup of `atrium-1` keeps each backup 98 days (retention 8467200s). */
+/** The Firestore scheduled backup of the app database keeps each backup 98 days (retention 8467200s). */
 export const BACKUP_RETENTION_DAYS = 98;
 /** Cloud Logging `_Default` bucket retention (`gcloud logging buckets describe _Default`). */
 export const LOG_RETENTION_DAYS = 30;
