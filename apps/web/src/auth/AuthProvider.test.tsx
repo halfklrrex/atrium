@@ -44,7 +44,7 @@ function Probe() {
     <div>
       <p data-testid="status">{status}</p>
       <p data-testid="account">{accountStatus ?? 'none'}</p>
-      <button onClick={() => void refreshAccount()}>refresh</button>
+      <button onClick={() => void refreshAccount().catch(() => {})}>refresh</button>
       <p data-testid="redirect-error">{String((redirectError as Error | null)?.message ?? '')}</p>
       <button onClick={() => void signInWithGoogle().catch(() => {})}>sign in</button>
       <button onClick={retryBootstrap}>retry</button>
@@ -293,7 +293,7 @@ describe('AuthProvider', () => {
       expect(getIdToken).toHaveBeenCalledTimes(4); // the first refresh plus 3 retries
     });
 
-    it('gives up after 5 retries and still re-runs the bootstrap', async () => {
+    it('gives up after 5 retries and throws, without re-running the bootstrap', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       mocks.callBootstrapUser.mockResolvedValueOnce({ accountStatus: 'blocked' });
       getIdToken.mockResolvedValue('token');
@@ -306,10 +306,10 @@ describe('AuthProvider', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'refresh' }));
       await vi.advanceTimersByTimeAsync(4900);
-      expect(mocks.callBootstrapUser).toHaveBeenCalledTimes(1); // not yet: still waiting
+      expect(getIdTokenResult).toHaveBeenCalledTimes(5); // not yet: still waiting
       await vi.advanceTimersByTimeAsync(200);
-      await waitFor(() => expect(mocks.callBootstrapUser).toHaveBeenCalledTimes(2));
-      expect(getIdTokenResult).toHaveBeenCalledTimes(6); // the check plus 5 retries
+      await waitFor(() => expect(getIdTokenResult).toHaveBeenCalledTimes(6)); // the check plus 5 retries
+      expect(mocks.callBootstrapUser).toHaveBeenCalledTimes(1);
     });
   });
 });

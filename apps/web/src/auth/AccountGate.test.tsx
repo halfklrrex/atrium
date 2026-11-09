@@ -121,6 +121,18 @@ describe('AccountGate', () => {
     await waitFor(() => expect(refreshAccount).toHaveBeenCalledTimes(1));
   });
 
+  it('recovers on the next snapshot after a refresh that never saw the approved claim', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    refreshAccount.mockRejectedValueOnce(new Error('The approved claim has not arrived yet.'));
+    renderGate('blocked');
+    act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
+    await waitFor(() => expect(refreshAccount).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(warn).toHaveBeenCalled());
+    act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
+    await waitFor(() => expect(refreshAccount).toHaveBeenCalledTimes(2));
+    warn.mockRestore();
+  });
+
   it('a blocked screen stays put when the document cannot be read', () => {
     renderGate('blocked');
     act(() => mocks.snapshotError?.());

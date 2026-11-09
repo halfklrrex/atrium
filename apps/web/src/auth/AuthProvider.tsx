@@ -201,12 +201,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // A pending or blocked account was approved: the new claim only applies after a token refresh.
   // The server writes the user document before the claim, so the first refresh can still carry the
   // old claim: check it and retry (up to 5 times, 1 second apart) before re-running the bootstrap.
+  // When the claim still has not arrived, it throws: re-running the bootstrap would only show the
+  // old screen again, and `AccountGate` needs the failure to try again on the next snapshot.
   const refreshAccount = useCallback(async () => {
     if (user) {
       await user.getIdToken(true);
-      for (let retry = 0; retry <= CLAIM_RETRY_COUNT; retry += 1) {
+      for (let retry = 0; ; retry += 1) {
         const { claims } = await user.getIdTokenResult();
-        if (isApprovedClaims(claims) || retry === CLAIM_RETRY_COUNT) break;
+        if (isApprovedClaims(claims)) break;
+        if (retry === CLAIM_RETRY_COUNT) {
+          throw new Error('The approved claim has not arrived yet.');
+        }
         await sleep(CLAIM_RETRY_DELAY_MS);
         await user.getIdToken(true);
       }
