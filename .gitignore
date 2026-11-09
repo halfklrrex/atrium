@@ -72,6 +72,7 @@ docs/reference/monday/
 tests/visual/.auth/
 tests/visual/__screenshots__/*-win32.png
 tests/visual/__screenshots__/*-darwin.png
+tests/visual/.audit/
 
 # Private, local-only project ids and notes (never commit)
 .private/

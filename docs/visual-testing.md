@@ -19,9 +19,36 @@ Light and dark for each screen (black as well for Home and the board page):
 - 404 page
 - Empty workspace
 - Home with no recents
-- Mobile (390×844): Home with the drawer closed and open
+- Mobile (390×844, in the desktop Chromium job): Home with the drawer closed and open, and the full item view
 
 Every run uses the same world: time frozen at 2026-10-24 09:00 UTC, locale `en-GB`, timezone `UTC` (so Home says "Good morning, Avery!"), a 1440×900 viewport at scale 1, animations off, fonts served from pinned `@fontsource` packages instead of Google, and every other external request blocked. The data is seeded fresh into empty emulators with fixed ids and timestamps ("Avery Atrium", two workspaces, a folder with two boards, one root board, a favourite and a few recents).
+
+## Phone projects (WebKit, iPhone 15)
+
+Two more Playwright projects in `tests/visual/playwright.config.ts` run the app the way a phone does: WebKit with `devices['iPhone 15']` (touch, 3x, 393×659 viewport). Both are skipped by `--project=chromium`, and `chromium` skips them, so the desktop job and its baselines are untouched.
+
+- **`mobile-webkit`** (`src/mobile-screens.spec.ts`) compares light-theme baselines of twelve screens: login, Home, a workspace page, the sidebar drawer open, the board table, Kanban, the full item view, the notifications panel, the notification settings dialog, the profile menu, the Send feedback dialog and the admin Inbox list. Files are `phone-<screen>-light-linux.png`. Refresh them with the same "Update visual baselines" workflow (it runs `chromium` and `mobile-webkit`).
+- **`mobile-audit`** (`src/mobile-audit.spec.ts`) takes no screenshots. For about twenty screens (`src/mobile-screens.ts`) at 375×667, 390×844, 430×932, 360×800 and 768×1024 it measures the page and fails on hard defects: sideways page overflow, elements sticking out past a screen edge, something painted over the top bar, the page or visual viewport moving after scrolling _inside_ a dialog or panel (the notification-settings bug), the top bar leaving the top, and text fields under 16 px (iOS zooms into them). Today's defects are listed in `src/mobile-known-defects.json` (`screen|WxH|check` to a one-line description). The audit fails on any **new** defect and on any listed defect that **no longer reproduces**, so a fix PR deletes its lines from the list. The written audit and the fix plan are in `docs/plans/2026-11-09-mobile-audit.md`.
+
+`pnpm test:visual` and `pnpm test:visual:update` run `chromium` and `mobile-webkit` (so CI's `visual` job and the "Update visual baselines" workflow cover the twelve phone screens with no workflow change); the audit has its own script, `pnpm test:visual:audit`, because it has no baselines and takes several minutes (about 100 tests). It belongs in its own CI job so the desktop job keeps its time budget: see "Audit in CI" below. Every audit run appends its findings to `tests/visual/.audit/findings.ndjson`.
+
+**WebKit on Linux is not iOS Safari.** It has the same layout engine family, but not Safari's collapsing toolbars, safe-area insets, rubber-band scrolling or the on-screen keyboard, so a green audit does not prove the app is fine on an iPhone. The owner still checks on a real iPhone (and the installed app).
+
+Run them locally (install the browser once with `pnpm --filter @atrium/visual-tests exec playwright install webkit`):
+
+```
+pnpm --filter @atrium/visual-tests exec playwright test --project=mobile-webkit   # only the twelve phone screens
+pnpm test:visual:audit                              # the audit (no baselines needed)
+pnpm test:visual:audit -g "Notification settings"   # one screen
+MOBILE_AUDIT_WRITE=1 pnpm test:visual:audit && node scripts/mobile-known-defects.mjs
+                                                    # record every finding without failing, then rebuild the list
+```
+
+Notes: on macOS you need a JDK on the `PATH` for the emulators and Node 22. Pick an `ATRIUM_PORT_OFFSET` that is not taken by another working copy and that does not put Functions on port 5061 (offset 60: `fetch` refuses it as a bad port and the run hangs at "bootstrapUser"). Local findings can differ slightly from Linux ones (font metrics), so rebuild the known-defects list from the CI artifact, not from your Mac.
+
+### Audit in CI
+
+The audit job is `visual-mobile-audit` in `.github/workflows/ci.yml`: the same container, Java and install steps as `visual`, then `pnpm test:visual:audit`, and an `if: always()` upload of `tests/visual/.audit` (with `include-hidden-files: true`) so the findings of a failing run can be downloaded and turned into the known-defects list with `node scripts/mobile-known-defects.mjs <file>`. (If the job is missing from `ci.yml`, it still has to be added: the agent that wrote it had no GitHub `workflow` scope.)
 
 ## Updating baselines after a UI change
 

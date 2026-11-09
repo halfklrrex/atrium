@@ -7,8 +7,9 @@
   "description": "Playwright screenshot tests for key screens. Run through `pnpm test:visual` from the repo root (starts emulators and the dev server).",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:visual": "playwright test",
-    "test:visual:update": "playwright test --update-snapshots"
+    "test:visual": "playwright test --project=chromium --project=mobile-webkit",
+    "test:visual:update": "playwright test --update-snapshots --project=chromium --project=mobile-webkit",
+    "test:visual:audit": "playwright test --project=mobile-audit"
   },
   "dependencies": {
     "@atrium/shared": "workspace:*"
