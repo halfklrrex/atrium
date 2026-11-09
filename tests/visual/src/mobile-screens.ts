@@ -22,7 +22,7 @@ import {
 } from './seed';
 
 /**
- * The phone screens shared by the baseline project (`mobile-screens.spec.ts`, thirteen screenshots)
+ * The phone screens shared by the baseline project (`mobile-screens.spec.ts`, fourteen screenshots)
  * and the defect audit (`mobile-audit.spec.ts`, every screen at five sizes). Each screen knows how
  * to get itself on screen and what to wait for; no timers, only real content.
  */
@@ -113,6 +113,16 @@ export const MOBILE_SCREENS: MobileScreen[] = [
       await page.goto('/login');
       await expect(page.getByRole('heading', { name: 'Welcome to Atrium' })).toBeVisible();
       await expect(page.getByRole('button', { name: /Google/ })).toBeVisible();
+    },
+  },
+  {
+    name: 'privacy',
+    title: 'Privacy notice',
+    signedOut: true,
+    open: async (page) => {
+      await page.goto('/privacy');
+      await expect(page.getByRole('heading', { name: 'Privacy', level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Your choices' })).toBeVisible();
     },
   },
   {
@@ -359,6 +369,7 @@ export const MOBILE_SCREENS: MobileScreen[] = [
 /** The screens that also get a committed light baseline on a phone. */
 export const BASELINE_SCREENS = [
   'login',
+  'privacy',
   'home',
   'workspace',
   'sidebar-drawer',

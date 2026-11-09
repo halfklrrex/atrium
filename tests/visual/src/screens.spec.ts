@@ -117,6 +117,15 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `login-${theme}`);
       });
 
+      test('privacy', async ({ page }) => {
+        // A hard load of the public route (Hosting's catch-all serves index.html for it).
+        await page.goto('/privacy');
+        await expect(page.getByRole('heading', { name: 'Privacy', level: 1 })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Your choices' })).toBeVisible();
+        await expect(page).toHaveTitle('Privacy · Atrium');
+        await shoot(page, `privacy-${theme}`);
+      });
+
       test('login logo is a PNG srcset image on a 3x screen', async ({ browser }) => {
         // WebKit blurs SVG filter art, so the logo ships as 1x/2x/3x PNGs (no screenshot here).
         const context = await browser.newContext({

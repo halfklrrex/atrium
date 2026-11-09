@@ -1,6 +1,6 @@
 import { Button, Heading, Text } from '@vibe/core';
 import { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { Link, Navigate, useLocation } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import {
   BOOTSTRAP_ERROR_MESSAGE,
@@ -125,9 +125,13 @@ export function LoginPage() {
 
           <Text type="text3" color="secondary" className={styles.legal} ellipsis={false}>
             Atrium only uses your Google account to sign you in.{' '}
-            <a href={SOURCE_REPO_URL} target="_blank" rel="noopener noreferrer">
-              Source code
-            </a>
+            <span>
+              <a href={SOURCE_REPO_URL} target="_blank" rel="noopener noreferrer">
+                Source code
+              </a>
+              {' · '}
+              <Link to="/privacy">Privacy</Link>
+            </span>
           </Text>
         </div>
       </main>

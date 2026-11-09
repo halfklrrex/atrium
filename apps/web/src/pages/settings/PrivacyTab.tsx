@@ -1,4 +1,5 @@
 import { Button } from '@vibe/core';
+import { Link } from 'react-router';
 import { useUiStore } from '../../components/AppShell/ui-store';
 import { aboutLinks } from '../../lib/about';
 import styles from './Settings.module.css';
@@ -16,6 +17,17 @@ export function PrivacyTab() {
           Your data
         </h2>
         <ul className={styles.rows}>
+          <li className={styles.row}>
+            <span className={styles.rowText}>
+              <span className={styles.rowTitle}>Privacy notice</span>
+              <span className={styles.rowValue}>
+                What Atrium stores, where, for how long, and your choices.
+              </span>
+            </span>
+            <Link className={styles.link} to="/privacy">
+              Read the privacy notice
+            </Link>
+          </li>
           <li className={styles.row}>
             <span className={styles.rowText}>
               <span className={styles.rowTitle}>Download my data</span>

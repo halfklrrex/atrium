@@ -21,6 +21,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
   - empty states and the notifications bell and panel (2026-10-30)
   - the layering fix for menus
   - the new Atrium logo (2026-11-07), the account approval gate, bulk edit across selected rows
+  - the public privacy notice at `/privacy` (PRIVACY-1 PR 3, 2026-11-09): reachable signed out, linked from login, About and Settings > Privacy and data; text in `apps/web/src/pages/privacy/privacy-content.ts`, checked line by line against the code and the infrastructure
 - **Data:** Firestore named database **`atrium-1`** (`eur3`, scheduled backups), through `FIRESTORE_DATABASE_ID`. `(default)` (`nam5`) is unused legacy.
 - **Showcase:** the "🧪 Atrium Showcase" board is in the owner's Test Workspace (id in `.private/project-ids.md`, gitignored, local only). Re-seed it per `docs/showcase.md`.
 - **MCP connector:** a local MCP server lets Claude edit boards and items in the live Atrium (`docs/mcp-connector.md`, `pnpm mcp`).

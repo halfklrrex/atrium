@@ -12,6 +12,7 @@ import { InvitePage } from './pages/InvitePage';
 import { LoginPage } from './pages/LoginPage';
 import { MyWorkPage } from './pages/MyWorkPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PrivacyPage } from './pages/privacy/PrivacyPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { TrashPage } from './pages/TrashPage';
 import { WorkspacePage } from './pages/WorkspacePage';
@@ -21,6 +22,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route element={<RequireAuth />}>
         <Route path="forms/:boardId/:viewId" element={<FormPage />} />
         <Route element={<AppShell />}>
