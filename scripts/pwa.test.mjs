@@ -165,6 +165,30 @@ test('sw.js push always shows on iPhone (WebKit revokes silent pushes)', async (
   assert.equal(sw.shown.length, 1);
 });
 
+const MAC_SAFARI =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+const MAC_CHROME =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const MAC_FIREFOX =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0';
+
+test('sw.js push always shows on Macintosh Safari (iPadOS and macOS), not on other Mac browsers', async () => {
+  const front = [{ url: `${ORIGIN}/`, focused: true, visibilityState: 'visible' }];
+  const safari = loadSw({ userAgent: MAC_SAFARI, clients: front });
+  await safari.push(payload);
+  assert.equal(safari.shown.length, 1);
+  for (const userAgent of [
+    MAC_CHROME,
+    MAC_FIREFOX,
+    `${MAC_CHROME} Edg/120.0`,
+    `${MAC_CHROME} OPR/100`,
+  ]) {
+    const other = loadSw({ userAgent, clients: front });
+    await other.push(payload);
+    assert.equal(other.shown.length, 0, userAgent);
+  }
+});
+
 test('sw.js notificationclick closes, then focuses and navigates an existing window', async () => {
   const calls = [];
   const win = {
