@@ -1,0 +1,31 @@
+# SEC-1: fixes from the batched security review (2026-11-09)
+
+Sources: ultrareview of #193 (1 finding) and #194 (9 findings), and a local `/code-review high` of #195 (4 real findings; the rest were artifacts of the review branch and were refuted). Every item below was checked against `main`. One PR, small focused commits (one per numbered item), tests with each.
+
+Rules for the build: no change to `firestore.rules`, `firestore.indexes.json` or `tests/rules/**` (hot spots). Tokens only for any CSS. No emails or real names in code, tests or docs. Prettier-format docs. Push after every commit.
+
+## Server and shared
+
+1. **Strip Unicode format characters.** `normalizeInboxText` in `packages/shared/src/inbox.ts` must also remove `\p{Cf}` (bidi controls, zero-width characters, U+FEFF) and U+2028/U+2029, keeping `\n` and `\t`. Tests: a subject with U+202E and zero-width characters normalizes to plain text; an all-format-character message is rejected as empty.
+2. **No push to locked-out accounts.** `sendPush` (`functions/src/lib/push.ts`) must send only when the recipient's `users/{uid}.accountStatus` is approved (a missing status counts as approved, as elsewhere). Add the read to the push store. When an account is blocked (`setAccountStatus` block path in `functions/src/lib/account-admin.ts`), also delete its `users/{uid}/pushTokens` documents, best effort (log, never fail the block). Tests for both.
+3. **Service worker WebKit detection** (`apps/web/public/sw.js`, plus its test if there is one). `isWebKitPush()` must be true for iPhone, iPad, iPod AND for any Safari-engine browser: a Macintosh user agent (iPadOS and macOS Safari) that has `Safari` and none of `Chrome|Chromium|Edg|OPR|Firefox`. On those the notification is always shown (no in-front suppression).
+4. **Unblock retry closes appeals.** In `account-admin.ts`, when the target is already approved (the no-op path, `from === status && docStatus === status`) and `status === 'approved'`, still run `closeOpenAppeals(uid)` best effort before returning `changed: false`. Fix the misleading comment ("an admin can still close the appeal by hand"). Test: a failed close on the first unblock is repaired by pressing Unblock again.
+5. **Appeals need the live blocked status.** In `functions/src/lib/inbox.ts`, for a new appeal and for an appeal reply, confirm `auth.getAccountStatus(sender.uid) === 'blocked'` (InboxAuth already offers it) in addition to the token claim; otherwise fail with the same error the admin side uses ("no longer blocked", a failed-precondition with an existing reason code; reuse one, add none to the shared reasons unless unavoidable). Test: a stale token that says blocked after an unblock cannot open an appeal.
+6. **No email in push titles.** In `buildPushData`/`pushText` (`push.ts`), if `actorName` looks like an email address (contains `@`), use "Someone". Leave the producers and the bell as they are. Test for `account_request` and `inbox_new` with an email as the name.
+7. **Bootstrap does not depend on the approval flag for blocked callers.** In `functions/src/callable/bootstrapUser.ts` / `bootstrap.ts`, when the caller's account status is explicitly `blocked` or `pending`, return that status and write no workspace, whatever `ACCOUNT_APPROVAL_REQUIRED` is. Callers without a status behave as before. Test with the flag off.
+8. **Inbox delete removes every notification card.** `notifyAdmins` (`inbox.ts`) must record the uids it wrote cards for in the admin-only audit document of the thread (`notifiedUids`, `FieldValue.arrayUnion`, Admin SDK write, so no rules change; check the audit doc id convention in `inbox.ts` and never put this on a sender-readable document). `deleteThread` deletes the `inbox_new`/`inbox_reply` cards for the union of the current admins, `notifiedUids` and the sender. Test: a former admin's card is deleted with the thread.
+9. **List admins once per purge.** `deleteThread` takes an optional precomputed `adminUids`; `purgeClosedThreads` (`functions/src/lib/inbox-purge.ts`) lists them once and passes them in. Test the call count.
+
+Not doing: parallelising `sendPush` inside `deliverNotifications` (the review's latency nit; the work must finish before the callable returns and the saving is small). Say so in the PR.
+
+## Web (apps/web)
+
+10. **Stuck blocked screen after an unblock.** In `AuthProvider.refreshAccount`, if the approved claim has not arrived after the last retry, throw an error instead of continuing silently, so `AccountGate`'s catch resets `refreshing.current` and the next document snapshot (or a visible Retry) tries again. Test: claims never turn approved, the gate recovers on the next snapshot.
+11. **Idempotent "Keep blocked".** In `pages/admin/InboxThreadView.tsx` generate the `requestId` once per confirm dialog opening (and again only after a success or when the dialog closes), so a retry after a lost response reuses it.
+12. **Feedback category resets the request id.** In `components/dialogs/FeedbackDialog.tsx`, changing the category resets `requestId`, like editing the subject or text does.
+13. **Admin list "Load more" cannot drop a thread.** `useInboxList` (`data/inbox.ts`): replace the separate cursor pages with one live query whose `limit` grows by the page size on each Load more (single listener), so a new thread arriving cannot push one between the pages. Test with a new thread arriving between pages.
+14. **Remove the duplicates** the review found: `senderName` vs `senderLabel`, the two `CATEGORY_LABELS`, the two `StatusChip` components, the admin `ReplyBox`/`Counter` copy of `components/inbox/Composer` (let `Composer` take the error handler it needs), the copied list/row CSS in `Feedback.module.css` and `Inbox.module.css`, and the `components/inbox/MessageList` import from `pages/admin` (move `SenderAvatar` into `components/inbox`). Behaviour and screenshots must not change; if a visual baseline moves, stop and report.
+
+## Checks
+
+`pnpm lint`, `pnpm -r --workspace-concurrency=1 typecheck`, `pnpm test`, `pnpm test:rules` (`PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH`, must still pass untouched), `pnpm build`. PR description: what changed per item, the Roadmap item "SEC-1 batched security review fixes" (monday item 3340948646), which model wrote the code.
