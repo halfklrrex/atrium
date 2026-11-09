@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
 import type { BrowserContext, Page } from '@playwright/test';
 import { FROZEN_TIME, LOCALE, TIMEZONE } from './env';
 
@@ -16,34 +13,9 @@ export const CONTEXT_OPTIONS = {
   reducedMotion: 'reduce',
 } as const;
 
-const require = createRequire(import.meta.url);
-
-/** Font files come from pinned npm packages, never from Google, so text renders the same every run. */
-const FONTS: { family: string; pkg: string; slug: string; weights: number[] }[] = [
-  { family: 'Figtree', pkg: '@fontsource/figtree', slug: 'figtree', weights: [400, 500, 600, 700] },
-  { family: 'Poppins', pkg: '@fontsource/poppins', slug: 'poppins', weights: [500, 600] },
-  { family: 'Roboto', pkg: '@fontsource/roboto', slug: 'roboto', weights: [500] },
-];
-const FONT_HOST = 'https://fonts.gstatic.com/atrium-local/';
-
-function fontFile(font: (typeof FONTS)[number], weight: number): string {
-  const pkgDir = dirname(require.resolve(`${font.pkg}/package.json`));
-  return join(pkgDir, 'files', `${font.slug}-latin-${weight}-normal.woff2`);
-}
-
-function fontCss(): string {
-  return FONTS.flatMap((font) =>
-    font.weights.map(
-      (weight) =>
-        `@font-face{font-family:'${font.family}';font-style:normal;font-weight:${weight};` +
-        `font-display:block;src:url(${FONT_HOST}${font.slug}-${weight}.woff2) format('woff2');}`,
-    ),
-  ).join('\n');
-}
-
 /**
- * Makes a context deterministic: time frozen at 2026-10-24 09:00Z, fonts served locally, and every
- * other external request blocked (Google avatars, analytics and the like).
+ * Makes a context deterministic: time frozen at 2026-10-24 09:00Z and every external request blocked
+ * (Google avatars, analytics and the like). The fonts are self-hosted by the app, so they need no routing.
  */
 export async function makeDeterministic(context: BrowserContext): Promise<void> {
   // Date is fixed, timers keep running, so Firebase's networking and React's scheduling still work.
@@ -55,24 +27,9 @@ export async function makeDeterministic(context: BrowserContext): Promise<void> 
     (window as unknown as { __ATRIUM_DETERMINISTIC__?: boolean }).__ATRIUM_DETERMINISTIC__ = true;
   });
 
-  await context.route(/^https?:\/\/(?!localhost[:/]|127\.0\.0\.1[:/])/, async (route) => {
-    const url = new URL(route.request().url());
-    if (url.hostname === 'fonts.googleapis.com') {
-      return route.fulfill({ contentType: 'text/css', body: fontCss() });
-    }
-    if (url.hostname === 'fonts.gstatic.com' && url.pathname.startsWith('/atrium-local/')) {
-      const [, slug, weight] =
-        /^(\w+)-(\d+)\.woff2$/.exec(url.pathname.split('/').pop() ?? '') ?? [];
-      const font = FONTS.find((f) => f.slug === slug);
-      if (font && weight) {
-        return route.fulfill({
-          contentType: 'font/woff2',
-          body: readFileSync(fontFile(font, Number(weight))),
-        });
-      }
-    }
-    return route.abort();
-  });
+  await context.route(/^https?:\/\/(?!localhost[:/]|127\.0\.0\.1[:/])/, async (route) =>
+    route.abort(),
+  );
 }
 
 /** Choose the Vibe theme the way the app persists it (zustand `atrium.theme` in localStorage). */

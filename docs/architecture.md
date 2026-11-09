@@ -51,7 +51,7 @@ Decision (2026-10-25, owner): Atrium uses the named database `atrium-1` (`eur3`,
 ## 4. Frontend
 
 - **React 18 or 19:** use whichever `@vibe/core`'s peer dependencies support (check before installing).
-- **UI:** `@vibe/core` components + `@vibe/icons`; Vibe's ThemeProvider with light / dark / black themes. Font: Figtree (Google Fonts). Never use monday's logo, name or marketing art. Atrium has its own wordmark.
+- **UI:** `@vibe/core` components + `@vibe/icons`; Vibe's ThemeProvider with light / dark / black themes. Fonts (Figtree, Poppins, Roboto, plus the editor's Lora, Nunito, JetBrains Mono, Caveat) are self-hosted: woff2 files and `@font-face` sheets in `apps/web/src/theme/fonts/` (generated from `@fontsource` by `scripts/fonts/sync-fonts.mjs`, latin and latin-ext with `unicode-range`, `font-display: swap`), bundled into content-hashed `/assets/**`, with the Figtree 400 face preloaded in `index.html`; editor fonts load on first use. No request goes to Google Fonts (a test enforces it). Licence texts: `apps/web/public/fonts/OFL-LICENSES.txt`. Never use monday's logo, name or marketing art. Atrium has its own wordmark.
 - **Routing:** React Router (library mode). Routes: `/login`, `/` (redirects to last workspace), `/workspaces/:workspaceId`, `/boards/:boardId`, `/boards/:boardId/views/:viewId[/items/:itemId]` (P3; `/boards/:boardId` opens the last view used, `atrium.lastView.<boardId>` in localStorage).
 - **Data access:** thin hooks over `onSnapshot` (`useWorkspaces`, `useBoard`, `useItems`) in `apps/web/src/data/`. All Firestore paths and converters live in one module so components never build paths by hand.
 - **UI state:** Zustand for local UI state (selection, open item card, sidebar). No Redux.

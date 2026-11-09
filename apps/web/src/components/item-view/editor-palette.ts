@@ -41,29 +41,17 @@ export const DEFAULT_HIGHLIGHT: ColorKey = 'yellow';
 export interface FontDefinition {
   key: string;
   label: string;
-  /** The Google Fonts family name, or null when the font is already loaded by index.html. */
-  family: string | null;
-  /** Weights to request when the family is loaded on demand. */
-  weights: string;
-  /** Whether the family has italics (the `ital` axis). */
-  italics: boolean;
 }
 
 /** `default` is the absence of a font mark. */
 export const FONTS: readonly FontDefinition[] = [
-  { key: 'default', label: 'Default', family: null, weights: '', italics: false },
-  { key: 'figtree', label: 'Figtree', family: null, weights: '', italics: false },
-  { key: 'poppins', label: 'Poppins', family: 'Poppins', weights: '400;700', italics: true },
-  { key: 'lora', label: 'Lora', family: 'Lora', weights: '400;700', italics: true },
-  { key: 'nunito', label: 'Nunito', family: 'Nunito', weights: '400;700', italics: true },
-  {
-    key: 'mono',
-    label: 'JetBrains Mono',
-    family: 'JetBrains Mono',
-    weights: '400;700',
-    italics: true,
-  },
-  { key: 'caveat', label: 'Caveat', family: 'Caveat', weights: '400;700', italics: false },
+  { key: 'default', label: 'Default' },
+  { key: 'figtree', label: 'Figtree' },
+  { key: 'poppins', label: 'Poppins' },
+  { key: 'lora', label: 'Lora' },
+  { key: 'nunito', label: 'Nunito' },
+  { key: 'mono', label: 'JetBrains Mono' },
+  { key: 'caveat', label: 'Caveat' },
 ];
 
 /** The keys a doc can carry (everything but `default`). */
