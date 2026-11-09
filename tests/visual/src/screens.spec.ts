@@ -799,6 +799,19 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `create-board-dialog-${theme}`);
     });
 
+    test('add workspace dialog, icon picker', async ({ page }) => {
+      await openNewWorkspaceDialog(page);
+      const dialog = page.getByRole('dialog', { name: 'Add workspace' });
+      await dialog.getByRole('textbox', { name: 'Workspace name' }).fill('Family');
+      await dialog.getByRole('tab', { name: 'Icons' }).click();
+      await dialog.getByRole('button', { name: 'diversity 3' }).click();
+      await expect(dialog.getByRole('button', { name: 'diversity 3' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      await shoot(page, `add-workspace-icons-${theme}`);
+    });
+
     test('create board dialog, template gallery', async ({ page }) => {
       await seedSavedTemplate();
       try {
@@ -1009,6 +1022,14 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `mobile-home-${theme}`);
       });
 
+      test('add workspace dialog, icon picker', async ({ page }) => {
+        await openNewWorkspaceDialog(page);
+        const dialog = page.getByRole('dialog', { name: 'Add workspace' });
+        await dialog.getByRole('tab', { name: 'Icons' }).click();
+        await expect(dialog.getByRole('button', { name: 'home', exact: true })).toBeVisible();
+        await shoot(page, `mobile-add-workspace-icons-${theme}`);
+      });
+
       test('home, drawer open', async ({ page }) => {
         await page.goto('/');
         await expect(page.getByText('Good morning, Avery!')).toBeVisible();
@@ -1039,3 +1060,16 @@ test.describe('black theme', () => {
     await shoot(page, 'board-black', PARK_IN_HEADER);
   });
 });
+
+/** Opens "Add workspace" from the Add to workspace menu (desktop) or the sidebar drawer (phone). */
+async function openNewWorkspaceDialog(page: Page): Promise<void> {
+  await page.goto('/');
+  await homeReady(page);
+  const open = page.getByRole('button', { name: 'Open navigation' });
+  if (await open.isVisible()) await open.click();
+  await page.getByRole('button', { name: 'Add to workspace' }).click();
+  const item = page.getByRole('menuitem', { name: 'New workspace' });
+  await item.hover();
+  await item.click({ delay: 100 });
+  await expect(page.getByRole('dialog', { name: 'Add workspace' })).toBeVisible();
+}

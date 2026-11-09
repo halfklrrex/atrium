@@ -46,6 +46,15 @@ describe('workspace icon set', () => {
     expect(findWorkspaceIcon('A')).toBeUndefined();
   });
 
+  it('finds the heartbeat icons by health, ecg and heartbeat, and keeps favorite as the plain heart', () => {
+    for (const query of ['health', 'ecg', 'heartbeat']) {
+      const keys = searchWorkspaceIcons(query).map((i) => i.key);
+      for (const key of ['monitor_heart', 'ecg_heart', 'cardiology']) expect(keys).toContain(key);
+    }
+    expect(searchWorkspaceIcons('health').map((i) => i.key)).not.toContain('favorite');
+    expect(searchWorkspaceIcons('heart').map((i) => i.key)).toContain('favorite');
+  });
+
   it('searches label and keywords', () => {
     expect(searchWorkspaceIcons('')).toHaveLength(WORKSPACE_ICONS.length);
     expect(searchWorkspaceIcons('family').map((i) => i.key)).toContain('diversity_3');

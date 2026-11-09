@@ -88,8 +88,10 @@ export const GROUPS = [
     id: 'health-food',
     label: 'Health and food',
     icons: [
-      ['favorite', 'heart health love'],
-      ['monitor_heart', 'health heartbeat'],
+      ['favorite', 'heart love like'],
+      ['monitor_heart', 'health heartbeat pulse bpm ecg medical'],
+      ['ecg_heart', 'health heartbeat pulse bpm ecg medical'],
+      ['cardiology', 'health heartbeat pulse bpm ecg medical'],
       ['medical_services', 'doctor health'],
       ['healing', 'plaster'],
       ['fitness_center', 'gym workout'],
