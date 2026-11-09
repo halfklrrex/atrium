@@ -172,6 +172,15 @@ const MAC_CHROME =
 const MAC_FIREFOX =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0';
 
+test('sw.js push always shows for EdgiOS on a desktop-mode iPad (WebKit)', async () => {
+  const sw = loadSw({
+    userAgent: `${MAC_SAFARI} EdgiOS/120.0`,
+    clients: [{ url: `${ORIGIN}/`, focused: true, visibilityState: 'visible' }],
+  });
+  await sw.push(payload);
+  assert.equal(sw.shown.length, 1);
+});
+
 test('sw.js push always shows on Macintosh Safari (iPadOS and macOS), not on other Mac browsers', async () => {
   const front = [{ url: `${ORIGIN}/`, focused: true, visibilityState: 'visible' }];
   const safari = loadSw({ userAgent: MAC_SAFARI, clients: front });

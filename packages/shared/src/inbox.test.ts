@@ -27,6 +27,14 @@ describe('normalizeInboxText', () => {
     expect(normalizeInboxText(' \u0000 ')).toBe('');
   });
 
+  it('keeps ZWJ and ZWNJ, which emoji sequences and Persian or Indic text need', () => {
+    const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
+    expect(normalizeInboxText(family)).toBe(family);
+    const persian = '\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645';
+    expect(normalizeInboxText(persian)).toBe(persian);
+    expect(normalizeInboxText(`${family}\u202E\u200B`)).toBe(family);
+  });
+
   it('strips Unicode format characters and line separators', () => {
     expect(normalizeInboxText('pay\u202Eexe.txt\u200Bok\u200D\uFEFF\u2028\u2029!')).toBe(
       'payexe.txtok!',
