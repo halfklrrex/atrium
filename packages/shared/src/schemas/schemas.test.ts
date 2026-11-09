@@ -30,6 +30,7 @@ import {
   workspaceSchema,
   workspaceIconSchema,
   workspaceIconKey,
+  parseWorkspaceIcon,
   type TimestampLike,
 } from '../index';
 
@@ -107,8 +108,17 @@ describe('user schemas', () => {
 });
 
 describe('workspace icons', () => {
-  it('accepts letters, emoji and mi:<key> values', () => {
-    for (const ok of ['A', '🙂', 'abcdefgh', 'mi:home', 'mi:diversity_3', `mi:${'a'.repeat(40)}`]) {
+  it('accepts letters, emoji, ph:<key> and legacy mi:<key> values', () => {
+    for (const ok of [
+      'A',
+      '🙂',
+      'abcdefgh',
+      'mi:home',
+      'mi:diversity_3',
+      `mi:${'a'.repeat(40)}`,
+      'ph:rocket-launch',
+      `ph:${'a'.repeat(40)}`,
+    ]) {
       expect(workspaceIconSchema.safeParse(ok).success, ok).toBe(true);
     }
   });
@@ -120,7 +130,10 @@ describe('workspace icons', () => {
       'mi:',
       'mi:Home',
       'mi:my home',
-      'mi:ho-me',
+      'ph:',
+      'ph:Bad',
+      'ph:my home',
+      `ph:${'a'.repeat(41)}`,
       `mi:${'a'.repeat(41)}`,
       'x'.repeat(49),
       7,
@@ -134,6 +147,23 @@ describe('workspace icons', () => {
     expect(workspaceIconKey('mi:home')).toBe('home');
     expect(workspaceIconKey('A')).toBeNull();
     expect(workspaceIconKey('mi:Bad')).toBeNull();
+    expect(workspaceIconKey('ph:house')).toBeNull();
+  });
+
+  it('parses the prefix and key of ph: and mi: icons', () => {
+    expect(parseWorkspaceIcon('ph:rocket-launch')).toEqual({ prefix: 'ph', key: 'rocket-launch' });
+    expect(parseWorkspaceIcon('mi:home')).toEqual({ prefix: 'mi', key: 'home' });
+    expect(parseWorkspaceIcon('A')).toBeNull();
+    expect(parseWorkspaceIcon('ph:Bad')).toBeNull();
+  });
+
+  it('allows an optional icon on folders', () => {
+    const folder = { name: 'Plans', parentFolderId: null, color: '#579bfc', position: 'a0' };
+    const audit = { createdAt: ts(), createdBy: 'u1', updatedAt: ts() };
+    const parse = (extra: object) => folderSchema.safeParse({ ...folder, ...audit, ...extra });
+    expect(parse({}).success).toBe(true);
+    expect(parse({ icon: 'ph:folder-simple' }).success).toBe(true);
+    expect(parse({ icon: 'ph:Bad' }).success).toBe(false);
   });
 
   it('is used by the workspace schemas and the create form', () => {

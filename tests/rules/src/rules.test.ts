@@ -136,14 +136,27 @@ describe('workspaces', () => {
     }
   });
 
-  describe('icon: legacy letter or emoji, or mi:<key>', () => {
-    const accepted = ['A', '🙂', 'abcdefgh', 'mi:home', 'mi:diversity_3', `mi:${'a'.repeat(40)}`];
+  describe('icon: letter or emoji, ph:<key> or legacy mi:<key>', () => {
+    const accepted = [
+      'A',
+      '🙂',
+      'abcdefgh',
+      'mi:home',
+      'mi:diversity_3',
+      `mi:${'a'.repeat(40)}`,
+      'ph:rocket-launch',
+      'ph:house',
+      `ph:${'a'.repeat(40)}`,
+    ];
     const refused: [string, unknown][] = [
       ['uppercase key', 'mi:Home'],
       ['space in key', 'mi:my home'],
-      ['hyphen in key', 'mi:ho-me'],
       ['empty key', 'mi:'],
       ['41-character key', `mi:${'a'.repeat(41)}`],
+      ['ph: uppercase key', 'ph:Bad'],
+      ['ph: space in key', 'ph:my home'],
+      ['ph: empty key', 'ph:'],
+      ['ph: 41-character key', `ph:${'a'.repeat(41)}`],
       ['49 characters', 'x'.repeat(49)],
       ['9 characters without prefix', 'abcdefghi'],
       ['empty string', ''],
@@ -151,7 +164,7 @@ describe('workspaces', () => {
       ['null', null],
     ];
 
-    it('accepts legacy letters and emoji and valid mi: keys on create', async () => {
+    it('accepts letters, emoji and valid ph: and mi: keys on create', async () => {
       for (const [i, icon] of accepted.entries()) {
         await assertSucceeds(
           setDoc(
@@ -309,6 +322,26 @@ describe('folders', () => {
         }),
       );
       await assertFails(deleteDoc(doc(db, 'workspaces', WS, 'folders', 'f1')));
+    }
+  });
+
+  it('accepts an optional icon on create and update, and refuses bad ones', async () => {
+    const db = as(USERS.admin);
+    const ref = (id: string) => doc(db, 'workspaces', WS, 'folders', id);
+    await assertSucceeds(setDoc(ref('ic-none'), folder(USERS.admin)));
+    for (const [i, icon] of ['ph:folder-simple', 'mi:home', 'A', '🙂'].entries()) {
+      await assertSucceeds(setDoc(ref(`ic-ok${i}`), folder(USERS.admin, { icon })));
+    }
+    const bad: unknown[] = ['ph:Bad', 'ph:', `ph:${'a'.repeat(41)}`, 'x'.repeat(49), '', 7, null];
+    for (const [i, icon] of bad.entries()) {
+      await assertFails(setDoc(ref(`ic-bad${i}`), folder(USERS.admin, { icon })));
+    }
+    await assertSucceeds(
+      updateDoc(ref('ic-none'), { icon: 'ph:star', updatedAt: serverTimestamp() }),
+    );
+    await assertSucceeds(updateDoc(ref('ic-none'), { icon: 'B', updatedAt: serverTimestamp() }));
+    for (const icon of ['ph:Bad', 7, null, 'mi:Bad Key']) {
+      await assertFails(updateDoc(ref('ic-none'), { icon, updatedAt: serverTimestamp() }));
     }
   });
 

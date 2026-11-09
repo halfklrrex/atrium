@@ -298,10 +298,12 @@ service cloud.firestore {
     // workspaces/{workspaceId}
     // ---------------------------------------------------------------------
     match /workspaces/{workspaceId} {
-      // A legacy letter or emoji (1 to 8 characters) or a Material Symbols key `mi:<key>`.
+      // A letter or emoji (1 to 8 characters), a Phosphor key `ph:<key>` or a legacy Material
+      // Symbols key `mi:<key>`. Also used for folder icons.
       function validWorkspaceIcon(i) {
         return i is string && i.size() >= 1 && i.size() <= 48
-          && (i.matches('^mi:[a-z0-9_]{1,40}$') || (i.size() <= 8 && !i.matches('^mi:.*')));
+          && (i.matches('^(ph|mi):[a-z0-9_-]{1,40}$')
+              || (i.size() <= 8 && !i.matches('^(ph|mi):.*')));
       }
 
       function validWorkspaceFields(d) {
@@ -349,6 +351,7 @@ service cloud.firestore {
           return d.name is string && d.name.size() >= 1 && d.name.size() <= 80
             && (d.parentFolderId == null || d.parentFolderId is string)
             && d.color is string && d.color.matches('^#[0-9a-fA-F]{6}$')
+            && (!d.keys().hasAny(['icon']) || validWorkspaceIcon(d.icon))
             && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
             && d.updatedAt == request.time;
         }
@@ -356,8 +359,9 @@ service cloud.firestore {
         allow read: if signedIn() && isWsMember(workspaceId);
 
         allow create: if signedIn() && isWsAdmin(workspaceId)
-          && request.resource.data.keys().hasOnly(['name', 'parentFolderId', 'color', 'position',
-                                                   'createdAt', 'createdBy', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['name', 'parentFolderId', 'color', 'icon',
+                                                   'position', 'createdAt', 'createdBy',
+                                                   'updatedAt'])
           && request.resource.data.keys().hasAll(['name', 'parentFolderId', 'color', 'position',
                                                   'createdAt', 'createdBy', 'updatedAt'])
           && validFolderFields(request.resource.data)
@@ -366,7 +370,7 @@ service cloud.firestore {
 
         allow update: if signedIn() && isWsAdmin(workspaceId)
           && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['name', 'parentFolderId', 'color', 'position', 'updatedAt'])
+               .hasOnly(['name', 'parentFolderId', 'color', 'icon', 'position', 'updatedAt'])
           && validFolderFields(request.resource.data);
 
         allow delete: if signedIn() && isWsAdmin(workspaceId);
