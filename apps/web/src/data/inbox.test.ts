@@ -66,6 +66,23 @@ describe('inbox query shapes (each is covered by an index)', () => {
     ]);
   });
 
+  it('complaints: category + lastMessageAt desc (never the kind)', () => {
+    expect((inboxQueries.list(null, 'complaint') as unknown as Q).constraints).toEqual([
+      ['where', 'category', '==', 'complaint'],
+      ['orderBy', 'lastMessageAt', 'desc'],
+      ['limit', 20],
+    ]);
+  });
+
+  it('complaints + status: category + status + lastMessageAt desc', () => {
+    expect((inboxQueries.list('answered', 'complaint', 40) as unknown as Q).constraints).toEqual([
+      ['where', 'category', '==', 'complaint'],
+      ['where', 'status', '==', 'answered'],
+      ['orderBy', 'lastMessageAt', 'desc'],
+      ['limit', 40],
+    ]);
+  });
+
   it('no filter: only the single-field order', () => {
     expect((inboxQueries.list(null, null) as unknown as Q).constraints).toEqual([
       ['orderBy', 'lastMessageAt', 'desc'],

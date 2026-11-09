@@ -4,6 +4,9 @@
  * reopen, delete) goes through the `inboxCalls` callables.
  *
  * Query shapes (each is covered by an index in `firestore.indexes.json`):
+ * - list, complaints: `category == 'complaint'`, `orderBy lastMessageAt desc` (category+lastMessageAt)
+ * - list, complaints and status: `category ==`, `status ==`, `orderBy lastMessageAt desc`
+ *   (category+status+lastMessageAt)
  * - list, both filters: `kind ==`, `status ==`, `orderBy lastMessageAt desc` (kind+status+lastMessageAt)
  * - list, status only: `status ==`, `orderBy lastMessageAt desc` (status+lastMessageAt)
  * - list, kind only: `kind ==`, `orderBy lastMessageAt desc` (kind+lastMessageAt)
@@ -46,6 +49,9 @@ import { db } from '../lib/firebase';
 import type { WithId } from './model';
 import { useDocSnapshot, useQuerySnapshot, type SnapshotState } from './useSnapshot';
 
+/** A Kind chip other than "All": a thread kind, or the `complaint` category of feedback. */
+export type InboxSourceFilter = InboxKind | 'complaint';
+
 export type InboxThreadDoc = WithId<InboxThread>;
 export type InboxMessageDoc = WithId<InboxMessage>;
 export type InboxNoteDoc = InboxNote;
@@ -71,14 +77,18 @@ const threadsRef = (): CollectionReference<InboxThreadDoc> =>
   collection(db, 'inbox').withConverter(threadConverter);
 
 export const inboxQueries = {
-  /** The newest `count` threads, newest message first. `null` filters mean "all". */
+  /**
+   * The newest `count` threads, newest message first. `null` filters mean "all". `complaint` is
+   * a category of feedback, so it filters on `category` (feedback still includes complaints).
+   */
   list: (
     status: InboxStatus | null,
-    kind: InboxKind | null,
+    kind: InboxSourceFilter | null,
     count: number = INBOX_LIMITS.pageSize,
   ): Query<InboxThreadDoc> => {
     const constraints: QueryConstraint[] = [];
-    if (kind) constraints.push(where('kind', '==', kind));
+    if (kind === 'complaint') constraints.push(where('category', '==', 'complaint'));
+    else if (kind) constraints.push(where('kind', '==', kind));
     if (status) constraints.push(where('status', '==', status));
     constraints.push(orderBy('lastMessageAt', 'desc'));
     constraints.push(limit(count));
@@ -176,7 +186,7 @@ interface LiveList {
  */
 export function useInboxList(
   status: InboxStatus | null,
-  kind: InboxKind | null,
+  kind: InboxSourceFilter | null,
   enabled = true,
 ): InboxListState {
   const key = `${status ?? 'all'}|${kind ?? 'all'}`;

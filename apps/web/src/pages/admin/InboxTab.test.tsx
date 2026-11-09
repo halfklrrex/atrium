@@ -87,6 +87,26 @@ describe('InboxTab', () => {
     expect(mocks.useInboxList).toHaveBeenLastCalledWith('closed', 'appeal');
   });
 
+  it('has a Complaints chip that combines with the status chips', async () => {
+    renderTab();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Complaints' }));
+    expect(mocks.useInboxList).toHaveBeenLastCalledWith('open', 'complaint');
+    expect(screen.getByRole('button', { name: 'Complaints' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await user.click(screen.getByRole('button', { name: 'Answered' }));
+    expect(mocks.useInboxList).toHaveBeenLastCalledWith('answered', 'complaint');
+  });
+
+  it('says so when there are no complaints', async () => {
+    renderTab();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Complaints' }));
+    expect(screen.getByText('Nothing is waiting for you. No open complaints.')).toBeInTheDocument();
+  });
+
   it('shows the row fields: name, email, kind, subject, snippet, time, unread dot', () => {
     mocks.useInboxList.mockReturnValue(
       state({
