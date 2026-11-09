@@ -15,6 +15,7 @@ import classNames from 'classnames';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
+import { useScrollLock } from '../../lib/useScrollLock';
 import type { NotificationDoc } from '../../data/model';
 import {
   notificationWrites,
@@ -60,6 +61,7 @@ type PersonOption = { value: string; label: string };
  */
 export function NotificationsPanel() {
   const open = useUiStore((s) => s.notificationsOpen);
+  useScrollLock(open);
   const setOpen = useUiStore((s) => s.setNotificationsOpen);
   const openDialog = useUiStore((s) => s.openDialog);
   const navigate = useNavigate();

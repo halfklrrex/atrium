@@ -45,3 +45,14 @@ Beyond M1 (M2 to M4 in the plan): the board table, Kanban, Calendar and Timeline
 - **WebKit on Linux is not iOS Safari.** Same engine family, but no collapsing toolbars, no safe-area insets, no rubber-band scrolling, no on-screen keyboard and different font metrics. A green audit does not mean the app works on an iPhone; the owner still checks on the real device, in Safari and as the installed app.
 - The known-defects list was generated on macOS WebKit. Linux CI may differ by a few pixels (for example a width of 354 against 353), which can add or remove an `offscreen-x` or `overflow-x` entry. The audit job uploads `tests/visual/.audit/findings.ndjson`; if CI disagrees, rebuild the list from that file (`node scripts/mobile-known-defects.mjs <file>`).
 - The audit checks one moment per screen. Dropdowns, popovers, the keyboard and rotation are not covered yet.
+
+## M1 result (2026-11-09)
+
+All 61 listed defects are fixed and `mobile-known-defects.json` is empty. What changed:
+
+- **Scroll lock (1):** `html, body { overscroll-behavior: none }`; `html[data-scroll-locked]` and `html:has([role=dialog][aria-modal=true])` get `overflow: hidden`; `useScrollLock` sets the attribute while the notifications panel or the phone drawer is open; the panel body and phone dialogs have `overscroll-behavior: contain`. The shell is `position: fixed; inset: 0` instead of `height: 100dvh`, so it follows the visible area when Safari's toolbars collapse. Likely causes only: WebKit on Linux can't reproduce the owner's iPhone scroll bug, so the owner re-checks on the device.
+- **Safe areas (6):** `viewport-fit=cover` plus `--atrium-safe-*` tokens padding the shell and the panel.
+- **Phone dialogs (2):** one global rule on Vibe's Modal (`[data-vibe='Modal']`, below 768 px): width and max height from the viewport minus a gutter and the safe areas.
+- **Login (3):** Vibe `Text` defaults to a single line with ellipsis; the legal line and subtitle now wrap (`ellipsis={false}`), and the form column is `minmax(0, 1fr)`.
+- **Notifications tabs (4):** the tab strip scrolls sideways when the panel is narrower than the four tabs.
+- **16 px fields (5):** on `(pointer: coarse)` inputs, selects, textareas and the editors are 16 px.
