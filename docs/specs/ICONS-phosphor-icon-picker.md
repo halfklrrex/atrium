@@ -12,21 +12,27 @@
 ## Design
 
 ### Source and licence
+
 Phosphor SVGs come from **`@phosphor-icons/core`** (MIT, the raw assets package, not the React one), as a devDependency. The generator reads `assets/regular/<name>.svg` and `assets/fill/<name>-fill.svg` (check the installed layout), extracts the path data (viewBox `0 0 256 256`), and writes the generated module. Nothing from the package ships at runtime except the path strings of the curated icons, so the bundle cost is ~200 x 2 short strings and there is **no** `@phosphor-icons/react` dependency. Register the copy in `docs/PROVENANCE.md`, run `pnpm licenses:notices` and commit `THIRD_PARTY_NOTICES.md`; remove `@material-symbols/svg-400` from devDependencies and from the notices/provenance (update the lockfile).
 
 ### Regular and fill
+
 Each generated entry is `{ key, label, keywords, regular, fill }`. Rules for which weight shows where:
+
 - the **tile** (sidebar, switcher, Home, workspace and folder headers) renders **fill** (reads as a solid glyph on the colour);
 - the **picker grid** shows **regular**, and the selected cell shows **fill**;
 - no other weights; the weight is not stored.
 
 ### Stored value
+
 New icons are stored as `ph:<key>`, `<key>` matching `^[a-z0-9-]{1,40}$` (Phosphor names are kebab-case, e.g. `rocket-launch`). The existing `mi:<key>` values stay **valid and readable** forever (owner data may already contain them):
+
 - schema and rules accept `ph:` and `mi:` plus 1 to 8 character letters/emoji (maximum 48 characters in all, unchanged); new writes from the app are always `ph:`;
 - `apps/web/src/components/workspace-icons/legacy-material.ts`: a hand-reviewed map from each of the 160 existing `mi:` keys to a Phosphor key (take the key list from the current `icons.generated.ts` **before** deleting it). `findWorkspaceIcon('mi:home')` resolves through the map, so old workspaces show a Phosphor icon with no data migration, and the picker marks the mapped icon as selected. A test fails if a mapped target is missing from the curated set or a legacy key is unmapped;
 - an unknown `ph:` or `mi:` key still falls back to the first letter of the name (existing behaviour).
 
 ### Curated set (about 200)
+
 Rework `GROUPS` to Phosphor names, 190 to 210 icons, keeping the 13 groups of the Material version where they exist and adding what Phosphor does well. Keep the meanings the owner reviewed in the Material preview (home, family as people-together, never a restroom sign; health as heart/pulse, not a shield-cross; garden, car, school, money, travel, project, book, star, heart, briefcase, rocket, lightbulb, calendar, folder). Seed list (swap freely for names that read better at 16 px; **every key must exist in the installed package**, the generator fails otherwise):
 
 - People and home: house, house-line, house-simple, buildings, bed, couch, bathtub, key, door, users, users-three, user-circle, baby, baby-carriage, cake, balloon, gift, handshake, confetti, dog, cat, paw-print
@@ -44,12 +50,15 @@ Rework `GROUPS` to Phosphor names, 190 to 210 icons, keeping the 13 groups of th
 Search keeps working on label + keywords.
 
 ### Rendering
+
 `WorkspaceTile` renders `<svg viewBox="0 0 256 256" fill="currentColor">` with the **fill** path. Sizes, tokens and the `aria-hidden` behaviour stay as today (no hard-coded px or colours; Stylelint and ESLint enforce this). Rename the component's concept only if cheap: a `FolderTile` can be the same component with the folder colour.
 
 ### Folders
+
 Add an optional `icon` to folders (same `workspaceIconSchema`, rename to `iconKeySchema` only if the diff stays small). Folders without `icon` keep today's look (the folder glyph in the sidebar). `FolderDialogs.tsx`: the create and edit dialogs get the same picker (Icons / Emoji / Letter) next to the colour swatches; "no icon" (the default folder glyph) is a visible choice. The sidebar tree shows the chosen icon on the folder's colour in place of the default folder glyph.
 
 ### Rules and schema (hot spots)
+
 1. `packages/shared/src/schemas/common.ts`: `ph:` prefix and `WORKSPACE_ICON_KEY_PATTERN` extended (`^[a-z0-9_-]{1,40}$` covers both); `workspaceIconKey()` returns the key for either prefix **and the prefix** (callers need to know whether it is legacy). Tests for `ph:rocket-launch` ok, `ph:Bad`, `ph:` + 41 chars, 49-char string refused, `mi:home` still ok, letter/emoji ok.
 2. `folderSchema`: `icon: workspaceIconSchema.optional()`.
 3. `firestore.rules`: `validWorkspaceIcon` accepts `^(ph|mi):[a-z0-9_-]{1,40}$`; reuse it for folders (`icon` allowed in the `hasOnly` lists on create and update, validated when present). Never loosen anything else.
@@ -67,11 +76,13 @@ No production data migration (the legacy map handles `mi:` values at render time
 - Visual: update the existing picker screens (`add-workspace-icons-*`), add the folder dialog with the picker; run the **Update visual baselines** workflow, never commit local PNGs. Visual QA against monday's workspace picker in light and dark; log gaps in the Roadmap VF group.
 
 ## Out of scope
+
 Board icons (field stays reserved `null`), replacing Vibe chrome icons, the full Phosphor set, other weights, uploaded icons, rewriting stored `mi:` values.
 
 ## Work split (CLAUDE.md model policy)
 
 Two PRs in order, because both touch hot spots:
+
 1. **`claude/icons-schema`** (small): shared schema and rules for `ph:` and folder `icon`, rules and schema tests, showcase fields, architecture wording. No UI change. Merge first.
 2. **`claude/icons-phosphor`**: generator switch, curated set, legacy map, tile, picker, folder dialogs and sidebar, notices/provenance/lockfile, tests, baselines.
 
