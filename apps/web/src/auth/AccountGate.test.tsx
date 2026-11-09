@@ -1,5 +1,5 @@
 import type { AccountStatus } from '@atrium/shared';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -131,6 +131,49 @@ describe('AccountGate', () => {
     act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
     await waitFor(() => expect(refreshAccount).toHaveBeenCalledTimes(2));
     warn.mockRestore();
+  });
+
+  it('retries on a timer after a missed claim, without a new snapshot, up to the cap', async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      refreshAccount.mockRejectedValueOnce(new Error('late')).mockResolvedValue(undefined);
+      renderGate('blocked');
+      act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(refreshAccount).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(refreshAccount).toHaveBeenCalledTimes(2); // recovered, no further retry
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(refreshAccount).toHaveBeenCalledTimes(2);
+
+      cleanup();
+      refreshAccount.mockReset().mockRejectedValue(new Error('never'));
+      renderGate('blocked');
+      act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
+      await vi.advanceTimersByTimeAsync(120000);
+      expect(refreshAccount).toHaveBeenCalledTimes(6); // first try plus 5 retries
+    } finally {
+      warn.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops retrying when the screen unmounts', async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      refreshAccount.mockRejectedValue(new Error('late'));
+      const view = renderGate('blocked');
+      act(() => mocks.snapshot?.({ data: () => ({ accountStatus: 'approved' }) }));
+      await vi.advanceTimersByTimeAsync(0);
+      view.unmount();
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(refreshAccount).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it('a blocked screen stays put when the document cannot be read', () => {

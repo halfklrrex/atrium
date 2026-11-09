@@ -7,6 +7,10 @@ import { plainRefs } from '../data/firestore';
 import { AppealPanel } from './AppealPanel';
 import { useAuth } from './auth-context';
 
+/** After a refresh that never saw the new claim: wait this long, then try again, at most this often. */
+const REFRESH_RETRY_DELAY_MS = 5000;
+const REFRESH_RETRY_COUNT = 5;
+
 /** Shown on the blocked screen above the appeal panel (ADMIN-4 PR6). */
 export const BLOCKED_SCREEN_MESSAGE =
   "An admin has blocked this account, so you can't use Atrium with it. If you think this is a mistake, you can send an appeal below.";
@@ -27,21 +31,38 @@ export function AccountGate({ status }: { status: Extract<AccountStatus, 'pendin
   useEffect(() => {
     if (!uid) return;
     refreshing.current = false;
-    return onSnapshot(
+    let retries = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // `refreshAccount` throws when the new claim has not arrived. No new snapshot follows a missed
+    // claim, so try again on a timer, a bounded number of times.
+    const refresh = () => {
+      timer = undefined;
+      refreshing.current = true;
+      refreshAccount().catch((e: unknown) => {
+        refreshing.current = false;
+        console.warn('Could not refresh the session after the account was approved', e);
+        if (retries < REFRESH_RETRY_COUNT) {
+          retries += 1;
+          timer = setTimeout(refresh, REFRESH_RETRY_DELAY_MS);
+        }
+      });
+    };
+    const unsubscribe = onSnapshot(
       plainRefs.user(uid),
       (snap) => {
         // Pending: approved by an admin. Blocked: unblocked by an admin (ADMIN-4). Either way the
         // new claim only applies after a token refresh.
         if (snap.data()?.accountStatus !== 'approved' || refreshing.current) return;
-        refreshing.current = true;
-        refreshAccount().catch((e: unknown) => {
-          refreshing.current = false;
-          console.warn('Could not refresh the session after the account was approved', e);
-        });
+        if (timer !== undefined) clearTimeout(timer);
+        refresh();
       },
       // The document may not be readable yet; waiting on the screen is the right outcome.
       () => {},
     );
+    return () => {
+      unsubscribe();
+      if (timer !== undefined) clearTimeout(timer);
+    };
   }, [status, uid, refreshAccount]);
 
   const signOutAction = { text: 'Sign out', onClick: () => void signOut() };
