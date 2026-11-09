@@ -10,6 +10,21 @@ body,
   height: 100%;
 }
 
+/*
+ * The app shell fills the screen and scrolls inside itself, so the document never needs to scroll.
+ * No rubber-band or scroll chaining from the page, and a hard lock while a dialog, the
+ * notifications panel or the phone drawer is open (data-scroll-locked is set by useScrollLock).
+ */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+html[data-scroll-locked],
+html:has([role='dialog'][aria-modal='true']) {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   background: var(--atrium-app-bg);
@@ -36,5 +51,42 @@ body {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Phones: Vibe's Modal keeps its desktop width (460 to 900px) and is centred, so it was cropped on
+ * both sides. Fit it to the screen with a gutter, cap its height to the visible area and keep the
+ * scrolling inside it. The doubled attribute selector outranks Vibe's .modal.sizeX rules.
+ */
+@media (max-width: 767px) {
+  [data-vibe='Modal'][role='dialog'][aria-modal='true'] {
+    --modal-width: calc(
+      100% - var(--space-32) - var(--atrium-safe-left) - var(--atrium-safe-right)
+    );
+    --modal-max-height: calc(
+      100% - var(--space-32) - var(--atrium-safe-top) - var(--atrium-safe-bottom)
+    );
+    --modal-inline-padding: var(--space-16);
+
+    overscroll-behavior: contain;
+  }
+
+  [data-vibe='Modal'] * {
+    overscroll-behavior: contain;
+  }
+}
+
+/*
+ * Touch screens: iOS Safari zooms into any text field under 16px on focus and stays zoomed.
+ * Desktop sizes are untouched (pointer: coarse never matches a mouse).
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']),
+  textarea,
+  select,
+  [contenteditable='true'],
+  .ProseMirror {
+    font-size: var(--font-size-30) !important;
   }
 }

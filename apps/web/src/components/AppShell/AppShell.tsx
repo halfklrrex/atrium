@@ -6,6 +6,7 @@ import { Outlet, useNavigate } from 'react-router';
 import { useItemViewStore } from '../item-view/item-view-store';
 import { Sidebar } from '../Sidebar/Sidebar';
 import { ToastHost } from '../ToastHost';
+import { useScrollLock } from '../../lib/useScrollLock';
 import styles from './AppShell.module.css';
 import { DialogHost } from '../dialogs/DialogHost';
 import { OfflineNotice } from '../OfflineNotice';
@@ -23,6 +24,7 @@ import { useUiStore } from './ui-store';
  */
 export function AppShell() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
+  useScrollLock(sidebarOpen);
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
   // The row's open icon lives outside React; it navigates through the router registered here.
   const navigate = useNavigate();

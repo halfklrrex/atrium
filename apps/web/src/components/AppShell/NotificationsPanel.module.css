@@ -1,8 +1,10 @@
 /* Slides in from the right under the top bar; transform only, so no layout work. */
 .panel {
   position: fixed;
-  inset-block: var(--atrium-topbar-height) 0;
+  inset-block: calc(var(--atrium-topbar-height) + var(--atrium-safe-top)) 0;
   inset-inline-end: 0;
+  padding-bottom: var(--atrium-safe-bottom);
+  overscroll-behavior: contain;
   z-index: var(--atrium-z-panel);
   display: flex;
   flex-direction: column;
@@ -72,6 +74,10 @@
 .tabs {
   flex: none;
   padding-inline: var(--space-16);
+
+  /* The four tabs are 360px wide with their gap; on narrower panels the strip scrolls instead of clipping. */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 .filters {
@@ -97,6 +103,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* The empty state sits lower than the first card would. */
