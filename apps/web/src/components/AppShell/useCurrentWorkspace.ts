@@ -1,6 +1,7 @@
 import { useMatch } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { useBoard, useWorkspaces, type WorkspaceDoc } from '../../data';
+import { idFromSlugParam } from '../../lib/paths';
 
 /**
  * The workspace the shell is showing: the one in the URL (workspace page, or the board's workspace),
@@ -16,9 +17,12 @@ export function useCurrentWorkspace(): {
   const { data: workspaces, loading, error } = useWorkspaces(user?.uid ?? null);
   const workspaceMatch = useMatch('/workspaces/:workspaceId');
   const boardMatch = useMatch('/boards/:boardId/*');
-  const { data: board } = useBoard(boardMatch?.params.boardId);
+  const { data: board } = useBoard(idFromSlugParam(boardMatch?.params.boardId) || undefined);
 
-  const wantedId = workspaceMatch?.params.workspaceId ?? board?.workspaceId ?? lastWorkspaceId;
+  const wantedId =
+    (idFromSlugParam(workspaceMatch?.params.workspaceId) || undefined) ??
+    board?.workspaceId ??
+    lastWorkspaceId;
   const workspace =
     workspaces.find((w) => w.id === wantedId) ??
     workspaces.find((w) => w.id === lastWorkspaceId) ??

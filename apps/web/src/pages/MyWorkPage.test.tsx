@@ -127,7 +127,7 @@ describe('MyWorkPage', () => {
     mocks.state.entries = [entry('i2', 'Ship it', { due: { date: '2026-10-28' } })];
     renderPage();
     fireEvent.click(screen.getByRole('link', { name: 'Ship it' }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/boards/b1/items/i2');
+    expect(screen.getByTestId('location')).toHaveTextContent('/boards/roadmap-b1/items/i2');
   });
 
   it('opens the item from anywhere on the row', () => {
@@ -135,7 +135,7 @@ describe('MyWorkPage', () => {
     renderPage();
     const [row] = screen.getAllByRole('row').slice(1);
     fireEvent.click(within(row!).getByText('Roadmap'));
-    expect(screen.getByTestId('location')).toHaveTextContent('/boards/b1/items/i2');
+    expect(screen.getByTestId('location')).toHaveTextContent('/boards/roadmap-b1/items/i2');
   });
 
   it('shows the empty state when nothing is assigned', () => {

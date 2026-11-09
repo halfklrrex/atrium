@@ -66,7 +66,7 @@ function BoardKindIcon({ kind }: { kind: string }) {
 
 function Row({ row, highlight }: { row: MyWorkRow; highlight: string }) {
   const navigate = useNavigate();
-  const path = itemViewPath(row.board.id, row.item.id);
+  const path = itemViewPath(row.board, row.item.id);
   const open = useCallback(
     (event: MouseEvent) => {
       // The name link handles its own click (so ctrl/cmd-click still opens a new tab).

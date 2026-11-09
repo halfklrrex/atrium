@@ -8,6 +8,7 @@ import { InviteCard } from '../components/membership/InviteCard';
 import { useRespondToInvite } from '../components/membership/useRespondToInvite';
 import { describeCallableError, membershipCalls } from '../lib/callables';
 import styles from './InvitePage.module.css';
+import { workspacePath } from '../lib/paths';
 
 type Outcome =
   | { kind: 'loading' }
@@ -108,7 +109,7 @@ export function InvitePage() {
             </Button>
           ) : null}
           {state === 'accepted' ? (
-            <Link to={`/workspaces/${workspaceId}`}>
+            <Link to={workspacePath({ id: workspaceId })}>
               <Button kind="primary">Open workspace</Button>
             </Link>
           ) : null}

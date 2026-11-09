@@ -33,7 +33,7 @@ function ReadOnlyCell({ cell, row }: { cell: TableCell | null; row: TableRow }) 
 
 function Row({ row }: { row: TableRow }) {
   const navigate = useNavigate();
-  const path = itemViewPath(row.row.board.id, row.row.item.id);
+  const path = itemViewPath(row.row.board, row.row.item.id);
   const open = useCallback(
     (event: MouseEvent) => {
       // The name link handles its own click, so ctrl/cmd-click still opens a new tab.

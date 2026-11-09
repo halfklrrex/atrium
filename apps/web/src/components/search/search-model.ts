@@ -1,5 +1,6 @@
 import { nameTokensOf, searchWordsOf } from '@atrium/shared';
 import type { BoardDoc, ItemDoc, WorkspaceDoc } from '../../data/model';
+import { boardPath, workspacePath } from '../../lib/paths';
 
 /** At most this many results are shown across all groups. */
 export const MAX_RESULTS = 50;
@@ -109,11 +110,11 @@ export function flattenGroups(groups: SearchGroups): SearchResult[] {
 export function resultPath(result: SearchResult): string {
   switch (result.kind) {
     case 'workspace':
-      return `/workspaces/${result.workspace.id}`;
+      return workspacePath(result.workspace);
     case 'board':
-      return `/boards/${result.board.id}`;
+      return boardPath(result.board);
     case 'item':
-      return `/boards/${result.board.id}/items/${result.item.id}`;
+      return boardPath(result.board, `/items/${result.item.id}`);
   }
 }
 

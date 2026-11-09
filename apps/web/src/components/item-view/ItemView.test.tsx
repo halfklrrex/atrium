@@ -117,7 +117,7 @@ describe('ItemView', () => {
   it('steps to the next row of the group', async () => {
     renderView();
     await userEvent.click(screen.getByRole('button', { name: 'Next item' }));
-    expect(screen.getByTestId('where').textContent).toBe('/boards/b1/items/i3');
+    expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/i3');
   });
 
   it('closes with Escape and with the X button, back to the board', async () => {

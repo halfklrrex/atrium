@@ -120,11 +120,11 @@ export function ItemView({ board, itemId }: ItemViewProps) {
   const fromBoard = routeState?.fromBoard === true;
   const close = useCallback(() => {
     if (fromBoard) navigate(-1);
-    else navigate(boardPath(boardId), { replace: true });
-  }, [fromBoard, navigate, boardId]);
+    else navigate(boardPath(board), { replace: true });
+  }, [fromBoard, navigate, board]);
 
   const goTo = (id: string | null) => {
-    if (id) navigate(itemViewPath(boardId, id), { replace: true, state: FROM_BOARD_STATE });
+    if (id) navigate(itemViewPath(board, id), { replace: true, state: FROM_BOARD_STATE });
   };
 
   // Escape closes unless something inside owns it (an open menu, an editor, a popover).
@@ -154,7 +154,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
 
   // ---- Actions
   const copyLink = () => {
-    const url = `${window.location.origin}${itemViewPath(boardId, itemId)}`;
+    const url = `${window.location.origin}${itemViewPath(board, itemId)}`;
     navigator.clipboard.writeText(url).then(
       () => showToast('Link copied.', { type: 'positive' }),
       () => showToast('Could not copy the link.', { type: 'negative' }),

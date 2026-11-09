@@ -34,6 +34,17 @@ describe('opening items', () => {
     expect(useItemCardStore.getState().activeItemId).toBeNull();
   });
 
+  it('uses the board name for the URL when it is known', () => {
+    const navigate = vi.fn();
+    useItemViewStore.getState().setNavigate(navigate);
+    useItemViewStore.getState().setBoardName('b1', 'Q4 Roadmap');
+    openItemFull('b1', 'i1');
+    expect(navigate).toHaveBeenCalledWith('/boards/q4-roadmap-b1/items/i1', {
+      state: { fromBoard: true },
+    });
+    useItemViewStore.setState({ boardNames: {} });
+  });
+
   it('opening the side panel goes back to the board when the window is open', () => {
     const navigate = vi.fn();
     useItemViewStore.setState({ navigate, openBoardId: 'b1' });

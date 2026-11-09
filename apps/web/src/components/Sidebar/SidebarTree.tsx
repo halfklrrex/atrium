@@ -45,6 +45,7 @@ import { WorkspaceTile } from '../WorkspaceTile';
 import { useUiStore } from '../AppShell/ui-store';
 import { dragClickGuard, guardedNavigate } from './dragClickGuard';
 import styles from './Sidebar.module.css';
+import { boardPath, dashboardPath } from '../../lib/paths';
 
 export interface SidebarTreeProps {
   workspaceId: string;
@@ -295,7 +296,7 @@ function BoardRowView({
         </div>
       ) : (
         <NavLink
-          to={`/boards/${board.id}`}
+          to={boardPath(board)}
           className={styles.treeMain}
           onClick={guardedNavigate(onNavigate)}
           onDoubleClick={() => onRenamingChange(true)}
@@ -362,7 +363,7 @@ function DashboardRowView({
         </div>
       ) : (
         <NavLink
-          to={`/dashboards/${dashboard.id}`}
+          to={dashboardPath(dashboard)}
           className={styles.treeMain}
           onClick={guardedNavigate(onNavigate)}
           onDoubleClick={() => onRenamingChange(true)}

@@ -22,6 +22,7 @@ import {
 } from '../data';
 import { firstNameOf, greetingFor } from '../lib/greeting';
 import styles from './Home.module.css';
+import { boardPath, workspacePath } from '../lib/paths';
 
 const INITIAL_CARDS = 8;
 
@@ -140,7 +141,7 @@ export function HomePage() {
             <ul className={styles.workspaces}>
               {workspaces.map((workspace) => (
                 <li key={workspace.id}>
-                  <Link to={`/workspaces/${workspace.id}`} className={styles.workspaceCard}>
+                  <Link to={workspacePath(workspace)} className={styles.workspaceCard}>
                     <WorkspaceTile
                       icon={workspace.icon}
                       color={workspace.color}
@@ -208,14 +209,14 @@ function BoardCard({ board, workspace }: { board: BoardDoc; workspace: Workspace
     board.kind === 'private' ? BoardPrivate : board.kind === 'shareable' ? BoardShareable : Board;
   return (
     <div className={styles.card}>
-      <Link to={`/boards/${board.id}`} className={styles.cardLink} tabIndex={-1} aria-hidden="true">
+      <Link to={boardPath(board)} className={styles.cardLink} tabIndex={-1} aria-hidden="true">
         <span className={styles.cardThumb}>
           <BoardThumb />
         </span>
       </Link>
       <div className={styles.cardInfo}>
         <Icon icon={icon} size={16} className={styles.cardIcon} />
-        <Link to={`/boards/${board.id}`} className={styles.cardName}>
+        <Link to={boardPath(board)} className={styles.cardName}>
           {board.name}
         </Link>
         <FavoriteStar board={board} size="xs" />

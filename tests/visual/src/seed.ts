@@ -43,16 +43,17 @@ export const BLAKE = {
   displayName: 'Blake Rivera',
 } as const;
 
+/** Ids are dash-free like Firestore auto ids: the app reads the id after the last dash of a URL param. */
 export const IDS = {
-  personalWorkspace: 'ws-personal',
-  familyWorkspace: 'ws-family',
+  personalWorkspace: 'wsPersonal',
+  familyWorkspace: 'wsFamily',
   /** Created on demand by `createEmptyWorkspace`, for the empty-workspace screenshots only. */
-  emptyWorkspace: 'ws-empty',
-  folder: 'folder-q4',
-  roadmap: 'board-roadmap',
-  sprint: 'board-sprint',
-  notes: 'board-notes',
-  trip: 'board-trip',
+  emptyWorkspace: 'wsEmpty',
+  folder: 'folderQ4',
+  roadmap: 'boardRoadmap',
+  sprint: 'boardSprint',
+  notes: 'boardNotes',
+  trip: 'boardTrip',
 } as const;
 
 const NOW = new Date(FROZEN_TIME).getTime();
@@ -1441,7 +1442,7 @@ export async function removeSavedTemplate(): Promise<void> {
 }
 
 /** Id of the dashboard the dashboard screens add to the personal workspace (and remove again). */
-export const DASHBOARD_ID = 'dashboard-overview';
+export const DASHBOARD_ID = 'dashboardOverview';
 
 /** A dashboard over the roadmap board with one widget of each type. Pair with `removeDashboard`. */
 export async function addDashboard(): Promise<void> {
