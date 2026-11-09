@@ -95,6 +95,14 @@ export interface Caller {
   displayName: string | null;
 }
 
+async function closeAppealsBestEffort(store: AccountStore, uid: string): Promise<void> {
+  try {
+    await store.closeOpenAppeals(uid);
+  } catch (error) {
+    logger.error('Could not close the open appeals of an approved account', { uid, error });
+  }
+}
+
 /**
  * Approve (also unblock) or block one account. A repeat of the state it is already in is a no-op.
  * Idempotent under retries. Approve writes the claim, which the rules read, last; block writes it
@@ -123,7 +131,11 @@ export async function setAccountStatus(
   // flag does not count (blocking no longer disables the user), so a half-finished block (claim set,
   // document not yet) or a missing document field is finished by a retry.
   const docStatus = (await store.getAccountStatuses([uid])).get(uid) ?? null;
-  if (from === status && docStatus === status) return { uid, status, changed: false };
+  if (from === status && docStatus === status) {
+    // An unblock retried after a failed appeal close still closes the appeals (best effort).
+    if (status === 'approved') await closeAppealsBestEffort(store, uid);
+    return { uid, status, changed: false };
+  }
 
   if (status === 'blocked' && isAdminClaims(target.claims)) {
     const admins = await auth.listAdminUids();
@@ -145,13 +157,9 @@ export async function setAccountStatus(
     if (target.disabled) await auth.setDisabled(uid, false);
     // The claim is last: it is what opens the rules, and a retry re-runs the steps above.
     await auth.setClaims(uid, mergeAccountClaims(target.claims, 'approved'));
-    // Best effort (ADMIN-4): a failure is logged and never fails the unblock; an admin can still
-    // close the appeal by hand.
-    try {
-      await store.closeOpenAppeals(uid);
-    } catch (error) {
-      logger.error('Could not close the open appeals of an approved account', { uid, error });
-    }
+    // Best effort (ADMIN-4): a failure is logged and never fails the unblock. Pressing Unblock
+    // again (the no-op path above) closes whatever is still open.
+    await closeAppealsBestEffort(store, uid);
     if (from === 'pending') {
       const doc: NewNotification = {
         kind: 'account_approved',

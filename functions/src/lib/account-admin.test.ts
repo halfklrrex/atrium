@@ -334,12 +334,26 @@ describe('setAccountStatus: block and unblock', () => {
     expect(store.audit[0]).toMatchObject({ action: 'unblock' });
   });
 
-  it('blocking and a no-op never close appeals', async () => {
+  it('blocking never closes appeals, nor does a repeated block', async () => {
     const { store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
     store.statuses.set('u1', 'approved');
-    await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
     await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
     expect(store.closedAppeals).toEqual([]);
+  });
+
+  it('pressing Unblock again repairs a failed appeal close', async () => {
+    const { store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    store.statuses.set('u1', 'blocked');
+    store.failCloseAppeals = true;
+    const first = await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(first.changed).toBe(true);
+    expect(store.closedAppeals).toEqual([]);
+    store.failCloseAppeals = false;
+    const retry = await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(retry.changed).toBe(false);
+    expect(store.closedAppeals).toEqual(['u1']);
+    expect(store.audit).toHaveLength(1);
   });
 
   it('refuses blocking yourself', async () => {
