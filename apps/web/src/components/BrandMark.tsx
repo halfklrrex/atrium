@@ -1,7 +1,16 @@
 import markUrl from '../assets/brand/atrium-mark.svg';
-import iconDarkUrl from '../assets/brand/atrium-icon-dark.svg';
-import iconLightUrl from '../assets/brand/atrium-icon-light.svg';
+import dark64 from '../assets/brand/atrium-icon-dark-64.png';
+import dark128 from '../assets/brand/atrium-icon-dark-128.png';
+import dark192 from '../assets/brand/atrium-icon-dark-192.png';
+import light64 from '../assets/brand/atrium-icon-light-64.png';
+import light128 from '../assets/brand/atrium-icon-light-128.png';
+import light192 from '../assets/brand/atrium-icon-light-192.png';
 import styles from './BrandMark.module.css';
+
+// WebKit draws SVG filter output at low resolution, so the icon ships as PNGs at 1x, 2x and 3x
+// (rendered from the master SVGs by scripts/render-brand-icons.mjs).
+const iconLightSrcSet = `${light64} 1x, ${light128} 2x, ${light192} 3x`;
+const iconDarkSrcSet = `${dark64} 1x, ${dark128} 2x, ${dark192} 3x`;
 
 /**
  * The Atrium logo: a glazed atrium with a gable roof of translucent panes and a warm floor glow.
@@ -39,8 +48,22 @@ export function BrandMark({
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <img className={styles.iconLight} src={iconLightUrl} alt="" aria-hidden {...dim} />
-      <img className={styles.iconDark} src={iconDarkUrl} alt="" aria-hidden {...dim} />
+      <img
+        className={styles.iconLight}
+        src={light192}
+        srcSet={iconLightSrcSet}
+        alt=""
+        aria-hidden
+        {...dim}
+      />
+      <img
+        className={styles.iconDark}
+        src={dark192}
+        srcSet={iconDarkSrcSet}
+        alt=""
+        aria-hidden
+        {...dim}
+      />
     </span>
   );
 }

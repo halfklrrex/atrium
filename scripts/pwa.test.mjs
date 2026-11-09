@@ -37,7 +37,11 @@ test('manifest identity', () => {
 test('every manifest icon exists with the declared size', () => {
   assert.ok(manifest.icons.length >= 3);
   for (const icon of manifest.icons) {
-    assert.equal(pngSize(resolve(pub, icon.src.replace(/^\//, ''))), icon.sizes, icon.src);
+    assert.equal(
+      pngSize(resolve(pub, icon.src.replace(/^\//, '').replace(/\?.*$/, ''))),
+      icon.sizes,
+      icon.src,
+    );
   }
   assert.ok(manifest.icons.some((i) => i.purpose === 'maskable'));
 });
@@ -52,6 +56,7 @@ test('firebase.json serves sw.js and the manifest uncached', () => {
   assert.equal(headers('/sw.js')['Cache-Control'], 'no-cache');
   assert.equal(headers('/sw.js')['Service-Worker-Allowed'], '/');
   assert.equal(headers('/manifest.webmanifest')['Cache-Control'], 'no-cache');
+  assert.equal(headers('**')['Cache-Control'], 'no-cache');
   assert.equal(headers('/manifest.webmanifest')['Content-Type'], 'application/manifest+json');
 });
 

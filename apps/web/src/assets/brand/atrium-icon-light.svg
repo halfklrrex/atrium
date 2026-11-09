@@ -21,10 +21,10 @@
 <linearGradient id="g-pane-4" gradientUnits="userSpaceOnUse" x1="750" y1="622" x2="913" y2="630"><stop offset="0.000" stop-color="#eb908b"/><stop offset="0.250" stop-color="#e48687"/><stop offset="0.417" stop-color="#db7c83"/><stop offset="0.583" stop-color="#d47581"/><stop offset="0.750" stop-color="#cd6e7f"/><stop offset="1.000" stop-color="#c96b7d"/></linearGradient>
 <filter id="blur-halo" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="22"/></filter>
 <filter id="blur-floor" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9"/></filter>
-<filter id="blur-edge" x="-10%%" y="-10%%" width="120%%" height="120%%"><feGaussianBlur stdDeviation="3"/></filter>
-<filter id="blur-ray" x="-20%%" y="-20%%" width="140%%" height="140%%"><feGaussianBlur stdDeviation="2.5"/></filter>
-<filter id="blur-soft" x="-5%%" y="-5%%" width="110%%" height="110%%"><feGaussianBlur stdDeviation="0.45"/></filter>
-<filter id="blur-shadow" x="-20%%" y="-20%%" width="140%%" height="140%%"><feGaussianBlur stdDeviation="22"/></filter>
+<filter id="blur-edge" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="blur-ray" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5"/></filter>
+<filter id="blur-soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="0.45"/></filter>
+<filter id="blur-shadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
 <linearGradient id="g-floor" gradientUnits="userSpaceOnUse" x1="0" y1="790" x2="0" y2="1000"><stop offset="0" stop-color="#fffbe6" stop-opacity=".95"/><stop offset=".17" stop-color="#fbe2b4" stop-opacity=".9"/><stop offset=".35" stop-color="#efc896" stop-opacity=".8"/><stop offset=".55" stop-color="#e2b787" stop-opacity=".58"/><stop offset=".8" stop-color="#dcb48a" stop-opacity=".24"/><stop offset="1" stop-color="#dcb48a" stop-opacity="0"/></linearGradient>
 <linearGradient id="g-ray" gradientUnits="userSpaceOnUse" x1="0" y1="780" x2="0" y2="1010"><stop offset="0" stop-color="#fffbe6" stop-opacity="1"/><stop offset=".3" stop-color="#fffbe6" stop-opacity=".85"/><stop offset=".55" stop-color="#fff6dc" stop-opacity=".5"/><stop offset=".8" stop-color="#fff6dc" stop-opacity=".2"/><stop offset="1" stop-color="#fff6dc" stop-opacity="0"/></linearGradient>
 </defs>
