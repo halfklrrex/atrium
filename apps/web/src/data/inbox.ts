@@ -26,14 +26,12 @@ import {
 import {
   collection,
   doc,
-  getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
-  startAfter,
   updateDoc,
   where,
   type CollectionReference,
@@ -42,7 +40,6 @@ import {
   type FirestoreDataConverter,
   type Query,
   type QueryConstraint,
-  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { db } from '../lib/firebase';
@@ -74,18 +71,17 @@ const threadsRef = (): CollectionReference<InboxThreadDoc> =>
   collection(db, 'inbox').withConverter(threadConverter);
 
 export const inboxQueries = {
-  /** One page of threads, newest message first. `null` filters mean "all". */
+  /** The newest `count` threads, newest message first. `null` filters mean "all". */
   list: (
     status: InboxStatus | null,
     kind: InboxKind | null,
-    after?: QueryDocumentSnapshot<InboxThreadDoc>,
+    count: number = INBOX_LIMITS.pageSize,
   ): Query<InboxThreadDoc> => {
     const constraints: QueryConstraint[] = [];
     if (kind) constraints.push(where('kind', '==', kind));
     if (status) constraints.push(where('status', '==', status));
     constraints.push(orderBy('lastMessageAt', 'desc'));
-    if (after) constraints.push(startAfter(after));
-    constraints.push(limit(INBOX_LIMITS.pageSize));
+    constraints.push(limit(count));
     return query(threadsRef(), ...constraints);
   },
   unread: (cap: number = INBOX_UNREAD_CAP): Query<InboxThreadDoc> =>
@@ -165,24 +161,18 @@ export interface InboxListState {
   loadMore: () => void;
 }
 
-interface LivePage {
+interface LiveList {
   key: string;
+  /** The `limit` this snapshot was requested with. */
+  count: number;
   threads: InboxThreadDoc[];
-  cursor: QueryDocumentSnapshot<InboxThreadDoc> | null;
-  error: Error | null;
-}
-interface MorePages {
-  key: string;
-  threads: InboxThreadDoc[];
-  cursor: QueryDocumentSnapshot<InboxThreadDoc> | null;
-  hasMore: boolean;
-  loading: boolean;
   error: Error | null;
 }
 
 /**
- * The admin list: the first page is a live listener (unread dots and statuses stay current); older
- * pages are fetched once with a cursor ("Load more"). A change of filters starts over.
+ * The admin list: ONE live listener whose `limit` grows by a page on each "Load more", so rows
+ * stay current (unread dots, statuses) and a thread arriving between pages can never slip between
+ * two cursor pages and go missing. A change of filters starts over with one page.
  */
 export function useInboxList(
   status: InboxStatus | null,
@@ -190,81 +180,44 @@ export function useInboxList(
   enabled = true,
 ): InboxListState {
   const key = `${status ?? 'all'}|${kind ?? 'all'}`;
-  const [live, setLive] = useState<LivePage | null>(null);
-  const [more, setMore] = useState<MorePages | null>(null);
+  const [pagesFor, setPagesFor] = useState<{ key: string; pages: number }>({ key, pages: 1 });
+  const [live, setLive] = useState<LiveList | null>(null);
+
+  const pages = pagesFor.key === key ? pagesFor.pages : 1;
+  const count = pages * INBOX_LIMITS.pageSize;
 
   useEffect(() => {
     if (!enabled) return;
     return onSnapshot(
-      inboxQueries.list(status, kind),
-      (snap) =>
-        setLive({
-          key,
-          threads: snap.docs.map((d) => d.data()),
-          cursor: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1]! : null,
-          error: null,
-        }),
+      inboxQueries.list(status, kind, count),
+      (snap) => setLive({ key, count, threads: snap.docs.map((d) => d.data()), error: null }),
       (error) => {
         console.error('Inbox list listener failed', error);
-        setLive({ key, threads: [], cursor: null, error });
-      },
-    );
-  }, [enabled, status, kind, key]);
-
-  const currentLive = live?.key === key ? live : null;
-  const currentMore = more?.key === key ? more : null;
-
-  const threads = useMemo(() => {
-    const first = currentLive?.threads ?? [];
-    const seen = new Set(first.map((t) => t.id));
-    return [...first, ...(currentMore?.threads ?? []).filter((t) => !seen.has(t.id))];
-  }, [currentLive, currentMore]);
-
-  const hasMore = currentMore
-    ? currentMore.hasMore
-    : (currentLive?.threads.length ?? 0) >= INBOX_LIMITS.pageSize;
-  const tail = currentMore?.cursor ?? currentLive?.cursor ?? null;
-  const busy = currentMore?.loading ?? false;
-
-  const loadMore = useCallback(() => {
-    if (!tail || busy) return;
-    setMore((prev) => ({
-      key,
-      threads: prev?.key === key ? prev.threads : [],
-      cursor: prev?.key === key ? prev.cursor : null,
-      hasMore: true,
-      loading: true,
-      error: null,
-    }));
-    getDocs(inboxQueries.list(status, kind, tail)).then(
-      (snap) =>
-        setMore((prev) => ({
+        // Keep the rows already shown when only a "Load more" fails.
+        setLive((prev) => ({
           key,
-          threads: [...(prev?.key === key ? prev.threads : []), ...snap.docs.map((d) => d.data())],
-          cursor: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1]! : tail,
-          hasMore: snap.docs.length >= INBOX_LIMITS.pageSize,
-          loading: false,
-          error: null,
-        })),
-      (error: Error) => {
-        console.error('Inbox "load more" failed', error);
-        setMore((prev) => ({
-          key,
+          count,
           threads: prev?.key === key ? prev.threads : [],
-          cursor: prev?.key === key ? prev.cursor : null,
-          hasMore: true,
-          loading: false,
           error,
         }));
       },
     );
-  }, [tail, busy, key, status, kind]);
+  }, [enabled, status, kind, key, count]);
+
+  const current = live?.key === key ? live : null;
+  const loadingMore = current !== null && current.error === null && current.count !== count;
+  const hasMore = current !== null && current.count === count && current.threads.length >= count;
+
+  const loadMore = useCallback(() => {
+    if (!hasMore) return;
+    setPagesFor({ key, pages: pages + 1 });
+  }, [hasMore, key, pages]);
 
   return {
-    threads,
-    loading: enabled && currentLive === null,
-    loadingMore: busy,
-    error: currentLive?.error ?? currentMore?.error ?? null,
+    threads: current?.threads ?? [],
+    loading: enabled && current === null,
+    loadingMore,
+    error: current?.error ?? null,
     hasMore,
     loadMore,
   };

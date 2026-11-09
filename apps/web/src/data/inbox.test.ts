@@ -73,14 +73,12 @@ describe('inbox query shapes (each is covered by an index)', () => {
     ]);
   });
 
-  it('a cursor goes after the order and before the limit', () => {
-    const cursor = { id: 'last' };
-    const q = inboxQueries.list('open', null, cursor as never) as unknown as Q;
+  it('a larger page count only raises the limit (still one query, no cursor)', () => {
+    const q = inboxQueries.list('open', null, 40) as unknown as Q;
     expect(q.constraints).toEqual([
       ['where', 'status', '==', 'open'],
       ['orderBy', 'lastMessageAt', 'desc'],
-      ['startAfter', cursor],
-      ['limit', 20],
+      ['limit', 40],
     ]);
   });
 
@@ -158,22 +156,57 @@ describe('useInboxList', () => {
     spy.mockRestore();
   });
 
-  it('loads older pages with the cursor of the last row and stops on a short page', async () => {
-    const first = fakeDocs(ids(20));
-    fb.onSnapshot.mockImplementation((_q, next) => {
-      next({ docs: first });
-      return () => undefined;
+  it('Load more raises the limit of one live listener and stops on a short page', async () => {
+    const all = fakeDocs(ids(25));
+    const unsubscribe = vi.fn();
+    fb.onSnapshot.mockImplementation((q: Q, next) => {
+      const n = (q.constraints.find((c) => (c as unknown[])[0] === 'limit') as [string, number])[1];
+      next({ docs: all.slice(0, n) });
+      return unsubscribe;
     });
-    fb.getDocs.mockResolvedValue({ docs: fakeDocs(ids(5, 20)) });
     const { result } = renderHook(() => useInboxList(null, null));
     expect(result.current.threads).toHaveLength(20);
     expect(result.current.hasMore).toBe(true);
 
     act(() => result.current.loadMore());
     await waitFor(() => expect(result.current.threads).toHaveLength(25));
-    const q = fb.getDocs.mock.calls[0]![0] as Q;
-    expect(q.constraints).toContainEqual(['startAfter', first[19]]);
     expect(result.current.hasMore).toBe(false);
+    expect(result.current.loadingMore).toBe(false);
+    const limits = fb.onSnapshot.mock.calls.map(
+      (c) =>
+        (
+          (c[0] as Q).constraints.find((x) => (x as unknown[])[0] === 'limit') as [string, number]
+        )[1],
+    );
+    expect(limits).toEqual([20, 40]);
+    expect(unsubscribe).toHaveBeenCalledTimes(1); // the first listener was replaced
+    expect(fb.getDocs).not.toHaveBeenCalled();
+  });
+
+  it('a thread arriving between pages is not dropped', async () => {
+    let rows = ids(20);
+    let push: ((docs: ReturnType<typeof fakeDocs>) => void) | null = null;
+    fb.onSnapshot.mockImplementation((q: Q, next) => {
+      const n = (q.constraints.find((c) => (c as unknown[])[0] === 'limit') as [string, number])[1];
+      const emit = () => next({ docs: fakeDocs(rows.slice(0, n)) });
+      emit();
+      push = emit;
+      return () => {
+        push = null;
+      };
+    });
+    const { result } = renderHook(() => useInboxList(null, null));
+    // A new thread arrives at the top before the person presses Load more.
+    rows = ['new', ...rows, ...ids(5, 20)];
+    act(() => push?.([]));
+    expect(result.current.threads.map((t) => t.id)).toEqual(['new', ...ids(19)]);
+
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.threads).toHaveLength(26));
+    const seen = result.current.threads.map((t) => t.id);
+    expect(new Set(seen).size).toBe(26);
+    expect(seen).toContain('t19'); // pushed past the first page by the new row, still listed
+    expect(seen).toContain('t24');
   });
 
   it('starts over when the filters change', () => {
