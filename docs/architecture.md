@@ -70,7 +70,7 @@ Readable by any signed-in user who shares a workspace with this user (P4; in P0 
 
 ### 5.2 `workspaces/{workspaceId}`
 ```
-name, description, icon (a letter or emoji of 1 to 8 characters, or `mi:<key>`, a Material Symbols name such as `mi:home`; keys are `[a-z0-9_]{1,40}`, max 48 characters in all; the curated set lives in `apps/web/src/components/workspace-icons/icons.generated.ts`, an unknown key renders as the first letter of the name), color,
+name, description, icon (a letter or emoji of 1 to 8 characters, `ph:<key>`, a Phosphor name such as `ph:rocket-launch`, or the legacy `mi:<key>`, a Material Symbols name such as `mi:home`, which stays valid; keys are `[a-z0-9_-]{1,40}`, max 48 characters in all; the curated set lives in `apps/web/src/components/workspace-icons/icons.generated.ts`, an unknown key renders as the first letter of the name), color,
 ownerId,
 memberIds: string[]                       // for array-contains queries + rules
 roles: { [uid]: 'owner'|'admin'|'member'|'viewer' }
@@ -93,7 +93,7 @@ invites/{id}:   email (lowercased), role 'admin'|'member'|'viewer', invitedBy, i
 - **Web:** `useWorkspaceMembers(wsId)` (one cached listener per open workspace) and `useUserLookup(wsId?)` (`uid -> {name, photoURL}`, defaulting to the workspace the shell shows) feed avatars, people cells, filters and group-by. The Members dialog (`components/membership/`) and the `/invite/:workspaceId/:inviteId` page call the callables.
 
 ### 5.3 `workspaces/{workspaceId}/folders/{folderId}`
-`name, parentFolderId|null, color, position`
+`name, parentFolderId|null, color, icon?, position` (`icon` is optional and has the same shape as the workspace icon; no icon means the default folder glyph)
 
 ### 5.4 `boards/{boardId}` (top-level collection)
 ```
