@@ -93,7 +93,14 @@ export interface InboxStore {
   /** Deletes up to `limit` `inboxAudit` entries of the thread. */
   deleteAuditBatch(threadId: string, limit: number): Promise<number>;
   deleteNotifications(refs: ReadonlyArray<{ uid: string; id: string }>): Promise<void>;
-  /** Deletes `inboxNotes/{threadId}` and the thread document in one batch. */
+  /**
+   * Remembers which admins got an `inbox_new` card for the thread, on the admin-only audit parent
+   * document `inboxAudit/{threadId}` (`notifiedUids`, array union; Admin SDK only, never on a
+   * document the sender can read), so a delete can find the cards of admins who have since lost the role.
+   */
+  addNotifiedUids(threadId: string, uids: ReadonlyArray<string>): Promise<void>;
+  getNotifiedUids(threadId: string): Promise<string[]>;
+  /** Deletes `inboxNotes/{threadId}`, `inboxAudit/{threadId}` and the thread document in one batch. */
   deleteNoteAndThread(threadId: string): Promise<void>;
   /** Writes the notification with `set` (createdAt now, readAt null): one card per thread per person. */
   upsertNotification(uid: string, id: string, data: NewNotification): Promise<void>;
@@ -243,8 +250,14 @@ async function notifyAdmins(deps: InboxDeps, notice: AdminNotice): Promise<void>
     },
     notice,
   );
-  for (const adminUid of admins) {
-    if (adminUid === notice.senderUid) continue;
+  const targets = admins.filter((adminUid) => adminUid !== notice.senderUid);
+  // Recorded before the writes: a card written by a half-failed attempt is still found on delete.
+  try {
+    await deps.store.addNotifiedUids(notice.threadId, targets);
+  } catch (error) {
+    logger.error('Inbox: could not record notified admins', { threadId: notice.threadId, error });
+  }
+  for (const adminUid of targets) {
     try {
       await deps.store.upsertNotification(
         adminUid,
@@ -851,7 +864,12 @@ export async function deleteThread(
 ): Promise<boolean> {
   const { store, auth } = deps;
   const thread = await store.getThread(threadId);
-  const uids = new Set(await auth.listAdminUids());
+  // Current admins, every admin who was ever notified of this thread (they may have lost the role
+  // since), and the sender.
+  const uids = new Set([
+    ...(await auth.listAdminUids()),
+    ...(await store.getNotifiedUids(threadId)),
+  ]);
   if (thread) uids.add(thread.senderUid);
 
   const refs = [...uids].flatMap((uid) =>

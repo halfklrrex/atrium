@@ -104,7 +104,18 @@ class FakeStore implements InboxStore {
     for (const r of refs) this.notifications.delete(`${r.uid}/${r.id}`);
     return Promise.resolve();
   }
+  notified = new Map<string, Set<string>>();
+  addNotifiedUids(threadId: string, uids: ReadonlyArray<string>) {
+    const set = this.notified.get(threadId) ?? new Set<string>();
+    for (const uid of uids) set.add(uid);
+    this.notified.set(threadId, set);
+    return Promise.resolve();
+  }
+  getNotifiedUids(threadId: string) {
+    return Promise.resolve([...(this.notified.get(threadId) ?? [])]);
+  }
   deleteNoteAndThread(threadId: string) {
+    this.notified.delete(threadId);
     this.notes.delete(threadId);
     this.threads.delete(threadId);
     return Promise.resolve();
@@ -885,6 +896,19 @@ describe('deleteThread', () => {
     expect([...store.notifications.keys()].every((k) => k.includes('t2'))).toBe(true);
     expect(store.notifications.size).toBe(3);
     expect(store.limits.has('u1')).toBe(true);
+  });
+
+  it('also deletes the card of a former admin who was notified of the thread', async () => {
+    const { store, auth, deps } = setup();
+    const id = uuid();
+    await sendInboxMessage(deps, approved, feedback(id));
+    const formerKey = `adm2/${notificationId('inbox_new', id, 'adm2')}`;
+    expect(store.notifications.has(formerKey)).toBe(true);
+    expect([...store.notified.get(id)!].sort()).toEqual(['adm1', 'adm2']);
+    auth.admins = ['adm1']; // adm2 lost the role since
+    await deleteThread(deps, id);
+    expect(store.notifications.size).toBe(0);
+    expect(store.notified.has(id)).toBe(false);
   });
 
   it('deletes in batches of at most 400 until empty, and the thread document last', async () => {

@@ -55,6 +55,7 @@ class Fake {
     getThread: async (id: string) =>
       this.threads.has(id) ? ({ senderUid: 'u1' } as unknown as ThreadData) : null,
     deleteNotifications: async () => {},
+    getNotifiedUids: async () => [],
     deleteMessagesBatch: async () => 0,
     deleteAuditBatch: async () => 0,
     deleteNoteAndThread: async (id: string) => void this.threads.delete(id),
