@@ -182,6 +182,8 @@ export function useInboxList(
   const key = `${status ?? 'all'}|${kind ?? 'all'}`;
   const [pagesFor, setPagesFor] = useState<{ key: string; pages: number }>({ key, pages: 1 });
   const [live, setLive] = useState<LiveList | null>(null);
+  // Bumped to re-subscribe at the same limit after a failed "Load more".
+  const [attempt, setAttempt] = useState(0);
 
   const pages = pagesFor.key === key ? pagesFor.pages : 1;
   const count = pages * INBOX_LIMITS.pageSize;
@@ -202,16 +204,27 @@ export function useInboxList(
         }));
       },
     );
-  }, [enabled, status, kind, key, count]);
+  }, [enabled, status, kind, key, count, attempt]);
 
   const current = live?.key === key ? live : null;
   const loadingMore = current !== null && current.error === null && current.count !== count;
-  const hasMore = current !== null && current.count === count && current.threads.length >= count;
+  // After a failed "Load more" the rows stay and the button stays, so it can be tried again.
+  const failedMore = current !== null && current.error !== null && current.threads.length > 0;
+  const hasMore =
+    failedMore || (current !== null && current.count === count && current.threads.length >= count);
 
   const loadMore = useCallback(() => {
+    if (failedMore) {
+      // Same limit again: clear the error, show the rows as still loading, and re-subscribe.
+      setLive((prev) =>
+        prev ? { ...prev, error: null, count: Math.max(INBOX_LIMITS.pageSize, count - 1) } : prev,
+      );
+      setAttempt((n) => n + 1);
+      return;
+    }
     if (!hasMore) return;
     setPagesFor({ key, pages: pages + 1 });
-  }, [hasMore, key, pages]);
+  }, [failedMore, hasMore, key, pages, count]);
 
   return {
     threads: current?.threads ?? [],
