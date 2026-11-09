@@ -20,6 +20,11 @@ export function adminPushTokenStore(firestore: Firestore): PushTokenStore {
       const snap = await firestore.collection('users').doc(uid).get();
       return snap.get('notificationPrefs') ?? undefined;
     },
+    async getAccountStatus(uid) {
+      const snap = await firestore.collection('users').doc(uid).get();
+      const status: unknown = snap.get('accountStatus');
+      return status === 'pending' || status === 'approved' || status === 'blocked' ? status : null;
+    },
     async deleteToken(uid, tokenId) {
       await tokens(uid).doc(tokenId).delete();
     },

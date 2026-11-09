@@ -1,5 +1,6 @@
 import {
   DEFAULT_PUSH_PREFS,
+  type AccountStatus,
   type NotificationKind,
   type NotificationPrefs,
   type PushPrefs,
@@ -55,6 +56,8 @@ export interface PushTokenStore {
   /** `users/{uid}.notificationPrefs`, `undefined` when unset. */
   getPrefs(uid: string): Promise<Partial<NotificationPrefs> | undefined>;
   deleteToken(uid: string, tokenId: string): Promise<void>;
+  /** `users/{uid}.accountStatus`, `null` when the doc or the field is missing (counts as approved). */
+  getAccountStatus(uid: string): Promise<AccountStatus | null>;
 }
 
 export interface PushMessage {
@@ -193,6 +196,10 @@ export async function sendPush(
 
     const tokens = await store.listTokens(uid);
     if (tokens.length === 0) return;
+
+    // Pending and blocked accounts get nothing (a missing status counts as approved, as elsewhere).
+    const accountStatus = await store.getAccountStatus(uid);
+    if (accountStatus !== null && accountStatus !== 'approved') return;
 
     const prefs = await store.getPrefs(uid);
     const enabled = { ...DEFAULT_PUSH_PREFS, ...prefs?.push }[key];

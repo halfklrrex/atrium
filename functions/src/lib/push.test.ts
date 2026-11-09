@@ -59,6 +59,7 @@ function setup(
     sendThrows?: boolean;
     listThrows?: boolean;
     deleteThrows?: boolean;
+    accountStatus?: 'pending' | 'approved' | 'blocked' | null;
   } = {},
 ): Setup {
   const tokens = opts.tokens ?? [SECRET_TOKEN];
@@ -73,6 +74,7 @@ function setup(
         return tokens.map((token, i) => ({ id: `id${i}`, token }));
       },
       getPrefs: async () => opts.prefs as never,
+      getAccountStatus: async () => opts.accountStatus ?? null,
       deleteToken: async (_uid, id) => {
         if (opts.deleteThrows) throw new Error('nope');
         deleted.push(id);
@@ -102,6 +104,24 @@ const allLogs = (l: Setup['logger']) =>
   JSON.stringify([...l.info.mock.calls, ...l.warn.mock.calls, ...l.error.mock.calls]);
 
 describe('sendPush: gating', () => {
+  it.each(['blocked', 'pending'] as const)(
+    'sends nothing to a %s account',
+    async (accountStatus) => {
+      const s = setup({ accountStatus });
+      await sendPush(s.deps, 'u1', 'n1', note());
+      expect(s.sent).toHaveLength(0);
+    },
+  );
+
+  it.each([null, 'approved'] as const)(
+    'sends to an account with status %s',
+    async (accountStatus) => {
+      const s = setup({ accountStatus });
+      await sendPush(s.deps, 'u1', 'n1', note());
+      expect(s.sent).toHaveLength(1);
+    },
+  );
+
   it('sends nothing when the user has no token docs', async () => {
     const s = setup({ tokens: [] });
     await sendPush(s.deps, 'u1', 'n1', note());
