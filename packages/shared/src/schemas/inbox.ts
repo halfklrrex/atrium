@@ -23,7 +23,11 @@ export const INBOX_LIMITS = {
 export const inboxKindSchema = z.enum(['appeal', 'feedback']);
 export type InboxKind = z.infer<typeof inboxKindSchema>;
 
-export const inboxCategorySchema = z.enum(['bug', 'idea', 'question', 'other']);
+/**
+ * `complaint`: a complaint or a data request (PRIVACY-1); exempt from the open-thread limit (the
+ * daily cap and every other cap still apply).
+ */
+export const inboxCategorySchema = z.enum(['bug', 'idea', 'question', 'other', 'complaint']);
 export type InboxCategory = z.infer<typeof inboxCategorySchema>;
 
 /** `open`: waiting for an admin. `answered`: an admin replied last. `closed`: locked. */

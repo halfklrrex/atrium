@@ -162,6 +162,23 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "closedAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "inbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inbox",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

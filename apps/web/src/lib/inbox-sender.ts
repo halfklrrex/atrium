@@ -20,6 +20,7 @@ export const FEEDBACK_CATEGORIES: readonly { value: InboxCategory; label: string
   { value: 'idea', label: 'Idea' },
   { value: 'question', label: 'Question' },
   { value: 'other', label: 'Other' },
+  { value: 'complaint', label: 'Complaint or data request' },
 ];
 
 export const CATEGORY_LABELS: Record<InboxCategory, string> = {
@@ -27,6 +28,13 @@ export const CATEGORY_LABELS: Record<InboxCategory, string> = {
   idea: 'Idea',
   question: 'Question',
   other: 'Other',
+  complaint: 'Complaint or data request',
+};
+
+/** Short labels for chips and list rows, where space is tight. */
+export const CATEGORY_SHORT_LABELS: Record<InboxCategory, string> = {
+  ...CATEGORY_LABELS,
+  complaint: 'Complaint',
 };
 
 /** What the sender calls each status (an admin never "closes" on them in the abstract). */
