@@ -68,6 +68,7 @@
   --atrium-message-wide-max-width: 600px; /* full-page message with a conversation (blocked screen) */
   --atrium-login-copy-max-width: 420px; /* login brand panel text column */
   --atrium-login-card-width: 400px; /* login form column */
+  --atrium-prose-max-width: 680px; /* long-form text column (privacy notice): about 70 characters */
   --atrium-login-watermark-inset: -90px; /* login brand mark bleeds off the panel corner */
 
   /* ---- Subitems ---- */

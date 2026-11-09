@@ -1,4 +1,5 @@
 import { Modal, ModalBasicLayout, ModalContent, ModalFooter, ModalHeader } from '@vibe/core';
+import { Link } from 'react-router';
 import { APP_VERSION, aboutLinks } from '../../lib/about';
 import { BrandMark } from '../BrandMark';
 import styles from './dialogs.module.css';
@@ -39,6 +40,11 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
                 <a href={links.source} target="_blank" rel="noopener noreferrer">
                   Source code
                 </a>
+              </li>
+              <li>
+                <Link to="/privacy" onClick={onClose}>
+                  Privacy
+                </Link>
               </li>
               <li>
                 <a href={links.licence} target="_blank" rel="noopener noreferrer">

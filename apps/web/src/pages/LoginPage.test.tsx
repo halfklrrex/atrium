@@ -45,6 +45,11 @@ describe('LoginPage', () => {
     sessionStorage.clear();
   });
 
+  it('links to the privacy notice', () => {
+    renderLogin(authValue());
+    expect(screen.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy');
+  });
+
   it('shows the blocked notice once after a forced sign-out, then clears the flag', () => {
     setBlockedNotice();
     const first = renderLogin(authValue());

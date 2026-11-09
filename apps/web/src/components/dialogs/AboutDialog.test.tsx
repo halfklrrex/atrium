@@ -1,12 +1,30 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { APP_VERSION, SOURCE_REPO_URL, aboutLinks } from '../../lib/about';
 import { AboutDialog } from './AboutDialog';
 
+function renderAbout(onClose = vi.fn()) {
+  return render(
+    <MemoryRouter>
+      <AboutDialog onClose={onClose} />
+    </MemoryRouter>,
+  );
+}
+
 describe('AboutDialog', () => {
+  it('links to the privacy notice and closes itself on the way', async () => {
+    const onClose = vi.fn();
+    renderAbout(onClose);
+    const link = screen.getByRole('link', { name: 'Privacy' });
+    expect(link).toHaveAttribute('href', '/privacy');
+    await userEvent.click(link);
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('shows the version, the licence line and the source offer links', () => {
-    render(<AboutDialog onClose={vi.fn()} />);
+    renderAbout();
     expect(screen.getByRole('heading', { name: 'About Atrium' })).toBeInTheDocument();
     expect(screen.getByTestId('about-version')).toHaveTextContent(APP_VERSION);
     expect(
@@ -22,7 +40,7 @@ describe('AboutDialog', () => {
   });
 
   it('credits Twemoji under CC-BY 4.0', () => {
-    render(<AboutDialog onClose={vi.fn()} />);
+    renderAbout();
     expect(screen.getByText(/Emoji graphics are Twemoji/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'CC-BY 4.0' })).toHaveAttribute(
       'href',
@@ -32,7 +50,7 @@ describe('AboutDialog', () => {
 
   it('closes from the Close button', async () => {
     const onClose = vi.fn();
-    render(<AboutDialog onClose={onClose} />);
+    renderAbout(onClose);
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
   });
