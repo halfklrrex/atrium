@@ -79,6 +79,19 @@ async function openAccountMenu(page: Page) {
   await expect(page.getByRole('menuitem', { name: 'Send feedback' })).toBeVisible();
 }
 
+/**
+ * Choose an entry of the open account menu and wait for the dialog it opens. The click is retried
+ * while the menu is still up: on a touch device a tap that lands as the menu animates can be lost.
+ */
+async function chooseAccountMenuEntry(page: Page, entry: string, dialogHeading: string) {
+  const item = page.getByRole('menuitem', { name: entry });
+  const heading = page.getByRole('dialog').getByRole('heading', { name: dialogHeading });
+  await expect(async () => {
+    if (await item.isVisible()) await item.click();
+    await expect(heading).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
 async function openNotificationSettings(page: Page) {
   // Deterministic whatever the browser build offers: hide the push API.
   await page.addInitScript(() => {
@@ -254,8 +267,7 @@ export const MOBILE_SCREENS: MobileScreen[] = [
     overlay: '[role="dialog"]',
     open: async (page) => {
       await openAccountMenu(page);
-      await page.getByRole('menuitem', { name: 'About Atrium' }).click();
-      await expect(page.getByRole('dialog').getByText('About Atrium').first()).toBeVisible();
+      await chooseAccountMenuEntry(page, 'About Atrium', 'About Atrium');
     },
   },
   {
@@ -264,9 +276,8 @@ export const MOBILE_SCREENS: MobileScreen[] = [
     overlay: '[role="dialog"]',
     open: async (page) => {
       await openAccountMenu(page);
-      await page.getByRole('menuitem', { name: 'Send feedback' }).click();
+      await chooseAccountMenuEntry(page, 'Send feedback', 'Send feedback');
       const dialog = page.getByRole('dialog');
-      await expect(dialog.getByRole('heading', { name: 'Send feedback' })).toBeVisible();
       await dialog.getByLabel('Subject').fill('Keyboard shortcut for new item');
       await dialog
         .getByLabel('Message')
