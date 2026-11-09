@@ -103,6 +103,19 @@ function setup(
 const allLogs = (l: Setup['logger']) =>
   JSON.stringify([...l.info.mock.calls, ...l.warn.mock.calls, ...l.error.mock.calls]);
 
+describe('sendPush: no email in the title', () => {
+  it.each(['account_request', 'inbox_new'] as const)(
+    '%s uses "Someone" when the actor name is an email address',
+    async (kind) => {
+      const s = setup();
+      await sendPush(s.deps, 'u1', 'n1', note({ kind, actorName: 'avery@example.com' }));
+      const title = s.sent[0]!.data.title!;
+      expect(title).not.toContain('@');
+      expect(title.startsWith('Someone ')).toBe(true);
+    },
+  );
+});
+
 describe('sendPush: gating', () => {
   it.each(['blocked', 'pending'] as const)(
     'sends nothing to a %s account',
