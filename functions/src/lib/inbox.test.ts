@@ -119,7 +119,7 @@ class FakeStore implements InboxStore {
 
 class FakeAuth implements InboxAuth {
   admins = ['adm1', 'adm2'];
-  statuses = new Map<string, 'approved' | 'blocked' | 'pending'>();
+  statuses = new Map<string, 'approved' | 'blocked' | 'pending'>([['b1', 'blocked']]);
   failList = false;
   listAdminUids() {
     return this.failList ? Promise.reject(new Error('auth down')) : Promise.resolve(this.admins);
@@ -383,6 +383,23 @@ describe('sendInboxMessage: appeal', () => {
     const error = await refusal(sendInboxMessage(deps, pending, appeal()));
     expect(error.code).toBe('permission-denied');
     expect(store.threads.size).toBe(0);
+  });
+
+  it('a stale blocked token cannot open an appeal after an unblock', async () => {
+    const { store, auth, deps } = setup();
+    auth.statuses.set('b1', 'approved'); // unblocked; the token still says blocked
+    const error = await refusal(sendInboxMessage(deps, blocked, appeal()));
+    expect(error.code).toBe('failed-precondition');
+    expect(store.threads.size).toBe(0);
+  });
+
+  it('a stale blocked token cannot reply on an appeal after an unblock', async () => {
+    const { store, auth, deps } = setup();
+    store.threads.set('a1', thread({ senderUid: 'b1', kind: 'appeal', status: 'answered' }));
+    auth.statuses.set('b1', 'approved');
+    const error = await refusal(sendInboxMessage(deps, blocked, reply('a1')));
+    expect(error.code).toBe('failed-precondition');
+    expect(store.messages.size).toBe(0);
   });
 
   it('only one open or answered appeal: already-exists with the thread id', async () => {
