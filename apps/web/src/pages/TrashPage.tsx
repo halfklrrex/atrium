@@ -26,12 +26,15 @@ import {
 } from '../data';
 import styles from './TrashPage.module.css';
 import pageStyles from './Pages.module.css';
+import { idFromSlugParam, workspaceParam, workspacePath } from '../lib/paths';
+import { CanonicalUrl } from '../components/CanonicalUrl';
 
 const TAB_DELETED = 0;
 const TAB_ARCHIVED = 1;
 
 export function TrashPage() {
-  const { workspaceId } = useParams();
+  const { workspaceId: workspaceParamValue } = useParams();
+  const workspaceId = idFromSlugParam(workspaceParamValue);
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const [tab, setTab] = useState<number>(TAB_DELETED);
@@ -112,10 +115,11 @@ export function TrashPage() {
 
   return (
     <div className={styles.page}>
+      <CanonicalUrl param={workspaceParamValue} canonical={workspaceParam(workspace)} />
       <div className={styles.cover} aria-hidden="true" />
       <div className={styles.inner}>
         <header className={styles.header}>
-          <Link to={`/workspaces/${workspace.id}`} className={styles.backLink}>
+          <Link to={workspacePath(workspace)} className={styles.backLink}>
             <NavigationChevronLeft /> Back to {workspace.name}
           </Link>
 

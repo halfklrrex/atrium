@@ -35,6 +35,7 @@ import { EmptyState } from '../EmptyState/EmptyState';
 import { NoFavorites } from '../illustrations';
 import { dragClickGuard, guardedNavigate } from './dragClickGuard';
 import styles from './Sidebar.module.css';
+import { boardPath } from '../../lib/paths';
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
@@ -210,7 +211,7 @@ function FavoriteRow({
     >
       <div className={classNames(styles.treeRow, styles.favoriteRow, menuOpen && styles.menuOpen)}>
         <NavLink
-          to={`/boards/${board.id}`}
+          to={boardPath(board)}
           className={({ isActive }) =>
             classNames(styles.treeMain, isActive && styles.favoriteActive)
           }

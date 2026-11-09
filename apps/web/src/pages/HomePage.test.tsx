@@ -85,7 +85,10 @@ describe('HomePage', () => {
       b2: makeBoard({ id: 'b2', name: 'Old plan', state: 'archived' }),
     };
     renderHome();
-    expect(screen.getByRole('link', { name: 'Roadmap' })).toHaveAttribute('href', '/boards/b1');
+    expect(screen.getByRole('link', { name: 'Roadmap' })).toHaveAttribute(
+      'href',
+      '/boards/roadmap-b1',
+    );
     expect(screen.queryByText('Old plan')).not.toBeInTheDocument();
     expect(screen.getAllByText('Home base').length).toBeGreaterThan(0);
   });
@@ -94,7 +97,7 @@ describe('HomePage', () => {
     renderHome();
     expect(screen.getByRole('link', { name: /Home base/ })).toHaveAttribute(
       'href',
-      '/workspaces/w1',
+      '/workspaces/home-base-w1',
     );
   });
 });

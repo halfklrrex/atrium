@@ -133,13 +133,13 @@ describe('SearchDialog', () => {
     expect(input).toHaveAttribute('aria-activedescendant', options[options.length - 1]!.id);
     await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
     expect(onClose).toHaveBeenCalled();
-    expect(screen.getByTestId('where')).toHaveTextContent('/boards/b1/items/i1');
+    expect(screen.getByTestId('where')).toHaveTextContent('/boards/product-roadmap-b1/items/i1');
   });
 
   it('opens a board by clicking its row', async () => {
     const user = setup();
     await user.click(screen.getByRole('option', { name: /Product roadmap/ }));
-    expect(screen.getByTestId('where')).toHaveTextContent('/boards/b1');
+    expect(screen.getByTestId('where')).toHaveTextContent('/boards/product-roadmap-b1');
   });
 
   it('aborts the older run when the term changes', async () => {

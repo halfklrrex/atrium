@@ -44,12 +44,15 @@ import {
 } from '../data';
 import styles from './WorkspacePage.module.css';
 import pageStyles from './Pages.module.css';
+import { idFromSlugParam, workspacePath, workspaceParam } from '../lib/paths';
+import { CanonicalUrl } from '../components/CanonicalUrl';
 
 const TAB_RECENTS = 0;
 const TAB_CONTENT = 1;
 
 export function WorkspacePage() {
-  const { workspaceId } = useParams();
+  const { workspaceId: workspaceParamValue } = useParams();
+  const workspaceId = idFromSlugParam(workspaceParamValue);
   const navigate = useNavigate();
   const { user, rememberWorkspace } = useAuth();
   const uid = user?.uid ?? null;
@@ -113,6 +116,7 @@ export function WorkspacePage() {
 
   return (
     <div className={styles.page}>
+      <CanonicalUrl param={workspaceParamValue} canonical={workspaceParam(workspace)} />
       <div className={styles.cover} aria-hidden="true" />
 
       <div className={styles.inner}>
@@ -173,7 +177,7 @@ export function WorkspacePage() {
                 <MenuItem
                   title="Archive & Trash"
                   icon={Delete}
-                  onClick={() => navigate(`/workspaces/${workspace.id}/trash`)}
+                  onClick={() => navigate(workspacePath(workspace, '/trash'))}
                 />
               </Menu>
             </MenuButton>

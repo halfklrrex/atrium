@@ -21,6 +21,7 @@ import styles from './dialogs.module.css';
 import { submitOnEnter } from './submitOnEnter';
 import { WorkspaceTile } from '../WorkspaceTile';
 import { IconPicker } from '../workspace-icons/IconPicker';
+import { workspacePath } from '../../lib/paths';
 
 const firstGlyph = (text: string): string => [...text.trim()][0]?.toUpperCase() ?? '';
 
@@ -58,7 +59,7 @@ export function NewWorkspaceDialog({ onClose }: { onClose: () => void }) {
     try {
       const id = await writes.createWorkspace(user.uid, parsed.data);
       onClose();
-      void navigate(`/workspaces/${id}`);
+      void navigate(workspacePath({ id, name: parsed.data.name }));
     } catch (e) {
       setError(describeError(e, 'Could not create the workspace.'));
       setSubmitting(false);

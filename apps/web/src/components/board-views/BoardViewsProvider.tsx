@@ -51,14 +51,20 @@ export function BoardViewsProvider({
     writeLastView(boardId, view.id);
     useItemViewStore.getState().setView(boardId, view.id);
   }, [boardId, view.id]);
+  const boardName = board.name;
+  useEffect(() => {
+    useItemViewStore.getState().setBoardName(boardId, boardName);
+  }, [boardId, boardName]);
 
   // The layout effect above runs before paint, so a view switch never shows the previous view's filters.
   const ready = useFilterStore((s) => s.activeView[boardId] !== undefined);
 
   const goTo = useCallback(
     (viewId: string, options?: { replace?: boolean }) =>
-      void navigate(boardViewPath(boardId, viewId), { replace: options?.replace ?? false }),
-    [navigate, boardId],
+      void navigate(boardViewPath({ id: boardId, name: boardName }, viewId), {
+        replace: options?.replace ?? false,
+      }),
+    [navigate, boardId, boardName],
   );
   const firstGroupId = useMemo(
     () => [...board.groups].sort((a, b) => (a.position < b.position ? -1 : 1))[0]?.id,

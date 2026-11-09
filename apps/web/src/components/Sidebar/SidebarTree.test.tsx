@@ -72,13 +72,16 @@ describe('SidebarTree', () => {
     renderTree({ expanded: new Set(['f1']) });
     const child = screen.getByText('Roadmap').closest('[role="treeitem"]');
     expect(child).toHaveAttribute('aria-level', '2');
-    expect(screen.getByRole('link', { name: 'Roadmap' })).toHaveAttribute('href', '/boards/b3');
+    expect(screen.getByRole('link', { name: 'Roadmap' })).toHaveAttribute(
+      'href',
+      '/boards/roadmap-b3',
+    );
   });
 
   it('links boards to their page and marks the active one', () => {
-    renderTree({ activeBoardId: 'b1' }, '/boards/b1');
+    renderTree({ activeBoardId: 'b1' }, '/boards/alpha-board-b1');
     const active = screen.getByRole('link', { name: 'Alpha board' });
-    expect(active).toHaveAttribute('href', '/boards/b1');
+    expect(active).toHaveAttribute('href', '/boards/alpha-board-b1');
     expect(active).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Zeta board' })).not.toHaveAttribute('aria-current');
   });
@@ -159,14 +162,14 @@ describe('SidebarTree', () => {
       ]);
       expect(screen.getByRole('link', { name: 'Team overview' })).toHaveAttribute(
         'href',
-        '/dashboards/d1',
+        '/dashboards/team-overview-d1',
       );
     });
 
     it('marks the open dashboard and nests ones inside expanded folders', () => {
       renderTree(
         { dashboards, activeDashboardId: 'd2', expanded: new Set(['f1']) },
-        '/dashboards/d2',
+        '/dashboards/budget-d2',
       );
       const link = screen.getByRole('link', { name: 'Budget' });
       expect(link).toHaveAttribute('aria-current', 'page');

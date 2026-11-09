@@ -40,6 +40,7 @@ import { buildBoardWorkbookData } from './workbook-data';
 
 import { canLeaveBoard } from './board-sharing';
 import { folderChoices } from './folder-choices';
+import { idFromSlugParam, workspacePath } from '../../lib/paths';
 
 interface BoardMenuProps {
   board: BoardDoc;
@@ -119,8 +120,8 @@ function BoardMenuContent({
   const isFavorite = favorites.some((f) => f.boardId === board.id);
 
   const leaveIfOpen = () => {
-    if (openBoardMatch?.params.boardId === board.id) {
-      void navigate(`/workspaces/${board.workspaceId}`);
+    if (idFromSlugParam(openBoardMatch?.params.boardId) === board.id) {
+      void navigate(workspacePath({ id: board.workspaceId, name: workspace?.name }));
     }
   };
 

@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/auth-context';
 import { describeCallableError, membershipCalls } from '../../lib/callables';
 import { showToast } from '../toast-store';
 import { useInvitesStore } from './invites-store';
+import { workspacePath } from '../../lib/paths';
 
 export interface InviteRef {
   workspaceId: string;
@@ -29,7 +30,7 @@ export function useRespondToInvite() {
       useInvitesStore.getState().remove(invite.workspaceId, invite.inviteId);
       rememberWorkspace(workspaceId);
       showToast(`You joined ${invite.workspaceName}.`, { type: 'positive' });
-      void navigate(`/workspaces/${workspaceId}`);
+      void navigate(workspacePath({ id: workspaceId, name: invite.workspaceName }));
       return true;
     } catch (e) {
       console.error('Could not accept the invitation', e);
