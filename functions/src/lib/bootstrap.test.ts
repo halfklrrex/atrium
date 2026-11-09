@@ -262,6 +262,20 @@ describe('bootstrapUserInTransaction and ACCOUNT_APPROVAL_REQUIRED', () => {
     }
   });
 
+  it('flag off: a pending or blocked user still gets no workspace and no write', async () => {
+    for (const status of ['pending', 'blocked'] as const) {
+      const store = new FakeTx();
+      store.users.set('u1', { lastWorkspaceId: null, accountStatus: status });
+      const result = await bootstrapUserInTransaction(store.begin(), ada, {}, SERVER_TS, {
+        approvalRequired: false,
+      });
+      expect(result).toEqual({ accountStatus: status });
+      expect(store.workspaces.size).toBe(0);
+      expect(store.members.size).toBe(0);
+      expect(store.users.get('u1')?.lastWorkspaceId).toBeNull();
+    }
+  });
+
   it('flag on: an existing user without a status (pre-gate) behaves as today', async () => {
     const store = new FakeTx();
     store.users.set('u1', { lastWorkspaceId: null });

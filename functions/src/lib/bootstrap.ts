@@ -51,7 +51,8 @@ export interface BootstrapOptions {
   /**
    * `ACCOUNT_APPROVAL_REQUIRED` (ADMIN-2). Off by default: a new user doc is created already
    * `approved` and everything else is as before. On: a new user doc is `pending` and gets no
-   * workspace until an admin approves; an existing pending or blocked user gets none either.
+   * workspace until an admin approves. An existing pending or blocked user gets none either, with
+   * the flag on or off.
    */
   approvalRequired?: boolean;
   /** Called (inside the transaction body, once per attempt) when this call creates the user doc. */
@@ -93,9 +94,12 @@ export async function bootstrapUserInTransaction(
       options.onUserCreated?.();
       return { accountStatus: 'pending' };
     }
-    if (user.accountStatus === 'pending' || user.accountStatus === 'blocked') {
-      return { accountStatus: user.accountStatus };
-    }
+  }
+  // A pending or blocked profile gets no workspace and no write, whatever the approval flag says:
+  // turning the flag off must not let a blocked person create a workspace. Profiles without a
+  // status (older accounts) behave as before.
+  if (user?.accountStatus === 'pending' || user?.accountStatus === 'blocked') {
+    return { accountStatus: user.accountStatus };
   }
 
   // Fast path: the remembered workspace is still valid for this user.
