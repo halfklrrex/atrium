@@ -8,6 +8,7 @@ import {
   WORKSPACE_ICON_GROUPS,
   WORKSPACE_ICONS,
 } from './icons';
+import { REGULAR_PATHS } from './icons-regular.generated';
 import { LEGACY_MATERIAL_ICONS } from './legacy-material';
 
 /** The 161 keys of the first (Material Symbols) icon set, as shipped on 2026-11-09. */
@@ -24,9 +25,9 @@ describe('workspace icon set', () => {
     for (const icon of WORKSPACE_ICONS) {
       expect(icon.key).toMatch(WORKSPACE_ICON_KEY_PATTERN);
       expect(groups.has(icon.group)).toBe(true);
-      expect(icon.regular.length).toBeGreaterThan(10);
+      expect(REGULAR_PATHS[icon.key]?.length).toBeGreaterThan(10);
+      expect(REGULAR_PATHS[icon.key]).not.toBe(icon.fill);
       expect(icon.fill.length).toBeGreaterThan(10);
-      expect(icon.fill).not.toBe(icon.regular);
     }
     for (const group of WORKSPACE_ICON_GROUPS) {
       expect(WORKSPACE_ICONS.some((i) => i.group === group.id)).toBe(true);
@@ -36,7 +37,7 @@ describe('workspace icon set', () => {
   });
 
   it('stays small and does not use the misleading preview picks', () => {
-    expect(generatedSource.length).toBeLessThan(260 * 1024);
+    expect(generatedSource.length).toBeLessThan(140 * 1024);
     const keys = new Set(WORKSPACE_ICONS.map((i) => i.key));
     for (const key of [
       'house',

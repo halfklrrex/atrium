@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { REGULAR_PATHS } from '../workspace-icons/icons-regular.generated';
 import { findWorkspaceIcon } from '../workspace-icons/icons';
 import { NewWorkspaceDialog, WorkspaceSettingsDialog } from './WorkspaceDialogs';
 
@@ -68,7 +69,9 @@ describe('workspace icon picker in the dialogs', () => {
     await userEvent.type(screen.getByLabelText('Search icons'), 'rocket');
     const button = screen.getByRole('button', { name: 'rocket launch' });
     const def = findWorkspaceIcon('ph:rocket-launch')!;
-    expect(button.querySelector('path')).toHaveAttribute('d', def.regular);
+    await waitFor(() =>
+      expect(button.querySelector('path')).toHaveAttribute('d', REGULAR_PATHS['rocket-launch']),
+    );
     await userEvent.click(button);
     expect(button.querySelector('path')).toHaveAttribute('d', def.fill);
   });
