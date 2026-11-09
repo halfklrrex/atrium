@@ -43,6 +43,11 @@ describe('inbox helpers', () => {
     expect(emptyMessage('closed', 'all')).toBe('No closed messages.');
     expect(emptyMessage('all', 'all')).toBe('No messages yet.');
     expect(emptyMessage('all', 'appeal')).toBe('No appeals yet.');
+    expect(emptyMessage('all', 'complaint')).toBe('No complaints yet.');
+    expect(emptyMessage('open', 'complaint')).toBe(
+      'Nothing is waiting for you. No open complaints.',
+    );
+    expect(emptyMessage('closed', 'complaint')).toBe('No closed complaints.');
   });
 
   it('only a closed thread cannot be replied to', () => {

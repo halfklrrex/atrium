@@ -1,16 +1,16 @@
 import {
   INBOX_ADMIN_LABEL,
-  type InboxKind,
   type InboxOutcome,
   type InboxStatus,
   type InboxThread,
 } from '@atrium/shared';
+import type { InboxSourceFilter } from '../../data/inbox';
 import { CATEGORY_SHORT_LABELS, senderLabel } from '../../lib/inbox-sender';
 
 export { INBOX_ADMIN_LABEL };
 
 export type InboxStatusFilter = InboxStatus | 'all';
-export type InboxKindFilter = InboxKind | 'all';
+export type InboxKindFilter = InboxSourceFilter | 'all';
 
 export const INBOX_STATUS_FILTERS: readonly InboxStatusFilter[] = [
   'open',
@@ -18,7 +18,12 @@ export const INBOX_STATUS_FILTERS: readonly InboxStatusFilter[] = [
   'closed',
   'all',
 ];
-export const INBOX_KIND_FILTERS: readonly InboxKindFilter[] = ['all', 'appeal', 'feedback'];
+export const INBOX_KIND_FILTERS: readonly InboxKindFilter[] = [
+  'all',
+  'appeal',
+  'feedback',
+  'complaint',
+];
 
 export const INBOX_STATUS_LABELS: Record<InboxStatusFilter, string> = {
   open: 'Open',
@@ -31,6 +36,7 @@ export const INBOX_KIND_LABELS: Record<InboxKindFilter, string> = {
   all: 'All',
   appeal: 'Appeals',
   feedback: 'Feedback',
+  complaint: 'Complaints',
 };
 
 /** The badge on the Inbox tab and the profile menu: the number, or "99+" above 99. */
@@ -57,7 +63,14 @@ export const OUTCOME_LABELS: Record<InboxOutcome, string> = {
 
 /** Empty-state text for the list, per filter. */
 export function emptyMessage(status: InboxStatusFilter, kind: InboxKindFilter): string {
-  const what = kind === 'appeal' ? 'appeals' : kind === 'feedback' ? 'feedback' : 'messages';
+  const what =
+    kind === 'appeal'
+      ? 'appeals'
+      : kind === 'feedback'
+        ? 'feedback'
+        : kind === 'complaint'
+          ? 'complaints'
+          : 'messages';
   switch (status) {
     case 'open':
       return `Nothing is waiting for you. No open ${what}.`;

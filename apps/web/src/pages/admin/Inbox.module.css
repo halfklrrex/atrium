@@ -13,8 +13,10 @@
 
 .filterGroup {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-8);
+  max-width: 100%;
 }
 
 .filterLabel {
