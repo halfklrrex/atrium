@@ -167,7 +167,9 @@ export function pushTag(n: PushNotificationData): string {
 
 /** Title and body use only what the bell shows (actor name, action, snippet, item and board). */
 export function pushText(n: PushNotificationData): { title: string; body: string } {
-  const title = `${n.actorName || 'Someone'} ${actionText(n)}`;
+  // A display name can fall back to an email address; never put that on a lock screen.
+  const actor = !n.actorName || n.actorName.includes('@') ? 'Someone' : n.actorName;
+  const title = `${actor} ${actionText(n)}`;
   if (n.snippet) return { title, body: n.snippet };
   if (isPlaceholderRef(n.kind)) return { title, body: '' };
   return { title, body: [n.itemName, n.boardName].filter(Boolean).join(' · ') };
