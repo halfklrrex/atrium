@@ -68,6 +68,12 @@ describe('workspace icon picker in the dialogs', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Icons' }));
     await userEvent.type(screen.getByLabelText('Search icons'), 'rocket');
     const button = screen.getByRole('button', { name: 'rocket launch' });
+    await waitFor(() =>
+      expect(button.closest('[data-weights-loaded]')).toHaveAttribute(
+        'data-weights-loaded',
+        'true',
+      ),
+    );
     const def = findWorkspaceIcon('ph:rocket-launch')!;
     await waitFor(() =>
       expect(button.querySelector('path')).toHaveAttribute('d', REGULAR_PATHS['rocket-launch']),
