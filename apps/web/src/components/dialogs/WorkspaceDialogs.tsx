@@ -66,7 +66,13 @@ export function NewWorkspaceDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal id="new-workspace-dialog" show size="small" onClose={onClose}>
+    <Modal
+      id="new-workspace-dialog"
+      show
+      size="medium"
+      className={styles.workspaceModal}
+      onClose={onClose}
+    >
       <ModalBasicLayout>
         <ModalHeader title="Add workspace" />
         <ModalContent>
@@ -214,7 +220,13 @@ function WorkspaceSettingsForm({
   }
 
   return (
-    <Modal id="workspace-settings-dialog" show size="small" onClose={onClose}>
+    <Modal
+      id="workspace-settings-dialog"
+      show
+      size="medium"
+      className={styles.workspaceModal}
+      onClose={onClose}
+    >
       <ModalBasicLayout>
         <ModalHeader title="Workspace settings" />
         <ModalContent>
