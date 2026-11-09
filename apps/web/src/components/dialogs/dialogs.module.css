@@ -190,3 +190,16 @@
 .settingsSectionFirst {
   margin-block-start: 0;
 }
+
+/* The workspace dialogs hold the icon picker: taller than Vibe's "small" modal (50% of the
+   viewport) and never wider than the screen. The doubled class beats Vibe's .modal.sizeX. */
+.workspaceModal.workspaceModal {
+  --modal-max-height: 90%;
+  --modal-width: min(var(--atrium-workspace-dialog-width), calc(100vw - var(--space-16) * 2));
+}
+
+@media (width <= 640px) {
+  .workspaceModal.workspaceModal {
+    --modal-inline-padding: var(--space-16);
+  }
+}
