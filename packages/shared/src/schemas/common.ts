@@ -39,6 +39,34 @@ export const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Expected #R
 /** Emoji or short letter used as an avatar. */
 export const iconSchema = z.string().min(1).max(8);
 
+/** Prefix of a stored Material Symbols icon key: `mi:<key>` (workspaces only). */
+export const WORKSPACE_ICON_PREFIX = 'mi:';
+/** A Material Symbols name as stored after the prefix, e.g. `home`, `diversity_3`. */
+export const WORKSPACE_ICON_KEY_PATTERN = /^[a-z0-9_]{1,40}$/;
+
+/**
+ * Workspace icon: a legacy letter or emoji (1 to 8 characters) or `mi:<key>`, a Material Symbols
+ * name (max 43 characters in all). Mirrors `validWorkspaceIcon` in firestore.rules.
+ */
+export const workspaceIconSchema = z
+  .string()
+  .min(1)
+  .max(48)
+  .refine(
+    (value) =>
+      value.startsWith(WORKSPACE_ICON_PREFIX)
+        ? WORKSPACE_ICON_KEY_PATTERN.test(value.slice(WORKSPACE_ICON_PREFIX.length))
+        : value.length <= 8,
+    { message: 'Expected a letter, an emoji or an mi:<icon> key' },
+  );
+
+/** The Material Symbols key of a stored workspace icon, or `null` for a letter or emoji. */
+export function workspaceIconKey(icon: string): string | null {
+  if (!icon.startsWith(WORKSPACE_ICON_PREFIX)) return null;
+  const key = icon.slice(WORKSPACE_ICON_PREFIX.length);
+  return WORKSPACE_ICON_KEY_PATTERN.test(key) ? key : null;
+}
+
 /** Fractional-indexing key used for ordering (architecture §4). */
 export const positionSchema = z.string().min(1).max(64);
 

@@ -25,7 +25,12 @@ export function WorkspacesPage() {
           {workspaces.map((workspace) => (
             <li key={workspace.id}>
               <Link to={`/workspaces/${workspace.id}`} className={home.workspaceCard}>
-                <WorkspaceTile icon={workspace.icon} color={workspace.color} size="md" />
+                <WorkspaceTile
+                  icon={workspace.icon}
+                  color={workspace.color}
+                  name={workspace.name}
+                  size="md"
+                />
                 <span className={home.workspaceText}>
                   <span className={home.workspaceName}>{workspace.name}</span>
                   <span className={home.workspaceMeta}>

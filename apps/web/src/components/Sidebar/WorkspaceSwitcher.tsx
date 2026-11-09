@@ -59,7 +59,12 @@ export function WorkspaceSwitcher({
         className={classNames(styles.switchItem, workspace.id === current?.id && styles.rowActive)}
         onClick={() => choose(workspace)}
       >
-        <WorkspaceTile icon={workspace.icon} color={workspace.color} size="xs" />
+        <WorkspaceTile
+          icon={workspace.icon}
+          color={workspace.color}
+          name={workspace.name}
+          size="xs"
+        />
         <span className={styles.rowLabel}>{workspace.name}</span>
         {workspace.id === current?.id ? <Icon icon={Check} size={16} /> : null}
       </button>
@@ -85,7 +90,12 @@ export function WorkspaceSwitcher({
           onClick={() => setOpen((v) => !v)}
         >
           {current ? (
-            <WorkspaceTile icon={current.icon} color={current.color} size="xs" />
+            <WorkspaceTile
+              icon={current.icon}
+              color={current.color}
+              name={current.name}
+              size="xs"
+            />
           ) : (
             <Icon icon={Workspace} size={20} />
           )}

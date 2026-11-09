@@ -42,3 +42,8 @@
   border-radius: var(--border-radius-medium);
   font-size: calc(var(--font-size-60) * 1.3);
 }
+
+.glyph {
+  width: 62%;
+  height: 62%;
+}
