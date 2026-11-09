@@ -114,6 +114,10 @@ export function adminAccountStore(firestore: Firestore): AccountStore {
         .collection('entries')
         .add({ ...entry, at: FieldValue.serverTimestamp() });
     },
+    async deletePushTokens(uid) {
+      const tokens = firestore.collection('users').doc(uid).collection('pushTokens');
+      await firestore.recursiveDelete(tokens);
+    },
     closeOpenAppeals: (uid) => closeOpenAppeals({ store: adminInboxStore(firestore) }, uid),
     createNotification: (uid, id, data) =>
       adminNotificationStore(firestore).createNotification(uid, id, data),

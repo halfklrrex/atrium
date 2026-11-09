@@ -106,6 +106,13 @@ class FakeStore implements AccountStore {
     this.closedAppeals.push(uid);
     return Promise.resolve(1);
   }
+  deletedTokens: string[] = [];
+  failDeleteTokens = false;
+  deletePushTokens(uid: string) {
+    if (this.failDeleteTokens) return Promise.reject(new Error('tokens failed'));
+    this.deletedTokens.push(uid);
+    return Promise.resolve();
+  }
   createNotification(uid: string, id: string, data: NewNotification) {
     if (this.notes.some((n) => n.uid === uid && n.id === id)) return Promise.resolve(false);
     this.notes.push({ uid, id, data });
@@ -200,6 +207,18 @@ describe('setAccountStatus: block and unblock', () => {
     expect(auth.users.get('u1')!.disabled).toBe(false);
     expect(store.statuses.get('u1')).toBe('blocked');
     expect(store.audit[0]).toMatchObject({ action: 'block', from: 'approved', to: 'blocked' });
+  });
+
+  it('deletes the push tokens of a blocked account, and a failure never fails the block', async () => {
+    const { store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(store.deletedTokens).toEqual(['u1']);
+    const second = setup(account('u2', { claims: { acct: 'approved' } }));
+    second.store.failDeleteTokens = true;
+    const result = await setAccountStatus(second.deps, admin, { uid: 'u2', status: 'blocked' });
+    expect(result.changed).toBe(true);
+    expect(second.store.statuses.get('u2')).toBe('blocked');
+    expect(second.store.audit).toHaveLength(1);
   });
 
   it('never touches disabled on block, even for an account disabled in the console', async () => {
