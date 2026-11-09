@@ -34,12 +34,15 @@ import { ChartWidget } from './widgets/ChartWidget';
 import { TableWidget } from './widgets/TableWidget';
 import { NumbersWidget } from './widgets/NumbersWidget';
 import { WorkloadWidget } from './widgets/WorkloadWidget';
+import { dashboardParam, idFromSlugParam, workspacePath } from '../../lib/paths';
+import { CanonicalUrl } from '../CanonicalUrl';
 
 type WidgetDialogState = { mode: 'add' } | { mode: 'edit'; widgetId: string } | null;
 
 /** `/dashboards/:dashboardId` - header, the widget grid and its empty, loading and error states. */
 export function DashboardPage() {
-  const { dashboardId } = useParams();
+  const { dashboardId: dashboardParamValue } = useParams();
+  const dashboardId = idFromSlugParam(dashboardParamValue);
   const { user, rememberWorkspace } = useAuth();
   const uid = user?.uid ?? '';
   const { data: dashboard, loading } = useDashboard(dashboardId);
@@ -79,12 +82,20 @@ export function DashboardPage() {
               }
             : undefined
         }
-        secondaryAction={{ label: 'Back to workspace', to: `/workspaces/${dashboard.workspaceId}` }}
+        secondaryAction={{
+          label: 'Back to workspace',
+          to: workspacePath({ id: dashboard.workspaceId, name: workspace?.name }),
+        }}
       />
     );
   }
 
-  return <DashboardView dashboard={dashboard} canEdit={canEditBoard(role)} />;
+  return (
+    <>
+      <CanonicalUrl param={dashboardParamValue} canonical={dashboardParam(dashboard)} />
+      <DashboardView dashboard={dashboard} canEdit={canEditBoard(role)} />
+    </>
+  );
 }
 
 function DashboardView({ dashboard, canEdit }: { dashboard: DashboardDoc; canEdit: boolean }) {

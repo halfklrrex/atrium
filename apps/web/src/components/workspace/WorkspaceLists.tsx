@@ -24,6 +24,7 @@ import { BoardMenu } from '../boards/BoardMenu';
 import { FavoriteStar } from '../boards/FavoriteStar';
 import { UserAvatar } from '../UserAvatar';
 import styles from './WorkspaceLists.module.css';
+import { boardPath, dashboardPath } from '../../lib/paths';
 
 const KIND_LABEL: Record<BoardDoc['kind'], string> = {
   main: 'Board',
@@ -129,7 +130,7 @@ function ContentRow({
     return (
       <div role="row" className={classNames(styles.grid, styles.row)} style={style}>
         <span role="cell" className={styles.nameCell}>
-          <Link to={`/dashboards/${dashboard.id}`} className={styles.nameButton}>
+          <Link to={dashboardPath(dashboard)} className={styles.nameButton}>
             <span className={styles.chevronSpacer} />
             <Icon
               icon={dashboard.kind === 'main' ? DashboardIcon : DashboardPrivate}
@@ -157,7 +158,7 @@ function ContentRow({
   return (
     <div role="row" className={classNames(styles.grid, styles.row)} style={style}>
       <span role="cell" className={styles.nameCell}>
-        <Link to={`/boards/${board.id}`} className={styles.nameButton}>
+        <Link to={boardPath(board)} className={styles.nameButton}>
           <span className={styles.chevronSpacer} />
           <Icon icon={iconFor(board.kind)} size={20} className={styles.boardIcon} />
           <span className={styles.name}>{board.name}</span>
@@ -188,7 +189,7 @@ export function WorkspaceRecentsList({ boards }: { boards: readonly BoardDoc[] }
     <ul className={styles.recents} aria-label="Recently visited boards">
       {boards.map((board) => (
         <li key={board.id} className={styles.recentRow}>
-          <Link to={`/boards/${board.id}`} className={styles.nameButton}>
+          <Link to={boardPath(board)} className={styles.nameButton}>
             <Icon icon={iconFor(board.kind)} size={20} className={styles.boardIcon} />
             <span className={styles.name}>{board.name}</span>
           </Link>

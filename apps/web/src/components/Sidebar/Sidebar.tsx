@@ -24,6 +24,7 @@ import { NavRow } from './NavRow';
 import { SidebarTree } from './SidebarTree';
 import styles from './Sidebar.module.css';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
+import { idFromSlugParam } from '../../lib/paths';
 
 /** Folder expansion is remembered per workspace so the tree looks the same after a reload. */
 function useExpandedFolders(workspaceId: string | null, activeFolderId: string | null) {
@@ -85,9 +86,9 @@ export function Sidebar() {
   const { data: boards, error: boardsError } = useBoards(workspace?.id, uid);
   const { data: dashboards } = useWorkspaceDashboards(workspace?.id, uid);
   const boardMatch = useMatch('/boards/:boardId/*');
-  const activeBoardId = boardMatch?.params.boardId ?? null;
+  const activeBoardId = idFromSlugParam(boardMatch?.params.boardId) || null;
   const dashboardMatch = useMatch('/dashboards/:dashboardId');
-  const activeDashboardId = dashboardMatch?.params.dashboardId ?? null;
+  const activeDashboardId = idFromSlugParam(dashboardMatch?.params.dashboardId) || null;
   const activeFolderId =
     boards.find((b) => b.id === activeBoardId)?.folderId ??
     dashboards.find((d) => d.id === activeDashboardId)?.folderId ??

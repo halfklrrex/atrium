@@ -19,6 +19,7 @@ import { describeError } from '../boards/board-actions';
 import { BOARD_KIND_OPTIONS } from '../boards/kinds';
 import styles from './dialogs.module.css';
 import { submitOnEnter } from './submitOnEnter';
+import { boardPath } from '../../lib/paths';
 
 export function KindOptions({
   value,
@@ -100,7 +101,7 @@ export function NewBoardDialog({
             )
           : await writes.createBoard(user.uid, workspaceId, parsed.data, position);
       onClose();
-      void navigate(`/boards/${id}`);
+      void navigate(boardPath({ id, name: parsed.data.name }));
     } catch (e) {
       setError(
         describeError(

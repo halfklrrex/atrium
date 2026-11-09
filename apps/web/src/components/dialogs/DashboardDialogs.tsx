@@ -16,6 +16,7 @@ import { describeError } from '../boards/board-actions';
 import { KindOptions } from './BoardDialogs';
 import styles from './dialogs.module.css';
 import { submitOnEnter } from './submitOnEnter';
+import { dashboardPath } from '../../lib/paths';
 
 /** "New dashboard": name and type. The dashboard starts empty; boards and widgets are added on its page. */
 export function NewDashboardDialog({
@@ -52,7 +53,7 @@ export function NewDashboardDialog({
         positionAfterAll(siblings),
       );
       onClose();
-      void navigate(`/dashboards/${id}`);
+      void navigate(dashboardPath({ id, name: parsed.data.name }));
     } catch (e) {
       setError(describeError(e, 'Could not create the dashboard.'));
       setSubmitting(false);
