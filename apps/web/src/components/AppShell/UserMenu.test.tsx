@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../../auth/auth-context';
 import { chooseMenuItem } from '../../test/menu';
@@ -109,5 +109,24 @@ describe('UserMenu', () => {
     await waitFor(() => expect(useUiStore.getState().dialog).toEqual({ type: 'feedback' }), {
       timeout: 5000,
     });
+  });
+
+  it('has a Settings item that opens the Settings page', async () => {
+    render(
+      <AuthContext.Provider value={auth}>
+        <MemoryRouter>
+          <Routes>
+            <Route path="/settings/profile" element={<p>settings page</p>} />
+            <Route path="*" element={<UserMenu />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    );
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await user.click(screen.getByRole('button', { name: /account menu for ada lovelace/i }));
+    const titles = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
+    expect(titles[0]).toBe('Settings');
+    await chooseMenuItem(user, 'Settings');
+    expect(await screen.findByText('settings page', undefined, { timeout: 5000 })).toBeVisible();
   });
 });

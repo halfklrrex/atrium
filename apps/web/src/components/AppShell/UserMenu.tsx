@@ -1,5 +1,5 @@
 import { Avatar, Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
-import { Check, Feedback, Inbox, Info, LogOut, Team } from '@vibe/icons';
+import { Check, Feedback, Inbox, Info, LogOut, Settings, Team } from '@vibe/icons';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { useIsSiteAdmin } from '../../auth/useIsSiteAdmin';
@@ -56,6 +56,11 @@ export function UserMenu() {
     >
       <Menu id="account-menu" size="medium">
         <MenuTitle caption={user?.email ?? name} />
+        <MenuItem
+          title="Settings"
+          icon={Settings}
+          onClick={() => void navigate('/settings/profile')}
+        />
         <MenuDivider />
         <MenuTitle caption="Theme" />
         {THEME_OPTIONS.map(({ value, label }) => (

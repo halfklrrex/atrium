@@ -398,21 +398,22 @@ describe('NotificationsPanel list', () => {
     expect(useUiStore.getState().notificationsOpen).toBe(true);
   });
 
-  it('opens the settings dialog from the icon', async () => {
+  it('opens Settings > Notifications from the icon and closes the panel', async () => {
     renderPanel();
     setOpen(true);
     await userEvent.click(screen.getByRole('button', { name: 'Notification settings' }));
-    expect(useUiStore.getState().dialog).toEqual({ type: 'notificationSettings' });
+    expect(screen.getByTestId('where')).toHaveTextContent('/settings/notifications');
+    expect(useUiStore.getState().notificationsOpen).toBe(false);
   });
 
-  it('opens the settings dialog from the header menu', async () => {
+  it('opens Settings > Notifications from the header menu', async () => {
     renderPanel();
     setOpen(true);
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     await openMenu(user, screen.getByRole('button', { name: 'More notification actions' }));
     await chooseMenuItem(user, 'Notification settings');
     await waitFor(
-      () => expect(useUiStore.getState().dialog).toEqual({ type: 'notificationSettings' }),
+      () => expect(screen.getByTestId('where')).toHaveTextContent('/settings/notifications'),
       { timeout: 5000 },
     );
   });

@@ -1,0 +1,319 @@
+/* Settings: tabs on the left from 768 px, one column and a sideways tab bar below. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  box-sizing: border-box;
+  max-width: var(--atrium-page-max-width);
+  padding: var(--atrium-page-gutter);
+}
+
+.heading {
+  margin: 0;
+  font: var(--atrium-board-title-font);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: var(--atrium-settings-nav-width) minmax(0, 1fr);
+  gap: var(--space-32);
+  align-items: start;
+}
+
+.nav {
+  min-width: 0;
+}
+
+.navList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--atrium-settings-nav-item-height);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--border-radius-medium);
+  color: var(--primary-text-color);
+  font: var(--font-text1-normal);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.navLink:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.navLink:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
+
+.navLinkActive {
+  background: var(--primary-selected-color);
+  color: var(--primary-color);
+  font: var(--font-text1-medium);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-32);
+  min-width: 0;
+  max-width: var(--atrium-settings-content-max-width);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-h3-bold);
+}
+
+.hint {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.profileCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  min-width: 0;
+}
+
+.profileText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.profileName {
+  overflow-wrap: anywhere;
+  color: var(--primary-text-color);
+  font: var(--font-h3-bold);
+}
+
+.profileEmail {
+  overflow-wrap: anywhere;
+  color: var(--secondary-text-color);
+  font: var(--font-text1-normal);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: var(--atrium-message-max-width);
+}
+
+.fieldLabel {
+  color: var(--primary-text-color);
+  font: var(--font-text1-medium);
+}
+
+.select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--atrium-settings-nav-item-height);
+  padding: var(--space-8) var(--space-12);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--font-text1-normal);
+}
+
+.select:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: 0;
+}
+
+.linkButton {
+  align-self: flex-start;
+}
+
+.errorText {
+  margin: 0;
+  color: var(--negative-color);
+  font: var(--font-text2-normal);
+}
+
+/* Theme cards */
+.themeGrid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--atrium-settings-theme-card-min-width), 1fr)
+  );
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.themeOption {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  box-sizing: border-box;
+  min-height: var(--atrium-settings-nav-item-height);
+  padding: var(--space-8);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-medium);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+  font: var(--font-text1-normal);
+  cursor: pointer;
+}
+
+.themeOption:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.themeOptionOn {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 var(--border-width) var(--primary-color);
+}
+
+.themeOption:has(:focus-visible) {
+  outline: var(--atrium-focus-ring);
+  outline-offset: var(--space-2);
+}
+
+.radioInput {
+  position: absolute;
+  inline-size: var(--border-width);
+  block-size: var(--border-width);
+  margin: 0;
+  opacity: 0;
+}
+
+.swatch {
+  display: flex;
+  overflow: hidden;
+  height: var(--atrium-settings-swatch-height);
+  border-radius: var(--border-radius-small);
+}
+
+.swatchHalf {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  background: var(--primary-background-color);
+}
+
+.swatchBar {
+  width: var(--atrium-settings-swatch-bar-width);
+  height: var(--atrium-settings-swatch-bar-height);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-color);
+}
+
+.swatchBarMuted {
+  composes: swatchBar;
+  background: var(--ui-border-color);
+}
+
+.themeName {
+  font: var(--font-text1-medium);
+}
+
+/* Account and privacy rows */
+.rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  min-height: var(--atrium-settings-nav-item-height);
+  padding-block: var(--space-8);
+  border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.rows .row:last-child {
+  border-block-end: 0;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.rowTitle {
+  color: var(--primary-text-color);
+  font: var(--font-text1-medium);
+}
+
+.rowValue {
+  overflow-wrap: anywhere;
+  color: var(--secondary-text-color);
+  font: var(--font-text1-normal);
+}
+
+.link {
+  color: var(--link-color);
+  font: var(--font-text1-normal);
+}
+
+@media (width < 768px) {
+  .page {
+    padding: var(--space-16);
+    padding-block-end: calc(var(--space-16) + var(--atrium-safe-bottom));
+    padding-inline: calc(var(--space-16) + var(--atrium-safe-left))
+      calc(var(--space-16) + var(--atrium-safe-right));
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-16);
+  }
+
+  /* The tab bar scrolls sideways inside itself, never the page. */
+  .nav {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
+  }
+
+  .navList {
+    flex-direction: row;
+    gap: var(--space-4);
+    width: max-content;
+  }
+
+  .navLink {
+    border-radius: var(--border-radius-small);
+  }
+
+  .field {
+    max-width: none;
+  }
+}

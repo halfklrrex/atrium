@@ -63,7 +63,6 @@ export function NotificationsPanel() {
   const open = useUiStore((s) => s.notificationsOpen);
   useScrollLock(open);
   const setOpen = useUiStore((s) => s.setNotificationsOpen);
-  const openDialog = useUiStore((s) => s.openDialog);
   const navigate = useNavigate();
   const { user } = useAuth();
   const uid = user?.uid;
@@ -135,7 +134,10 @@ export function NotificationsPanel() {
     if (ids.length === 0) return;
     notificationWrites.markAllRead(uid, ids).catch(fail('mark everything as read'));
   };
-  const openSettings = () => openDialog({ type: 'notificationSettings' });
+  const openSettings = () => {
+    setOpen(false);
+    void navigate('/settings/notifications');
+  };
 
   /** Marks the card read, then opens the item (a reply or mention opens its update). */
   const openNotification = (n: NotificationDoc) => {

@@ -21,6 +21,7 @@ import './theme/editor-tokens.css';
 import './theme/print.css';
 import './theme/emoji-tokens.css';
 import './theme/icon-picker-tokens.css';
+import './theme/settings-tokens.css';
 import './index.css';
 import { registerServiceWorker } from './lib/register-sw';
 import { startThemeSync } from './theme/theme';

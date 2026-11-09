@@ -2,7 +2,7 @@ import { DEFAULT_PUSH_PREFS } from '@atrium/shared';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { NotificationSettingsDialog } from './NotificationSettingsDialog';
+import { NotificationsTab } from './NotificationsTab';
 
 const mockSetPrefs = vi.fn();
 let mockPrefs: Record<string, unknown> = {
@@ -72,7 +72,7 @@ vi.mock('../../data/notifications', () => ({
   notificationWrites: { setPrefs: (...args: unknown[]) => mockSetPrefs(...args) },
 }));
 
-describe('NotificationSettingsDialog', () => {
+describe('NotificationsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrefs = { assigned: true, reply: false, mention: true, button: true };
@@ -84,7 +84,7 @@ describe('NotificationSettingsDialog', () => {
   });
 
   it('shows one switch per kind with the saved state', () => {
-    render(<NotificationSettingsDialog onClose={vi.fn()} />);
+    render(<NotificationsTab />);
     expect(screen.getByRole('switch', { name: 'Assigned to me' })).toBeChecked();
     expect(screen.getByRole('switch', { name: 'Replies' })).not.toBeChecked();
     expect(screen.getByRole('switch', { name: 'Mentions' })).toBeChecked();
@@ -92,7 +92,7 @@ describe('NotificationSettingsDialog', () => {
   });
 
   it('saves a change straight away, keeping the others', async () => {
-    render(<NotificationSettingsDialog onClose={vi.fn()} />);
+    render(<NotificationsTab />);
     await userEvent.click(screen.getByRole('switch', { name: 'Replies' }));
     expect(mockSetPrefs).toHaveBeenCalledWith('u1', {
       assigned: true,
@@ -100,13 +100,6 @@ describe('NotificationSettingsDialog', () => {
       mention: true,
       button: true,
     });
-  });
-
-  it('closes from Done', async () => {
-    const onClose = vi.fn();
-    render(<NotificationSettingsDialog onClose={onClose} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(onClose).toHaveBeenCalled();
   });
 
   describe('Push notifications switches', () => {
@@ -121,7 +114,7 @@ describe('NotificationSettingsDialog', () => {
     ] as const;
 
     it('shows seven switches with the defaults when nothing is stored', () => {
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       for (const [kind, name] of SEVEN) {
         const sw = screen.getByRole('switch', { name });
         if (DEFAULT_PUSH_PREFS[kind]) expect(sw).toBeChecked();
@@ -131,7 +124,7 @@ describe('NotificationSettingsDialog', () => {
 
     it.each(SEVEN)('turning %s on or off writes the whole push map', async (kind, name) => {
       mockPrefs = { ...mockPrefs, push: { ...DEFAULT_PUSH_PREFS, [kind]: false, mention: false } };
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       await userEvent.click(screen.getByRole('switch', { name }));
       const written = mockSetPrefs.mock.calls[0]?.[1] as { push: Record<string, boolean> };
       expect(Object.keys(written.push).sort()).toEqual(Object.keys(DEFAULT_PUSH_PREFS).sort());
@@ -141,7 +134,7 @@ describe('NotificationSettingsDialog', () => {
 
     it('keeps the push map when a bell switch changes', async () => {
       mockPrefs = { ...mockPrefs, push: { ...DEFAULT_PUSH_PREFS, automation: true } };
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       await userEvent.click(screen.getByRole('switch', { name: 'Replies' }));
       expect(mockSetPrefs.mock.calls[0]?.[1]).toMatchObject({
         reply: true,
@@ -152,7 +145,7 @@ describe('NotificationSettingsDialog', () => {
 
   describe('On this device', () => {
     it('says push is not set up yet while the VAPID key is empty, and has no Enable button', async () => {
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       expect(await screen.findByText('Push notifications are not set up yet.')).toBeVisible();
       expect(screen.queryByRole('button', { name: 'Enable' })).toBeNull();
       expect(mockDeps.deps.requestPermission).not.toHaveBeenCalled();
@@ -164,14 +157,14 @@ describe('NotificationSettingsDialog', () => {
         hasPushManager: false,
       });
       mockDeps.state.vapidKey = 'key';
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       expect(await screen.findByText(/tap Share, then Add to Home Screen/)).toBeVisible();
       expect(screen.queryByRole('button', { name: 'Enable' })).toBeNull();
     });
 
     it('says when the browser has no push support', async () => {
       setEnv({ hasPushManager: false });
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       expect(
         await screen.findByText("This browser can't receive push notifications."),
       ).toBeVisible();
@@ -180,14 +173,14 @@ describe('NotificationSettingsDialog', () => {
     it('explains a blocked browser', async () => {
       mockDeps.state.vapidKey = 'key';
       setEnv({ permission: 'denied' });
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       expect(await screen.findByText(/blocked for Atrium in this browser/)).toBeVisible();
       expect(screen.queryByRole('button', { name: 'Enable' })).toBeNull();
     });
 
     it('offers Enable when off; the click asks for permission and writes defaults', async () => {
       mockDeps.state.vapidKey = 'key';
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       const enable = await screen.findByRole('button', { name: 'Enable' });
       expect(mockDeps.deps.requestPermission).not.toHaveBeenCalled();
       await userEvent.click(enable);
@@ -204,7 +197,7 @@ describe('NotificationSettingsDialog', () => {
       setEnv({ permission: 'granted' });
       mockDeps.state.marker = { uid: 'u1', id: 'e'.repeat(64), seenAt: 1 };
       mockDeps.state.exists = true;
-      render(<NotificationSettingsDialog onClose={vi.fn()} />);
+      render(<NotificationsTab />);
       expect(await screen.findByText('This device receives push notifications.')).toBeVisible();
       await userEvent.click(screen.getByRole('button', { name: 'Disable' }));
       await waitFor(() =>

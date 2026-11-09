@@ -843,25 +843,31 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `notifications-panel-empty-${theme}`);
     });
 
-    test('notification settings dialog, push not supported', async ({ page }) => {
+    test('settings: profile', async ({ page }) => {
+      await page.goto('/settings/profile');
+      await appReady(page);
+      await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+      await expect(page.getByRole('combobox', { name: 'Your time zone' })).toBeEnabled();
+      await shoot(page, `settings-profile-${theme}`);
+    });
+
+    test('settings: appearance', async ({ page }) => {
+      await page.goto('/settings/appearance');
+      await appReady(page);
+      await expect(page.getByRole('radio', { name: 'Black' })).toBeAttached();
+      await shoot(page, `settings-appearance-${theme}`);
+    });
+
+    test('settings: notifications, push not supported', async ({ page }) => {
       // Deterministic whatever the browser build offers: hide the push API so the section always
       // shows "can't receive push notifications".
       await page.addInitScript(() => {
         Reflect.deleteProperty(window, 'PushManager');
       });
-      await page.goto('/');
-      await homeReady(page);
-      await page.getByRole('button', { name: 'Notifications', exact: true }).click();
-      await page.getByRole('button', { name: 'Notification settings' }).click();
-      const dialog = page.getByRole('dialog', { name: 'Notification settings' });
-      await expect(
-        dialog.getByText("This browser can't receive push notifications."),
-      ).toBeVisible();
-      // The content scrolls inside the dialog: bring "On this device" to the top of the view.
-      await dialog.getByRole('heading', { name: 'On this device' }).evaluate((el) => {
-        el.scrollIntoView({ block: 'start' });
-      });
-      await shoot(page, `notification-settings-dialog-${theme}`);
+      await page.goto('/settings/notifications');
+      await appReady(page);
+      await expect(page.getByText("This browser can't receive push notifications.")).toBeVisible();
+      await shoot(page, `settings-notifications-${theme}`);
     });
 
     test('notifications panel open, with notifications', async ({ page }) => {

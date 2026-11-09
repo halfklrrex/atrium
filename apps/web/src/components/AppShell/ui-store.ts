@@ -22,7 +22,6 @@ export type DialogState =
   | { type: 'shareBoard'; boardId: string }
   | { type: 'saveTemplate'; boardId: string }
   | { type: 'members'; workspaceId: string; tab?: 'members' | 'invites' }
-  | { type: 'notificationSettings' }
   | { type: 'search'; initialTerm?: string }
   | { type: 'about' }
   | { type: 'feedback'; category?: InboxCategory; subject?: string };
