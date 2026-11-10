@@ -15,6 +15,7 @@ import {
   buildItemDoc,
   buildItemPatch,
   buildUpdateDoc,
+  ts,
   newDocId,
   positionAfter,
   validSettings,
@@ -22,6 +23,14 @@ import {
 import { McpUserError, assertId } from './errors.mjs';
 import { findColumn, findGroup, sortedByPosition } from './refs.mjs';
 import { readableCell, toValidCell } from './values.mjs';
+import {
+  MAX_MARKDOWN_CHARS,
+  appendDoc,
+  docToMarkdown,
+  markdownToDoc,
+  richNodeTypes,
+  toStoredDescription,
+} from './description.mjs';
 
 export const MAX_ITEMS_PER_CALL = 50;
 
@@ -433,6 +442,56 @@ export function createService({ client, config, now = () => new Date() }) {
       return {
         id: itemId,
         updated: [...Object.keys(set), ...remove].filter((k) => !k.startsWith('updated')),
+      };
+    },
+
+    async getItemDescription({ boardId, itemId }) {
+      await loadBoard(boardId, 'view');
+      const item = await loadItem(boardId, itemId);
+      const description = item.description ?? null;
+      return {
+        id: itemId,
+        name: item.name,
+        hasDescription: description !== null,
+        markdown: description ? docToMarkdown(description.doc) : '',
+        text: description?.text ?? '',
+        richNodes: description ? richNodeTypes(description.doc) : [],
+      };
+    },
+
+    async setItemDescription({ boardId, itemId, markdown, mode = 'replace', allowOverwriteRich }) {
+      if (markdown.length > MAX_MARKDOWN_CHARS) {
+        throw new McpUserError(`The description is over ${MAX_MARKDOWN_CHARS} characters.`);
+      }
+      await loadBoard(boardId, 'edit');
+      const item = await loadItem(boardId, itemId);
+      const existing = item.description?.doc ?? null;
+      const rich = existing ? richNodeTypes(existing) : [];
+      const added = markdownToDoc(markdown);
+      let doc = added;
+      if (mode === 'append') {
+        doc = appendDoc(existing, added);
+      } else if (rich.length > 0 && !allowOverwriteRich) {
+        throw new McpUserError(
+          `The item's description contains ${rich.join(', ')}, which this tool cannot write back. ` +
+            'Use mode "append" to keep it, or pass allowOverwriteRich: true to replace it anyway.',
+        );
+      }
+      const description = toStoredDescription(doc);
+      // The web writes the whole `description` value (null when empty); the rules check its shape.
+      await client.commit([
+        {
+          op: 'update',
+          path: `boards/${boardId}/items/${itemId}`,
+          set: { description, updatedAt: ts(now()), updatedBy: config.uid },
+          remove: [],
+        },
+      ]);
+      return {
+        id: itemId,
+        mode,
+        cleared: description === null,
+        chars: description?.text.length ?? 0,
       };
     },
 
