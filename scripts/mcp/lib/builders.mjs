@@ -11,6 +11,7 @@ import {
   groupDefSchema,
   itemSchema,
   itemUpdateSchema,
+  updateReplySchema,
 } from '@atrium/shared';
 import { CREATABLE_COLUMN_TYPES } from './values.mjs';
 import { McpUserError } from './errors.mjs';
@@ -232,13 +233,21 @@ export function buildColumn({ title, type, settings, existingColumns, newId = ne
 
 // ---- items -------------------------------------------------------------------------------------
 
-export function buildItemDoc({ config, name, groupId, position, values, now }) {
+export function buildItemDoc({
+  config,
+  name,
+  groupId,
+  position,
+  values,
+  now,
+  parentItemId = null,
+}) {
   const stamp = ts(now);
   const doc = {
     name: name.trim(),
     groupId,
     position,
-    parentItemId: null,
+    parentItemId,
     values,
     state: 'active',
     deletedAt: null,
@@ -270,7 +279,23 @@ export function buildItemPatch({ config, now, name, groupId, position, cells }) 
   return { set, remove };
 }
 
-export function buildUpdateDoc({ config, itemId, id, content, authorName, authorPhotoUrl, now }) {
+/** A fractional position right after `current` and before the next larger one of `positions`. */
+export function positionRightAfter(positions, current) {
+  const next = [...positions].sort().find((p) => p > current) ?? null;
+  return generateKeyBetween(current, next);
+}
+
+export function buildUpdateDoc({
+  config,
+  itemId,
+  id,
+  content,
+  contentDoc,
+  mentions,
+  authorName,
+  authorPhotoUrl,
+  now,
+}) {
   const stamp = ts(now);
   const doc = {
     itemId,
@@ -278,6 +303,8 @@ export function buildUpdateDoc({ config, itemId, id, content, authorName, author
     ...(authorName ? { authorName } : {}),
     ...(authorPhotoUrl !== undefined ? { authorPhotoUrl } : {}),
     content: content.trim(),
+    ...(contentDoc ? { contentDoc } : {}),
+    ...(mentions?.length ? { mentions } : {}),
     likes: [],
     repliesCount: 0,
     createdAt: stamp,
@@ -285,5 +312,33 @@ export function buildUpdateDoc({ config, itemId, id, content, authorName, author
   };
   parseOrThrow(itemUpdateSchema, doc, 'The update');
   // The web also stores the id inside the document.
+  return { id, ...doc };
+}
+
+export function buildReplyDoc({
+  config,
+  updateId,
+  id,
+  content,
+  contentDoc,
+  mentions,
+  authorName,
+  authorPhotoUrl,
+  now,
+}) {
+  const stamp = ts(now);
+  const doc = {
+    updateId,
+    authorId: config.uid,
+    ...(authorName ? { authorName } : {}),
+    ...(authorPhotoUrl !== undefined ? { authorPhotoUrl } : {}),
+    content: content.trim(),
+    ...(contentDoc ? { contentDoc } : {}),
+    ...(mentions?.length ? { mentions } : {}),
+    likes: [],
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+  parseOrThrow(updateReplySchema, doc, 'The reply');
   return { id, ...doc };
 }

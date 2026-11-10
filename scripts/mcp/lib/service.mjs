@@ -6,7 +6,7 @@
 //     a role (structure changes need `owner`, item changes `editor` or `owner`);
 //   - never writes derivedColumnIds / serverManagedColumnIds / requiredColumnIds / seq / boardSeq / activity / notifications;
 //   - no hard deletes; only the documents of one board are ever touched.
-import { boardRoleFromWorkspaceRole, columnRegistry } from '@atrium/shared';
+import { boardRoleFromWorkspaceRole, columnRegistry, defaultSubitemColumns } from '@atrium/shared';
 import {
   addLabelsToSettings,
   buildBoardDoc,
@@ -14,7 +14,9 @@ import {
   buildGroup,
   buildItemDoc,
   buildItemPatch,
+  buildReplyDoc,
   buildUpdateDoc,
+  positionRightAfter,
   ts,
   newDocId,
   positionAfter,
@@ -23,6 +25,7 @@ import {
 import { McpUserError, assertId } from './errors.mjs';
 import { findColumn, findGroup, sortedByPosition } from './refs.mjs';
 import { readableCell, toValidCell } from './values.mjs';
+import { buildRichBody, memberResolver } from './updates.mjs';
 import {
   MAX_MARKDOWN_CHARS,
   appendDoc,
@@ -62,7 +65,7 @@ export function createService({ client, config, now = () => new Date() }) {
       if (role === 'viewer') {
         throw new McpUserError('The configured user is only a viewer of the workspace.');
       }
-      return { role, memberUids: ws.memberIds ?? [] };
+      return { role, roles: ws.roles ?? {}, memberUids: ws.memberIds ?? [] };
     })();
     try {
       return await workspaceCache;
@@ -141,11 +144,11 @@ export function createService({ client, config, now = () => new Date() }) {
   }
 
   /** `{ "<column title or id>": input }` -> `{ <columnId>: storedValue }`, fully validated. */
-  async function convertValues(loaded, values = {}) {
+  async function convertValues(loaded, values = {}, columns = loaded.board.columns) {
     const ctx = await cellContext();
     const out = {};
     for (const [ref, input] of Object.entries(values)) {
-      const column = findColumn(loaded.board, ref);
+      const column = findColumn({ columns }, ref);
       if (columnRegistry.isDerived(column.type) || columnRegistry.isServerManaged(column.type)) {
         throw new McpUserError(
           `Column "${column.title}" is calculated by Atrium and cannot be set.`,
@@ -166,6 +169,101 @@ export function createService({ client, config, now = () => new Date() }) {
     if (item.state !== 'active') throw new McpUserError(`Item "${itemId}" is ${item.state}.`);
     return item;
   }
+
+  /** Workspace members who can read the board: `{ uid, name, email, role }` (role on the board). */
+  async function boardMembers(board) {
+    const { roles, memberUids } = await workspace();
+    const out = [];
+    for (const uid of memberUids) {
+      const role =
+        board.access?.[uid] ??
+        (board.kind === 'main' && roles[uid] ? boardRoleFromWorkspaceRole(roles[uid]) : null);
+      if (!role) continue;
+      const profile = (await client.getDoc(`users/${uid}`)) ?? {};
+      out.push({
+        uid,
+        name: profile.displayName || profile.email || uid,
+        email: profile.email ?? null,
+        role,
+      });
+    }
+    return out;
+  }
+
+  const iso = (value) => (value instanceof Date ? value.toISOString() : null);
+
+  async function authorProfile() {
+    profileCache ??= (await client.getDoc(`users/${config.uid}`)) ?? {};
+    return profileCache;
+  }
+
+  const sortedPositions = (docs) => docs.map((d) => d.data.position);
+
+  /** Subitems of `parentId` (any state unless `active`), sorted by position. */
+  async function subitemDocs(boardId, parentId, { active = true } = {}) {
+    const docs = await itemsOf(boardId);
+    return docs
+      .filter((d) => d.data.parentItemId === parentId && (!active || d.data.state === 'active'))
+      .sort((a, b) => (a.data.position < b.data.position ? -1 : 1));
+  }
+
+  /** The board's subitem columns, writing monday's three defaults first when it has none yet. */
+  async function ensureSubitemColumns(loaded) {
+    if (loaded.board.subitemColumns.length > 0) return loaded.board.subitemColumns;
+    if (loaded.role !== 'owner') {
+      throw new McpUserError(
+        'This board has no subitem columns yet and only a board owner can add them. ' +
+          'Ask an owner to add a first subitem in Atrium, or to give the connector user the owner role.',
+      );
+    }
+    const added = await mutateBoard(loaded.id, (board) => {
+      if (board.subitemColumns.length > 0) return { patch: {}, result: board.subitemColumns };
+      const columns = defaultSubitemColumns(board.columns.map((c) => c.id));
+      return { patch: { subitemColumns: columns }, result: columns };
+    });
+    loaded.board.subitemColumns = added;
+    return added;
+  }
+
+  /** `{ uid, name, ... }` of the members a post may mention, as the web's @ list would offer. */
+  async function mentionResolver(loaded) {
+    return memberResolver(await boardMembers(loaded.board), config.uid);
+  }
+
+  async function loadUpdate(boardId, itemId, updateId, replyId) {
+    assertId(updateId, 'updateId');
+    const update = await client.getDoc(`boards/${boardId}/items/${itemId}/updates/${updateId}`);
+    if (!update) throw new McpUserError(`Update "${updateId}" was not found on this item.`);
+    if (replyId === undefined)
+      return {
+        update,
+        target: update,
+        path: `boards/${boardId}/items/${itemId}/updates/${updateId}`,
+      };
+    assertId(replyId, 'replyId');
+    const path = `boards/${boardId}/items/${itemId}/updates/${updateId}/replies/${replyId}`;
+    const reply = await client.getDoc(path);
+    if (!reply) throw new McpUserError(`Reply "${replyId}" was not found on this update.`);
+    return { update, target: reply, path };
+  }
+
+  const shapePost = (id, post) => ({
+    id,
+    author: { uid: post.authorId, name: post.authorName ?? null },
+    mine: post.authorId === config.uid,
+    text: post.content,
+    markdown: post.contentDoc ? docToMarkdown(post.contentDoc) : post.content,
+    createdAt: iso(post.createdAt),
+    edited: Boolean(post.updatedAt && post.createdAt && +post.updatedAt !== +post.createdAt),
+    likes: (post.likes ?? []).length,
+    mentions: post.mentions ?? [],
+    attachments: (post.attachments ?? []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      mimeType: f.mimeType,
+    })),
+  });
 
   return {
     // ---- read ------------------------------------------------------------------------------
@@ -200,6 +298,12 @@ export function createService({ client, config, now = () => new Date() }) {
         description: board.description,
         kind: board.kind,
         columns: sortedByPosition(board.columns).map((c) => ({
+          id: c.id,
+          title: c.title,
+          type: c.type,
+          ...labelSummary(c),
+        })),
+        subitemColumns: sortedByPosition(board.subitemColumns).map((c) => ({
           id: c.id,
           title: c.title,
           type: c.type,
@@ -410,9 +514,17 @@ export function createService({ client, config, now = () => new Date() }) {
     async updateItem({ boardId, itemId, name, group, values }) {
       const loaded = await loadBoard(boardId, 'edit');
       const item = await loadItem(boardId, itemId);
-      const cells = await convertValues(loaded, values);
+      const isSub = Boolean(item.parentItemId);
+      const cells = await convertValues(
+        loaded,
+        values,
+        isSub ? loaded.board.subitemColumns : loaded.board.columns,
+      );
       let groupId;
       let position;
+      if (group !== undefined && isSub) {
+        throw new McpUserError("A subitem stays in its parent's group; move the parent instead.");
+      }
       if (group !== undefined) {
         groupId = findGroup(loaded.board, group).id;
         if (groupId !== item.groupId) {
@@ -436,9 +548,19 @@ export function createService({ client, config, now = () => new Date() }) {
         position,
         cells,
       });
-      await client.commit([
-        { op: 'update', path: `boards/${boardId}/items/${itemId}`, set, remove },
-      ]);
+      const writes = [{ op: 'update', path: `boards/${boardId}/items/${itemId}`, set, remove }];
+      if (groupId !== undefined) {
+        // Subitems follow their parent into the group, like the web's move (rules: same group).
+        for (const sub of await subitemDocs(boardId, itemId, { active: false })) {
+          writes.push({
+            op: 'update',
+            path: `boards/${boardId}/items/${sub.id}`,
+            set: { groupId, updatedAt: ts(now()), updatedBy: config.uid },
+            remove: [],
+          });
+        }
+      }
+      await client.commit(writes);
       return {
         id: itemId,
         updated: [...Object.keys(set), ...remove].filter((k) => !k.startsWith('updated')),
@@ -497,34 +619,61 @@ export function createService({ client, config, now = () => new Date() }) {
 
     async setItemState({ boardId, itemId, state }) {
       await loadBoard(boardId, 'edit');
-      await loadItem(boardId, itemId);
-      await client.commit([
-        {
+      const item = await loadItem(boardId, itemId);
+      const targets = [{ id: itemId }];
+      // Subitems follow their parent into the archive or the trash (the web does the same).
+      if (!item.parentItemId) targets.push(...(await subitemDocs(boardId, itemId)));
+      await client.commit(
+        targets.map((t) => ({
           op: 'update',
-          path: `boards/${boardId}/items/${itemId}`,
+          path: `boards/${boardId}/items/${t.id}`,
           set: {
             state,
             deletedAt: state === 'deleted' ? now() : null,
             updatedAt: now(),
             updatedBy: config.uid,
           },
-        },
-      ]);
-      return { id: itemId, state };
+        })),
+      );
+      return { id: itemId, state, subitemsAlso: targets.length - 1 };
+    },
+
+    // ---- updates (comments) and replies ----------------------------------------------------------
+    async listUpdates({ boardId, itemId, limit = 20, includeReplies = true }) {
+      await loadBoard(boardId, 'view');
+      await loadItem(boardId, itemId);
+      const base = `boards/${boardId}/items/${itemId}/updates`;
+      const posts = (await client.listAllDocs(base))
+        .sort((a, b) => +b.data.createdAt - +a.data.createdAt)
+        .slice(0, limit);
+      const updates = [];
+      for (const post of posts) {
+        const shaped = shapePost(post.id, post.data);
+        shaped.repliesCount = post.data.repliesCount ?? 0;
+        if (includeReplies && shaped.repliesCount > 0) {
+          const replies = await client.listAllDocs(`${base}/${post.id}/replies`);
+          shaped.replies = replies
+            .sort((a, b) => +a.data.createdAt - +b.data.createdAt)
+            .map((r) => shapePost(r.id, r.data));
+        }
+        updates.push(shaped);
+      }
+      return { itemId, updates, shown: updates.length };
     },
 
     async addUpdate({ boardId, itemId, text }) {
-      await loadBoard(boardId, 'edit');
+      const loaded = await loadBoard(boardId, 'edit');
       await loadItem(boardId, itemId);
-      profileCache ??= (await client.getDoc(`users/${config.uid}`)) ?? {};
+      const body = buildRichBody(text, await mentionResolver(loaded));
+      const profile = await authorProfile();
       const id = newDocId();
       const doc = buildUpdateDoc({
         config,
         itemId,
         id,
-        content: text,
-        authorName: profileCache.displayName,
-        authorPhotoUrl: profileCache.photoURL,
+        ...body,
+        authorName: profile.displayName,
+        authorPhotoUrl: profile.photoURL,
         now: now(),
       });
       // The post and the item's counter (the row bubble) land together, like the web does.
@@ -542,7 +691,274 @@ export function createService({ client, config, now = () => new Date() }) {
           increment: { updatesCount: 1 },
         },
       ]);
-      return { id, itemId };
+      return { id, itemId, mentioned: body.mentions };
+    },
+
+    async addReply({ boardId, itemId, updateId, text }) {
+      const loaded = await loadBoard(boardId, 'edit');
+      await loadItem(boardId, itemId);
+      await loadUpdate(boardId, itemId, updateId);
+      const body = buildRichBody(text, await mentionResolver(loaded));
+      const profile = await authorProfile();
+      const id = newDocId();
+      const doc = buildReplyDoc({
+        config,
+        updateId,
+        id,
+        ...body,
+        authorName: profile.displayName,
+        authorPhotoUrl: profile.photoURL,
+        now: now(),
+      });
+      const parent = `boards/${boardId}/items/${itemId}/updates/${updateId}`;
+      await client.commit([
+        { op: 'set', path: `${parent}/replies/${id}`, data: doc, precondition: { exists: false } },
+        { op: 'update', path: parent, set: {}, increment: { repliesCount: 1 } },
+      ]);
+      return { id, updateId, mentioned: body.mentions };
+    },
+
+    async editUpdate({ boardId, itemId, updateId, replyId, text }) {
+      await loadBoard(boardId, 'edit');
+      await loadItem(boardId, itemId);
+      const { target, path } = await loadUpdate(boardId, itemId, updateId, replyId);
+      if (target.authorId !== config.uid) {
+        throw new McpUserError('Only the configured user can edit their own updates and replies.');
+      }
+      if (target.attachments?.length) {
+        throw new McpUserError('This post has attachments; edit it in Atrium.');
+      }
+      const body = buildRichBody(text); // no mention chips: the app never notifies on edit
+      await client.commit([
+        {
+          op: 'update',
+          path,
+          set: { content: body.content, contentDoc: body.contentDoc, updatedAt: ts(now()) },
+          remove: [],
+        },
+      ]);
+      return { id: replyId ?? updateId, edited: true };
+    },
+
+    async deleteUpdate({ boardId, itemId, updateId, replyId }) {
+      await loadBoard(boardId, 'edit');
+      const item = await loadItem(boardId, itemId);
+      const { update, target, path } = await loadUpdate(boardId, itemId, updateId, replyId);
+      if (target.authorId !== config.uid) {
+        throw new McpUserError(
+          'Only the configured user can delete their own updates and replies.',
+        );
+      }
+      const writes = [{ op: 'delete', path }];
+      // Counters only move down while positive (the rules refuse a decrement from 0).
+      if (replyId !== undefined) {
+        if ((update.repliesCount ?? 0) > 0) {
+          writes.push({
+            op: 'update',
+            path: `boards/${boardId}/items/${itemId}/updates/${updateId}`,
+            set: {},
+            increment: { repliesCount: -1 },
+          });
+        }
+      } else if ((item.updatesCount ?? 0) > 0) {
+        writes.push({
+          op: 'update',
+          path: `boards/${boardId}/items/${itemId}`,
+          set: {},
+          increment: { updatesCount: -1 },
+        });
+      }
+      await client.commit(writes);
+      return { deleted: replyId ?? updateId };
+    },
+
+    // ---- subitems -------------------------------------------------------------------------------
+    async listSubitems({ boardId, itemId }) {
+      const { board } = await loadBoard(boardId, 'view');
+      const parent = await loadItem(boardId, itemId);
+      if (parent.parentItemId) throw new McpUserError('A subitem has no subitems of its own.');
+      const columns = board.subitemColumns;
+      const titles = new Map(columns.map((c) => [c.id, c.title]));
+      const subs = await subitemDocs(boardId, itemId);
+      return {
+        itemId,
+        columns: sortedByPosition(columns).map((c) => ({
+          id: c.id,
+          title: c.title,
+          type: c.type,
+          ...labelSummary(c),
+        })),
+        subitems: subs.map((d) => ({
+          id: d.id,
+          seq: d.data.seq ?? null,
+          name: d.data.name,
+          values: Object.fromEntries(
+            columns.flatMap((c) => {
+              const cell = readableCell(c, d.data.values?.[c.id]);
+              return cell === null ? [] : [[titles.get(c.id), cell]];
+            }),
+          ),
+        })),
+      };
+    },
+
+    async createSubitems({ boardId, itemId, subitems }) {
+      if (subitems.length === 0 || subitems.length > MAX_ITEMS_PER_CALL) {
+        throw new McpUserError(`Create between 1 and ${MAX_ITEMS_PER_CALL} subitems per call.`);
+      }
+      const loaded = await loadBoard(boardId, 'edit');
+      const parent = await loadItem(boardId, itemId);
+      if (parent.parentItemId) {
+        throw new McpUserError('Subitems are one level deep: pick a top-level item as the parent.');
+      }
+      const columns = await ensureSubitemColumns(loaded);
+      const positions = sortedPositions(await subitemDocs(boardId, itemId, { active: false }));
+      const writes = [];
+      const created = [];
+      for (const input of subitems) {
+        const values = await convertValues(loaded, input.values, columns);
+        const position = positionAfter(positions);
+        positions.push(position);
+        const id = newDocId();
+        const data = buildItemDoc({
+          config,
+          name: input.name,
+          groupId: parent.groupId,
+          position,
+          values,
+          now: now(),
+          parentItemId: itemId,
+        });
+        writes.push({
+          op: 'set',
+          path: `boards/${boardId}/items/${id}`,
+          data,
+          precondition: { exists: false },
+        });
+        created.push({ id, name: data.name });
+      }
+      await client.commit(writes);
+      return { created };
+    },
+
+    // ---- more item operations --------------------------------------------------------------------
+    async duplicateItem({ boardId, itemId }) {
+      const loaded = await loadBoard(boardId, 'edit');
+      const item = await loadItem(boardId, itemId);
+      const isSub = Boolean(item.parentItemId);
+      const unwritable = (columns) =>
+        new Set(
+          columns
+            .filter(
+              (c) =>
+                columnRegistry.isDerived(c.type) ||
+                columnRegistry.isServerManaged(c.type) ||
+                ((loaded.board.columnLocks ?? []).includes(c.id) && loaded.role !== 'owner'),
+            )
+            .map((c) => c.id),
+        );
+      const copyValues = (values = {}, columns) => {
+        const skip = unwritable(columns);
+        return Object.fromEntries(Object.entries(values).filter(([id]) => !skip.has(id)));
+      };
+      const docs = await itemsOf(boardId);
+      const siblings = docs.filter((d) =>
+        isSub
+          ? d.data.parentItemId === item.parentItemId
+          : !d.data.parentItemId && d.data.groupId === item.groupId,
+      );
+      const position = positionRightAfter(sortedPositions(siblings), item.position);
+      const id = newDocId();
+      const writes = [
+        {
+          op: 'set',
+          path: `boards/${boardId}/items/${id}`,
+          data: buildItemDoc({
+            config,
+            name: `${item.name} (copy)`.slice(0, 500),
+            groupId: item.groupId,
+            position,
+            values: copyValues(
+              item.values,
+              isSub ? loaded.board.subitemColumns : loaded.board.columns,
+            ),
+            now: now(),
+            parentItemId: item.parentItemId ?? null,
+          }),
+          precondition: { exists: false },
+        },
+      ];
+      let subitems = 0;
+      if (!isSub) {
+        const children = docs
+          .filter((d) => d.data.parentItemId === itemId && d.data.state === 'active')
+          .sort((a, b) => (a.data.position < b.data.position ? -1 : 1));
+        for (const child of children) {
+          writes.push({
+            op: 'set',
+            path: `boards/${boardId}/items/${newDocId()}`,
+            data: buildItemDoc({
+              config,
+              name: child.data.name,
+              groupId: item.groupId,
+              position: child.data.position,
+              values: copyValues(child.data.values, loaded.board.subitemColumns),
+              now: now(),
+              parentItemId: id,
+            }),
+            precondition: { exists: false },
+          });
+          subitems += 1;
+        }
+      }
+      await client.commit(writes);
+      return { id, name: writes[0].data.name, subitems };
+    },
+
+    async getActivity({ boardId, itemId, limit = 30 }) {
+      await loadBoard(boardId, 'view');
+      if (itemId !== undefined) assertId(itemId, 'itemId');
+      const events = (await client.listAllDocs(`boards/${boardId}/activity`))
+        .filter(
+          (e) => itemId === undefined || e.data.itemId === itemId || e.data.parentItemId === itemId,
+        )
+        .sort((a, b) => +b.data.createdAt - +a.data.createdAt)
+        .slice(0, limit);
+      return {
+        events: events.map(({ id, data: e }) => ({
+          id,
+          at: iso(e.createdAt),
+          kind: e.kind,
+          actor: e.actorName,
+          itemId: e.itemId,
+          item: e.itemName,
+          column: e.columnTitle,
+          group: e.groupTitle,
+          from: e.data?.fromText,
+          to: e.data?.toText,
+          snippet: e.data?.snippet,
+        })),
+      };
+    },
+
+    async listMembers({ boardId }) {
+      if (boardId !== undefined) {
+        const { board } = await loadBoard(boardId, 'view');
+        return { members: await boardMembers(board) };
+      }
+      const { roles, memberUids } = await workspace();
+      const members = [];
+      for (const uid of memberUids) {
+        const profile = (await client.getDoc(`users/${uid}`)) ?? {};
+        members.push({
+          uid,
+          name: profile.displayName || profile.email || uid,
+          email: profile.email ?? null,
+          workspaceRole: roles[uid] ?? null,
+          me: uid === config.uid,
+        });
+      }
+      return { members };
     },
 
     /** Checks the configuration against the database; used at startup. */

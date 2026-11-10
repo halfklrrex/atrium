@@ -804,3 +804,364 @@ test('the description tools are in the catalogue', () => {
   assert.ok(names.includes('atrium_set_item_description'));
   assert.ok(names.includes('atrium_get_item_description'));
 });
+
+// ---- updates, replies, subitems and the rest ----------------------------------------------------
+
+const MEMBER = { displayName: 'Jordan Lee', email: 'jordan@example.com' };
+
+async function feedFixture() {
+  const ctx = await itemFixture();
+  ctx.client.docs.set(`users/${OTHER}`, { data: MEMBER, updateTime: 'u' });
+  return ctx;
+}
+
+test('addUpdate stores a rich body, resolves @[Name] to a mention chip and lists it back', async () => {
+  const { service, client, boardId, itemId } = await feedFixture();
+  const { id, mentioned } = await service.addUpdate({
+    boardId,
+    itemId,
+    text: 'Hi @[Jordan Lee], **please** look',
+  });
+  assert.deepEqual(mentioned, [OTHER]);
+  const post = client.docs.get(`boards/${boardId}/items/${itemId}/updates/${id}`).data;
+  assert.equal(post.content, 'Hi @Jordan Lee, please look');
+  assert.deepEqual(post.mentions, [OTHER]);
+  const chip = post.contentDoc.content[0].content.find((n) => n.type === 'mention');
+  assert.deepEqual(chip.attrs, { id: OTHER, label: 'Jordan Lee' });
+  const { updates } = await service.listUpdates({ boardId, itemId });
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].mine, true);
+  assert.match(updates[0].markdown, /\*\*please\*\*/);
+  assert.deepEqual(updates[0].mentions, [OTHER]);
+});
+
+test('mentions: unknown members, non-readers and ambiguous names are refused; nothing is written', async () => {
+  const { service, client, boardId, itemId } = await feedFixture();
+  await assert.rejects(
+    service.addUpdate({ boardId, itemId, text: 'hey @[Nobody]' }),
+    /not a member who can see this board/,
+  );
+  assert.equal(client.docs.get(`boards/${boardId}/items/${itemId}`).data.updatesCount, undefined);
+  // On a private board only people with access can be mentioned.
+  const board = client.docs.get(`boards/${boardId}`).data;
+  board.kind = 'private';
+  board.access = { [ME]: 'owner' };
+  await assert.rejects(
+    service.addUpdate({ boardId, itemId, text: '@[Jordan Lee]' }),
+    /not a member who can see this board/,
+  );
+});
+
+test('replies: posted under an update, bump repliesCount and list nested; editing keeps mentions fixed', async () => {
+  const { service, client, boardId, itemId } = await feedFixture();
+  const { id: updateId } = await service.addUpdate({ boardId, itemId, text: 'Question?' });
+  const { id: replyId } = await service.addReply({
+    boardId,
+    itemId,
+    updateId,
+    text: 'Answer for @[jordan@example.com]',
+  });
+  const base = `boards/${boardId}/items/${itemId}/updates/${updateId}`;
+  assert.equal(client.docs.get(base).data.repliesCount, 1);
+  const reply = client.docs.get(`${base}/replies/${replyId}`).data;
+  assert.equal(reply.updateId, updateId);
+  assert.deepEqual(reply.mentions, [OTHER]);
+  reply.createdAt = new Date('2026-10-01T00:00:00Z');
+  await service.editUpdate({ boardId, itemId, updateId, replyId, text: 'Edited @[Jordan Lee]' });
+  const edited = client.docs.get(`${base}/replies/${replyId}`).data;
+  assert.equal(edited.content, 'Edited @Jordan Lee');
+  assert.deepEqual(edited.mentions, [OTHER], 'mentions are never changed on edit');
+  assert.equal(
+    edited.contentDoc.content[0].content.some((n) => n.type === 'mention'),
+    false,
+  );
+  const { updates } = await service.listUpdates({ boardId, itemId });
+  assert.equal(updates[0].replies.length, 1);
+  assert.equal(updates[0].replies[0].text, 'Edited @Jordan Lee');
+  assert.equal(updates[0].replies[0].edited, true);
+});
+
+test("edit and delete only touch the configured user's own posts; counters move down safely", async () => {
+  const { service, client, boardId, itemId } = await feedFixture();
+  const { id: updateId } = await service.addUpdate({ boardId, itemId, text: 'Mine' });
+  const { id: replyId } = await service.addReply({ boardId, itemId, updateId, text: 'Mine too' });
+  const path = `boards/${boardId}/items/${itemId}/updates/theirs`;
+  client.docs.set(path, {
+    data: { itemId, authorId: OTHER, content: 'Theirs', likes: [], repliesCount: 0 },
+    updateTime: 'x',
+  });
+  await assert.rejects(
+    service.editUpdate({ boardId, itemId, updateId: 'theirs', text: 'x' }),
+    /own updates/,
+  );
+  await assert.rejects(
+    service.deleteUpdate({ boardId, itemId, updateId: 'theirs' }),
+    /own updates/,
+  );
+  await assert.rejects(service.deleteUpdate({ boardId, itemId, updateId: 'missing' }), /not found/);
+  await service.deleteUpdate({ boardId, itemId, updateId, replyId });
+  assert.equal(
+    client.docs.get(`boards/${boardId}/items/${itemId}/updates/${updateId}`).data.repliesCount,
+    0,
+  );
+  await service.deleteUpdate({ boardId, itemId, updateId });
+  assert.equal(client.docs.has(`boards/${boardId}/items/${itemId}/updates/${updateId}`), false);
+  assert.equal(client.docs.get(`boards/${boardId}/items/${itemId}`).data.updatesCount, 0);
+  // A counter already at 0 is left alone (the rules refuse a decrement from 0).
+  await service.deleteUpdate({ boardId, itemId, updateId: 'theirs' }).catch(() => {});
+  client.docs.get(path).data.authorId = ME;
+  await service.deleteUpdate({ boardId, itemId, updateId: 'theirs' });
+  assert.equal(client.docs.get(`boards/${boardId}/items/${itemId}`).data.updatesCount, 0);
+});
+
+test('updates: viewers cannot post and attachment metadata is listed without files', async () => {
+  const { service, client, boardId, itemId } = await feedFixture();
+  client.docs.set(`boards/${boardId}/items/${itemId}/updates/a1`, {
+    data: {
+      itemId,
+      authorId: OTHER,
+      authorName: 'Jordan Lee',
+      content: 'With file',
+      likes: [OTHER],
+      repliesCount: 0,
+      createdAt: new Date('2026-10-01T00:00:00Z'),
+      updatedAt: new Date('2026-10-01T00:00:00Z'),
+      attachments: [
+        {
+          id: 'f1',
+          name: 'spec.pdf',
+          storagePath: 'secret/path',
+          size: 10,
+          mimeType: 'application/pdf',
+        },
+      ],
+    },
+    updateTime: 'x',
+  });
+  const { updates } = await service.listUpdates({ boardId, itemId });
+  assert.deepEqual(updates[0].attachments, [
+    { id: 'f1', name: 'spec.pdf', size: 10, mimeType: 'application/pdf' },
+  ]);
+  assert.equal(updates[0].likes, 1);
+  assert.equal(updates[0].mine, false);
+  assert.equal(JSON.stringify(updates).includes('secret/path'), false);
+  await assert.rejects(
+    service.editUpdate({ boardId, itemId, updateId: 'a1', text: 'x' }),
+    /own updates/,
+  );
+  client.docs.get(`boards/${boardId}`).data.access = { [ME]: 'viewer' };
+  client.docs.get(`boards/${boardId}`).data.kind = 'private';
+  await assert.rejects(service.addUpdate({ boardId, itemId, text: 'x' }), /only view/);
+  await assert.rejects(
+    service.addReply({ boardId, itemId, updateId: 'a1', text: 'x' }),
+    /only view/,
+  );
+});
+
+test('subitems: first one adds the default columns; create, list, update, describe and follow the parent', async () => {
+  const { service, client, boardId, itemId } = await itemFixture();
+  const second = (await service.createItems({ boardId, items: [{ name: 'Other' }] })).created[0].id;
+  assert.equal(client.docs.get(`boards/${boardId}`).data.subitemColumns.length, 0);
+  const { created } = await service.createSubitems({
+    boardId,
+    itemId,
+    subitems: [
+      { name: 'Step 1', values: { Status: 'Done', Date: '2026-11-05' } },
+      { name: 'Step 2' },
+    ],
+  });
+  const board = client.docs.get(`boards/${boardId}`).data;
+  assert.deepEqual(
+    board.subitemColumns.map((c) => c.title),
+    ['Owner', 'Status', 'Date'],
+  );
+  const parent = client.docs.get(`boards/${boardId}/items/${itemId}`).data;
+  const sub = client.docs.get(`boards/${boardId}/items/${created[0].id}`).data;
+  assert.equal(sub.parentItemId, itemId);
+  assert.equal(sub.groupId, parent.groupId);
+  assert.ok(
+    sub.position < client.docs.get(`boards/${boardId}/items/${created[1].id}`).data.position,
+  );
+  const parsed = itemSchema.safeParse({ ...sub, createdAt: ts(NOW), updatedAt: ts(NOW) });
+  assert.equal(parsed.success, true, JSON.stringify(parsed.error?.issues));
+  const listed = await service.listSubitems({ boardId, itemId });
+  assert.deepEqual(
+    listed.subitems.map((s) => s.name),
+    ['Step 1', 'Step 2'],
+  );
+  assert.equal(listed.subitems[0].values.Status, 'Done');
+  assert.equal(listed.columns.length, 3);
+  assert.equal((await service.getBoard({ boardId })).subitemColumns.length, 3);
+
+  // Update a subitem's name and values through the subitem columns; groups are refused.
+  await service.updateItem({
+    boardId,
+    itemId: created[1].id,
+    name: 'Step 2b',
+    values: { Status: 'Working on it' },
+  });
+  assert.equal(
+    (await service.listSubitems({ boardId, itemId })).subitems[1].values.Status,
+    'Working on it',
+  );
+  await assert.rejects(
+    service.updateItem({ boardId, itemId: created[1].id, group: 'Group 2' }),
+    /stays in its parent's group/,
+  );
+  // An item column name does not work on a subitem and the reverse.
+  await assert.rejects(
+    service.updateItem({ boardId, itemId: created[1].id, values: { Stage: 'Idea' } }),
+    /No column "Stage"/,
+  );
+  // Descriptions work on a subitem id.
+  await service.setItemDescription({ boardId, itemId: created[0].id, markdown: '# Notes\n- a' });
+  const description = await service.getItemDescription({ boardId, itemId: created[0].id });
+  assert.match(description.markdown, /# Notes/);
+
+  // Moving the parent moves its subitems; archiving it takes them along.
+  const groups = (await service.getBoard({ boardId, includeItems: false })).groups;
+  const target = groups.find((g) => g.id !== parent.groupId);
+  await service.updateItem({ boardId, itemId, group: target.id });
+  assert.equal(client.docs.get(`boards/${boardId}/items/${created[0].id}`).data.groupId, target.id);
+  const archived = await service.setItemState({ boardId, itemId, state: 'archived' });
+  assert.equal(archived.subitemsAlso, 2);
+  assert.equal(client.docs.get(`boards/${boardId}/items/${created[1].id}`).data.state, 'archived');
+  assert.equal(client.docs.get(`boards/${boardId}/items/${second}`).data.state, 'active');
+});
+
+test('subitems: one level only, an editor cannot create the first columns, a subitem can be deleted alone', async () => {
+  const { service, client, boardId, itemId } = await itemFixture();
+  const { created } = await service.createSubitems({ boardId, itemId, subitems: [{ name: 'S' }] });
+  await assert.rejects(
+    service.createSubitems({ boardId, itemId: created[0].id, subitems: [{ name: 'deep' }] }),
+    /one level deep/,
+  );
+  await assert.rejects(service.listSubitems({ boardId, itemId: created[0].id }), /no subitems/);
+  await assert.rejects(
+    service.createSubitems({ boardId, itemId, subitems: Array(51).fill({ name: 'x' }) }),
+    /between 1 and 50/,
+  );
+  await assert.rejects(
+    service.createSubitems({
+      boardId,
+      itemId,
+      subitems: [{ name: 'x', values: { Status: 'Nope' } }],
+    }),
+    /not a label/,
+  );
+  await service.setItemState({ boardId, itemId: created[0].id, state: 'deleted' });
+  assert.equal(client.docs.get(`boards/${boardId}/items/${itemId}`).data.state, 'active');
+  assert.equal((await service.listSubitems({ boardId, itemId })).subitems.length, 0);
+
+  // A board without subitem columns, for an editor who is not an owner.
+  const fresh = await service.createBoard({ name: 'Other' });
+  const doc = client.docs.get(`boards/${fresh.id}`).data;
+  doc.access = { [ME]: 'editor' };
+  const item = (await service.createItems({ boardId: fresh.id, items: [{ name: 'P' }] })).created[0]
+    .id;
+  await assert.rejects(
+    service.createSubitems({ boardId: fresh.id, itemId: item, subitems: [{ name: 'x' }] }),
+    /only a board owner can add them/,
+  );
+});
+
+test('duplicateItem copies values and subitems next to the original, without calculated cells', async () => {
+  const { service, client, boardId } = await itemFixture();
+  const { created } = await service.createItems({
+    boardId,
+    items: [{ name: 'Original', values: { Status: 'Done', Stage: ['Idea'] } }, { name: 'After' }],
+  });
+  await service.createSubitems({
+    boardId,
+    itemId: created[0].id,
+    subitems: [{ name: 'Child', values: { Status: 'Done' } }],
+  });
+  const copy = await service.duplicateItem({ boardId, itemId: created[0].id });
+  assert.equal(copy.name, 'Original (copy)');
+  assert.equal(copy.subitems, 1);
+  const original = client.docs.get(`boards/${boardId}/items/${created[0].id}`).data;
+  const copied = client.docs.get(`boards/${boardId}/items/${copy.id}`).data;
+  const after = client.docs.get(`boards/${boardId}/items/${created[1].id}`).data;
+  assert.deepEqual(copied.values, original.values);
+  assert.ok(copied.position > original.position && copied.position < after.position);
+  assert.equal(copied.seq, undefined);
+  const kids = [...client.docs.values()].filter((d) => d.data.parentItemId === copy.id);
+  assert.equal(kids.length, 1);
+  assert.equal(kids[0].data.name, 'Child');
+  // Duplicating a subitem lands it after its siblings under the same parent.
+  const sub = [...client.docs.entries()].find(([, d]) => d.data.parentItemId === created[0].id)[0];
+  const subCopy = await service.duplicateItem({ boardId, itemId: sub.split('/').at(-1) });
+  assert.equal(subCopy.name, 'Child (copy)');
+  assert.equal(
+    client.docs.get(`boards/${boardId}/items/${subCopy.id}`).data.parentItemId,
+    created[0].id,
+  );
+});
+
+test('activity and members: read-only lookups, filtered and bounded', async () => {
+  const { service, client, boardId, itemId } = await feedFixture();
+  const base = `boards/${boardId}/activity`;
+  for (const [i, n] of [
+    [1, itemId],
+    [2, 'other'],
+    [3, itemId],
+  ]) {
+    client.docs.set(`${base}/e${i}`, {
+      data: {
+        kind: 'value_changed',
+        createdAt: new Date(`2026-11-0${i}T00:00:00Z`),
+        actorName: 'Avery Quinn',
+        itemId: n,
+        itemName: 'Task',
+        parentItemId: null,
+        columnTitle: 'Status',
+        data: { fromText: 'A', toText: 'B' },
+      },
+      updateTime: 'x',
+    });
+  }
+  const all = await service.getActivity({ boardId });
+  assert.deepEqual(
+    all.events.map((e) => e.id),
+    ['e3', 'e2', 'e1'],
+  );
+  const one = await service.getActivity({ boardId, itemId, limit: 1 });
+  assert.deepEqual(
+    one.events.map((e) => e.id),
+    ['e3'],
+  );
+  assert.equal(one.events[0].to, 'B');
+
+  const everyone = await service.listMembers({});
+  assert.deepEqual(everyone.members.map((m) => m.uid).sort(), [OTHER, ME].sort());
+  assert.equal(everyone.members.find((m) => m.uid === ME).me, true);
+  client.docs.get(`boards/${boardId}`).data.kind = 'private';
+  client.docs.get(`boards/${boardId}`).data.access = { [ME]: 'owner' };
+  const onBoard = await service.listMembers({ boardId });
+  assert.deepEqual(
+    onBoard.members.map((m) => m.uid),
+    [ME],
+  );
+});
+
+test('the new tools are in the catalogue with validating schemas', () => {
+  const tools = defineTools({});
+  for (const name of [
+    'atrium_list_updates',
+    'atrium_add_reply',
+    'atrium_edit_update',
+    'atrium_delete_update',
+    'atrium_list_subitems',
+    'atrium_create_subitems',
+    'atrium_duplicate_item',
+    'atrium_get_activity',
+    'atrium_list_members',
+  ]) {
+    assert.ok(
+      tools.some((t) => t.name === name),
+      name,
+    );
+  }
+  const reply = tools.find((t) => t.name === 'atrium_add_reply');
+  assert.equal(reply.inputSchema.updateId.safeParse('../x').success, false);
+});
