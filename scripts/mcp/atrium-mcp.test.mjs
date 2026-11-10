@@ -693,3 +693,114 @@ test('tool catalogue: unique atrium_ names, every tool described, schemas valida
   assert.equal(get.inputSchema.boardId.safeParse('../etc').success, false);
   assert.equal(get.inputSchema.boardId.safeParse('abc_DEF-1').success, true);
 });
+
+// ---- item descriptions --------------------------------------------------------------------------
+
+async function itemFixture() {
+  const ctx = setup();
+  const boardId = await boardWithStructure(ctx.service);
+  const { created } = await ctx.service.createItems({ boardId, items: [{ name: 'Task' }] });
+  return { ...ctx, boardId, itemId: created[0].id };
+}
+
+test('setItemDescription stores { doc, text } built by the app, as a plain field write', async () => {
+  const { service, client, boardId, itemId } = await itemFixture();
+  client.commits.length = 0;
+  const md =
+    '# Plan\n\nSome **bold**, *italic*, `code` and [a link](https://example.com).\n\n' +
+    '- one\n  - nested\n- [x] done\n\n1. first\n\n> quote\n\n```js\nlet a = 1;\n```\n\n---';
+  await service.setItemDescription({ boardId, itemId, markdown: md });
+  const [write] = client.commits[0];
+  assert.deepEqual(Object.keys(write.set).sort(), ['description', 'updatedAt', 'updatedBy']);
+  const { description } = client.docs.get(`boards/${boardId}/items/${itemId}`).data;
+  assert.deepEqual(Object.keys(description).sort(), ['doc', 'text']);
+  assert.equal(description.doc.type, 'doc');
+  const types = description.doc.content.map((n) => n.type);
+  assert.deepEqual(types, [
+    'heading',
+    'paragraph',
+    'bulletList',
+    'taskList',
+    'orderedList',
+    'blockquote',
+    'codeBlock',
+    'horizontalRule',
+  ]);
+  assert.match(description.text, /^Plan\nSome bold, italic, code and a link\./);
+  const bullets = description.doc.content[2];
+  assert.equal(bullets.content[0].content[1].type, 'bulletList', 'nested list');
+  assert.ok(description.text.length <= 10_000);
+  assert.equal(client.docs.get(`boards/${boardId}/items/${itemId}`).data.updatedBy, ME);
+});
+
+test('setItemDescription refuses unsafe links, keeping the text', async () => {
+  const { service, client, boardId, itemId } = await itemFixture();
+  await service.setItemDescription({ boardId, itemId, markdown: '[x](javascript:alert(1))' });
+  const { description } = client.docs.get(`boards/${boardId}/items/${itemId}`).data;
+  assert.ok(!JSON.stringify(description.doc).includes('"link"'));
+});
+
+test('getItemDescription round-trips markdown; empty markdown clears the description', async () => {
+  const { service, client, boardId, itemId } = await itemFixture();
+  assert.equal((await service.getItemDescription({ boardId, itemId })).hasDescription, false);
+  await service.setItemDescription({ boardId, itemId, markdown: '## Title\n\n- a\n- b\n\n**x**' });
+  const got = await service.getItemDescription({ boardId, itemId });
+  assert.equal(got.markdown, '## Title\n\n- a\n- b\n\n**x**');
+  assert.deepEqual(got.richNodes, []);
+  const out = await service.setItemDescription({ boardId, itemId, markdown: '  ' });
+  assert.equal(out.cleared, true);
+  assert.equal(client.docs.get(`boards/${boardId}/items/${itemId}`).data.description, null);
+});
+
+test('setItemDescription append keeps rich content; replace refuses to drop it', async () => {
+  const { service, client, boardId, itemId } = await itemFixture();
+  const path = `boards/${boardId}/items/${itemId}`;
+  const image = { type: 'image', attrs: { fileId: 'f1' } };
+  client.docs.get(path).data.description = {
+    doc: {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hi' }] }, image],
+    },
+    text: 'hi',
+  };
+  await assert.rejects(
+    service.setItemDescription({ boardId, itemId, markdown: 'new' }),
+    /contains image/,
+  );
+  await service.setItemDescription({ boardId, itemId, markdown: 'more', mode: 'append' });
+  const { doc } = client.docs.get(path).data.description;
+  assert.deepEqual(
+    doc.content.map((n) => n.type),
+    ['paragraph', 'image', 'paragraph'],
+  );
+  await service.setItemDescription({
+    boardId,
+    itemId,
+    markdown: 'fresh',
+    allowOverwriteRich: true,
+  });
+  assert.equal(client.docs.get(path).data.description.text, 'fresh');
+});
+
+test('setItemDescription enforces the item and role guard rails and the size cap', async () => {
+  const { service, boardId, itemId } = await itemFixture();
+  await assert.rejects(
+    service.setItemDescription({ boardId, itemId: 'nope', markdown: 'x' }),
+    /not found/,
+  );
+  await assert.rejects(
+    service.setItemDescription({ boardId, itemId, markdown: 'x'.repeat(50_001) }),
+    /over 50000/,
+  );
+  const viewer = setup({ roles: { [ME]: 'viewer' } });
+  await assert.rejects(
+    viewer.service.setItemDescription({ boardId: 'b', itemId: 'i', markdown: 'x' }),
+    /viewer|not found|permission|role|access/i,
+  );
+});
+
+test('the description tools are in the catalogue', () => {
+  const names = defineTools(setup().service).map((t) => t.name);
+  assert.ok(names.includes('atrium_set_item_description'));
+  assert.ok(names.includes('atrium_get_item_description'));
+});

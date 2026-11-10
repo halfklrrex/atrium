@@ -136,6 +136,30 @@ export function defineTools(service) {
       run: (args) => service.updateItem(args),
     },
     {
+      name: 'atrium_get_item_description',
+      description:
+        "Read-only. Returns an item's rich-text description as markdown (plus plain text and the names of any " +
+        'nodes markdown cannot show, such as images or tables).',
+      inputSchema: { boardId: id, itemId: id },
+      run: (args) => service.getItemDescription(args),
+    },
+    {
+      name: 'atrium_set_item_description',
+      description:
+        "Writes an item's description (the rich-text body in the item view) from markdown: headings (#), bold, " +
+        'italic, ~~strike~~, `code`, [links](https://...), bullet/numbered/task (- [ ]) lists, > quotes, ``` code blocks and ---. ' +
+        'mode "replace" (the default) overwrites; "append" adds to the end. Empty markdown with replace clears it. ' +
+        'Refuses to replace a description holding images, tables or mentions unless allowOverwriteRich is true.',
+      inputSchema: {
+        boardId: id,
+        itemId: id,
+        markdown: z.string().max(50000),
+        mode: z.enum(['replace', 'append']).optional(),
+        allowOverwriteRich: z.boolean().optional(),
+      },
+      run: (args) => service.setItemDescription(args),
+    },
+    {
       name: 'atrium_archive_item',
       description: 'Archives an item (state archived). Reversible in the Atrium app.',
       inputSchema: { boardId: id, itemId: id },

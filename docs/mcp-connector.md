@@ -19,7 +19,9 @@ claude mcp add atrium --scope local ^
 
 (`^` is the Windows line continuation; put it on one line in a POSIX shell.) `--silent` matters: stdout is the protocol channel and must stay clean.
 
-To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 13 tools.
+**Picking up new tools (no reinstall).** The server is not installed anywhere: Claude Code starts it from the checkout named in the `claude mcp add` command (`pnpm exec tsx scripts/mcp/atrium-mcp.mjs`) every time a session starts, so there is no build step and no re-registration. To get a new tool: (1) update that checkout to a commit that has it (`git pull` on `main` after the PR merges), then (2) restart Claude Code, or run `/mcp` and reconnect `atrium`. Only if the registration points at an old or different folder do you need `claude mcp remove atrium` and add it again with the right path.
+
+To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 15 tools.
 
 ## Environment variables
 
@@ -45,16 +47,20 @@ Columns are addressed by id or title (case-insensitive, must be unambiguous); so
 | `atrium_update_column_settings`                                    | Adds status labels, dropdown options or tags (`addLabels`) and changes other settings. Never changes the type or removes a label.                                   |
 | `atrium_create_items`                                              | Up to 50 items per call, appended to their groups, with plain cell values.                                                                                          |
 | `atrium_update_item`                                               | Changes name, group and/or cells. Field-path patch: only the given cells change; `null` clears one.                                                                 |
+| `atrium_get_item_description`                                      | Read-only. The item's rich-text description as markdown, plus plain text and the names of nodes markdown cannot show (images, tables, mentions).                    |
+| `atrium_set_item_description`                                      | Writes the description from markdown (see below). `mode` `replace` (default) or `append`.                                                                           |
 | `atrium_archive_item` / `atrium_delete_item`                       | Soft only (`state` archived or deleted). Restore in the app.                                                                                                        |
 | `atrium_add_update`                                                | Posts an update in the item's feed and bumps its update counter.                                                                                                    |
 
 Cell values: status takes a label text; dropdown and tags take label texts; date `"YYYY-MM-DD"`; timeline `["YYYY-MM-DD","YYYY-MM-DD"]`; checkbox `true/false`; rating a number; link a URL; people a workspace member uid or `"me"` (emails are not supported yet). Values are converted to the stored shape and checked by `columnRegistry.validateCell`, so the app never sees data it would reject.
 
+Descriptions: `atrium_set_item_description` takes markdown-ish text (headings `#`, `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `[links](https://...)`, `-`/`1.`/`- [ ]` lists with indented nesting, `>` quotes, fenced code, `---`) and converts it to the ProseMirror JSON the web editor stores. The value is built by the web app's own `buildDescription` (`apps/web/src/components/item-view/description.ts`: empty becomes `null`, size cap, plain-text field for search) and checked with `itemDescriptionSchema`, then written as the whole `description` field like the app does, so it matches the `validDescription` rule. HTML is never interpreted and only `http(s):` and `mailto:` links are kept. Replacing a description that holds images, tables, mentions or emoji is refused (markdown cannot write them back, and images are tied to `descriptionImages`); use `append`, which leaves existing content untouched, or pass `allowOverwriteRich: true`. Empty markdown with `replace` clears the description.
+
 ## Safety
 
 - Every tool loads the board first and checks: `workspaceId` is the configured one, `state` is `active`, and the configured user has a role on it (board `access`, or, on `main` boards, the role implied by the workspace role). Structure changes need `owner`; item changes `editor` or `owner`. A board of another workspace looks the same as a missing one.
 - Structure changes (groups, columns) read the board, change it and write it with an `updateTime` precondition, retrying once on a conflict.
-- Never written: `derivedColumnIds`, `serverManagedColumnIds`, `seq`, `boardSeq`, `descriptionImages`, notifications, activity. Derived and server-managed columns cannot be set; locked columns are refused to non-owners.
+- Never written: `derivedColumnIds`, `serverManagedColumnIds`, `seq`, `boardSeq`, `descriptionImages` (existing images are never touched), notifications, activity. Derived and server-managed columns cannot be set; locked columns are refused to non-owners.
 - No hard deletes. No tool touches folders, workspaces, members, roles, invites or other users' data.
 - Inputs are zod-validated; ids must match `/^[A-Za-z0-9_-]{1,128}$/`.
 - The Cloud Function triggers (`onItemCreated` sets `seq`/`boardSeq`, `onBoardColumnsWritten` maintains the derived id lists) run on these writes like on any other.

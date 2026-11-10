@@ -21,8 +21,10 @@ const EXPECTED = [
   'atrium_delete_group',
   'atrium_delete_item',
   'atrium_get_board',
+  'atrium_get_item_description',
   'atrium_list_boards',
   'atrium_rename_group',
+  'atrium_set_item_description',
   'atrium_update_column_settings',
   'atrium_update_item',
 ];
