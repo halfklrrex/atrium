@@ -1,4 +1,10 @@
-import { canEditBoard, canManageBoard, resolveBoardRole } from '@atrium/shared';
+import {
+  canEditBoard,
+  canManageBoard,
+  columnsForSubitems,
+  resolveBoardRole,
+  type ColumnDef,
+} from '@atrium/shared';
 import { Menu, MenuButton, MenuDivider, MenuItem, MenuTitle } from '@vibe/core';
 import {
   Archive,
@@ -132,7 +138,7 @@ function BoardMenuContent({
       groups: board.groups,
       items,
       columns: allColumns,
-      subitemColumns: buildColumnViews(board.subitemColumns ?? []),
+      subColumns: buildColumnViews(columnsForSubitems(board) as ColumnDef[]),
       search: exportOpenView ? search.trim() : '',
       filterState: exportOpenView ? filterState : undefined,
       userLookup: (id) => memberLookup(id)?.name,
@@ -142,7 +148,7 @@ function BoardMenuContent({
       items: models.flatMap((m) => m.items),
       subitems: items.filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
       columns: board.columns,
-      subitemColumns: board.subitemColumns ?? [],
+      subColumns: columnsForSubitems(board),
       hiddenColumnIds: exportOpenView ? viewHiddenIds : [],
       groups: board.groups,
       personNames: (id) => memberLookup(id)?.name,

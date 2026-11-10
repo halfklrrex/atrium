@@ -88,6 +88,24 @@ export function columnsForItem<C>(
   return board.columns;
 }
 
+/**
+ * The columns a board's subitems use (same as `columnsForItem` for any subitem). Callers that
+ * render subitem blocks, views or exports and have no particular subitem at hand use this.
+ */
+export function columnsForSubitems<C>(board: {
+  columns: readonly C[];
+  subitemColumns?: readonly C[] | null;
+}): readonly C[] {
+  return columnsForItem(board, { parentItemId: 'subitem' });
+}
+
+/** True while the board still has legacy subitem columns (not yet merged by the migration). */
+export function hasLegacySubitemColumns(board: {
+  subitemColumns?: readonly unknown[] | null;
+}): boolean {
+  return (board.subitemColumns?.length ?? 0) > 0;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Migration plan: merge the legacy subitem columns into the board's columns
 // ---------------------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { columnRegistry, type GroupDef } from '@atrium/shared';
+import { columnRegistry, columnsForItem, type ColumnDef, type GroupDef } from '@atrium/shared';
 import { isRowDone } from '../../components/board-table/table-env';
 import { buildColumnViews, type ColumnView } from '../../components/board-table/table-model';
 import type { BoardDoc, ItemDoc } from '../../data';
@@ -70,7 +70,9 @@ export function buildRows(
     const key = `${board.id}:${subitem ? 's' : 'm'}`;
     let views = cache.get(key);
     if (!views) {
-      views = buildColumnViews(subitem ? board.subitemColumns : board.columns);
+      views = buildColumnViews([
+        ...columnsForItem(board, { parentItemId: subitem ? 'subitem' : null }),
+      ] as ColumnDef[]);
       cache.set(key, views);
     }
     return views;

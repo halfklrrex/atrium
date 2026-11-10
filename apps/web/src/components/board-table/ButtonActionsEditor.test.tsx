@@ -46,7 +46,7 @@ const env: TableEnv = {
   uid: 'user-1',
   canEdit: true,
   columns: [textColumn, formulaColumn],
-  subitemColumns: [],
+  subColumns: [],
   groups,
   nameWidth: 300,
   ctx: mockCtx,

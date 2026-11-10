@@ -133,8 +133,8 @@ export interface ModelInput {
   groups: readonly GroupDef[];
   items: readonly ItemDoc[];
   columns: readonly ColumnView[];
-  /** Subitem columns, so a search also reads subitem cells (names only when omitted). */
-  subitemColumns?: readonly ColumnView[];
+  /** Columns of the subitems, so a search also reads subitem cells (names only when omitted). */
+  subColumns?: readonly ColumnView[];
   /** Case-insensitive search term, already trimmed; empty = no search. */
   search: string;
   /** Local moves not yet confirmed by the server (while dragging and until the write lands). */
@@ -230,7 +230,7 @@ export function subitemTableWidth(
  */
 export function buildGroupModels(input: ModelInput): GroupModel[] {
   const { groups, items, columns, search, patches, filterState, userLookup } = input;
-  const subitemColumns = input.subitemColumns ?? [];
+  const subColumns = input.subColumns ?? [];
   const resolvedColumnDefs = columns.map((c) => ({
     ...c.def,
     settings: (c.settings as Record<string, unknown>) ?? c.def.settings,
@@ -265,7 +265,7 @@ export function buildGroupModels(input: ModelInput): GroupModel[] {
   const subitemMatches = (parentId: string): boolean => {
     if (!searching) return false;
     const found = (subitemsByParent.get(parentId) ?? []).some((sub) =>
-      itemMatchesSearch(sub, subitemColumns, search),
+      itemMatchesSearch(sub, subColumns, search),
     );
     if (found) autoExpanded.add(parentId);
     return found;

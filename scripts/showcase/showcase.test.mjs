@@ -96,10 +96,10 @@ test('every cell value validates against the column registry', () => {
   const { docs } = build();
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
   const types = new Map(board.columns.map((c) => [c.id, c.type]));
-  const subTypes = new Map(board.subitemColumns.map((c) => [c.id, c.type]));
+  assert.deepEqual(board.subitemColumns, []);
   for (const { path, data } of docs.filter((d) => MAIN_ITEM.test(d.path))) {
     for (const [columnId, value] of Object.entries(data.values)) {
-      const type = (data.parentItemId ? subTypes : types).get(columnId);
+      const type = types.get(columnId);
       assert.ok(type, `${path}: unknown column ${columnId}`);
       assert.ok(columnRegistry.parseValue(type, value).success, `${path}.${columnId}`);
     }
@@ -228,13 +228,10 @@ test('timestamps are fixed, in the last 30 days, and never in the future', () =>
   }
 });
 
-test('subitems: 3-4 parents with 2-3 subitems each, in their parent group, default columns', () => {
+test('subitems: 3-4 parents with 2-3 subitems each, in their parent group, board columns', () => {
   const { docs, summary } = build();
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
-  assert.deepEqual(
-    board.subitemColumns.map((c) => c.title),
-    ['Owner', 'Status', 'Date'],
-  );
+  assert.deepEqual(board.subitemColumns, []);
   const items = docs.filter((d) => MAIN_ITEM.test(d.path));
   const byId = new Map(items.map((d) => [d.path.split('/').pop(), d.data]));
   const subs = items.filter((d) => d.data.parentItemId !== null);
@@ -249,7 +246,7 @@ test('subitems: 3-4 parents with 2-3 subitems each, in their parent group, defau
     perParent.set(data.parentItemId, (perParent.get(data.parentItemId) ?? 0) + 1);
     for (const columnId of Object.keys(data.values)) {
       assert.ok(
-        board.subitemColumns.some((c) => c.id === columnId),
+        board.columns.some((c) => c.id === columnId),
         columnId,
       );
     }

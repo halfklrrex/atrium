@@ -958,10 +958,10 @@ test('updates: viewers cannot post and attachment metadata is listed without fil
   );
 });
 
-test('subitems: first one adds the default columns; create, list, update, describe and follow the parent', async () => {
+test('subitems share the board columns; create, list, update, describe and follow the parent', async () => {
   const { service, client, boardId, itemId } = await itemFixture();
   const second = (await service.createItems({ boardId, items: [{ name: 'Other' }] })).created[0].id;
-  assert.equal(client.docs.get(`boards/${boardId}`).data.subitemColumns.length, 0);
+  const columnsBefore = structuredClone(client.docs.get(`boards/${boardId}`).data.columns);
   const { created } = await service.createSubitems({
     boardId,
     itemId,
@@ -970,11 +970,10 @@ test('subitems: first one adds the default columns; create, list, update, descri
       { name: 'Step 2' },
     ],
   });
+  // No default subitem columns: the board is unchanged.
   const board = client.docs.get(`boards/${boardId}`).data;
-  assert.deepEqual(
-    board.subitemColumns.map((c) => c.title),
-    ['Owner', 'Status', 'Date'],
-  );
+  assert.deepEqual(board.subitemColumns, []);
+  assert.deepEqual(board.columns, columnsBefore);
   const parent = client.docs.get(`boards/${boardId}/items/${itemId}`).data;
   const sub = client.docs.get(`boards/${boardId}/items/${created[0].id}`).data;
   assert.equal(sub.parentItemId, itemId);
@@ -990,10 +989,13 @@ test('subitems: first one adds the default columns; create, list, update, descri
     ['Step 1', 'Step 2'],
   );
   assert.equal(listed.subitems[0].values.Status, 'Done');
-  assert.equal(listed.columns.length, 3);
-  assert.equal((await service.getBoard({ boardId })).subitemColumns.length, 3);
+  assert.equal(listed.columns.length, board.columns.length);
+  const full = await service.getBoard({ boardId });
+  assert.equal('subitemColumns' in full, false);
+  const nested = full.items.find((i) => i.id === itemId).subitems;
+  assert.equal(nested[0].values.Status, 'Done');
 
-  // Update a subitem's name and values through the subitem columns; groups are refused.
+  // Update a subitem's name and values through the board columns; groups are refused.
   await service.updateItem({
     boardId,
     itemId: created[1].id,
@@ -1008,11 +1010,8 @@ test('subitems: first one adds the default columns; create, list, update, descri
     service.updateItem({ boardId, itemId: created[1].id, group: 'Group 2' }),
     /stays in its parent's group/,
   );
-  // An item column name does not work on a subitem and the reverse.
-  await assert.rejects(
-    service.updateItem({ boardId, itemId: created[1].id, values: { Stage: 'Idea' } }),
-    /No column "Stage"/,
-  );
+  // Any board column works on a subitem.
+  await service.updateItem({ boardId, itemId: created[1].id, values: { Stage: 'Idea' } });
   // Descriptions work on a subitem id.
   await service.setItemDescription({ boardId, itemId: created[0].id, markdown: '# Notes\n- a' });
   const description = await service.getItemDescription({ boardId, itemId: created[0].id });
@@ -1029,7 +1028,7 @@ test('subitems: first one adds the default columns; create, list, update, descri
   assert.equal(client.docs.get(`boards/${boardId}/items/${second}`).data.state, 'active');
 });
 
-test('subitems: one level only, an editor cannot create the first columns, a subitem can be deleted alone', async () => {
+test('subitems: one level only, an editor can create them, a subitem can be deleted alone', async () => {
   const { service, client, boardId, itemId } = await itemFixture();
   const { created } = await service.createSubitems({ boardId, itemId, subitems: [{ name: 'S' }] });
   await assert.rejects(
@@ -1059,10 +1058,47 @@ test('subitems: one level only, an editor cannot create the first columns, a sub
   doc.access = { [ME]: 'editor' };
   const item = (await service.createItems({ boardId: fresh.id, items: [{ name: 'P' }] })).created[0]
     .id;
-  await assert.rejects(
-    service.createSubitems({ boardId: fresh.id, itemId: item, subitems: [{ name: 'x' }] }),
-    /only a board owner can add them/,
+  const made = await service.createSubitems({
+    boardId: fresh.id,
+    itemId: item,
+    subitems: [{ name: 'x' }],
+  });
+  assert.equal(made.created.length, 1);
+  assert.deepEqual(client.docs.get(`boards/${fresh.id}`).data.subitemColumns, []);
+});
+
+test('subitems on a board not yet migrated keep using its legacy subitem columns', async () => {
+  const { service, client, boardId, itemId } = await itemFixture();
+  const board = client.docs.get(`boards/${boardId}`).data;
+  board.subitemColumns = [
+    {
+      id: 'legacy_note',
+      type: 'text',
+      title: 'Legacy note',
+      position: 'a0',
+      settings: {},
+    },
+  ];
+  const { created } = await service.createSubitems({
+    boardId,
+    itemId,
+    subitems: [{ name: 'Old', values: { 'Legacy note': 'hi' } }],
+  });
+  assert.equal(
+    client.docs.get(`boards/${boardId}/items/${created[0].id}`).data.values.legacy_note,
+    'hi',
   );
+  const listed = await service.listSubitems({ boardId, itemId });
+  assert.deepEqual(
+    listed.columns.map((c) => c.title),
+    ['Legacy note'],
+  );
+  const full = await service.getBoard({ boardId });
+  assert.deepEqual(
+    full.subitemColumns.map((c) => c.title),
+    ['Legacy note'],
+  );
+  assert.equal(full.items.find((i) => i.id === itemId).subitems[0].values['Legacy note'], 'hi');
 });
 
 test('duplicateItem copies values and subitems next to the original, without calculated cells', async () => {

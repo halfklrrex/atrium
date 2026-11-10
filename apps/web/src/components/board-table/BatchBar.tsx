@@ -63,7 +63,7 @@ export function BatchBar() {
         .getItems()
         .filter((i) => i.parentItemId !== null && i.parentItemId !== undefined),
       columns: ctx.columns,
-      subitemColumns: ctx.subitemColumns ?? [],
+      subColumns: ctx.subColumns ?? ctx.columns,
       hiddenColumnIds: ctx.columns.map((c) => c.id).filter((id) => !shown.has(id)),
       groups: env.groups,
       personNames: env.userLookup ?? (() => undefined),

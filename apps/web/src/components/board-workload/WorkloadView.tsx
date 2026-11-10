@@ -1,4 +1,4 @@
-import { canEditBoard, resolveBoardRole } from '@atrium/shared';
+import { canEditBoard, columnsForSubitems, resolveBoardRole, type ColumnDef } from '@atrium/shared';
 import { Button, Loader } from '@vibe/core';
 import { NavigationChevronLeft, NavigationChevronRight, Settings } from '@vibe/icons';
 import classNames from 'classnames';
@@ -93,7 +93,7 @@ export function WorkloadView({ board }: { board: BoardDoc }) {
   }, [boardId]);
 
   const columnDefs = useDeepStable(board.columns);
-  const subitemDefs = useDeepStable(board.subitemColumns ?? []);
+  const subitemDefs = useDeepStable(columnsForSubitems(board) as ColumnDef[]);
   const groupDefs = useDeepStable(board.groups);
   const columnLocks = useDeepStable(board.columnLocks ?? []);
   const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
@@ -152,7 +152,7 @@ export function WorkloadView({ board }: { board: BoardDoc }) {
       boardId,
       uid,
       columns: columnDefs,
-      subitemColumns: subitemDefs,
+      subColumns: subitemDefs,
       board: boardLocks,
       boardRole,
       getItems: () => itemsRef.current,

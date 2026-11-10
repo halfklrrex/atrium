@@ -40,7 +40,7 @@ const mockEnv: TableEnv = {
   uid: 'u1',
   canEdit: true,
   columns: [],
-  subitemColumns: [],
+  subColumns: [],
   groups: [],
   nameWidth: 300,
   ctx: { boardId: 'b1', uid: 'u1', columns: [] },

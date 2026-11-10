@@ -31,8 +31,11 @@ export interface BoardCsvInput {
   subitems: readonly ItemDoc[];
   /** Board columns (any order: the view's column order is their `position`). */
   columns: readonly ColumnDef[];
-  /** Subitem columns, used for the cells of subitem rows whose column id and type match. */
-  subitemColumns?: readonly ColumnDef[];
+  /**
+   * Columns of the subitems, used for the cells of subitem rows whose column id and type match
+   * (`columnsForSubitems`: the board's columns, so usually the same list as `columns`).
+   */
+  subColumns?: readonly ColumnDef[];
   /** Columns the open view hides; they are not exported. */
   hiddenColumnIds: readonly string[];
   groups: readonly GroupDef[];
@@ -149,10 +152,10 @@ export function buildBoardCsvRows(input: BoardCsvInput): CsvCell[][] {
 export function buildBoardExportTable(input: BoardCsvInput): ExportTable {
   const { board, columns, hiddenColumnIds, groups, personNames } = input;
   const typed = input.typed === true;
-  const subitemColumns = input.subitemColumns ?? [];
+  const subColumns = input.subColumns ?? [];
   const hidden = new Set(hiddenColumnIds);
   const views = buildColumnViews(columns).filter((v) => !hidden.has(v.def.id));
-  const subitemViews = new Map(buildColumnViews(subitemColumns).map((v) => [v.def.id, v]));
+  const subitemViews = new Map(buildColumnViews(subColumns).map((v) => [v.def.id, v]));
   const groupTitles = new Map(groups.map((g) => [g.id, g.title]));
 
   const activeSubitems = input.subitems.filter(isActive);
@@ -167,7 +170,10 @@ export function buildBoardExportTable(input: BoardCsvInput): ExportTable {
 
   const only = input.itemIds ? new Set(input.itemIds) : null;
   const items = input.items.filter((i) => isActive(i) && (only === null || only.has(i.id)));
-  const hasSubitems = activeSubitems.length > 0 || subitemColumns.length > 0;
+  // A board not yet migrated can have subitem columns of its own and no subitems; with shared
+  // columns (the same list) only actual subitems add the "Parent item" column.
+  const hasSubitems =
+    activeSubitems.length > 0 || (subColumns.length > 0 && subColumns !== columns);
   // Dependency cells name any active item, so the names come from the whole board, not the selection.
   const itemNames = new Map(
     [...input.items.filter(isActive), ...activeSubitems].map((i) => [i.id, i.name]),
@@ -195,7 +201,7 @@ export function buildBoardExportTable(input: BoardCsvInput): ExportTable {
         const own = subitemViews.get(v.def.id);
         subRow.push(
           own && own.def.type === v.def.type
-            ? cellFor(own, subitemColumns, sub, board.id, personNames, itemNames, typed)
+            ? cellFor(own, subColumns, sub, board.id, personNames, itemNames, typed)
             : '',
         );
       }

@@ -17,8 +17,8 @@ const NAME_TRACK = 'var(--atrium-table-name-live)';
 
 /**
  * Everything inside a subitem block (and the lifted copy of a dragged subitem) reads the table
- * environment through this scope: the subitem columns instead of the board's, an action context
- * whose column writes go to `board.subitemColumns`, and its own grid template.
+ * environment through this scope: the subitem columns (the board's own, except on a board not yet
+ * migrated), an action context for them, and its own grid template.
  */
 export function SubitemScope({
   groupColor,
@@ -32,14 +32,24 @@ export function SubitemScope({
   const env = useTableEnv();
   const [live, setLive] = useState<Record<string, number>>({});
 
-  const defs = useMemo(() => env.subitemColumns.map((c) => c.def), [env.subitemColumns]);
+  // The board's columns (all of them, hidden ones included) unless the board is not yet migrated.
+  const defs = useMemo(
+    () => (env.legacySubitems ? env.subColumns.map((c) => c.def) : env.ctx.columns),
+    [env.legacySubitems, env.subColumns, env.ctx.columns],
+  );
   const columns = useMemo(
-    () => env.subitemColumns.map((c) => (live[c.def.id] ? { ...c, width: live[c.def.id]! } : c)),
-    [env.subitemColumns, live],
+    () => env.subColumns.map((c) => (live[c.def.id] ? { ...c, width: live[c.def.id]! } : c)),
+    [env.subColumns, live],
   );
   const ctx = useMemo<TableCtx>(
-    () => ({ ...env.ctx, columns: defs, subitemColumns: defs, scope: 'subitems' }),
-    [env.ctx, defs],
+    () => ({
+      ...env.ctx,
+      columns: defs,
+      subColumns: defs,
+      // Subitems share the board's columns; only a board not yet migrated writes its own list.
+      scope: env.legacySubitems ? 'subitems' : 'columns',
+    }),
+    [env.ctx, env.legacySubitems, defs],
   );
 
   const { getItems: getAllItems } = env;
@@ -62,7 +72,16 @@ export function SubitemScope({
   );
 
   const scoped = useMemo<TableEnv>(
-    () => ({ ...env, columns, allColumns: columns, ctx, getItems, getModels: () => [], onResize }),
+    () => ({
+      ...env,
+      inSubitemBlock: true,
+      columns,
+      allColumns: env.legacySubitems ? columns : (env.allColumns ?? env.columns),
+      ctx,
+      getItems,
+      getModels: () => [],
+      onResize,
+    }),
     [env, columns, ctx, getItems, onResize],
   );
 
@@ -90,7 +109,7 @@ interface SubitemBlockProps {
 }
 
 /**
- * The mini table under an open parent row: its own header (the board's `subitemColumns`), one row
+ * The mini table under an open parent row: its own header (the board's columns), one row
  * per subitem and "+ Add subitem". Subitems are sortable only inside this block.
  */
 export const SubitemBlock = memo(function SubitemBlock({

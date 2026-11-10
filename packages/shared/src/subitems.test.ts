@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { ColumnDef } from './schemas/board';
 import {
   columnsForItem,
+  columnsForSubitems,
   defaultSubitemColumns,
+  hasLegacySubitemColumns,
   isSubitem,
   planSubitemColumnMerge,
   subitemsByParent,
@@ -76,6 +78,19 @@ describe('columnsForItem', () => {
   });
   it('keeps the legacy subitem columns for a subitem until the board is migrated', () => {
     expect(columnsForItem({ columns, subitemColumns: legacy }, { parentItemId: 'p' })).toBe(legacy);
+  });
+});
+
+describe('columnsForSubitems / hasLegacySubitemColumns', () => {
+  const columns = ['c1'];
+  const legacy = ['s1'];
+  it('uses the board columns, or the legacy subitem columns until migrated', () => {
+    expect(columnsForSubitems({ columns, subitemColumns: [] })).toBe(columns);
+    expect(columnsForSubitems({ columns })).toBe(columns);
+    expect(columnsForSubitems({ columns, subitemColumns: legacy })).toBe(legacy);
+    expect(hasLegacySubitemColumns({ subitemColumns: legacy })).toBe(true);
+    expect(hasLegacySubitemColumns({ subitemColumns: [] })).toBe(false);
+    expect(hasLegacySubitemColumns({})).toBe(false);
   });
 });
 

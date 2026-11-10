@@ -1,4 +1,5 @@
 import { Dropdown, IconButton } from '@vibe/core';
+import { columnsForSubitems, hasLegacySubitemColumns } from '@atrium/shared';
 import { CloseSmall } from '@vibe/icons';
 import classNames from 'classnames';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -91,8 +92,12 @@ export function BoardActivityPanel({ board }: { board: BoardDoc }) {
     [board.columns],
   );
   const allColumns = useMemo(
-    () => [...board.columns, ...board.subitemColumns],
-    [board.columns, board.subitemColumns],
+    () => [
+      ...board.columns,
+      // Columns of a board not yet migrated: legacy subitem columns also label activity.
+      ...(hasLegacySubitemColumns(board) ? columnsForSubitems(board) : []),
+    ],
+    [board],
   );
 
   const filtered = hasActivityFilters(filters);

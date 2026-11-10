@@ -70,7 +70,7 @@ function renderEditor(settings: Record<string, unknown>, envOverrides: Partial<T
     uid: 'user-1',
     canEdit: true,
     columns: [relation, mirror],
-    subitemColumns: [],
+    subColumns: [],
     groups: [],
     nameWidth: 300,
     ctx: mockCtx,

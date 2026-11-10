@@ -3,7 +3,6 @@ import {
   FIRESTORE_DATABASE_ID,
   columnRegistry,
   defaultBoardStructure,
-  defaultSubitemColumns,
   itemIndexFields,
   type BoardStructure,
   type BoardWrite,
@@ -323,7 +322,8 @@ function roadmapStructure(): BoardStructure {
   ];
   return {
     columns,
-    subitemColumns: defaultSubitemColumns(columns.map((c) => c.id)),
+    // Subitems share the board's columns.
+    subitemColumns: [],
     groups,
     itemTerminology: 'item',
   };
@@ -514,7 +514,7 @@ async function seedRoadmapItems(firestore: Firestore): Promise<void> {
         name,
         position: `a${i}`,
         parentItemId: id,
-        values: { sub_status: { index: i } },
+        values: { status: { index: i } },
         seq,
         boardSeq: subitems,
       });

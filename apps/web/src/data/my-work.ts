@@ -1,4 +1,4 @@
-import { assigneeUidsOf } from '@atrium/shared';
+import { assigneeUidsOf, columnsForItem } from '@atrium/shared';
 import { onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { activeBoards, mergeBoards } from './boards';
@@ -15,7 +15,7 @@ export const MY_WORK_BOARD_CAP = 100;
  * deleted People column leaves a stale hint until the item's next write.
  */
 export function isAssignedTo(board: BoardDoc, item: ItemDoc, uid: string): boolean {
-  const columns = item.parentItemId != null ? board.subitemColumns : board.columns;
+  const columns = columnsForItem(board, item);
   return assigneeUidsOf(columns, item.values).includes(uid);
 }
 

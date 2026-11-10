@@ -6,7 +6,13 @@
 //     a role (structure changes need `owner`, item changes `editor` or `owner`);
 //   - never writes derivedColumnIds / serverManagedColumnIds / requiredColumnIds / seq / boardSeq / activity / notifications;
 //   - no hard deletes; only the documents of one board are ever touched.
-import { boardRoleFromWorkspaceRole, columnRegistry, defaultSubitemColumns } from '@atrium/shared';
+import {
+  boardRoleFromWorkspaceRole,
+  columnRegistry,
+  columnsForItem,
+  columnsForSubitems,
+  hasLegacySubitemColumns,
+} from '@atrium/shared';
 import {
   addLabelsToSettings,
   buildBoardDoc,
@@ -207,23 +213,11 @@ export function createService({ client, config, now = () => new Date() }) {
       .sort((a, b) => (a.data.position < b.data.position ? -1 : 1));
   }
 
-  /** The board's subitem columns, writing monday's three defaults first when it has none yet. */
-  async function ensureSubitemColumns(loaded) {
-    if (loaded.board.subitemColumns.length > 0) return loaded.board.subitemColumns;
-    if (loaded.role !== 'owner') {
-      throw new McpUserError(
-        'This board has no subitem columns yet and only a board owner can add them. ' +
-          'Ask an owner to add a first subitem in Atrium, or to give the connector user the owner role.',
-      );
-    }
-    const added = await mutateBoard(loaded.id, (board) => {
-      if (board.subitemColumns.length > 0) return { patch: {}, result: board.subitemColumns };
-      const columns = defaultSubitemColumns(board.columns.map((c) => c.id));
-      return { patch: { subitemColumns: columns }, result: columns };
-    });
-    loaded.board.subitemColumns = added;
-    return added;
-  }
+  /**
+   * The columns a board's subitems use: the board's own columns (subitems share them), or, on a
+   * board the subitem-column migration has not reached yet, its legacy subitem columns.
+   */
+  const subitemColumnsOf = (board) => columnsForSubitems(board);
 
   /** `{ uid, name, ... }` of the members a post may mention, as the web's @ list would offer. */
   async function mentionResolver(loaded) {
@@ -287,7 +281,8 @@ export function createService({ client, config, now = () => new Date() }) {
       const { board } = await loadBoard(boardId, 'read');
       const columnTitle = new Map();
       const titles = new Set();
-      for (const column of [...board.columns, ...board.subitemColumns]) {
+      const legacy = hasLegacySubitemColumns(board);
+      for (const column of legacy ? [...board.columns, ...board.subitemColumns] : board.columns) {
         const taken = titles.has(column.title.toLowerCase());
         titles.add(column.title.toLowerCase());
         columnTitle.set(column.id, taken ? `${column.title} (${column.id})` : column.title);
@@ -303,18 +298,21 @@ export function createService({ client, config, now = () => new Date() }) {
           type: c.type,
           ...labelSummary(c),
         })),
-        subitemColumns: sortedByPosition(board.subitemColumns).map((c) => ({
-          id: c.id,
-          title: c.title,
-          type: c.type,
-          ...labelSummary(c),
-        })),
         groups: sortedByPosition(board.groups).map((g) => ({
           id: g.id,
           title: g.title,
           color: g.color,
         })),
       };
+      // Only a board not yet migrated still has subitem columns of its own to list.
+      if (legacy) {
+        result.subitemColumns = sortedByPosition(board.subitemColumns).map((c) => ({
+          id: c.id,
+          title: c.title,
+          type: c.type,
+          ...labelSummary(c),
+        }));
+      }
       if (!includeItems) return result;
 
       const docs = (await itemsOf(boardId)).filter((d) => d.data.state === 'active');
@@ -343,7 +341,7 @@ export function createService({ client, config, now = () => new Date() }) {
       result.items = roots.slice(0, limit).map((doc) => {
         const children = subitems
           .filter((s) => s.data.parentItemId === doc.id)
-          .map((s) => shape(s, board.subitemColumns));
+          .map((s) => shape(s, subitemColumnsOf(board)));
         return {
           ...shape(doc, board.columns),
           group: groupTitle.get(doc.data.groupId) ?? doc.data.groupId,
@@ -515,11 +513,7 @@ export function createService({ client, config, now = () => new Date() }) {
       const loaded = await loadBoard(boardId, 'edit');
       const item = await loadItem(boardId, itemId);
       const isSub = Boolean(item.parentItemId);
-      const cells = await convertValues(
-        loaded,
-        values,
-        isSub ? loaded.board.subitemColumns : loaded.board.columns,
-      );
+      const cells = await convertValues(loaded, values, columnsForItem(loaded.board, item));
       let groupId;
       let position;
       if (group !== undefined && isSub) {
@@ -777,7 +771,7 @@ export function createService({ client, config, now = () => new Date() }) {
       const { board } = await loadBoard(boardId, 'view');
       const parent = await loadItem(boardId, itemId);
       if (parent.parentItemId) throw new McpUserError('A subitem has no subitems of its own.');
-      const columns = board.subitemColumns;
+      const columns = subitemColumnsOf(board);
       const titles = new Map(columns.map((c) => [c.id, c.title]));
       const subs = await subitemDocs(boardId, itemId);
       return {
@@ -811,7 +805,7 @@ export function createService({ client, config, now = () => new Date() }) {
       if (parent.parentItemId) {
         throw new McpUserError('Subitems are one level deep: pick a top-level item as the parent.');
       }
-      const columns = await ensureSubitemColumns(loaded);
+      const columns = subitemColumnsOf(loaded.board);
       const positions = sortedPositions(await subitemDocs(boardId, itemId, { active: false }));
       const writes = [];
       const created = [];
@@ -878,10 +872,7 @@ export function createService({ client, config, now = () => new Date() }) {
             name: `${item.name} (copy)`.slice(0, 500),
             groupId: item.groupId,
             position,
-            values: copyValues(
-              item.values,
-              isSub ? loaded.board.subitemColumns : loaded.board.columns,
-            ),
+            values: copyValues(item.values, columnsForItem(loaded.board, item)),
             now: now(),
             parentItemId: item.parentItemId ?? null,
           }),
@@ -902,7 +893,7 @@ export function createService({ client, config, now = () => new Date() }) {
               name: child.data.name,
               groupId: item.groupId,
               position: child.data.position,
-              values: copyValues(child.data.values, loaded.board.subitemColumns),
+              values: copyValues(child.data.values, subitemColumnsOf(loaded.board)),
               now: now(),
               parentItemId: id,
             }),

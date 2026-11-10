@@ -92,8 +92,9 @@ describe('ItemView', () => {
     expect(await screen.findByText('description editor')).toBeTruthy();
     expect(screen.getByText('Child task')).toBeTruthy();
     expect(screen.getByText('updates feed')).toBeTruthy();
-    // One labelled field row per board column.
-    expect(screen.getByText('Cost')).toBeTruthy();
+    // One labelled field row per board column (the subitem row shows the same columns too).
+    expect(screen.getAllByText('Cost')).toHaveLength(2);
+    expect(document.querySelector('[data-cell="s1:cost"]')).not.toBeNull();
     expect(document.querySelector('[data-cell="i2:cost"]')).not.toBeNull();
     expect(document.querySelector('[data-cell="i2:made"]')).not.toBeNull();
   });
