@@ -56,11 +56,7 @@ export function UserMenu() {
     >
       <Menu id="account-menu" size="medium">
         <MenuTitle caption={user?.email ?? name} />
-        <MenuItem
-          title="Settings"
-          icon={Settings}
-          onClick={() => void navigate('/settings/profile')}
-        />
+        <MenuItem title="Settings" icon={Settings} onClick={() => void navigate('/settings')} />
         <MenuDivider />
         <MenuTitle caption="Theme" />
         {THEME_OPTIONS.map(({ value, label }) => (

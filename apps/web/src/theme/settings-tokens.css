@@ -5,6 +5,7 @@
   --atrium-settings-nav-item-height: 44px; /* also the minimum height of a row with a control */
   --atrium-settings-nav-link-height: 40px; /* desktop nav links */
   --atrium-settings-row-min-height: 52px; /* card rows */
+  --atrium-settings-index-row-height: 52px; /* phone index rows */
   --atrium-settings-matrix-switch-column: 96px; /* "In the bell" and "Push" columns */
   --atrium-settings-select-min-width: 240px; /* time-zone select */
   --atrium-settings-theme-card-min-width: 140px;
@@ -17,6 +18,7 @@
   --atrium-settings-card-bg: var(--atrium-card-bg);
 }
 
+/* Must match PHONE_QUERY in lib/use-media-query.ts. */
 @media (width < 768px) {
   :root {
     --atrium-settings-matrix-switch-column: 72px;

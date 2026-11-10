@@ -1,4 +1,4 @@
-/* Settings: full-height grouped nav and a centred card column from 768 px; one column and a sideways tab bar below (until the phone drill-in). */
+/* Settings: full-height grouped nav and a centred card column from 768 px; below that, an index page that drills into each tab. */
 .page {
   display: grid;
   grid-template-columns: var(--atrium-settings-nav-width) minmax(0, 1fr);
@@ -479,63 +479,78 @@
   white-space: nowrap;
 }
 
-/* Must match PHONE_QUERY once the phone drill-in lands (SETTINGS-layout-a PR 3). */
+/* Phone: no nav; the index and each tab are one column. Must match PHONE_QUERY in lib/use-media-query.ts. */
+.indexPage,
+.phonePage {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  padding: var(--space-16);
+  padding-block-end: calc(var(--space-16) + var(--atrium-safe-bottom));
+  padding-inline: calc(var(--space-16) + var(--atrium-safe-left))
+    calc(var(--space-16) + var(--atrium-safe-right));
+}
+
+.indexPage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.indexPage .heading {
+  padding-inline: 0;
+}
+
+.indexGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.indexGroup .navGroupLabel {
+  padding-inline: 0;
+}
+
+.indexList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.indexList li + li {
+  border-block-start: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.indexRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  box-sizing: border-box;
+  min-block-size: var(--atrium-settings-index-row-height);
+  padding-inline: var(--space-16);
+  color: var(--primary-text-color);
+  font: var(--font-text1-normal);
+  text-decoration: none;
+}
+
+.indexRow:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.indexRow:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
+
+.indexLabel {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.indexValue {
+  color: var(--secondary-text-color);
+  font: var(--font-text1-normal);
+}
+
 @media (width < 768px) {
-  .page {
-    display: flex;
-    flex-direction: column;
-    block-size: auto;
-  }
-
-  .navPanel {
-    overflow-y: visible;
-    padding: var(--space-16);
-    padding-block-end: 0;
-    padding-inline: calc(var(--space-16) + var(--atrium-safe-left))
-      calc(var(--space-16) + var(--atrium-safe-right));
-    border-inline-end: 0;
-    gap: var(--space-16);
-  }
-
-  .heading {
-    padding-inline: 0;
-  }
-
-  /* The tab bar scrolls sideways inside itself, never the page. */
-  .nav {
-    flex-direction: row;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
-  }
-
-  .navGroup {
-    flex-direction: row;
-  }
-
-  .navGroupLabel,
-  .navIcon {
-    display: none;
-  }
-
-  .navList {
-    flex-direction: row;
-    gap: var(--space-4);
-    width: max-content;
-  }
-
-  .navLink {
-    border-radius: var(--border-radius-small);
-  }
-
-  .body {
-    overflow-y: visible;
-    padding: var(--space-16);
-    padding-block-end: calc(var(--space-16) + var(--atrium-safe-bottom));
-    padding-inline: calc(var(--space-16) + var(--atrium-safe-left))
-      calc(var(--space-16) + var(--atrium-safe-right));
-  }
-
   .select {
     min-inline-size: 0;
     inline-size: 100%;

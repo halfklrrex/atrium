@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SettingsPage } from './SettingsPage';
 
 vi.mock('./ProfileTab', () => ({ ProfileTab: () => <p>profile body</p> }));
@@ -18,6 +18,7 @@ function renderAt(path: string) {
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
+        <Route path="/settings" element={<p>settings index</p>} />
         <Route path="/settings/:tab" element={<SettingsPage />} />
       </Routes>
       <Where />
@@ -97,5 +98,38 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Account' }));
     expect(screen.getByText('account body')).toBeVisible();
     expect(screen.getByTestId('where')).toHaveTextContent('/settings/account');
+  });
+});
+
+describe('SettingsPage on a phone', () => {
+  const stubPhone = () =>
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(width < 768px)',
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('has no nav, and the tab label is the h1', () => {
+    stubPhone();
+    renderAt('/settings/notifications');
+    expect(screen.queryByRole('navigation', { name: 'Settings sections' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Notifications' })).toBeVisible();
+    expect(screen.getByText('notifications body')).toBeVisible();
+  });
+
+  it('Back to Settings goes to the index', async () => {
+    stubPhone();
+    renderAt('/settings/privacy');
+    await userEvent.click(screen.getByRole('button', { name: 'Back to Settings' }));
+    expect(screen.getByText('settings index')).toBeVisible();
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/settings$/);
+  });
+
+  it('sends an unknown tab to the index', () => {
+    stubPhone();
+    renderAt('/settings/nonsense');
+    expect(screen.getByText('settings index')).toBeVisible();
   });
 });
