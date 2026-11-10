@@ -1,4 +1,5 @@
 import { columnRegistry, type ColumnDef } from '@atrium/shared';
+import type { ComponentProps, ComponentType } from 'react';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +10,9 @@ import { makeBoard } from '../../test/fixtures';
 import { openItemFull } from '../board-table/open-item';
 import { ItemCardDrawer } from './ItemCardDrawer';
 import { useItemCardStore } from './item-card-store';
+import type { UpdatesFeed as UpdatesFeedComponent } from './UpdatesFeed';
+
+type UpdatesFeedProps = ComponentProps<typeof UpdatesFeedComponent>;
 
 const mockItem: ItemDoc = {
   id: 'i1',
@@ -124,20 +128,36 @@ const textColumns = (n: number): ColumnDef[] =>
   );
 
 let mockColumns: ColumnDef[] = KEY_COLUMNS;
+let mockItems: ItemDoc[] = [];
+let mockSubitemColumns: ColumnDef[] = [];
+let mockRole: 'owner' | 'viewer' = 'owner';
+let mockUpdateList: ItemUpdateDoc[] = mockUpdates;
+const feedProps = vi.hoisted(() => ({ last: null as Record<string, unknown> | null }));
+vi.mock('./UpdatesFeed', async (importOriginal) => {
+  const original = (await importOriginal()) as { UpdatesFeed: ComponentType<UpdatesFeedProps> };
+  return {
+    UpdatesFeed: (props: UpdatesFeedProps) => {
+      feedProps.last = props as unknown as Record<string, unknown>;
+      return <original.UpdatesFeed {...props} />;
+    },
+  };
+});
 vi.mock('../../data/hooks', () => ({
   useBoard: () => ({
     data: makeBoard({
       id: 'b1',
       name: 'Product roadmap',
       columns: mockColumns,
+      subitemColumns: mockSubitemColumns,
+      access: { u1: mockRole },
       groups: [{ id: 'g1', title: 'Core boards', color: '#579bfc', position: 'a0' }],
     }),
     loading: false,
     error: null,
   }),
-  useItems: () => ({ data: [], loading: false, error: null }),
+  useItems: () => ({ data: mockItems, loading: false, error: null }),
   useWorkspace: () => ({
-    data: { name: 'Main', roles: { u1: 'owner' } },
+    data: { name: 'Main', roles: { u1: mockRole } },
     loading: false,
     error: null,
   }),
@@ -160,7 +180,7 @@ vi.mock('../../data/updates', () => ({
     error: null,
   }),
   useItemUpdates: () => ({
-    data: mockUpdates,
+    data: mockUpdateList,
     loading: false,
     error: null,
   }),
@@ -178,6 +198,11 @@ describe('ItemCardDrawer', () => {
     mockActivity = {};
     mockActivityBoardId = undefined;
     mockColumns = KEY_COLUMNS;
+    mockItems = [];
+    mockSubitemColumns = [];
+    mockRole = 'owner';
+    mockUpdateList = mockUpdates;
+    feedProps.last = null;
     vi.mocked(openItemFull).mockClear();
     toastMock.showToast.mockClear();
     useItemCardStore.getState().closeItemCard();
@@ -404,5 +429,102 @@ describe('ItemCardDrawer', () => {
     render(<ItemCardDrawer />);
     await userEvent.keyboard('{Escape}');
     expect(useItemCardStore.getState().activeItemId).toBeNull();
+  });
+
+  describe('subitems row, latest update and composer line', () => {
+    const subStatus = column('sst', 'status', 'Status', 'a0');
+    const sub = (id: string, index?: number): ItemDoc => ({
+      ...mockItem,
+      id,
+      name: id,
+      parentItemId: 'i1',
+      values: index === undefined ? {} : { sst: { index } },
+    });
+    const withSubs = () => {
+      mockSubitemColumns = [
+        {
+          ...subStatus,
+          settings: {
+            labels: [
+              { id: 'todo', index: 0, label: 'Todo', color: '#fdab3d' },
+              { id: 'done', index: 1, label: 'Done', color: '#00c875', isDone: true },
+            ],
+          },
+        },
+      ];
+      mockItems = [sub('s1', 1), sub('s2', 0), sub('s3', 1), sub('s4')];
+    };
+
+    it('shows "x of y done" and opens the full item at its subitems', async () => {
+      withSubs();
+      useItemCardStore.getState().openItemCard('b1', 'i1');
+      render(<ItemCardDrawer />);
+      const row = screen.getByRole('button', {
+        name: 'Subitems, 2 of 4 done. Open in the full item',
+      });
+      expect(row).toHaveTextContent('2 of 4 done');
+      await userEvent.click(row);
+      expect(openItemFull).toHaveBeenCalledWith('b1', 'i1', { section: 'subitems' });
+    });
+
+    it('counts subitems without a status column and ignores other parents', () => {
+      mockItems = [sub('s1'), sub('s2'), { ...sub('x'), parentItemId: 'other' }];
+      useItemCardStore.getState().openItemCard('b1', 'i1');
+      render(<ItemCardDrawer />);
+      expect(screen.getByRole('button', { name: /^Subitems, 2 subitems/ })).toBeInTheDocument();
+    });
+
+    it('shows "None yet" to editors and hides the row from viewers', () => {
+      useItemCardStore.getState().openItemCard('b1', 'i1');
+      const { unmount } = render(<ItemCardDrawer />);
+      expect(screen.getByRole('button', { name: /^Subitems, None yet/ })).toBeInTheDocument();
+      unmount();
+      mockRole = 'viewer';
+      render(<ItemCardDrawer />);
+      expect(screen.queryByRole('button', { name: /^Subitems/ })).not.toBeInTheDocument();
+    });
+
+    it('shows the newest update as a teaser and opens it in Updates, focused', async () => {
+      mockUpdateList = [{ ...mockUpdates[0]!, repliesCount: 2 }];
+      useItemCardStore.getState().openItemCard('b1', 'i1');
+      render(<ItemCardDrawer />);
+      expect(screen.getByRole('heading', { name: 'Latest update' })).toBeInTheDocument();
+      const teaser = screen.getByRole('button', { name: /^Latest update from/ });
+      expect(teaser).toHaveTextContent('Initial specs completed!');
+      expect(teaser).toHaveTextContent('2 replies');
+      await userEvent.click(teaser);
+      expect(useItemCardStore.getState().tab).toBe('updates');
+      expect(feedProps.last?.focusUpdateId).toBe('up1');
+      expect(feedProps.last?.autoFocusComposer).toBe(false);
+    });
+
+    it('"All N updates" switches to Updates without focusing anything', async () => {
+      useItemCardStore.getState().openItemCard('b1', 'i1');
+      render(<ItemCardDrawer />);
+      await userEvent.click(screen.getByRole('button', { name: 'All 1 update' }));
+      expect(useItemCardStore.getState().tab).toBe('updates');
+      expect(feedProps.last?.focusUpdateId).toBeUndefined();
+    });
+
+    it('"Write an update..." opens Updates with the composer focused, once', async () => {
+      useItemCardStore.getState().openItemCard('b1', 'i1');
+      render(<ItemCardDrawer />);
+      await userEvent.click(screen.getByRole('button', { name: 'Write an update' }));
+      expect(useItemCardStore.getState().tab).toBe('updates');
+      expect(feedProps.last?.autoFocusComposer).toBe(true);
+      await userEvent.click(screen.getByRole('tab', { name: 'Overview' }));
+      await userEvent.click(screen.getByRole('tab', { name: /^Updates/ }));
+      expect(feedProps.last?.autoFocusComposer).toBe(false);
+    });
+
+    it('with no updates the label is "Updates" and only the composer line shows', () => {
+      mockUpdateList = [];
+      useItemCardStore.getState().openItemCard('b1', 'i1');
+      render(<ItemCardDrawer />);
+      expect(screen.getByRole('heading', { name: 'Updates' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Latest update from/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^All \d+ update/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Write an update' })).toBeInTheDocument();
+    });
   });
 });

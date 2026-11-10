@@ -7,4 +7,8 @@
   --atrium-item-panel-title-font-narrow: 500 18px / 26px var(--title-font-family); /* title below 420px */
   --atrium-item-panel-narrow-label-width: 104px; /* field label column below 420px */
   --atrium-item-panel-desc-fallback-height: 96px; /* Suspense box while the editor loads */
+  --atrium-item-panel-desc-clamp-lines: 8; /* clamp height multiplier (DESCRIPTION_CLAMP_LINES) */
+  --atrium-item-panel-progress-height: 6px; /* subitems bar */
+  --atrium-item-panel-progress-width: 96px; /* subitems bar */
+  --atrium-item-panel-composer-stub-height: 36px; /* "Write an update..." line */
 }

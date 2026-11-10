@@ -20,14 +20,21 @@ export function openItem(boardId: string, itemId: string, options?: { tab?: Item
 
 /**
  * The row's "Open item" icon: the full item view (floating window) at `/boards/:boardId/items/:itemId`.
- * Without a router (unit tests) it falls back to the side panel.
+ * `section: 'subitems'` scrolls the window to its Subitems section. Without a router (unit tests)
+ * it falls back to the side panel.
  */
-export function openItemFull(boardId: string, itemId: string): void {
+export function openItemFull(
+  boardId: string,
+  itemId: string,
+  options?: { section?: 'subitems' },
+): void {
   const { navigate } = useItemViewStore.getState();
   if (!navigate) {
     useItemCardStore.getState().open(boardId, itemId);
     return;
   }
   useItemCardStore.getState().closeItemCard();
-  navigate(itemViewPath(boardId, itemId), { state: FROM_BOARD_STATE });
+  navigate(itemViewPath(boardId, itemId), {
+    state: options?.section ? { ...FROM_BOARD_STATE, section: options.section } : FROM_BOARD_STATE,
+  });
 }

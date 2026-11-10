@@ -47,6 +47,8 @@ interface ItemViewState {
   /** Open the thread of this update and scroll it into view. */
   updateId?: string | null;
   replyId?: string | null;
+  /** Scroll this part of the window into view once the item has loaded. */
+  section?: 'subitems';
 }
 
 export interface ItemViewProps {
@@ -111,6 +113,19 @@ export function ItemView({ board, itemId }: ItemViewProps) {
     if (fromBoard) navigate(-1);
     else navigate(boardPath(board), { replace: true });
   }, [fromBoard, navigate, board]);
+
+  // Opened from the side panel's subitems row: bring the Subitems section up, once per open.
+  const scrolledSection = useRef(false);
+  const wantsSubitems = routeState?.section === 'subitems';
+  const hasItem = item !== null;
+  useEffect(() => {
+    if (!wantsSubitems || !hasItem || scrolledSection.current) return;
+    scrolledSection.current = true;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    document
+      .getElementById('item-view-subitems')
+      ?.scrollIntoView?.({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  }, [wantsSubitems, hasItem]);
 
   const goTo = (id: string | null) => {
     if (id) navigate(itemViewPath(board, id), { replace: true, state: FROM_BOARD_STATE });

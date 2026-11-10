@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { ColumnDef } from '@atrium/shared';
 import { buildColumnViews, type ColumnView } from '../board-table/table-model';
+import type { ItemDoc } from '../../data';
 import {
+  DESCRIPTION_FULL_LINES,
   GRID_FIELD_CAP,
+  descriptionMode,
   isWideFieldType,
   keyBarEmptyHint,
   partitionGridFields,
   selectKeyBarColumns,
+  subitemSummary,
 } from './item-panel-layout';
 
 const views = (specs: [string, string][]): ColumnView[] =>
@@ -162,5 +166,58 @@ describe('field helpers', () => {
     expect(keyBarEmptyHint('timeline')).toBe('Set dates');
     expect(keyBarEmptyHint('dropdown')).toBe('Choose');
     expect(keyBarEmptyHint('text')).toBeUndefined();
+  });
+});
+
+describe('descriptionMode', () => {
+  const line = 24;
+  it('shows up to 12 lines in full and clamps from 13', () => {
+    expect(descriptionMode(11 * line, line)).toBe('full');
+    expect(descriptionMode(DESCRIPTION_FULL_LINES * line, line)).toBe('full');
+    expect(descriptionMode(13 * line, line)).toBe('clamped');
+  });
+  it('treats a zero line height as full', () => {
+    expect(descriptionMode(900, 0)).toBe('full');
+  });
+});
+
+describe('subitemSummary', () => {
+  const statusCols = buildColumnViews([
+    {
+      id: 'st',
+      type: 'status',
+      title: 'Status',
+      position: 'a00',
+      settings: {
+        labels: [
+          { index: 0, label: 'Todo', color: 'red' },
+          { index: 1, label: 'Done', color: 'green', isDone: true },
+        ],
+      },
+    } as unknown as ColumnDef,
+  ]);
+  const textCols = views([['t', 'text']]);
+  const sub = (id: string, parent: string | null, index?: number) =>
+    ({
+      id,
+      parentItemId: parent,
+      values: index === undefined ? {} : { st: { index } },
+    }) as unknown as ItemDoc;
+  const items = [
+    sub('a', 'p', 1),
+    sub('b', 'p', 0),
+    sub('c', 'p'),
+    sub('d', 'other', 1),
+    sub('e', null),
+  ];
+
+  it('counts the parent subitems and the done ones', () => {
+    expect(subitemSummary(items, 'p', statusCols)).toEqual({ total: 3, done: 1 });
+  });
+  it('has no done count without a status column', () => {
+    expect(subitemSummary(items, 'p', textCols)).toEqual({ total: 3, done: null });
+  });
+  it('is empty without subitems', () => {
+    expect(subitemSummary(items, 'none', statusCols)).toEqual({ total: 0, done: 0 });
   });
 });

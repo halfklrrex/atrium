@@ -24,6 +24,7 @@ import classNames from 'classnames';
 import {
   Fragment,
   type ComponentProps,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -228,6 +229,8 @@ interface DescriptionToolbarProps {
   emojiOpen: boolean;
   /** Opens or closes the emoji picker, hanging it from the given button. */
   onToggleEmoji: (anchor: HTMLElement) => void;
+  /** Tells the editor shell whether one of the toolbar's own popups is open. */
+  onPopupChange?: (open: boolean) => void;
 }
 
 /** One hideable tool: its button, and what the More menu does when it has moved in there. */
@@ -261,9 +264,14 @@ export function DescriptionToolbar({
   onPickImage,
   emojiOpen,
   onToggleEmoji,
+  onPopupChange,
 }: DescriptionToolbarProps) {
   const state = useToolbarState(editor);
   const [popup, setPopup] = useState<OpenPopup>(null);
+  const popupOpen = popup !== null;
+  useEffect(() => {
+    onPopupChange?.(popupOpen);
+  }, [popupOpen, onPopupChange]);
   // The last text colour picked, shown as the underline of the colour button.
   const [lastColor, setLastColor] = useState<ColorKey | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);

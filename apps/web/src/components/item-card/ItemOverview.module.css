@@ -47,3 +47,144 @@
 .fieldsHost [data-required-empty='true'] > span {
   color: var(--negative-color);
 }
+
+/* ---- Subitems row ---- */
+.subitemsRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  inline-size: 100%;
+  min-block-size: var(--atrium-item-panel-key-cell-height);
+  padding: var(--space-8) var(--space-12);
+  border: var(--border-width) solid var(--layout-border-color);
+  border-radius: var(--border-radius-medium);
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  text-align: start;
+  cursor: pointer;
+}
+
+.subitemsRow:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.subitemsLabel {
+  font: var(--font-text2-bold);
+}
+
+.subitemsSummary {
+  flex: 1;
+  min-width: 0;
+  color: var(--secondary-text-color);
+}
+
+.progressTrack {
+  flex: none;
+  overflow: hidden;
+  inline-size: var(--atrium-item-panel-progress-width);
+  block-size: var(--atrium-item-panel-progress-height);
+  border-radius: var(--border-radius-small);
+  background: var(--ui-background-color);
+}
+
+.progressFill {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  background: var(--positive-color);
+  transform-origin: left;
+}
+
+.chevron {
+  flex: none;
+  color: var(--secondary-text-color);
+}
+
+/* ---- Latest update teaser and the "Write an update..." line ---- */
+.teaser {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+  inline-size: 100%;
+  padding: var(--space-12) var(--space-16);
+  border: var(--border-width) solid var(--ui-border-color);
+  border-radius: var(--border-radius-medium);
+  background: transparent;
+  color: var(--primary-text-color);
+  text-align: start;
+  cursor: pointer;
+}
+
+.teaser:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.teaserHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.teaserAuthor {
+  font: var(--font-text2-bold);
+}
+
+.teaserTime {
+  font: var(--atrium-meta-font);
+  color: var(--secondary-text-color);
+}
+
+.teaserText {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-inline-size: 100%;
+  font: var(--font-text2-normal);
+  overflow-wrap: anywhere;
+}
+
+.teaserMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  font: var(--atrium-meta-font);
+  color: var(--secondary-text-color);
+}
+
+.teaserMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.composerStub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  inline-size: 100%;
+  block-size: var(--atrium-item-panel-composer-stub-height);
+  padding-inline: var(--space-12);
+  border: var(--border-width) solid var(--layout-border-color);
+  border-radius: var(--border-radius-medium);
+  background: transparent;
+  cursor: pointer;
+}
+
+.composerStub:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.composerStubText {
+  font: var(--font-text2-normal);
+  color: var(--placeholder-color);
+}
+
+@container item-panel (width < 420px) {
+  .subitemsRow {
+    min-block-size: var(--atrium-item-panel-composer-stub-height);
+  }
+}

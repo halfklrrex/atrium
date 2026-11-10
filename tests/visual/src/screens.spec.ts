@@ -617,6 +617,31 @@ for (const theme of ['light', 'dark'] as const) {
       }
     });
 
+    // SIDEBAR-overview-tab PR 2: every field open, scrolled to the subitems row, the latest-update
+    // teaser and the "Write an update..." line.
+    test('board: item card Overview, all fields', async ({ page }) => {
+      await addPanelFields();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}`);
+        await boardReady(page);
+        await page
+          .locator(`[role="row"][data-item-id="${FULL_VIEW_ITEM}"]`)
+          .getByRole('button', { name: 'CI/CD pipeline 3', exact: true })
+          .click();
+        const card = page.getByRole('dialog', { name: 'Item card' });
+        await card.getByRole('button', { name: 'Show all fields (12)' }).click();
+        await expect(card.getByRole('button', { name: 'Show fewer' })).toBeVisible();
+        const stub = card.getByRole('button', { name: 'Write an update' });
+        await stub.scrollIntoViewIfNeeded();
+        await expect(stub).toBeVisible();
+        await expect(card.getByRole('button', { name: /^Subitems, / })).toBeVisible();
+        await expect(card.getByRole('button', { name: /^Latest update from / })).toBeVisible();
+        await shoot(page, `item-card-overview-all-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removePanelFields();
+      }
+    });
+
     test('board: Activity log panel', async ({ page }) => {
       await seedActivity();
       try {

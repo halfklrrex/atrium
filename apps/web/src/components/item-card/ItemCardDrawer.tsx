@@ -26,10 +26,10 @@ import {
   Open,
   Update,
 } from '@vibe/icons';
-import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { useItemActivity, type ActivityState } from '../../data/activity';
-import type { BoardDoc, ItemDoc } from '../../data';
+import type { BoardDoc, ItemDoc, ItemUpdateDoc } from '../../data';
 import { useBoard, useItems, useWorkspace } from '../../data/hooks';
 import { updateItemName, useItem, useItemUpdates } from '../../data/updates';
 import { ActivityFeed } from '../activity/ActivityFeed';
@@ -234,7 +234,7 @@ export function ItemCardDrawer() {
             uid={uid}
             activeTab={activeTab}
             tabIndex={tabIndex}
-            updatesCount={updates.length}
+            updates={updates}
             activity={activity}
             activityColumns={activityColumns}
           />
@@ -256,7 +256,7 @@ interface PanelBodyProps {
   uid: string;
   activeTab: ItemPanelTab;
   tabIndex: number;
-  updatesCount: number;
+  updates: readonly ItemUpdateDoc[];
   activity: ActivityState;
   activityColumns: readonly ColumnDef[];
 }
@@ -268,17 +268,48 @@ function PanelBody({
   uid,
   activeTab,
   tabIndex,
-  updatesCount,
+  updates,
   activity,
   activityColumns,
 }: PanelBodyProps) {
-  const setTab = useItemCardStore((s) => s.setTab);
+  const storeSetTab = useItemCardStore((s) => s.setTab);
+  // One-shot hand-offs into Updates ("Write an update..." and the teaser): they last until the
+  // next tab change, so coming back to Updates later doesn't steal focus or scroll.
+  const [oneShot, setOneShot] = useState<{ focusUpdateId?: string; composer?: boolean } | null>(
+    null,
+  );
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const setTab = useCallback(
+    (tab: ItemPanelTab) => {
+      setOneShot(null);
+      storeSetTab(tab);
+    },
+    [storeSetTab],
+  );
+  const openUpdates = useCallback(
+    (options?: { focusUpdateId?: string; composer?: boolean }) => {
+      setOneShot(options ?? null);
+      storeSetTab('updates');
+      // The composer takes focus itself; otherwise focus follows to the Updates tab.
+      if (!options?.composer) {
+        requestAnimationFrame(() => {
+          const tabs = tabsRef.current?.querySelectorAll<HTMLElement>('[role="tab"]');
+          tabs?.[PANEL_TABS.findIndex((t) => t.id === 'updates')]?.focus();
+        });
+      }
+    },
+    [storeSetTab],
+  );
   const { data: workspace } = useWorkspace(board.workspaceId);
   const { data: items } = useItems(board.id);
   const boardRole = resolveBoardRole(board, uid, workspace?.roles[uid]);
   const canEdit = canEditBoard(boardRole);
   const { ctx } = useItemTableCtx({ board, uid, items, boardRole });
   const columns = useMemo(() => buildColumnViews(board.columns), [board.columns]);
+  const subitemColumns = useMemo(
+    () => buildColumnViews(board.subitemColumns ?? []),
+    [board.subitemColumns],
+  );
   const keySlots = useMemo(() => selectKeyBarColumns(columns), [columns]);
   const keyBarIds = useMemo(() => new Set(keySlots.map((k) => k.column.def.id)), [keySlots]);
   const group = board.groups.find((g) => g.id === item.groupId) ?? null;
@@ -303,7 +334,7 @@ function PanelBody({
 
       <ItemKeyBar item={item} slots={keySlots} ctx={ctx} canEdit={canEdit} />
 
-      <div className={styles.tabsContainer}>
+      <div className={styles.tabsContainer} ref={tabsRef}>
         <TabList
           activeTabId={tabIndex}
           onTabChange={(index) => setTab(PANEL_TABS[index]?.id ?? 'overview')}
@@ -311,7 +342,7 @@ function PanelBody({
         >
           <Tab>Overview</Tab>
           <Tab icon={Update} className={styles.updatesTab}>
-            {updatesCount > 0 ? `Updates / ${updatesCount}` : 'Updates'}
+            {updates.length > 0 ? `Updates / ${updates.length}` : 'Updates'}
           </Tab>
           <Tab>
             <span>
@@ -332,11 +363,21 @@ function PanelBody({
             keyBarIds={keyBarIds}
             ctx={ctx}
             canEdit={canEdit}
+            items={items}
+            subitemColumns={subitemColumns}
+            updates={updates}
+            onOpenUpdates={openUpdates}
           />
         )}
 
         {activeTab === 'updates' && (
-          <UpdatesFeed boardId={board.id} itemId={item.id} canManage={boardRole === 'owner'} />
+          <UpdatesFeed
+            boardId={board.id}
+            itemId={item.id}
+            canManage={boardRole === 'owner'}
+            focusUpdateId={oneShot?.focusUpdateId}
+            autoFocusComposer={oneShot?.composer === true}
+          />
         )}
 
         {activeTab === 'activity' && (
