@@ -560,7 +560,8 @@ export const writes = {
   ): Promise<string> {
     const structure: BoardStructure = {
       columns: withoutServerColumnFields(structuredClone(template.structure.columns)),
-      subitemColumns: withoutServerColumnFields(structuredClone(template.structure.subitemColumns)),
+      // Templates carry no subitems; subitems share the board's columns.
+      subitemColumns: [],
       groups: structuredClone(template.structure.groups),
       itemTerminology: template.structure.itemTerminology,
     };
@@ -637,7 +638,7 @@ export const writes = {
       position,
       icon: null,
       columns: withoutServerColumnFields(source.columns),
-      subitemColumns: withoutServerColumnFields(source.subitemColumns),
+      subitemColumns: [],
       groups: source.groups,
       itemTerminology: source.itemTerminology,
       derivedColumnIds: [],

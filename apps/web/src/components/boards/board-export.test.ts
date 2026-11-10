@@ -148,7 +148,7 @@ describe('buildBoardCsvRows', () => {
   it('puts subitems under their parent with the parent name and its group', () => {
     const rows = buildBoardCsvRows({
       ...base,
-      subitemColumns: [col('status', 'status', 'Status', 'a1', statusSettings)],
+      subColumns: [col('status', 'status', 'Status', 'a1', statusSettings)],
       items: [makeItem({ id: 'p1', name: 'Parent 1' }), makeItem({ id: 'p2', name: 'Parent 2' })],
       subitems: [
         makeItem({ id: 's2', name: 'Second', parentItemId: 'p1', position: 'a2' }),

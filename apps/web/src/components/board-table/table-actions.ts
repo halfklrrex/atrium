@@ -9,7 +9,6 @@ import {
   canEditColumn,
   validateColumnDef,
   columnRegistry,
-  defaultSubitemColumns,
   isSubitem,
   type BoardRole,
   type BoardWithColumnLocks,
@@ -64,16 +63,19 @@ export interface TableCtx {
   uid: string;
   /**
    * Every column def of the table the action works on: cell writes are validated against them
-   * (derived, settings). In the `'subitems'` scope these are the board's subitem columns.
+   * (derived, settings). In the legacy `'subitems'` scope these are the board's subitem columns.
    */
   columns: readonly ColumnDef[];
   /**
    * Which column list structure writes (add, rename, resize, delete a column) change: the board's
-   * `columns` (when unset) or its `subitemColumns`.
+   * `columns` (when unset) or, on a board not yet migrated, its legacy `subitemColumns`.
    */
   scope?: 'columns' | 'subitems';
-  /** The board's subitem column defs, to validate and copy subitem values (cascades). */
-  subitemColumns?: readonly ColumnDef[];
+  /**
+   * The column defs of the board's subitems (`columnsForSubitems`: the board's columns, or the
+   * legacy subitem columns), to validate and copy subitem values (cascades).
+   */
+  subColumns?: readonly ColumnDef[];
   /** The board (for `columnLocks` checks). */
   board?: BoardWithColumnLocks | null;
   /** The caller's effective board role (`'owner'` can edit locked columns and manage locks). */
@@ -186,7 +188,9 @@ function subitemCopy(
     groupId,
     position,
     parentItemId: parentId,
-    values: clean(withoutUnwritableValues(sub.values, ctx.subitemColumns ?? [], lockCtxOf(ctx))),
+    values: clean(
+      withoutUnwritableValues(sub.values, ctx.subColumns ?? ctx.columns, lockCtxOf(ctx)),
+    ),
   };
 }
 
@@ -214,9 +218,8 @@ export const tableActions = {
   },
 
   /**
-   * Create a subitem of `parent` (same group, next to its siblings). The board's first subitem also
-   * writes the default subitem columns, in a board transaction before the item. Returns its id or
-   * `null` when a write failed.
+   * Create a subitem of `parent` (same group, next to its siblings). It never writes columns: a
+   * subitem shares the board's columns. Returns its id or `null` when a write failed.
    */
   async addSubitem(
     ctx: TableCtx,
@@ -224,16 +227,8 @@ export const tableActions = {
     input: { position: string; name?: string },
   ): Promise<string | null> {
     try {
-      if (ctx.subitemColumns?.length === 0 && !(ctx.getItems?.() ?? []).some(isSubitem)) {
-        await updateBoardStructure(ctx.boardId, ({ columns, subitemColumns }) =>
-          subitemColumns.length > 0
-            ? null
-            : { subitemColumns: defaultSubitemColumns(columns.map((c) => c.id)) },
-        );
-      }
-      // The columns of the subitem block: the board's, or the defaults just written above.
-      const subColumns =
-        ctx.subitemColumns && ctx.subitemColumns.length > 0 ? ctx.subitemColumns : [];
+      // A subitem uses the board's columns (or the legacy subitem columns until the migration).
+      const subColumns = ctx.subColumns ?? ctx.columns;
       const values = newItemValues(subColumns, lockCtxOf(ctx));
       return await itemWrites.create(ctx.uid, ctx.boardId, {
         name: input.name?.trim() || 'New subitem',

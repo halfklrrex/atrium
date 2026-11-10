@@ -177,7 +177,7 @@ export function subitemBoard(): WorkbookDataInput {
   const input = base('Product roadmap: Q4 [draft]', items, subitems);
   return {
     ...input,
-    subitemColumns: [col('status', 'status', 'Status', 'a1', STATUS)],
+    subColumns: [col('status', 'status', 'Status', 'a1', STATUS)],
   };
 }
 

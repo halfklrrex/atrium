@@ -2,7 +2,10 @@ import {
   canEditBoard,
   canManageBoard,
   columnRegistry,
+  columnsForSubitems,
+  hasLegacySubitemColumns,
   resolveBoardRole,
+  type ColumnDef,
   type GroupDef,
 } from '@atrium/shared';
 import {
@@ -125,7 +128,8 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
 
   // Structure arrays come from every board snapshot; keep the same objects while nothing changed.
   const columnDefs = useDeepStable(board.columns);
-  const subitemDefs = useDeepStable(board.subitemColumns ?? []);
+  const subitemDefs = useDeepStable(columnsForSubitems(board) as ColumnDef[]);
+  const legacySubitems = hasLegacySubitemColumns(board);
   const groupDefs = useDeepStable(board.groups);
   const columnLocks = useDeepStable(board.columnLocks ?? []);
   const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
@@ -137,7 +141,14 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       hiddenIds.length === 0 ? allColumns : allColumns.filter((c) => !hiddenIds.includes(c.def.id)),
     [allColumns, hiddenIds],
   );
-  const subitemColumns = useMemo(() => buildColumnViews(subitemDefs), [subitemDefs]);
+  // Subitems share the board's columns (hidden ones follow the view); a board not yet migrated
+  // still renders its own subitem columns.
+  const legacyViews = useMemo(
+    () => (legacySubitems ? buildColumnViews(subitemDefs) : null),
+    [legacySubitems, subitemDefs],
+  );
+  const subColumns = legacyViews ?? columns;
+  const subModelColumns = legacyViews ?? allColumns;
   // Groups just added here show at once; the board snapshot replaces them when it catches up.
   const pendingGroups = useTableStore((s) => s.pendingGroups);
   const groups = useMemo(
@@ -183,13 +194,13 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
         groups,
         items,
         columns: allColumns,
-        subitemColumns,
+        subColumns: subModelColumns,
         search,
         patches,
         filterState,
         userLookup: lookup,
       }),
-    [groups, items, allColumns, subitemColumns, search, patches, filterState, lookup],
+    [groups, items, allColumns, subModelColumns, search, patches, filterState, lookup],
   );
 
   // Live reads for event handlers and menus, without re-rendering rows when data arrives.
@@ -220,7 +231,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       boardId,
       uid,
       columns: columnDefs,
-      subitemColumns: subitemDefs,
+      subColumns: subitemDefs,
       board: boardLocks,
       boardRole,
       requiredColumnIds: board.requiredColumnIds,
@@ -241,8 +252,8 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
   );
   // The same context for the cells of a subitem (what the keyboard writes to).
   const subitemCtx = useMemo<TableCtx>(
-    () => ({ ...ctx, columns: subitemDefs, scope: 'subitems' }),
-    [ctx, subitemDefs],
+    () => ({ ...ctx, columns: subitemDefs, scope: legacySubitems ? 'subitems' : 'columns' }),
+    [ctx, subitemDefs, legacySubitems],
   );
 
   const onResize = useCallback(
@@ -276,7 +287,8 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       canManage,
       columns,
       allColumns,
-      subitemColumns,
+      subColumns,
+      legacySubitems,
       groups,
       nameWidth: savedNameWidth,
       ctx,
@@ -295,7 +307,8 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       canManage,
       columns,
       allColumns,
-      subitemColumns,
+      subColumns,
+      legacySubitems,
       groups,
       savedNameWidth,
       ctx,
@@ -490,7 +503,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       ? itemsRef.current.find((i) => i.id === store.active!.itemId)
       : undefined;
     const parentId = activeDoc?.parentItemId ?? null;
-    const scopeColumns = parentId ? subitemColumns : columns;
+    const scopeColumns = parentId ? subColumns : columns;
     const scopeCtx = parentId ? subitemCtx : ctx;
     const rowIds = visibleRowIds(
       modelsRef.current,

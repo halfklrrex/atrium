@@ -12,10 +12,11 @@ interface ItemSubitemsProps {
   parent: ItemDoc;
   /** Every active item of the board; the parent's subitems are picked from it. */
   items: readonly ItemDoc[];
-  subitemColumns: readonly ColumnView[];
-  /** Action context of the subitem columns (`scope: 'subitems'`). */
+  /** The columns a subitem row shows (the board's columns). */
+  subColumns: readonly ColumnView[];
+  /** Action context of the subitems' columns. */
   subCtx: TableCtx;
-  /** The board-level context, for adding the first subitem (it creates the subitem columns). */
+  /** The board-level context, for adding a subitem. */
   ctx: TableCtx;
   canEdit: boolean;
 }
@@ -24,7 +25,7 @@ interface ItemSubitemsProps {
 export function ItemSubitems({
   parent,
   items,
-  subitemColumns,
+  subColumns,
   subCtx,
   ctx,
   canEdit,
@@ -60,7 +61,7 @@ export function ItemSubitems({
                 onCommit={(name) => void tableActions.renameItem(subCtx, sub.id, name)}
               />
               <div className={styles.subitemCells}>
-                {subitemColumns.map((column) => (
+                {subColumns.map((column) => (
                   <div key={column.def.id} className={styles.subitemCellWrap}>
                     <span className={styles.subitemCellLabel}>{column.def.title}</span>
                     <ItemCell item={sub} column={column} ctx={subCtx} canEdit={canEdit} />

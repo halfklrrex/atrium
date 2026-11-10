@@ -1,6 +1,8 @@
 import {
   canEditBoard,
+  columnsForSubitems,
   resolveBoardRole,
+  type ColumnDef,
   TIMELINE_LIMITS,
   type TimelineViewSettings,
 } from '@atrium/shared';
@@ -147,7 +149,7 @@ export function TimelineView({
   }, [boardId]);
 
   const columnDefs = useDeepStable(board.columns);
-  const subitemDefs = useDeepStable(board.subitemColumns ?? []);
+  const subitemDefs = useDeepStable(columnsForSubitems(board) as ColumnDef[]);
   const groupDefs = useDeepStable(board.groups);
   const columnLocks = useDeepStable(board.columnLocks ?? []);
   const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
@@ -203,7 +205,7 @@ export function TimelineView({
       boardId,
       uid,
       columns: columnDefs,
-      subitemColumns: subitemDefs,
+      subColumns: subitemDefs,
       board: boardLocks,
       boardRole,
       getItems: () => itemsRef.current,

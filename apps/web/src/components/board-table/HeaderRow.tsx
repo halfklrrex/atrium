@@ -78,7 +78,7 @@ export function HeaderRow({ group, itemIds }: HeaderRowProps) {
   });
   // The header of a subitem block (its env is the subitem scope): sort is not offered there, and
   // its column ids must not pick up the sort of a board column with the same id.
-  const subitems = env.ctx.scope === 'subitems';
+  const subitems = env.inSubitemBlock === true;
   const sort = subitems
     ? null
     : (filterState.sortConditions.find((s) => s.columnId === 'name' || s.columnId === NAME_COLUMN)
@@ -166,7 +166,7 @@ function HeaderCell({ column, group }: { column: ColumnView; group: GroupDef }) 
   );
   const { filterState } = useBoardFilter(env.boardId);
   const sort =
-    env.ctx.scope === 'subitems'
+    env.inSubitemBlock === true
       ? null
       : (filterState.sortConditions.find((s) => s.columnId === columnId)?.direction ?? null);
   const [element, setElement] = useState<HTMLElement | null>(null);
@@ -350,15 +350,18 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
   const store = useTableStore;
   const { filterState, setSortConditions } = useBoardFilter(env.boardId);
   const normCol = columnId === NAME_COLUMN ? 'name' : columnId;
-  const subitems = env.ctx.scope === 'subitems';
+  const subitems = env.inSubitemBlock === true;
   const sort = subitems
     ? null
     : (filterState.sortConditions.find((s) => s.columnId === normCol || s.columnId === columnId)
         ?.direction ?? null);
   // Derived and server-managed columns are never filled by a person, so they cannot be required.
   const canBeRequired = !!column && !isClientReadOnlyType(column.def.type);
-  // Rows this menu's column writes to: top-level items, or the subitems of the block.
-  const scopeItems = () => env.getItems().filter((i) => subitems || !i.parentItemId);
+  // Rows this menu's column writes to. Subitems share the board's columns, so a column holds
+  // values on every row; a board not yet migrated has separate lists: top-level items, or the
+  // subitems of the block.
+  const scopeItems = () =>
+    env.getItems().filter((i) => (env.legacySubitems ? subitems || !i.parentItemId : true));
   // The Required switch's note: the cap block when turning it on would pass the rules' limit, else
   // how many items are empty today (nothing is rewritten).
   const requiredNote = !column

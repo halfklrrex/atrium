@@ -1,4 +1,11 @@
-import { canEditBoard, isSubitem, resolveBoardRole } from '@atrium/shared';
+import {
+  canEditBoard,
+  columnsForItem,
+  columnsForSubitems,
+  isSubitem,
+  resolveBoardRole,
+  type ColumnDef,
+} from '@atrium/shared';
 import { IconButton, Loader, Menu, MenuButton, MenuItem, Tooltip } from '@vibe/core';
 import {
   Archive,
@@ -69,15 +76,20 @@ export function ItemView({ board, itemId }: ItemViewProps) {
     [board.groups, item?.groupId],
   );
 
-  const columns = useMemo(() => buildColumnViews(board.columns), [board.columns]);
-  const subitemColumns = useMemo(
-    () => buildColumnViews(board.subitemColumns ?? []),
-    [board.subitemColumns],
+  // A subitem's cells use the board's columns too (its own legacy columns until migrated).
+  const itemColumns = useMemo(
+    () => [...columnsForItem(board, item ?? { parentItemId: null })] as ColumnDef[],
+    [board, item],
+  );
+  const columns = useMemo(() => buildColumnViews(itemColumns), [itemColumns]);
+  const subColumns = useMemo(
+    () => buildColumnViews([...columnsForSubitems(board)] as ColumnDef[]),
+    [board],
   );
   // Soft "Required" rule: only counts columns a person fills in; nothing is blocked.
   const missingRequired = useMemo(
-    () => (item ? countMissingRequired(board.columns, item.values) : 0),
-    [item, board.columns],
+    () => (item ? countMissingRequired(itemColumns, item.values) : 0),
+    [item, itemColumns],
   );
   const { ctx, subCtx } = useItemTableCtx({ board, uid, items, boardRole });
   const itemsRef = useRef(items);
@@ -172,7 +184,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
         <ItemSubitems
           parent={item}
           items={items}
-          subitemColumns={subitemColumns}
+          subColumns={subColumns}
           subCtx={subCtx}
           ctx={ctx}
           canEdit={canEdit}
@@ -192,7 +204,12 @@ export function ItemView({ board, itemId }: ItemViewProps) {
       </div>
       <aside className={styles.side} aria-label="Fields panel" data-print="reset">
         <h3 className={styles.sectionTitle}>Fields</h3>
-        <FieldsPanel item={item} columns={columns} ctx={ctx} canEdit={canEdit} />
+        <FieldsPanel
+          item={item}
+          columns={columns}
+          ctx={isSubitem(item) ? subCtx : ctx}
+          canEdit={canEdit}
+        />
       </aside>
     </div>
   );

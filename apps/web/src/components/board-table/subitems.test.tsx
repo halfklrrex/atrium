@@ -78,7 +78,7 @@ const ctx = (extra: Partial<TableCtx> = {}): TableCtx => ({
   boardId: 'b1',
   uid: 'u1',
   columns: boardColumns,
-  subitemColumns: subColumns,
+  subColumns,
   getItems: allItems,
   ...extra,
 });
@@ -101,7 +101,7 @@ describe('group model with subitems', () => {
   const base = {
     groups,
     columns: buildColumnViews(boardColumns),
-    subitemColumns: buildColumnViews(subColumns),
+    subColumns: buildColumnViews(subColumns),
     search: '',
   };
 
@@ -197,7 +197,7 @@ describe('cascade actions', () => {
     ];
     const withFiles = sub('s1', 'p1', 'a0', { values: { subnote: 'x', files: [{ id: 'f' }] } });
     await tableActions.duplicateItems(
-      ctx({ subitemColumns: managed, getItems: () => [parent('p1'), withFiles] }),
+      ctx({ subColumns: managed, getItems: () => [parent('p1'), withFiles] }),
       [parent('p1')],
       () => [],
     );
@@ -207,17 +207,11 @@ describe('cascade actions', () => {
 });
 
 describe('subitem writes', () => {
-  it('writes the default subitem columns before the board first subitem', async () => {
-    const empty = ctx({ subitemColumns: [], getItems: () => [parent('p1')] });
+  it('never writes subitem columns: the first subitem of a board only creates the item', async () => {
+    const empty = ctx({ subColumns: undefined, getItems: () => [parent('p1')] });
     const id = await tableActions.addSubitem(empty, parent('p1'), { position: 'a0' });
     expect(id).toBe('new-id');
-    expect(mocks.updateBoardStructure).toHaveBeenCalledTimes(1);
-    const updater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => unknown;
-    const patch = updater({ columns: [], subitemColumns: [], groups: [] }) as {
-      subitemColumns: ColumnDef[];
-    };
-    expect(patch.subitemColumns.map((c) => c.title)).toEqual(['Owner', 'Status', 'Date']);
-    expect(updater({ columns: [], subitemColumns: subColumns, groups: [] })).toBeNull();
+    expect(mocks.updateBoardStructure).not.toHaveBeenCalled();
     expect(mocks.create).toHaveBeenCalledWith(
       'u1',
       'b1',
@@ -286,22 +280,6 @@ describe('column ids are unique across both column lists', () => {
       expect(['note', 'subnote']).not.toContain(copy.id);
     }
   });
-
-  it('the first subitem columns avoid the board column ids', async () => {
-    await tableActions.addSubitem(
-      ctx({ subitemColumns: [], getItems: () => [parent('p1')] }),
-      parent('p1'),
-      { position: 'a0' },
-    );
-    const updater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => {
-      subitemColumns: ColumnDef[];
-    };
-    const clash = [{ ...boardColumns[0]!, id: 'sub_status' }];
-    const ids = updater({ columns: clash, subitemColumns: [], groups }).subitemColumns.map(
-      (c) => c.id,
-    );
-    expect(ids).not.toContain('sub_status');
-  });
 });
 
 describe('subitems in the board table', () => {
@@ -325,6 +303,21 @@ describe('subitems in the board table', () => {
 
     await userEvent.click(screen.getByLabelText('Collapse subitems of Parent p1'));
     expect(screen.queryByText('Sub s1')).toBeNull();
+  });
+
+  it('shows the board columns in the subitem block when the board has no subitem columns', async () => {
+    const shared = makeBoard({
+      id: 'b1',
+      access: { u1: 'owner' },
+      columns: boardColumns,
+      subitemColumns: [],
+      groups,
+    });
+    render(<BoardTable board={shared} />);
+    await userEvent.click(screen.getByLabelText('Expand subitems of Parent p1'));
+    const block = screen.getByRole('grid', { name: 'Subitems of Parent p1' });
+    expect(within(block).getByText('Note')).toBeInTheDocument();
+    expect(within(block).queryByText('Sub note')).toBeNull();
   });
 
   it('opens a parent automatically while a search matches only its subitem', async () => {

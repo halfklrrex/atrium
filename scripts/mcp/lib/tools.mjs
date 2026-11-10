@@ -33,7 +33,7 @@ export function defineTools(service) {
       name: 'atrium_get_board',
       description:
         'Read-only. Returns a board: its columns (id, title, type, labels), groups and active items ' +
-        '(id, seq, name, group, values keyed by column title, subitems nested), and the subitem columns.',
+        '(id, seq, name, group, values keyed by column title, subitems nested with values keyed by the same column titles).',
       inputSchema: {
         boardId: id,
         includeItems: z.boolean().optional().describe('Default true.'),
@@ -125,7 +125,7 @@ export function defineTools(service) {
       name: 'atrium_update_item',
       description:
         'Changes an item or subitem: name, group (items only; moves it, with its subitems, to the end of that group) and/or cell values ' +
-        '(a subitem uses the subitem columns). Only the given cells change; null clears a cell.',
+        '(a subitem uses the board columns too). Only the given cells change; null clears a cell.',
       inputSchema: {
         boardId: id,
         itemId: id,
@@ -233,7 +233,7 @@ export function defineTools(service) {
     {
       name: 'atrium_list_subitems',
       description:
-        "Read-only. Lists an item's subitems (id, name, values keyed by subitem column title) and the board's subitem columns. " +
+        "Read-only. Lists an item's subitems (id, name, values keyed by column title) and the board columns (subitems share them). " +
         "A subitem's id works with atrium_update_item, atrium_get/set_item_description, atrium_add_update, atrium_archive_item and the other item tools.",
       inputSchema: { boardId: id, itemId: id },
       run: (args) => service.listSubitems(args),
@@ -242,8 +242,8 @@ export function defineTools(service) {
       name: 'atrium_create_subitems',
       description:
         `Creates up to ${MAX_ITEMS_PER_CALL} subitems under a top-level item, after its existing subitems, in the parent's group. ` +
-        'Values are keyed by subitem column title or id (see atrium_get_board subitemColumns). ' +
-        "A board with no subitem columns yet gets monday's defaults (Owner, Status, Date), which needs the board owner role. Additive.",
+        'Values are keyed by board column title or id (subitems share the board columns; see atrium_get_board). ' +
+        'Needs the editor role, writes no columns. Additive.',
       inputSchema: {
         boardId: id,
         itemId: id.describe('The parent item.'),

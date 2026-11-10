@@ -1,7 +1,9 @@
 import { BatteryBar } from '../battery/BatteryBar';
 import {
   canEditBoard,
+  columnsForSubitems,
   resolveBoardRole,
+  type ColumnDef,
   statusDistribution,
   type StatusSettings,
   type StatusValue,
@@ -87,7 +89,7 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
   }, [boardId]);
 
   const columnDefs = useDeepStable(board.columns);
-  const subitemDefs = useDeepStable(board.subitemColumns ?? []);
+  const subitemDefs = useDeepStable(columnsForSubitems(board) as ColumnDef[]);
   const groupDefs = useDeepStable(board.groups);
   const columnLocks = useDeepStable(board.columnLocks ?? []);
   const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
@@ -143,7 +145,7 @@ export function KanbanBoard({ board }: KanbanBoardProps) {
       boardId,
       uid,
       columns: columnDefs,
-      subitemColumns: subitemDefs,
+      subColumns: subitemDefs,
       board: boardLocks,
       boardRole,
       getItems: () => itemsRef.current,

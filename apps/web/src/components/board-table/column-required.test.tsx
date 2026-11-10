@@ -171,7 +171,7 @@ describe('Required column toggle and column defaults', () => {
   it('addSubitem applies the subitem columns defaults', async () => {
     const subitemColumns = [{ ...column('est', 'numbers', 'Estimate', 'a0'), defaultValue: 2 }];
     await tableActions.addSubitem(
-      { boardId: 'b1', uid: 'u1', columns, subitemColumns },
+      { boardId: 'b1', uid: 'u1', columns, subColumns: subitemColumns },
       { id: 'i1', groupId: 'g1' },
       { position: 'a0' },
     );

@@ -1,4 +1,4 @@
-import { canEditBoard, resolveBoardRole } from '@atrium/shared';
+import { canEditBoard, columnsForSubitems, resolveBoardRole, type ColumnDef } from '@atrium/shared';
 import {
   DndContext,
   KeyboardSensor,
@@ -133,7 +133,7 @@ export function CalendarView({ board }: CalendarViewProps) {
   }, [boardId]);
 
   const columnDefs = useDeepStable(board.columns);
-  const subitemDefs = useDeepStable(board.subitemColumns ?? []);
+  const subitemDefs = useDeepStable(columnsForSubitems(board) as ColumnDef[]);
   const groupDefs = useDeepStable(board.groups);
   const columnLocks = useDeepStable(board.columnLocks ?? []);
   const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
@@ -191,7 +191,7 @@ export function CalendarView({ board }: CalendarViewProps) {
       boardId,
       uid,
       columns: columnDefs,
-      subitemColumns: subitemDefs,
+      subColumns: subitemDefs,
       board: boardLocks,
       boardRole,
       getItems: () => itemsRef.current,
