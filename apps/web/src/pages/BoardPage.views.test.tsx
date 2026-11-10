@@ -76,6 +76,15 @@ describe('board page views', () => {
     expect(useFilterStore.getState().activeView['b1']).toBe('main');
   });
 
+  it('marks the page with the view type so phones can scroll the whole table page', async () => {
+    renderAt('/boards/b1');
+    const body = await screen.findByText('the table');
+    expect(body.closest('[data-print-page="board-page"]')).toHaveAttribute(
+      'data-view-type',
+      'table',
+    );
+  });
+
   it('opens the last view used on the board', async () => {
     writeLastView('b1', 'v2');
     renderAt('/boards/b1');

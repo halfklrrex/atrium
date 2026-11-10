@@ -45,6 +45,19 @@ body {
   z-index: var(--atrium-z-dropdown);
 }
 
+/*
+ * Vibe's Loader positions its <svg> absolutely with no width, so the ring is drawn off-centre inside
+ * its box (visible on full-page loaders). Size it to the box so it centres with its container.
+ */
+div[title='loading'] > svg {
+  width: 100%;
+  height: 100%;
+}
+
+div[title='loading'] {
+  flex: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
