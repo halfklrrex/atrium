@@ -410,6 +410,75 @@
   user-select: all;
 }
 
+/* Notifications matrix: one row per event, "In the bell" and "Push" switch columns */
+.deviceControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.cardStatus {
+  display: block;
+  margin-block-start: var(--space-8);
+}
+
+.matrix {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.matrixHead {
+  padding: var(--space-8);
+  color: var(--secondary-text-color);
+  font: var(--font-text2-bold);
+  text-align: start;
+}
+
+.matrixSwitchCell {
+  inline-size: var(--atrium-settings-matrix-switch-column);
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.matrixRow {
+  min-block-size: var(--atrium-settings-row-min-height);
+  border-block-start: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.matrixEvent {
+  padding: var(--space-8);
+  font-weight: inherit;
+  text-align: start;
+}
+
+.matrixEventText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.matrixHint {
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.matrixAlways {
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.visuallyHidden {
+  position: absolute;
+  overflow: hidden;
+  inline-size: var(--border-width);
+  block-size: var(--border-width);
+  margin: calc(var(--border-width) * -1);
+  padding: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Must match PHONE_QUERY once the phone drill-in lands (SETTINGS-layout-a PR 3). */
 @media (width < 768px) {
   .page {

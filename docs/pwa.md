@@ -55,7 +55,7 @@ The payload carries only what the bell shows. Never an email, never an admin ide
 
 ## The settings screen and device registration (PWA-4)
 
-Open the bell, the gear (Settings > Notifications, `/settings/notifications`). The tab has three parts: the bell switches, **On this device** and **Push notifications** (seven switches: assigned, reply, mention, button, automation, account, inbox). Each switch saves at once and writes the whole `notificationPrefs.push` map, because the rules require all seven booleans. Code: `apps/web/src/pages/settings/NotificationsTab.tsx`, `apps/web/src/components/dialogs/PushSettings.tsx`, the logic in `apps/web/src/lib/push.ts` (pure, dependencies injected) and the real browser and Firebase wiring in `push-runtime.ts`.
+Open the bell, the gear (Settings > Notifications, `/settings/notifications`). The tab is one "What notifies you" matrix: a row per event (assigned, reply, mention, button, automation, account, inbox) with an "In the bell" switch (account and inbox always reach the bell) and a "Push" switch, and this device's push state (chip, Enable / Disable) in the card header. Each switch saves at once and writes the whole `notificationPrefs.push` map, because the rules require all seven booleans. Code: `apps/web/src/pages/settings/NotificationsTab.tsx`, the logic in `apps/web/src/lib/push.ts` (pure, dependencies injected) and the real browser and Firebase wiring in `push-runtime.ts`.
 
 ### States of "On this device"
 
