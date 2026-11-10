@@ -679,6 +679,28 @@ export async function removePanelFields(): Promise<void> {
   await fullViewItemRef().update(
     Object.fromEntries(PANEL_FIELD_IDS.map((id) => [`values.${id}`, FieldValue.delete()])),
   );
+  await clearActivityWhenSettled();
+}
+
+/**
+ * Adding and removing columns makes the Functions emulator's board trigger log activity entries,
+ * asynchronously. Wait until the board's activity stops growing, then clear it, so a later screen
+ * that seeds its own entries (the Activity log panel) never sees them.
+ */
+async function clearActivityWhenSettled(): Promise<void> {
+  const activity = adminDb().collection('boards').doc(IDS.roadmap).collection('activity');
+  let last = -1;
+  let stableSince = Date.now();
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const count = (await activity.count().get()).data().count;
+    if (count !== last) {
+      last = count;
+      stableSince = Date.now();
+    } else if (Date.now() - stableSince >= 1500) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  await clearActivity();
 }
 
 /** Id of the shared Kanban view the Kanban screens add to the roadmap board (and remove again). */
@@ -1198,6 +1220,7 @@ const ACTIVITY_ITEM_NAME = 'Firebase project and emulators';
  */
 export async function seedActivity(): Promise<void> {
   const firestore = adminDb();
+  await clearActivity();
   const activity = firestore.collection('boards').doc(IDS.roadmap).collection('activity');
   const jordan = { actorId: 'visual-jordan', actorName: 'Jordan Lee' };
   const avery = { actorId: AVERY.uid, actorName: AVERY.displayName };
