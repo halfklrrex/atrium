@@ -33,7 +33,7 @@ export function defineTools(service) {
       name: 'atrium_get_board',
       description:
         'Read-only. Returns a board: its columns (id, title, type, labels), groups and active items ' +
-        '(id, seq, name, group, values keyed by column title, subitems nested).',
+        '(id, seq, name, group, values keyed by column title, subitems nested), and the subitem columns.',
       inputSchema: {
         boardId: id,
         includeItems: z.boolean().optional().describe('Default true.'),
@@ -124,8 +124,8 @@ export function defineTools(service) {
     {
       name: 'atrium_update_item',
       description:
-        'Changes an item: name, group (moves it to the end of that group) and/or cell values. Only the given cells ' +
-        'change; null clears a cell.',
+        'Changes an item or subitem: name, group (items only; moves it, with its subitems, to the end of that group) and/or cell values ' +
+        '(a subitem uses the subitem columns). Only the given cells change; null clears a cell.',
       inputSchema: {
         boardId: id,
         itemId: id,
@@ -161,22 +161,131 @@ export function defineTools(service) {
     },
     {
       name: 'atrium_archive_item',
-      description: 'Archives an item (state archived). Reversible in the Atrium app.',
+      description:
+        'Archives an item or subitem (state archived; an item takes its subitems along). Reversible in the Atrium app.',
       inputSchema: { boardId: id, itemId: id },
       run: (args) => service.setItemState({ ...args, state: 'archived' }),
     },
     {
       name: 'atrium_delete_item',
       description:
-        "Soft-deletes an item (state deleted, like the app's trash). Never a hard delete; restorable in the app.",
+        "Soft-deletes an item or subitem (state deleted, like the app's trash; an item takes its subitems along). Never a hard delete; restorable in the app.",
       inputSchema: { boardId: id, itemId: id },
       run: (args) => service.setItemState({ ...args, state: 'deleted' }),
     },
     {
+      name: 'atrium_list_updates',
+      description:
+        "Read-only. Lists an item's updates (comments), newest first, with their replies: id, author, text, markdown, " +
+        'time, whether it was edited, likes, mentioned uids and attachment metadata (name, size, type; files are not downloadable here). ' +
+        '"mine" marks posts the configured user can edit or delete.',
+      inputSchema: {
+        boardId: id,
+        itemId: id,
+        limit: z.number().int().min(1).max(100).optional().describe('Default 20.'),
+        includeReplies: z.boolean().optional().describe('Default true.'),
+      },
+      run: (args) => service.listUpdates(args),
+    },
+    {
       name: 'atrium_add_update',
-      description: "Posts an update (comment) in an item's feed, as the configured user. Additive.",
+      description:
+        "Posts an update (comment) in an item's or subitem's feed, as the configured user. The text is markdown " +
+        '(bold, italic, links, lists, quotes, code). Mention a workspace member with @[Name] (display name, email or uid; ' +
+        '@[me] for yourself): it becomes an @ chip and notifies them. Additive.',
       inputSchema: { boardId: id, itemId: id, text: z.string().trim().min(1).max(50000) },
       run: (args) => service.addUpdate(args),
+    },
+    {
+      name: 'atrium_add_reply',
+      description:
+        'Replies to an update in its thread, as the configured user. Same markdown and @[Name] mentions as atrium_add_update. Additive.',
+      inputSchema: {
+        boardId: id,
+        itemId: id,
+        updateId: id,
+        text: z.string().trim().min(1).max(50000),
+      },
+      run: (args) => service.addReply(args),
+    },
+    {
+      name: 'atrium_edit_update',
+      description:
+        "Edits the text of one of the configured user's own updates, or of a reply when replyId is given. " +
+        'Mentions cannot change after posting: @[Name] is kept as plain @Name text and notifies nobody. Refuses posts with attachments.',
+      inputSchema: {
+        boardId: id,
+        itemId: id,
+        updateId: id,
+        replyId: id.optional(),
+        text: z.string().trim().min(1).max(50000),
+      },
+      run: (args) => service.editUpdate(args),
+    },
+    {
+      name: 'atrium_delete_update',
+      description:
+        "Deletes one of the configured user's own updates, or a reply when replyId is given (a hard delete, like the app's). " +
+        "Other people's posts are refused.",
+      inputSchema: { boardId: id, itemId: id, updateId: id, replyId: id.optional() },
+      run: (args) => service.deleteUpdate(args),
+    },
+    {
+      name: 'atrium_list_subitems',
+      description:
+        "Read-only. Lists an item's subitems (id, name, values keyed by subitem column title) and the board's subitem columns. " +
+        "A subitem's id works with atrium_update_item, atrium_get/set_item_description, atrium_add_update, atrium_archive_item and the other item tools.",
+      inputSchema: { boardId: id, itemId: id },
+      run: (args) => service.listSubitems(args),
+    },
+    {
+      name: 'atrium_create_subitems',
+      description:
+        `Creates up to ${MAX_ITEMS_PER_CALL} subitems under a top-level item, after its existing subitems, in the parent's group. ` +
+        'Values are keyed by subitem column title or id (see atrium_get_board subitemColumns). ' +
+        "A board with no subitem columns yet gets monday's defaults (Owner, Status, Date), which needs the board owner role. Additive.",
+      inputSchema: {
+        boardId: id,
+        itemId: id.describe('The parent item.'),
+        subitems: z
+          .array(
+            z.object({
+              name: z.string().trim().min(1).max(500),
+              values: cellValues.optional(),
+            }),
+          )
+          .min(1)
+          .max(MAX_ITEMS_PER_CALL),
+      },
+      run: (args) => service.createSubitems(args),
+    },
+    {
+      name: 'atrium_duplicate_item',
+      description:
+        'Copies an item (or a subitem) next to the original as "Name (copy)", with its cell values and, for an item, its active subitems. ' +
+        'Calculated and server-managed cells, descriptions and updates are not copied. Additive.',
+      inputSchema: { boardId: id, itemId: id },
+      run: (args) => service.duplicateItem(args),
+    },
+    {
+      name: 'atrium_get_activity',
+      description:
+        "Read-only. The board's recent activity log (newest first), optionally only for one item and its subitems: " +
+        'kind, actor, time, item, column, old and new value text. Entries expire after 90 days.',
+      inputSchema: {
+        boardId: id,
+        itemId: id.optional(),
+        limit: z.number().int().min(1).max(200).optional().describe('Default 30.'),
+      },
+      run: (args) => service.getActivity(args),
+    },
+    {
+      name: 'atrium_list_members',
+      description:
+        'Read-only. Lists workspace members (uid, name, email, role); with boardId only those who can see that board. ' +
+        'Use the uids in People cells and the names in @[Name] mentions.',
+      inputSchema: { boardId: id.optional() },
+      run: (args) => service.listMembers(args),
     },
   ];
 }
