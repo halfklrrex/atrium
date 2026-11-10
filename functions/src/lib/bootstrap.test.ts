@@ -276,6 +276,21 @@ describe('bootstrapUserInTransaction and ACCOUNT_APPROVAL_REQUIRED', () => {
     }
   });
 
+  it('createForApproval: a pending or blocked user gets a personal workspace (admin approve path)', async () => {
+    for (const status of ['pending', 'blocked'] as const) {
+      const store = new FakeTx();
+      store.users.set('u1', { lastWorkspaceId: null, accountStatus: status });
+      const result = await bootstrapUserInTransaction(store.begin(), ada, {}, SERVER_TS, {
+        approvalRequired: false,
+        createForApproval: true,
+      });
+      expect(result).toEqual({ workspaceId: 'ws1' });
+      expect(store.workspaces.size).toBe(1);
+      expect(store.members.size).toBe(1);
+      expect(store.users.get('u1')?.lastWorkspaceId).toBe('ws1');
+    }
+  });
+
   it('flag on: an existing user without a status (pre-gate) behaves as today', async () => {
     const store = new FakeTx();
     store.users.set('u1', { lastWorkspaceId: null });
