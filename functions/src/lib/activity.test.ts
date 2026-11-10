@@ -231,6 +231,23 @@ describe('diffItemActivity', () => {
     });
   });
 
+  it('labels a subitem change with the board column title once the board has no subitem columns', () => {
+    const migrated: ActivityBoard = { ...BOARD, subitemColumns: [] };
+    const sub = { ...base, parentItemId: 'p1' };
+    const plan = diffItemActivity(
+      {
+        before: { ...sub, values: { status: 'a' } },
+        after: { ...edit({ values: { status: 'b' } }), parentItemId: 'p1' },
+      },
+      migrated,
+      profiles,
+    );
+    expect(plan[0]).toMatchObject({
+      kind: 'value_changed',
+      fields: { parentItemId: 'p1', columnId: 'status', columnTitle: 'Stage' },
+    });
+  });
+
   it('logs nothing for server-side writes that do not move updatedAt', () => {
     const noTouch = (patch: Record<string, unknown>) =>
       diffItemActivity({ before: base, after: { ...base, ...patch } }, BOARD, profiles);

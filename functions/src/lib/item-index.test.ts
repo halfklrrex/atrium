@@ -133,6 +133,22 @@ describe('syncItemIndexFields', () => {
     expect(store.writes[0]?.fields).toMatchObject({ assigneeUids: ['u9'] });
   });
 
+  it('indexes a subitem from the board People columns once the board has no subitem columns', async () => {
+    const store = new FakeStore();
+    store.board = { ...board, subitemColumns: [] };
+    await syncItemIndexFields(
+      store,
+      change({
+        after: {
+          name: 'Sub',
+          parentItemId: 'p1',
+          values: { owner: people('u1'), sub_owner: people('u9') },
+        },
+      }),
+    );
+    expect(store.writes[0]?.fields).toMatchObject({ assigneeUids: ['u1'] });
+  });
+
   it('writes nothing when the stored fields are already right (retry, own-write retrigger)', async () => {
     const store = new FakeStore();
     const synced = {

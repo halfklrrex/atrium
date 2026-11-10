@@ -1,5 +1,6 @@
 import {
   NOTIFICATION_LIMITS,
+  columnsForItem,
   resolveBoardRole,
   type BoardAccessInput,
   type Notification,
@@ -344,7 +345,7 @@ function personIds(value: unknown): string[] {
 
 /**
  * People added to a People column by this write: ids in `after` that were not in `before`, for each
- * column of type `people` (a subitem uses the board's `subitemColumns`). On create `before` is
+ * column of type `people` (a subitem uses `columnsForItem`: the board's columns, or its legacy `subitemColumns`). On create `before` is
  * empty. A person added to several columns appears once, with the first column.
  */
 export function addedPeople(
@@ -353,7 +354,7 @@ export function addedPeople(
   before: Record<string, unknown> | undefined,
   after: Record<string, unknown> | undefined,
 ): NotificationCandidate[] {
-  const columns = isSubitem ? board.subitemColumns : board.columns;
+  const columns = columnsForItem(board, { parentItemId: isSubitem ? 'sub' : null });
   const added = new Map<string, NotificationCandidate>();
   for (const column of columns) {
     if (column.type !== 'people') continue;

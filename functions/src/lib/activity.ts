@@ -1,6 +1,7 @@
 import {
   ACTIVITY_LIMITS,
   columnRegistry,
+  columnsForItem,
   type ActivityData,
   type ActivityEvent,
   type ActivityKind,
@@ -267,7 +268,7 @@ interface ValueChange {
 }
 
 function changedValues(change: ItemWriteChange, board: ActivityBoard): ValueChange[] {
-  const columns = change.after.parentItemId ? board.subitemColumns : board.columns;
+  const columns = columnsForItem(board, { parentItemId: str(change.after.parentItemId) ?? null });
   const byId = new Map(columns.map((c) => [c.id, c]));
   const before = change.before?.values ?? {};
   const after = change.after.values ?? {};

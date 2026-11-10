@@ -1,4 +1,4 @@
-import { findRequiredViolation, type ColumnDef } from '@atrium/shared';
+import { columnsForItem, findRequiredViolation, type ColumnDef } from '@atrium/shared';
 import { actorOf, activityDoc, sameJson, valueText, type NewActivity } from './activity';
 
 /**
@@ -82,7 +82,12 @@ export async function revertDoneWithEmptyRequired(
   if (!board.requiredColumnIds || board.requiredColumnIds.length === 0) {
     return { reverted: false, reason: 'no-required' };
   }
-  const columns = (event.after.parentItemId ? board.subitemColumns : board.columns) ?? [];
+  const columns = columnsForItem(
+    { columns: board.columns ?? [], subitemColumns: board.subitemColumns },
+    {
+      parentItemId: typeof event.after.parentItemId === 'string' ? event.after.parentItemId : null,
+    },
+  );
   const beforeValues = event.before.values ?? {};
   const afterValues = event.after.values ?? {};
   if (!findRequiredViolation(columns, beforeValues, afterValues)) {

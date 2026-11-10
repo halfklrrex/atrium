@@ -92,6 +92,10 @@ export const boardSchema = z.object({
   /** Reserved for a board icon; always `null` for now. */
   icon: iconSchema.nullable(),
   columns: z.array(columnDefSchema),
+  /**
+   * @deprecated SUBITEMS-as-items: subitems share `columns` (read them with `columnsForItem`). Kept
+   * so older boards parse; the merge migration empties it and PR 6 locks it to `[]`.
+   */
   subitemColumns: z.array(columnDefSchema),
   groups: z.array(groupDefSchema),
   /**

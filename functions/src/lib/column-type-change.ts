@@ -153,10 +153,16 @@ const typeLabel = (type: string): string => columnRegistry.find(type)?.label ?? 
 
 const hasValue = (value: unknown): boolean => value !== undefined && value !== null;
 
-const inScope = (item: MigrationItem, scope: ColumnScope): boolean =>
-  scope === 'columns'
-    ? item.parentItemId === null || item.parentItemId === undefined
-    : !!item.parentItemId;
+/**
+ * Which items a column's type change covers. Subitems share the board's columns once the board has
+ * no legacy `subitemColumns` (SUBITEMS-as-items), so a change to a board column then converts the
+ * subitems' values too; on a not yet migrated board the split stays as it was.
+ */
+const inScope = (item: MigrationItem, scope: ColumnScope, board: ChangeBoardData): boolean => {
+  const subitem = !!item.parentItemId;
+  if (scope === 'subitemColumns') return subitem;
+  return !subitem || board.subitemColumns.length === 0;
+};
 
 const columnsOf = (board: ChangeBoardData, scope: ColumnScope): ColumnDef[] =>
   scope === 'columns' ? board.columns : board.subitemColumns;
@@ -334,7 +340,7 @@ export async function changeColumnTypeLogic(
   const toSettings = settingsParsed.data as Record<string, unknown>;
 
   const sourceIsComputed = columnRegistry.isDerived(fromColumn.type);
-  const items = (await store.listItems(boardId)).filter((i) => inScope(i, scope));
+  const items = (await store.listItems(boardId)).filter((i) => inScope(i, scope, board));
 
   // Step 2: the snapshot (never touched again once it is `ready` or later).
   let meta: SnapshotMeta;
@@ -519,7 +525,7 @@ export async function revertColumnTypeLogic(
     throw new HttpsError('not-found', 'This type change can no longer be undone.');
   }
   const { columnId, scope } = snapshot;
-  const { column } = await requireAccess(store, boardId, uid, columnId, scope);
+  const { board, column } = await requireAccess(store, boardId, uid, columnId, scope);
   const now = store.nowMs();
   const from = snapshot.fromColumn;
 
@@ -562,7 +568,7 @@ export async function revertColumnTypeLogic(
 
   const entries = await readVerifiedEntries(store, boardId, snapshotId, snapshot);
   const backup = new Map(entries.map((e) => [e.itemId, e.value]));
-  const items = (await store.listItems(boardId)).filter((i) => inScope(i, scope));
+  const items = (await store.listItems(boardId)).filter((i) => inScope(i, scope, board));
 
   await store.updateColumn(
     boardId,
