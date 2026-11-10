@@ -12,6 +12,7 @@ import {
   type AccountStore,
   type AuthAccount,
 } from './account-admin';
+import { APPROVAL_BOOTSTRAP_OPTIONS, bootstrapUserInTransaction } from './bootstrap';
 import type { NewNotification } from './notifications';
 
 const account = (uid: string, over: Partial<AuthAccount> = {}): AuthAccount => ({
@@ -83,9 +84,42 @@ class FakeStore implements AccountStore {
     }
     return Promise.resolve(out);
   }
-  ensurePersonalWorkspace(identity: { uid: string }) {
-    if (!this.workspaces.includes(identity.uid)) this.workspaces.push(identity.uid);
-    return Promise.resolve(`ws-${identity.uid}`);
+  /**
+   * Mirrors the real store: runs the real bootstrap with the real approval options, over a user
+   * document that still carries its current status (pending when none is recorded), so the status
+   * gate applies exactly as in production.
+   */
+  async ensurePersonalWorkspace(identity: {
+    uid: string;
+    displayName: string | null;
+    email: string | null;
+    photoURL: string | null;
+  }) {
+    const uid = identity.uid;
+    const status = this.statuses.get(uid) ?? 'pending';
+    let created: string | null = null;
+    const result = await bootstrapUserInTransaction(
+      {
+        getUser: () => Promise.resolve({ lastWorkspaceId: null, accountStatus: status }),
+        workspaceHasMember: () => Promise.resolve(false),
+        findMemberWorkspaceId: () =>
+          Promise.resolve(this.workspaces.includes(uid) ? `ws-${uid}` : null),
+        newWorkspaceId: () => `ws-${uid}`,
+        createUser: () => undefined,
+        setLastWorkspace: () => undefined,
+        createWorkspace: (id) => {
+          created = id;
+        },
+        createMember: () => undefined,
+      },
+      identity,
+      {},
+      { isEqual: () => true },
+      APPROVAL_BOOTSTRAP_OPTIONS,
+    );
+    if (!result.workspaceId) throw new Error('Personal workspace was not created.');
+    if (created && !this.workspaces.includes(uid)) this.workspaces.push(uid);
+    return result.workspaceId;
   }
   setAccountStatus(uid: string, status: AccountStatus) {
     if (this.failOnStatusWrite) return Promise.reject(new Error('write failed'));
@@ -165,6 +199,15 @@ describe('setAccountStatus: approve', () => {
       uid: 'u1',
       data: { kind: 'account_approved', actorId: 'a1', workspaceId: 'ws-u1' },
     });
+  });
+
+  it('approves a blocked account (unblock) whose document is still blocked', async () => {
+    const { store, deps } = setup(account('u1', { claims: { acct: 'blocked' } }));
+    store.statuses.set('u1', 'blocked');
+    const result = await setAccountStatus(deps, admin, { uid: 'u1', status: 'approved' });
+    expect(result.changed).toBe(true);
+    expect(store.workspaces).toEqual(['u1']);
+    expect(store.statuses.get('u1')).toBe('approved');
   });
 
   it('the claim is written last', async () => {

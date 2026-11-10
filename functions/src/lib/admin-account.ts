@@ -3,7 +3,7 @@ import { getAuth, type UserRecord } from 'firebase-admin/auth';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import { adminBootstrapTx } from './admin';
 import type { AccountAuth, AccountStore, AuthAccount } from './account-admin';
-import { bootstrapUserInTransaction } from './bootstrap';
+import { APPROVAL_BOOTSTRAP_OPTIONS, bootstrapUserInTransaction } from './bootstrap';
 import { adminInboxStore } from './admin-inbox';
 import { adminNotificationStore } from './admin-notifications';
 import { closeOpenAppeals } from './inbox';
@@ -94,7 +94,7 @@ export function adminAccountStore(firestore: Firestore): AccountStore {
           identity,
           {},
           FieldValue.serverTimestamp(),
-          { approvalRequired: false },
+          APPROVAL_BOOTSTRAP_OPTIONS,
         ),
       );
       if (!result.workspaceId) throw new Error('Personal workspace was not created.');

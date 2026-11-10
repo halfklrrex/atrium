@@ -55,9 +55,21 @@ export interface BootstrapOptions {
    * the flag on or off.
    */
   approvalRequired?: boolean;
+  /**
+   * Admin approve / unblock only: skip the pending/blocked gate so the personal workspace is
+   * created while the user document still carries the old status (the status flips afterwards).
+   * Never set on the sign-in bootstrap.
+   */
+  createForApproval?: boolean;
   /** Called (inside the transaction body, once per attempt) when this call creates the user doc. */
   onUserCreated?: () => void;
 }
+
+/** The only caller allowed to bypass the status gate: the admin store's approve / unblock path. */
+export const APPROVAL_BOOTSTRAP_OPTIONS: BootstrapOptions = {
+  approvalRequired: false,
+  createForApproval: true,
+};
 
 /**
  * Idempotent bootstrap (architecture section 8): ensure `users/{uid}` exists and that the user has a
@@ -98,7 +110,10 @@ export async function bootstrapUserInTransaction(
   // A pending or blocked profile gets no workspace and no write, whatever the approval flag says:
   // turning the flag off must not let a blocked person create a workspace. Profiles without a
   // status (older accounts) behave as before.
-  if (user?.accountStatus === 'pending' || user?.accountStatus === 'blocked') {
+  if (
+    options.createForApproval !== true &&
+    (user?.accountStatus === 'pending' || user?.accountStatus === 'blocked')
+  ) {
     return { accountStatus: user.accountStatus };
   }
 
