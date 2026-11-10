@@ -204,6 +204,61 @@
   min-width: 0;
 }
 
+/*
+ * The side panel's grid (layout="grid"): two columns, label above the value. Long text, links and
+ * files take the whole row. Below 420px the panel (a container) turns it back into ordinary rows.
+ */
+.fieldsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4) var(--space-12);
+}
+
+.fieldsGrid .field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-4);
+  min-height: 0;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--border-radius-medium);
+}
+
+.fieldsGrid .field:hover {
+  background: var(--primary-background-hover-color);
+}
+
+.fieldsGrid .field[data-wide='true'] {
+  grid-column: 1 / -1;
+}
+
+@container item-panel (width < 420px) {
+  /* Design breakpoint: the panel is narrow (phone). Fields go back to label-left rows. */
+  .fieldsGrid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .fieldsGrid .field {
+    display: grid;
+    grid-template-columns: var(--atrium-item-panel-narrow-label-width) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-8);
+    padding: 0;
+  }
+
+  .fieldsGrid .field:hover {
+    background: none;
+  }
+
+  .fieldsGrid .field[data-wide='true'] {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-4);
+  }
+}
+
 /* A value cell, the table's cell UI in a bordered box. */
 .cell {
   position: relative;

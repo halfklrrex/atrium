@@ -1,34 +1,46 @@
 import { create } from 'zustand';
 
+/** The side panel's tabs. `'files'` arrives with the Files tab. */
+export type ItemPanelTab = 'overview' | 'updates' | 'files' | 'activity';
+
 interface ItemCardState {
   activeBoardId: string | null;
   activeItemId: string | null;
   /** Ordered list of item IDs in the current board/view for prev/next navigation. */
   itemIds: string[];
-  open: (boardId: string, itemId: string, itemIds?: string[]) => void;
-  openItemCard: (boardId: string, itemId: string, itemIds?: string[]) => void;
+  /** The tab showing. A fresh open uses the opener's tab; stepping to another item keeps it. */
+  tab: ItemPanelTab;
+  open: (boardId: string, itemId: string, itemIds?: string[], tab?: ItemPanelTab) => void;
+  openItemCard: (boardId: string, itemId: string, itemIds?: string[], tab?: ItemPanelTab) => void;
   closeItemCard: () => void;
   setActiveItemId: (itemId: string | null) => void;
   setItemIds: (itemIds: string[]) => void;
+  setTab: (tab: ItemPanelTab) => void;
 }
 
-export const useItemCardStore = create<ItemCardState>((set) => ({
-  activeBoardId: null,
-  activeItemId: null,
-  itemIds: [],
-  open: (boardId, itemId, itemIds = []) =>
+export const useItemCardStore = create<ItemCardState>((set) => {
+  const openWith = (
+    boardId: string,
+    itemId: string,
+    itemIds: string[] = [],
+    tab: ItemPanelTab = 'overview',
+  ) =>
     set({
       activeBoardId: boardId,
       activeItemId: itemId,
       itemIds: itemIds.length > 0 ? itemIds : [],
-    }),
-  openItemCard: (boardId, itemId, itemIds = []) =>
-    set({
-      activeBoardId: boardId,
-      activeItemId: itemId,
-      itemIds: itemIds.length > 0 ? itemIds : [],
-    }),
-  closeItemCard: () => set({ activeItemId: null, activeBoardId: null }),
-  setActiveItemId: (activeItemId) => set({ activeItemId }),
-  setItemIds: (itemIds) => set({ itemIds }),
-}));
+      tab,
+    });
+  return {
+    activeBoardId: null,
+    activeItemId: null,
+    itemIds: [],
+    tab: 'overview',
+    open: openWith,
+    openItemCard: openWith,
+    closeItemCard: () => set({ activeItemId: null, activeBoardId: null, tab: 'overview' }),
+    setActiveItemId: (activeItemId) => set({ activeItemId }),
+    setItemIds: (itemIds) => set({ itemIds }),
+    setTab: (tab) => set({ tab }),
+  };
+});

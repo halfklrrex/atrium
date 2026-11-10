@@ -35,6 +35,8 @@ import {
   DASHBOARD_ID,
   addCalendarView,
   addActionButton,
+  addPanelFields,
+  removePanelFields,
   addKanbanView,
   addTimelineView,
   addGanttView,
@@ -591,6 +593,27 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `item-card-activity-${theme}`, PARK_IN_HEADER);
       } finally {
         await clearActivity();
+      }
+    });
+
+    // SIDEBAR-overview-tab: the side panel opens on Overview with the key bar, the description and
+    // a fields grid capped at ten.
+    test('board: item card Overview', async ({ page }) => {
+      await addPanelFields();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}`);
+        await boardReady(page);
+        await page
+          .locator(`[role="row"][data-item-id="${FULL_VIEW_ITEM}"]`)
+          .getByRole('button', { name: 'Ship the pipeline', exact: true })
+          .click();
+        const card = page.getByRole('dialog', { name: 'Item card' });
+        await expect(card.getByLabel('Key information')).toBeVisible();
+        await expect(card.getByRole('heading', { name: 'Release pipeline' })).toBeVisible();
+        await expect(card.getByRole('button', { name: 'Show all fields (12)' })).toBeVisible();
+        await shoot(page, `item-card-overview-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removePanelFields();
       }
     });
 

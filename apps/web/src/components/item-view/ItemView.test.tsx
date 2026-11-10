@@ -1,5 +1,5 @@
 import { columnRegistry, type ColumnDef } from '@atrium/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -112,6 +112,14 @@ describe('ItemView', () => {
     await userEvent.click(document.querySelector('[data-cell="i2:made"]') as HTMLElement);
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(mocks.setValue).not.toHaveBeenCalled();
+  });
+
+  it('copies the item link from the actions menu', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderView();
+    await user.click(screen.getByRole('button', { name: 'Item actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Copy link' }));
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toMatch(/\/items\/i2$/));
   });
 
   it('steps to the next row of the group', async () => {

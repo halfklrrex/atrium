@@ -35,4 +35,26 @@ describe('useItemCardStore', () => {
     useItemCardStore.getState().setActiveItemId('item-2');
     expect(useItemCardStore.getState().activeItemId).toBe('item-2');
   });
+
+  it('opens on Overview by default and on the named tab otherwise', () => {
+    useItemCardStore.getState().open('board-1', 'item-1');
+    expect(useItemCardStore.getState().tab).toBe('overview');
+    useItemCardStore.getState().open('board-1', 'item-1', [], 'updates');
+    expect(useItemCardStore.getState().tab).toBe('updates');
+  });
+
+  it('keeps the tab when stepping to another item, and resets it after a close', () => {
+    useItemCardStore.getState().open('board-1', 'item-1', ['item-1', 'item-2'], 'updates');
+    useItemCardStore.getState().setActiveItemId('item-2');
+    expect(useItemCardStore.getState().tab).toBe('updates');
+    useItemCardStore.getState().closeItemCard();
+    useItemCardStore.getState().open('board-1', 'item-1');
+    expect(useItemCardStore.getState().tab).toBe('overview');
+  });
+
+  it('setTab changes the tab', () => {
+    useItemCardStore.getState().open('board-1', 'item-1');
+    useItemCardStore.getState().setTab('activity');
+    expect(useItemCardStore.getState().tab).toBe('activity');
+  });
 });
