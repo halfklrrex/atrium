@@ -10,6 +10,20 @@
   border-color: var(--primary-color);
 }
 
+/* toolbar="focus": the toolbar shows only while editing (focus inside, or a popup of its own open). */
+.root[data-toolbar='focus']:not(:focus-within, [data-popover-open]) .toolbar {
+  display: none;
+}
+
+/* A long description in the side panel: cut to the clamp height until "Show more" or editing. */
+.root[data-clamp='true']:not(:focus-within) .contentHost {
+  max-block-size: calc(
+    var(--atrium-item-panel-desc-clamp-lines) * var(--atrium-editor-line-height) + 2 *
+      var(--space-16)
+  );
+  overflow: hidden;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: nowrap;

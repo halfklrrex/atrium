@@ -24,6 +24,8 @@ interface UpdatesFeedProps {
   focusReplyId?: string | null;
   /** The signed-in user owns the board and may remove anyone's attachments. */
   canManage?: boolean;
+  /** Put the caret in the composer on mount ("Write an update..." on the Overview tab). */
+  autoFocusComposer?: boolean;
 }
 
 export function UpdatesFeed({
@@ -32,6 +34,7 @@ export function UpdatesFeed({
   focusUpdateId,
   focusReplyId,
   canManage = false,
+  autoFocusComposer = false,
 }: UpdatesFeedProps) {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
@@ -78,6 +81,7 @@ export function UpdatesFeed({
         <LazyUpdateComposer
           boardId={boardId}
           variant="update"
+          autoFocus={autoFocusComposer}
           placeholder="Write an update and mention others with @"
           submitLabel="Update"
           onSubmit={handlePostUpdate}

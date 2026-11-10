@@ -45,7 +45,7 @@ export function ItemSubitems({
   };
 
   return (
-    <section className={styles.section} aria-label="Subitems">
+    <section id="item-view-subitems" className={styles.section} aria-label="Subitems">
       <h3 className={styles.sectionTitle}>
         Subitems{subitems.length > 0 ? ` (${subitems.length})` : ''}
       </h3>

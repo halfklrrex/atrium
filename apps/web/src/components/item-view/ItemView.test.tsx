@@ -49,13 +49,10 @@ function Where() {
   return <div data-testid="where">{useLocation().pathname}</div>;
 }
 
-function renderView(itemId = 'i2', shownBoard = board) {
+function renderView(itemId = 'i2', shownBoard = board, state: object = { fromBoard: true }) {
   return render(
     <MemoryRouter
-      initialEntries={[
-        '/boards/b1',
-        { pathname: `/boards/b1/items/${itemId}`, state: { fromBoard: true } },
-      ]}
+      initialEntries={['/boards/b1', { pathname: `/boards/b1/items/${itemId}`, state }]}
       initialIndex={1}
     >
       <Routes>
@@ -97,6 +94,23 @@ describe('ItemView', () => {
     expect(document.querySelector('[data-cell="s1:cost"]')).not.toBeNull();
     expect(document.querySelector('[data-cell="i2:cost"]')).not.toBeNull();
     expect(document.querySelector('[data-cell="i2:made"]')).not.toBeNull();
+  });
+
+  it('scrolls to the Subitems section once when opened with section: subitems', async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    renderView('i2', board, { fromBoard: true, section: 'subitems' });
+    await screen.findByText('Child task');
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll.mock.instances[0]).toBe(document.getElementById('item-view-subitems'));
+  });
+
+  it('does not scroll without a section', async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    renderView();
+    await screen.findByText('Child task');
+    expect(scroll).not.toHaveBeenCalled();
   });
 
   it('edits a field through the same editor and write path as the table', async () => {
