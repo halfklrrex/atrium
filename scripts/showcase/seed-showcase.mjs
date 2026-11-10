@@ -7,7 +7,7 @@
 //                (without --yes it only prints a dry-run; it authenticates with `gcloud`)
 //
 // Safety: the script only ever creates, updates or deletes the documents it owns (see
-// `isOwnedPath` in data.mjs): the `showcase-*` boards with their items, updates, replies, views and automations (never `automationRuns`), the `showcase-dashboard` dashboard, and the
+// `isOwnedPath` in data.mjs): the `showcase*` boards with their items, updates, replies, views and automations (never `automationRuns`), the `showcasedashboard` dashboard, and the
 // owner's favourite/recent entries for them, her 3 `showcase-notification-*` notifications, plus the 3 fake members' `members` profile docs. It refuses to run when the workspace is missing or the
 // owner is not a member, and aborts if a write would fall outside that allow-list.
 //
@@ -20,6 +20,8 @@ import { portOffset, ports } from '../env.mjs';
 import {
   buildShowcase,
   isOwnedPath,
+  LEGACY_SHOWCASE_BOARD_IDS,
+  LEGACY_SHOWCASE_DASHBOARD_IDS,
   SHOWCASE_BOARD_IDS,
   SHOWCASE_DASHBOARD_IDS,
   SHOWCASE_MEMBER_UIDS,
@@ -309,6 +311,27 @@ export async function runSeed({
 
   // ---- 3. Plan the deletions ----
   const deletes = new Set();
+  // Leftovers of the old dashed ids (they open "couldn't find that page"): remove them on every
+  // run, with their sub-collections, unless they belong to another workspace. Nothing is written
+  // back to them. Also the owner's favourite and recent entries that point at them.
+  for (const boardId of LEGACY_SHOWCASE_BOARD_IDS) {
+    const existing = await client.getDoc(`boards/${boardId}`);
+    const tree = await collectTree(client, `boards/${boardId}`);
+    if (existing && existing.workspaceId !== workspaceId) continue;
+    if (!existing && tree.length === 0) continue;
+    for (const path of tree) deletes.add(path);
+    if (existing) deletes.add(`boards/${boardId}`);
+  }
+  for (const dashboardId of LEGACY_SHOWCASE_DASHBOARD_IDS) {
+    const existing = await client.getDoc(`dashboards/${dashboardId}`);
+    if (existing && existing.workspaceId === workspaceId) deletes.add(`dashboards/${dashboardId}`);
+  }
+  for (const boardId of LEGACY_SHOWCASE_BOARD_IDS) {
+    for (const col of ['favorites', 'recents']) {
+      const path = `users/${ownerUid}/${col}/${boardId}`;
+      if (await client.getDoc(path)) deletes.add(path);
+    }
+  }
   for (const boardId of SHOWCASE_BOARD_IDS) {
     if (reset) {
       const tree = await collectTree(client, `boards/${boardId}`);

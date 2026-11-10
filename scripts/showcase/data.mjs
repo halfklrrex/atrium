@@ -38,12 +38,16 @@ import {
  */
 export const PENDING_TYPES = [];
 
-/** Board ids the seed script owns. Anything else is off limits (see `isOwnedPath`). */
-export const SHOWCASE_MAIN_ID = 'showcase-main';
-export const SHOWCASE_ARCHIVED_ID = 'showcase-archived-demo';
-export const SHOWCASE_TRASHED_ID = 'showcase-trashed-demo';
+/**
+ * Board and dashboard ids the seed script owns. Anything else is off limits (see `isOwnedPath`).
+ * These ids appear in URLs (`/boards/<slug>-<id>`), and the app reads the id as the text after the
+ * LAST dash, so they must never contain a dash (real Firestore auto ids do not either).
+ */
+export const SHOWCASE_MAIN_ID = 'showcasemain';
+export const SHOWCASE_ARCHIVED_ID = 'showcasearchiveddemo';
+export const SHOWCASE_TRASHED_ID = 'showcasetrasheddemo';
 /** The board the main board's Connect boards column links to, and the Mirror columns read from. */
-export const SHOWCASE_LINKED_ID = 'showcase-linked-demo';
+export const SHOWCASE_LINKED_ID = 'showcaselinkeddemo';
 export const SHOWCASE_BOARD_IDS = [
   SHOWCASE_MAIN_ID,
   SHOWCASE_ARCHIVED_ID,
@@ -51,9 +55,21 @@ export const SHOWCASE_BOARD_IDS = [
   SHOWCASE_LINKED_ID,
 ];
 /** The dashboard the seed owns (`dashboards/<id>`); it reads the main and the linked board. */
-export const SHOWCASE_DASHBOARD_ID = 'showcase-dashboard';
+export const SHOWCASE_DASHBOARD_ID = 'showcasedashboard';
 export const SHOWCASE_DASHBOARD_IDS = [SHOWCASE_DASHBOARD_ID];
-export const SHOWCASE_PREFIX = 'showcase-';
+/**
+ * The dashed ids earlier versions of the seed created. They open the "couldn't find that page"
+ * screen, so every run deletes whatever is left of them (see `seed-showcase.mjs`). They are
+ * owned for deletion only: nothing is ever written to them.
+ */
+export const LEGACY_SHOWCASE_BOARD_IDS = [
+  'showcase-main',
+  'showcase-archived-demo',
+  'showcase-trashed-demo',
+  'showcase-linked-demo',
+];
+export const LEGACY_SHOWCASE_DASHBOARD_IDS = ['showcase-dashboard'];
+export const SHOWCASE_PREFIX = 'showcase';
 /** The owner's three showcase notifications (`users/{owner}/notifications/<id>`), one per kind. */
 export const SHOWCASE_NOTIFICATION_PREFIX = 'showcase-notification-';
 export const SHOWCASE_NOTIFICATION_IDS = ['mention', 'reply', 'assigned'].map(
@@ -2167,10 +2183,17 @@ export function isOwnedPath(path, ownerUid, workspaceId) {
   const parts = path.split('/');
   if (parts.some((p) => p === '' || p === '.' || p === '..')) return false;
   if (parts[0] === 'boards') {
-    return parts.length >= 2 && SHOWCASE_BOARD_IDS.includes(parts[1]);
+    return (
+      parts.length >= 2 &&
+      (SHOWCASE_BOARD_IDS.includes(parts[1]) || LEGACY_SHOWCASE_BOARD_IDS.includes(parts[1]))
+    );
   }
   if (parts[0] === 'dashboards') {
-    return parts.length === 2 && SHOWCASE_DASHBOARD_IDS.includes(parts[1]);
+    return (
+      parts.length === 2 &&
+      (SHOWCASE_DASHBOARD_IDS.includes(parts[1]) ||
+        LEGACY_SHOWCASE_DASHBOARD_IDS.includes(parts[1]))
+    );
   }
   if (parts[0] === 'workspaces') {
     // Only the fake members' profile docs, and only in the workspace being seeded.
@@ -2187,7 +2210,7 @@ export function isOwnedPath(path, ownerUid, workspaceId) {
       parts.length === 4 &&
       parts[1] === ownerUid &&
       (((parts[2] === 'favorites' || parts[2] === 'recents') &&
-        SHOWCASE_BOARD_IDS.includes(parts[3])) ||
+        (SHOWCASE_BOARD_IDS.includes(parts[3]) || LEGACY_SHOWCASE_BOARD_IDS.includes(parts[3]))) ||
         (parts[2] === 'notifications' && SHOWCASE_NOTIFICATION_IDS.includes(parts[3])))
     );
   }

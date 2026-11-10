@@ -24,6 +24,8 @@ import {
   workspaceMemberSchema,
 } from '@atrium/shared';
 import {
+  LEGACY_SHOWCASE_BOARD_IDS,
+  LEGACY_SHOWCASE_DASHBOARD_IDS,
   PENDING_TYPES,
   SHOWCASE_BOARD_IDS,
   SHOWCASE_COLUMN_TYPES,
@@ -63,7 +65,7 @@ const build = (overrides = {}) =>
     ...overrides,
   });
 
-const MAIN_ITEM = /^boards\/showcase-main\/items\/[^/]+$/;
+const MAIN_ITEM = /^boards\/showcasemain\/items\/[^/]+$/;
 
 // ---- Data builder ----------------------------------------------------------------------------
 
@@ -475,12 +477,12 @@ test('ownership allow-list', () => {
   assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}/members/real-user`, OWNER, WORKSPACE));
   assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}`, OWNER, WORKSPACE));
   assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}/invites/showcase-user-sam`, OWNER, WORKSPACE));
-  assert.ok(isOwnedPath('boards/showcase-main', OWNER));
-  assert.ok(isOwnedPath('boards/showcase-main/automations/showcase-notify-new', OWNER));
+  assert.ok(isOwnedPath('boards/showcasemain', OWNER));
+  assert.ok(isOwnedPath('boards/showcasemain/automations/showcase-notify-new', OWNER));
   assert.ok(!isOwnedPath('boards/real-board/automations/x', OWNER));
-  assert.ok(isOwnedPath('boards/showcase-main/items/x/updates/y/replies/z', OWNER));
-  assert.ok(isOwnedPath(`users/${OWNER}/favorites/showcase-main`, OWNER));
-  assert.ok(isOwnedPath(`users/${OWNER}/recents/showcase-trashed-demo`, OWNER));
+  assert.ok(isOwnedPath('boards/showcasemain/items/x/updates/y/replies/z', OWNER));
+  assert.ok(isOwnedPath(`users/${OWNER}/favorites/showcasemain`, OWNER));
+  assert.ok(isOwnedPath(`users/${OWNER}/recents/showcasetrasheddemo`, OWNER));
   assert.ok(isOwnedPath(`dashboards/${SHOWCASE_DASHBOARD_ID}`, OWNER));
   assert.ok(!isOwnedPath('dashboards/real-dashboard', OWNER));
   assert.ok(!isOwnedPath(`dashboards/${SHOWCASE_DASHBOARD_ID}/x`, OWNER));
@@ -490,15 +492,15 @@ test('ownership allow-list', () => {
   assert.ok(!isOwnedPath('boards', OWNER));
   assert.ok(!isOwnedPath(`users/${OWNER}`, OWNER));
   assert.ok(!isOwnedPath(`users/${OWNER}/favorites/real-board`, OWNER));
-  assert.ok(!isOwnedPath('users/someone-else/favorites/showcase-main', OWNER));
-  assert.ok(!isOwnedPath(`users/${OWNER}/notifications/showcase-main`, OWNER));
+  assert.ok(!isOwnedPath('users/someone-else/favorites/showcasemain', OWNER));
+  assert.ok(!isOwnedPath(`users/${OWNER}/notifications/showcasemain`, OWNER));
   assert.ok(isOwnedPath(`users/${OWNER}/notifications/${SHOWCASE_NOTIFICATION_IDS[0]}`, OWNER));
   assert.ok(!isOwnedPath(`users/${OWNER}/notifications/real-notification`, OWNER));
   assert.ok(
     !isOwnedPath(`users/someone-else/notifications/${SHOWCASE_NOTIFICATION_IDS[0]}`, OWNER),
   );
   assert.ok(!isOwnedPath('workspaces/ws-test', OWNER));
-  assert.ok(!isOwnedPath('boards/showcase-main/../real-board', OWNER));
+  assert.ok(!isOwnedPath('boards/showcasemain/../real-board', OWNER));
 });
 
 // ---- REST encoding ---------------------------------------------------------------------------
@@ -540,8 +542,8 @@ test('the REST client sends the token, the quota project and well-formed commits
     fetch: fakeFetch,
   });
   await client.commit([
-    { op: 'set', path: 'boards/showcase-main', data: { name: 'x', n: 2 } },
-    { op: 'delete', path: 'boards/showcase-main/items/a' },
+    { op: 'set', path: 'boards/showcasemain', data: { name: 'x', n: 2 } },
+    { op: 'delete', path: 'boards/showcasemain/items/a' },
   ]);
   const [call] = calls;
   assert.equal(
@@ -554,11 +556,11 @@ test('the REST client sends the token, the quota project and well-formed commits
   assert.deepEqual(call.body.writes, [
     {
       update: {
-        name: `${root}/boards/showcase-main`,
+        name: `${root}/boards/showcasemain`,
         fields: { name: { stringValue: 'x' }, n: { integerValue: '2' } },
       },
     },
-    { delete: `${root}/boards/showcase-main/items/a` },
+    { delete: `${root}/boards/showcasemain/items/a` },
   ]);
   await client.commit([]); // nothing to do, no request
   assert.equal(calls.length, 1);
@@ -641,9 +643,9 @@ const seed = (client, extra = {}) =>
 const snapshot = (client) =>
   JSON.stringify([...client.store.entries()].sort(([a], [b]) => (a < b ? -1 : 1)));
 const isShowcasePath = (p) =>
-  /^boards\/showcase-/.test(p) ||
-  /^dashboards\/showcase-/.test(p) ||
-  /\/(favorites|recents)\/showcase-/.test(p) ||
+  /^boards\/showcase/.test(p) ||
+  /^dashboards\/showcase/.test(p) ||
+  /\/(favorites|recents)\/showcase/.test(p) ||
   /\/notifications\/showcase-notification-/.test(p) ||
   /^workspaces\/[^/]+\/members\/showcase-user-/.test(p);
 const foreignDocs = (client) =>
@@ -660,7 +662,7 @@ test('refuses when the workspace is missing, the owner is not a member, or is on
 test('refuses to take over a showcase board that lives in another workspace', async () => {
   const client = fakeFirestore({
     ...baseWorld(),
-    'boards/showcase-main': { workspaceId: 'other' },
+    'boards/showcasemain': { workspaceId: 'other' },
   });
   await assert.rejects(seed(client), /another workspace/);
   assert.equal(client.commits.length, 0);
@@ -669,7 +671,7 @@ test('refuses to take over a showcase board that lives in another workspace', as
 test('refuses to take over a showcase dashboard that lives in another workspace', async () => {
   const client = fakeFirestore({
     ...baseWorld(),
-    'dashboards/showcase-dashboard': { workspaceId: 'other' },
+    'dashboards/showcasedashboard': { workspaceId: 'other' },
   });
   await assert.rejects(seed(client), /another workspace/);
   assert.equal(client.commits.length, 0);
@@ -708,7 +710,7 @@ test('seeding creates the showcase and leaves everything else alone', async () =
   assert.deepEqual(foreignDocs(client), before);
   // The author name comes from the owner's profile.
   const [, update] = [...client.store.entries()].find(([p]) =>
-    /^boards\/showcase-.*\/updates\/[^/]+$/.test(p),
+    /^boards\/showcase.*\/updates\/[^/]+$/.test(p),
   );
   assert.equal(update.authorName, 'Avery Quinn');
   for (const commit of client.commits) {
@@ -722,12 +724,12 @@ test('re-running converges to the same state and prunes showcase docs that are n
   const first = snapshot(client);
 
   // Someone edited an item by hand, and stale docs linger from an older version of the content.
-  client.store.get('boards/showcase-main/items/showcase-hero-copy').name = 'Edited by hand';
-  client.store.set('boards/showcase-main/items/showcase-removed-item', { name: 'old' });
-  client.store.set('boards/showcase-main/items/showcase-removed-item/updates/u', { content: 'x' });
-  client.store.set('boards/showcase-main/items/showcase-hero-copy/updates/old-update', {});
+  client.store.get('boards/showcasemain/items/showcase-hero-copy').name = 'Edited by hand';
+  client.store.set('boards/showcasemain/items/showcase-removed-item', { name: 'old' });
+  client.store.set('boards/showcasemain/items/showcase-removed-item/updates/u', { content: 'x' });
+  client.store.set('boards/showcasemain/items/showcase-hero-copy/updates/old-update', {});
   client.store.set(
-    'boards/showcase-main/items/showcase-hero-copy/updates/showcase-hero-copy-u2/replies/old',
+    'boards/showcasemain/items/showcase-hero-copy/updates/showcase-hero-copy-u2/replies/old',
     {},
   );
 
@@ -743,7 +745,7 @@ test('re-running converges to the same state and prunes showcase docs that are n
 test('re-running keeps the item numbers the function assigned', async () => {
   const client = fakeFirestore(baseWorld());
   await seed(client);
-  const path = 'boards/showcase-main/items/showcase-hero-copy';
+  const path = 'boards/showcasemain/items/showcase-hero-copy';
   Object.assign(client.store.get(path), { seq: 17, boardSeq: 4 });
   await seed(client);
   assert.equal(client.store.get(path).seq, 17);
@@ -755,7 +757,7 @@ test('re-running keeps the item numbers the function assigned', async () => {
 
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
   const { docs, summary } = build();
-  const views = docs.filter((d) => /^boards\/showcase-main\/views\/[^/]+$/.test(d.path));
+  const views = docs.filter((d) => /^boards\/showcasemain\/views\/[^/]+$/.test(d.path));
   assert.equal(summary.views, 8);
   assert.equal(views.length, 8);
   const view = views.find((v) => v.data.name === 'Due this week').data;
@@ -775,7 +777,7 @@ test('the main board has a shared "Due this week" view: date filter, date sort, 
 
 test('the main board has a shared Kanban "Status board": lanes from Status, three card fields', () => {
   const { docs } = build();
-  const view = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-status-board').data;
+  const view = docs.find((d) => d.path === 'boards/showcasemain/views/showcase-status-board').data;
   assert.equal(view.type, 'kanban');
   assert.equal(view.ownerId, null);
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
@@ -792,7 +794,7 @@ test('the main board has a shared Kanban "Status board": lanes from Status, thre
 
 test('the main board has a shared Calendar "Due dates": placed by the Due date column, coloured by Status', () => {
   const { docs } = build();
-  const view = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-due-calendar').data;
+  const view = docs.find((d) => d.path === 'boards/showcasemain/views/showcase-due-calendar').data;
   assert.equal(view.type, 'calendar');
   assert.equal(view.ownerId, null);
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
@@ -802,7 +804,7 @@ test('the main board has a shared Calendar "Due dates": placed by the Due date c
   assert.equal(color.type, 'status');
   // Enough dated items to fill the month on screen.
   const items = docs.filter(
-    (d) => /^boards\/showcase-main\/items\/[^/]+$/.test(d.path) && d.data.values?.[column.id],
+    (d) => /^boards\/showcasemain\/items\/[^/]+$/.test(d.path) && d.data.values?.[column.id],
   );
   assert.ok(items.length >= 15, `${items.length} dated items`);
 });
@@ -810,7 +812,7 @@ test('the main board has a shared Calendar "Due dates": placed by the Due date c
 test('the main board has a shared Timeline "Roadmap": lanes by group, placed by the Timeline column, coloured by Status', () => {
   const { docs } = build();
   const view = docs.find(
-    (d) => d.path === 'boards/showcase-main/views/showcase-roadmap-timeline',
+    (d) => d.path === 'boards/showcasemain/views/showcase-roadmap-timeline',
   ).data;
   assert.equal(view.type, 'timeline');
   assert.equal(view.ownerId, null);
@@ -821,7 +823,7 @@ test('the main board has a shared Timeline "Roadmap": lanes by group, placed by 
   assert.equal(color.type, 'status');
   // Several groups have timeline values, so the view shows several lanes.
   const items = docs.filter(
-    (d) => /^boards\/showcase-main\/items\/[^/]+$/.test(d.path) && d.data.values?.[column.id],
+    (d) => /^boards\/showcasemain\/items\/[^/]+$/.test(d.path) && d.data.values?.[column.id],
   );
   assert.ok(items.length >= 15, `${items.length} items with a timeline`);
   assert.ok(new Set(items.map((d) => d.data.groupId)).size >= 3);
@@ -830,7 +832,7 @@ test('the main board has a shared Timeline "Roadmap": lanes by group, placed by 
 
 test('the main board has a shared Gantt "Plan": dependencies, baseline dates and the critical path', () => {
   const { docs } = build();
-  const view = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-plan-gantt').data;
+  const view = docs.find((d) => d.path === 'boards/showcasemain/views/showcase-plan-gantt').data;
   assert.equal(view.type, 'gantt');
   assert.equal(view.ownerId, null);
   const gantt = view.settings.gantt;
@@ -841,7 +843,7 @@ test('the main board has a shared Gantt "Plan": dependencies, baseline dates and
   assert.equal(type(gantt.baselineColumnId), 'timeline');
   assert.notEqual(gantt.baselineColumnId, gantt.columnId);
   assert.ok(gantt.showBaseline && gantt.showCriticalPath);
-  const items = docs.filter((d) => /^boards\/showcase-main\/items\/[^/]+$/.test(d.path));
+  const items = docs.filter((d) => /^boards\/showcasemain\/items\/[^/]+$/.test(d.path));
   const withBaseline = items.filter((d) => d.data.values?.[gantt.baselineColumnId]);
   assert.ok(withBaseline.length >= 5, `${withBaseline.length} items with a baseline`);
   for (const { data } of withBaseline) {
@@ -862,27 +864,27 @@ test('the main board has a shared Gantt "Plan": dependencies, baseline dates and
 test('a view that left the content is pruned on the next run', async () => {
   const client = fakeFirestore(baseWorld());
   await seed(client);
-  client.store.set('boards/showcase-main/views/showcase-old-view', { name: 'Old' });
+  client.store.set('boards/showcasemain/views/showcase-old-view', { name: 'Old' });
   const plan = await seed(client);
   assert.equal(plan.deleteCount, 1);
-  assert.ok(!client.store.has('boards/showcase-main/views/showcase-old-view'));
-  assert.ok(client.store.has('boards/showcase-main/views/showcase-due-this-week'));
+  assert.ok(!client.store.has('boards/showcasemain/views/showcase-old-view'));
+  assert.ok(client.store.has('boards/showcasemain/views/showcase-due-this-week'));
 });
 
 test('--reset deletes the showcase boards recursively, even unknown sub-collections, then recreates them', async () => {
   const client = fakeFirestore(baseWorld());
   await seed(client);
   const first = snapshot(client);
-  client.store.set('boards/showcase-main/activity/a1', { what: 'something' });
-  client.store.set('boards/showcase-main/views/v1', { name: 'A view' });
-  client.store.set('boards/showcase-main/items/showcase-removed-item', { name: 'old' });
+  client.store.set('boards/showcasemain/activity/a1', { what: 'something' });
+  client.store.set('boards/showcasemain/views/v1', { name: 'A view' });
+  client.store.set('boards/showcasemain/items/showcase-removed-item', { name: 'old' });
   const before = structuredClone(foreignDocs(client));
   client.commits.length = 0;
 
   const plan = await seed(client, { reset: true });
   assert.ok(plan.deleteCount > 40);
-  assert.ok(!client.store.has('boards/showcase-main/activity/a1'));
-  assert.ok(!client.store.has('boards/showcase-main/views/v1'));
+  assert.ok(!client.store.has('boards/showcasemain/activity/a1'));
+  assert.ok(!client.store.has('boards/showcasemain/views/v1'));
   assert.equal(snapshot(client), first);
   assert.deepEqual(foreignDocs(client), before);
 
@@ -942,7 +944,7 @@ test('the main board has shared Chart views: "Budget by owner" (sum per person) 
   const { docs } = build();
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
   const bar = docs.find(
-    (d) => d.path === 'boards/showcase-main/views/showcase-budget-by-owner',
+    (d) => d.path === 'boards/showcasemain/views/showcase-budget-by-owner',
   ).data;
   assert.equal(bar.type, 'chart');
   assert.equal(bar.ownerId, null);
@@ -950,7 +952,7 @@ test('the main board has shared Chart views: "Budget by owner" (sum per person) 
   assert.equal(board.columns.find((c) => c.id === bar.settings.chart.xColumnId).type, 'people');
   assert.equal(bar.settings.chart.yMode, 'sum');
   assert.equal(board.columns.find((c) => c.id === bar.settings.chart.yColumnId).type, 'numbers');
-  const donut = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-status-mix').data;
+  const donut = docs.find((d) => d.path === 'boards/showcasemain/views/showcase-status-mix').data;
   assert.equal(donut.settings.chart.chartType, 'donut');
   assert.equal(board.columns.find((c) => c.id === donut.settings.chart.xColumnId).type, 'status');
 });
@@ -958,7 +960,7 @@ test('the main board has shared Chart views: "Budget by owner" (sum per person) 
 test('the main board has a shared, closed Form view whose questions the form rules accept', () => {
   const { docs } = build();
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
-  const view = docs.find((d) => d.path === 'boards/showcase-main/views/showcase-request-form').data;
+  const view = docs.find((d) => d.path === 'boards/showcasemain/views/showcase-request-form').data;
   assert.equal(view.type, 'form');
   assert.equal(view.ownerId, null);
   assert.equal(view.settings.form.acceptingResponses, false);
@@ -971,7 +973,7 @@ test('the main board has a shared, closed Form view whose questions the form rul
 test('the main board has six recipes (three on, three off (one by the breaker, with a reason), covering every trigger and action type) valid against the board, and no runs', () => {
   const { docs, summary } = build();
   const board = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
-  const recipes = docs.filter((d) => /^boards\/showcase-main\/automations\/[^/]+$/.test(d.path));
+  const recipes = docs.filter((d) => /^boards\/showcasemain\/automations\/[^/]+$/.test(d.path));
   assert.equal(summary.automations, 6);
   assert.equal(recipes.length, 6);
   const on = recipes.filter((r) => r.data.enabled);
@@ -1002,4 +1004,70 @@ test('the main board has six recipes (three on, three off (one by the breaker, w
     assert.deepEqual(validateAutomation(data, board, 'owner'), { ok: true });
   }
   assert.ok(!docs.some((d) => d.path.includes('/automationRuns/')));
+});
+
+test('no showcase board or dashboard id has a dash (the app reads the id after the last dash)', () => {
+  const ids = [...SHOWCASE_BOARD_IDS, SHOWCASE_DASHBOARD_ID];
+  for (const id of ids) assert.match(id, /^[A-Za-z0-9]+$/, id);
+  const { docs } = build();
+  for (const d of docs) {
+    const [collection, id] = d.path.split('/');
+    if (collection === 'boards' || collection === 'dashboards') {
+      assert.match(id, /^[A-Za-z0-9]+$/, d.path);
+    }
+  }
+  // Cross-references (dashboard boardIds, connect-boards columns) use the same dash-free ids.
+  for (const d of docs.filter((x) => x.path.startsWith('dashboards/'))) {
+    for (const id of d.data.boardIds) assert.ok(!id.includes('-'), id);
+  }
+  const main = docs.find((d) => d.path === `boards/${SHOWCASE_MAIN_ID}`).data;
+  const relation = main.columns.find((c) => c.type === 'board_relation');
+  for (const id of relation.settings.boardIds) assert.ok(!id.includes('-'), id);
+});
+
+test('every run deletes the legacy dashed showcase boards, dashboard and their favourites', async () => {
+  const world = baseWorld();
+  for (const id of LEGACY_SHOWCASE_BOARD_IDS) {
+    world[`boards/${id}`] = { workspaceId: WORKSPACE, name: 'old' };
+    world[`boards/${id}/items/i1`] = { name: 'old item' };
+    world[`boards/${id}/items/i1/updates/u1`] = { content: 'x' };
+    world[`users/${OWNER}/favorites/${id}`] = { boardId: id };
+    world[`users/${OWNER}/recents/${id}`] = { boardId: id };
+  }
+  for (const id of LEGACY_SHOWCASE_DASHBOARD_IDS) {
+    world[`dashboards/${id}`] = { workspaceId: WORKSPACE, name: 'old' };
+  }
+  // A legacy board that belongs to another workspace is left alone.
+  world['boards/showcase-main'] = { workspaceId: 'other', name: 'not ours' };
+  const client = fakeFirestore(world);
+  await seed(client);
+  for (const id of LEGACY_SHOWCASE_BOARD_IDS.filter((x) => x !== 'showcase-main')) {
+    assert.ok(!client.store.has(`boards/${id}`), id);
+    assert.ok(!client.store.has(`boards/${id}/items/i1/updates/u1`), id);
+    assert.ok(!client.store.has(`boards/${id}/items/i1`), id);
+  }
+  for (const id of LEGACY_SHOWCASE_BOARD_IDS) {
+    assert.ok(!client.store.has(`users/${OWNER}/favorites/${id}`), id);
+    assert.ok(!client.store.has(`users/${OWNER}/recents/${id}`), id);
+  }
+  assert.ok(client.store.has('boards/showcase-main'), 'other workspace board kept');
+  assert.ok(!client.store.has('dashboards/showcase-dashboard'));
+  assert.ok(client.store.has(`boards/${SHOWCASE_MAIN_ID}`));
+  assert.ok(client.store.has('boards/real-board'));
+  for (const commit of client.commits) {
+    for (const w of commit) assert.ok(isOwnedPath(w.path, OWNER, WORKSPACE), w.path);
+  }
+});
+
+test('no hard-coded dashed showcase board or dashboard id in the seed sources', () => {
+  for (const file of ['data.mjs', 'seed-showcase.mjs']) {
+    const text = readFileSync(resolve(repoRoot, 'scripts/showcase', file), 'utf8')
+      .split('\n')
+      .filter((l) => !/^\s*'showcase-[a-z-]+',?$|LEGACY/.test(l))
+      .join('\n');
+    assert.ok(
+      !/['"`]showcase-(main|archived-demo|trashed-demo|linked-demo|dashboard)['"`]/.test(text),
+      file,
+    );
+  }
 });
