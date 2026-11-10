@@ -121,7 +121,12 @@ export function BoardPage() {
   return (
     <BoardViewsProvider board={board} views={views} view={view} canEdit={canEdit}>
       <CanonicalUrl param={boardParamValue} canonical={boardParam(board)} />
-      <div className={styles.boardPage} data-print="reset" data-print-page="board-page">
+      <div
+        className={styles.boardPage}
+        data-view-type={view.type}
+        data-print="reset"
+        data-print-page="board-page"
+      >
         <BoardHeader board={board} />
         <ViewBody board={board} />
         {itemId ? (

@@ -13,6 +13,18 @@
   min-height: 0;
 }
 
+/*
+ * Phones: the table view lets the whole board page scroll, so the title row and view tabs scroll
+ * away instead of staying pinned above the table. The table stops being its own vertical scroller
+ * (its sticky header then only sticks while scrolling sideways).
+ */
+@media (max-width: 767px) {
+  .boardPage[data-view-type='table'] {
+    height: auto;
+    min-height: 100%;
+  }
+}
+
 .center {
   display: flex;
   flex-direction: column;
