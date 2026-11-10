@@ -1,10 +1,17 @@
-/* Settings page (SETTINGS-1): sizes that Vibe has no token for. */
+/* Settings page (SETTINGS-1, SETTINGS-layout-a): sizes that Vibe has no token for. */
 :root {
-  --atrium-settings-content-max-width: 720px;
-  --atrium-settings-nav-width: 220px;
+  --atrium-settings-content-max-width: 760px; /* the centred card column */
+  --atrium-settings-nav-width: 240px; /* full-height section nav */
   --atrium-settings-nav-item-height: 44px; /* also the minimum height of a row with a control */
+  --atrium-settings-nav-link-height: 40px; /* desktop nav links */
+  --atrium-settings-row-min-height: 52px; /* card rows */
+  --atrium-settings-select-min-width: 240px; /* time-zone select */
   --atrium-settings-theme-card-min-width: 140px;
-  --atrium-settings-swatch-height: 64px;
-  --atrium-settings-swatch-bar-height: 8px;
-  --atrium-settings-swatch-bar-width: 60%;
+  --atrium-settings-theme-preview-height: 96px; /* miniature app window */
+  --atrium-settings-theme-preview-sidebar-width: 22%;
+  --atrium-settings-theme-preview-bar-height: 6px;
+  --atrium-settings-theme-preview-bar-short: 45%; /* the primary bar */
+  --atrium-settings-theme-preview-bar-long: 70%; /* the muted bars */
+  --atrium-settings-page-bg: var(--atrium-home-bg); /* grey body behind the cards */
+  --atrium-settings-card-bg: var(--atrium-card-bg);
 }

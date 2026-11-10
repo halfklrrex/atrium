@@ -6,6 +6,7 @@ import { DeviceSection, PushSwitches } from '../../components/dialogs/PushSettin
 import { showToast } from '../../components/toast-store';
 import { notificationWrites, useNotificationPrefs } from '../../data/notifications';
 import styles from '../../components/dialogs/dialogs.module.css';
+import { SettingsCard } from './SettingsCard';
 
 /** The bell switches; the optional `push` map has its own switches in `PushSettings`. */
 type BellKind = Exclude<keyof NotificationPrefs, 'push'>;
@@ -45,7 +46,7 @@ export function NotificationsTab() {
   };
 
   return (
-    <>
+    <SettingsCard title="What notifies you">
       <section
         className={`${styles.settingsSection} ${styles.settingsSectionFirst}`}
         aria-labelledby="bell-kinds-title"
@@ -78,6 +79,6 @@ export function NotificationsTab() {
         onDisable={() => void device.disable()}
       />
       <PushSwitches uid={uid} prefs={prefs} loading={loading} />
-    </>
+    </SettingsCard>
   );
 }

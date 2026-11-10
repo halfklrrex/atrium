@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { useUiStore } from '../../components/AppShell/ui-store';
 import { aboutLinks } from '../../lib/about';
 import styles from './Settings.module.css';
+import { SettingsCard } from './SettingsCard';
 
 /** Settings > Privacy and data. The export and deletion tools arrive later (GDPR-1, GDPR-2). */
 export function PrivacyTab() {
@@ -12,10 +13,7 @@ export function PrivacyTab() {
 
   return (
     <>
-      <section className={styles.section} aria-labelledby="your-data-title">
-        <h2 id="your-data-title" className={styles.sectionTitle}>
-          Your data
-        </h2>
+      <SettingsCard title="Your data">
         <ul className={styles.rows}>
           <li className={styles.row}>
             <span className={styles.rowText}>
@@ -51,12 +49,9 @@ export function PrivacyTab() {
             </Button>
           </li>
         </ul>
-      </section>
+      </SettingsCard>
 
-      <section className={styles.section} aria-labelledby="about-title">
-        <h2 id="about-title" className={styles.sectionTitle}>
-          About Atrium
-        </h2>
+      <SettingsCard title="About Atrium">
         <ul className={styles.rows}>
           <li className={styles.row}>
             <span className={styles.rowTitle}>Source code</span>
@@ -76,7 +71,7 @@ export function PrivacyTab() {
             </Button>
           </li>
         </ul>
-      </section>
+      </SettingsCard>
     </>
   );
 }

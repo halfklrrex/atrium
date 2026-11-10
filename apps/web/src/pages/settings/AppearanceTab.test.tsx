@@ -37,6 +37,31 @@ describe('AppearanceTab', () => {
     expect(screen.getByRole('radio', { name: 'System' })).toBeChecked();
   });
 
+  it('shows the Selected tick on the chosen card only', async () => {
+    render(<AppearanceTab />);
+    expect(screen.getAllByText('Selected')).toHaveLength(1);
+    expect(screen.getByRole('radio', { name: 'System' }).closest('label')).toHaveTextContent(
+      'Selected',
+    );
+    await userEvent.click(screen.getByRole('radio', { name: 'Dark' }));
+    expect(screen.getAllByText('Selected')).toHaveLength(1);
+    expect(screen.getByRole('radio', { name: 'Dark' }).closest('label')).toHaveTextContent(
+      'Selected',
+    );
+  });
+
+  it('draws one hidden preview per theme, System with a light and a dark half', () => {
+    const { container } = render(<AppearanceTab />);
+    const labels = Array.from(container.querySelectorAll('label'));
+    expect(labels).toHaveLength(4);
+    labels.forEach((label) => {
+      expect(label.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    });
+    expect(labels[0]!.querySelector('.light-app-theme')).not.toBeNull();
+    expect(labels[0]!.querySelector('.dark-app-theme')).not.toBeNull();
+    expect(labels[3]!.querySelector('.black-app-theme')).not.toBeNull();
+  });
+
   it('writes the choice to the theme store', async () => {
     render(<AppearanceTab />);
     await userEvent.click(screen.getByRole('radio', { name: 'Black' }));

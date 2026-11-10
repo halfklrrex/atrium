@@ -2,6 +2,7 @@ import { Button } from '@vibe/core';
 import { useAuth } from '../../auth/auth-context';
 import { useIsSiteAdmin } from '../../auth/useIsSiteAdmin';
 import styles from './Settings.module.css';
+import { SettingsCard } from './SettingsCard';
 
 const PROVIDER_NAMES: Record<string, string> = { 'google.com': 'Google' };
 
@@ -14,10 +15,7 @@ export function AccountTab() {
   );
 
   return (
-    <section className={styles.section} aria-labelledby="account-title">
-      <h2 id="account-title" className={styles.sectionTitle}>
-        Account
-      </h2>
+    <SettingsCard title="Account">
       <ul className={styles.rows}>
         <li className={styles.row}>
           <span className={styles.rowText}>
@@ -48,6 +46,6 @@ export function AccountTab() {
           </Button>
         </li>
       </ul>
-    </section>
+    </SettingsCard>
   );
 }

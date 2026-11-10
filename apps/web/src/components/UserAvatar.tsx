@@ -15,11 +15,14 @@ export function UserAvatar({
   name: explicitName,
   photoURL: explicitPhotoURL,
   size = 'small',
+  customSize,
 }: {
   uid: string;
   name?: string;
   photoURL?: string | null;
   size?: Size;
+  /** Pixel size; overrides `size` (Vibe `Avatar` `customSize`). */
+  customSize?: number;
 }) {
   const person = useUserLookup()(uid);
   const name = explicitName ?? person?.name ?? UNKNOWN_PERSON_NAME;
@@ -32,13 +35,14 @@ export function UserAvatar({
         type="icon"
         icon={Robot}
         size={size}
+        customSize={customSize}
         backgroundColor="winter"
         aria-label={AUTOMATION_ACTOR_NAME}
       />
     );
   }
   if (photo) {
-    return <Avatar type="img" src={photo} size={size} aria-label={name} />;
+    return <Avatar type="img" src={photo} size={size} customSize={customSize} aria-label={name} />;
   }
   if (name && name !== UNKNOWN_PERSON_NAME) {
     return (
@@ -46,12 +50,20 @@ export function UserAvatar({
         type="text"
         text={initialsOf(name)}
         size={size}
+        customSize={customSize}
         backgroundColor="bright-blue"
         aria-label={name}
       />
     );
   }
   return (
-    <Avatar type="icon" icon={Person} size={size} backgroundColor="winter" aria-label={name} />
+    <Avatar
+      type="icon"
+      icon={Person}
+      size={size}
+      customSize={customSize}
+      backgroundColor="winter"
+      aria-label={name}
+    />
   );
 }

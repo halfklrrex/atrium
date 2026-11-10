@@ -59,6 +59,38 @@ describe('SettingsPage', () => {
     ]);
   });
 
+  it('groups the links under You and Account', () => {
+    renderAt('/settings/profile');
+    const you = screen.getByRole('list', { name: 'You' });
+    const account = screen.getByRole('list', { name: 'Account' });
+    expect(Array.from(you.querySelectorAll('a')).map((a) => a.textContent)).toEqual([
+      'Profile',
+      'Appearance',
+      'Notifications',
+    ]);
+    expect(Array.from(account.querySelectorAll('a')).map((a) => a.textContent)).toEqual([
+      'Account',
+      'Privacy and data',
+    ]);
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+  });
+
+  it.each([
+    ['profile', 'Profile', 'How you appear to others, and the details Atrium uses for you.'],
+    ['appearance', 'Appearance', 'How Atrium looks on your devices.'],
+    ['notifications', 'Notifications', 'What notifies you, in the bell and on your devices.'],
+    ['account', 'Account', 'How you sign in.'],
+    ['privacy', 'Privacy and data', 'Your data, the privacy notice and the source code.'],
+  ])('the %s tab starts with its title and hint', (tab, title, hint) => {
+    renderAt(`/settings/${tab}`);
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+    const titles = screen
+      .getAllByRole('heading', { level: 2, name: title })
+      .filter((h) => !nav.contains(h));
+    expect(titles).toHaveLength(1);
+    expect(screen.getByText(hint)).toBeVisible();
+  });
+
   it('switching tab keeps the URL in sync and sets the document title', async () => {
     renderAt('/settings/profile');
     expect(document.title).toBe('Settings · Atrium');

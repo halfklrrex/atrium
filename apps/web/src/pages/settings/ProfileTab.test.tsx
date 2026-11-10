@@ -36,7 +36,8 @@ describe('ProfileTab', () => {
     render(<ProfileTab />);
     expect(screen.getByText('Avery Quinn')).toBeVisible();
     expect(screen.getByText('avery@example.com')).toBeVisible();
-    expect(screen.getByText('From your Google account.')).toBeVisible();
+    expect(screen.getByText('From your Google account')).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Your Google account' })).toBeVisible();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
