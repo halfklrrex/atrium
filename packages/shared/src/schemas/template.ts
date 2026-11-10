@@ -124,7 +124,8 @@ export function templateFromBoard(
   const columns = cleanColumns(board.columns);
   const structure: TemplateStructure = {
     columns,
-    subitemColumns: cleanColumns(board.subitemColumns),
+    // Subitems share the board's columns (SUBITEMS-as-items); templates never carry subitem columns.
+    subitemColumns: [],
     groups: board.groups.map((g) => ({ ...g })),
     itemTerminology: board.itemTerminology,
   };

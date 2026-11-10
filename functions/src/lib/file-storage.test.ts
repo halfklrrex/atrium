@@ -207,6 +207,32 @@ describe('file-storage requestFileUpload', () => {
     });
   });
 
+  it('accepts a subitem id: subitems share the board files column', async () => {
+    const tx = new MockFileStorageTx();
+    const bucket = new MockStorageBucket();
+    const uid = 'usr_1';
+
+    tx.workspaces.set('ws_1', makeWorkspace(uid, 'owner'));
+    tx.boards.set('b_1', makeBoard(uid));
+    tx.items.set('b_1:sub_1', { ...makeItem('b_1', 'sub_1'), parentItemId: 'i_1' });
+
+    const res = await requestFileUploadInTransaction(
+      tx,
+      bucket,
+      {
+        boardId: 'b_1',
+        itemId: 'sub_1',
+        columnId: 'c_files',
+        fileName: 'photo.jpg',
+        contentType: 'image/jpeg',
+        size: 1024,
+      },
+      uid,
+    );
+
+    expect(res.storagePath).toBe('boards/b_1/items/sub_1/files/file_mock_123');
+  });
+
   it('rejects upload when file exceeds column size limit', async () => {
     const tx = new MockFileStorageTx();
     const bucket = new MockStorageBucket();

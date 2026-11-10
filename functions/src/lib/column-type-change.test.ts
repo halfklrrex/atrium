@@ -328,6 +328,29 @@ describe('changeColumnType: happy path', () => {
   });
 });
 
+describe('changeColumnType: subitems share the board columns (SUBITEMS-as-items)', () => {
+  it('converts the subitems values too once the board has no legacy subitem columns, and Undo restores them', async () => {
+    const store = new FakeStore([textColumn()]);
+    store.addItem('parent', { budget: '5' });
+    store.addItem('child', { budget: '7' }, 'parent');
+    const result = await changeColumnTypeLogic(store, EDITOR, toNumbers());
+    expect(result.converted).toBe(2);
+    expect(store.valuesOf()).toEqual({ child: 7, parent: 5 });
+
+    await revertColumnTypeLogic(store, EDITOR, { boardId: 'b1', snapshotId: result.snapshotId });
+    expect(store.valuesOf()).toEqual({ child: '7', parent: '5' });
+    expect(store.column().type).toBe('text');
+  });
+
+  it('keeps the old split on a board that still has legacy subitem columns', async () => {
+    const store = new FakeStore([textColumn()], [textColumn('sub')]);
+    store.addItem('parent', { budget: '5' });
+    store.addItem('child', { budget: 'stray', sub: '7' }, 'parent');
+    await changeColumnTypeLogic(store, EDITOR, toNumbers());
+    expect(store.valuesOf()).toEqual({ child: 'stray', parent: 5 });
+  });
+});
+
 describe('changeColumnType: activity and updatedBy', () => {
   it('logs one column_type_changed entry with the final write, and sets updatedBy on every board write', async () => {
     const store = numbersBoard(3);

@@ -563,6 +563,43 @@ describe('column-actions', () => {
     });
   });
 
+  describe('subitems share the board columns', () => {
+    const subitem = { ...baseItem, id: 'sub_1', parentItemId: 'item_1' } as ItemData;
+    const newStore = (): TestStore => ({
+      board: baseBoard,
+      workspaceRoles: { u_member: 'member' },
+      item: subitem,
+      appendedActivities: [],
+      itemUpdates: [],
+      currentTimeMs: 1700000000000,
+      generatedSessionId: 'sess_sub',
+    });
+
+    it('starts a timer in a board time-tracking column on a subitem', async () => {
+      const store = newStore();
+      const result = await startTimeTrackingInTransaction(
+        createFakeTx(store),
+        'u_member',
+        { boardId: 'b_1', itemId: 'sub_1', columnId: 'col_time' },
+        'SERVER_TIMESTAMP',
+      );
+      expect(result).toMatchObject({ success: true, sessionId: 'sess_sub' });
+      expect(store.updatedValues?.columnId).toBe('col_time');
+    });
+
+    it('presses a board button column on a subitem', async () => {
+      const store = newStore();
+      const result = await clickButtonInTransaction(
+        createFakeTx(store),
+        'u_member',
+        { boardId: 'b_1', itemId: 'sub_1', columnId: 'col_btn' },
+        'SERVER_TIMESTAMP',
+      );
+      expect(result).toMatchObject({ success: true });
+      expect(store.appendedActivities).toHaveLength(1);
+    });
+  });
+
   describe('clickButtonInTransaction', () => {
     it('appends an immutable activity record to boards/{id}/activity with column and item details', async () => {
       const store: TestStore = {

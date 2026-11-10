@@ -1,10 +1,11 @@
 import { peopleValueSchema } from './columns/people';
+import { columnsForItem } from './subitems';
 
 /**
  * Server-maintained search/assignment index fields of an item (P3 My Work and global search).
  *
  * - `assigneeUids`: sorted unique uids of the `person` entries across the board's People columns
- *   (`subitemColumns` for subitems). Firestore cannot query "assigned to me" from the nested
+ *   (subitems use the board's columns too; `columnsForItem`). Firestore cannot query "assigned to me" from the nested
  *   `values.<colId>.personsAndTeams[]` maps, so Cloud Functions keep this flat array in sync.
  * - `nameTokens`: lowercase, diacritics-stripped prefixes (2 to 15 characters) of every word of the
  *   item name, for `array-contains` name search.
@@ -94,7 +95,7 @@ export function searchWordsOf(term: string): string[] {
 
 /** Both index fields of an item; a subitem (`parentItemId` set) uses the board's subitem columns. */
 export function itemIndexFields(board: ItemIndexBoard, item: ItemIndexSource): ItemIndexFields {
-  const columns = item.parentItemId != null ? (board.subitemColumns ?? []) : board.columns;
+  const columns = columnsForItem(board, item);
   return {
     assigneeUids: assigneeUidsOf(columns, item.values),
     nameTokens: nameTokensOf(item.name),

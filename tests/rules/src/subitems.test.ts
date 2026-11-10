@@ -71,6 +71,39 @@ describe('creating a subitem', () => {
     );
   });
 
+  it('accepts and updates a value in a board column (SUBITEMS-as-items: subitems share them)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), 'boards', MAIN_BOARD),
+        boardDoc({
+          columns: [
+            { id: 'calc', type: 'formula', title: 'Calc', position: 'a0', settings: {} },
+            { id: 'boardnote', type: 'text', title: 'Note', position: 'a1', settings: {} },
+          ],
+          subitemColumns: [],
+          derivedColumnIds: ['calc'],
+        }),
+      );
+    });
+    await assertSucceeds(
+      setDoc(
+        itemRef(USERS.member, 'shared1'),
+        subitem(USERS.member, { values: { boardnote: 'x' } }),
+      ),
+    );
+    await assertSucceeds(
+      updateDoc(
+        itemRef(USERS.member, 'shared1'),
+        new FieldPath('values', 'boardnote'),
+        'y',
+        'updatedAt',
+        serverTimestamp(),
+        'updatedBy',
+        USERS.member,
+      ),
+    );
+  });
+
   it('refuses a parent that does not exist', async () => {
     await assertFails(
       setDoc(itemRef(USERS.member, 'new3'), subitem(USERS.member, { parentItemId: 'nope' })),

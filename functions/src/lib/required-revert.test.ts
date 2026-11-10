@@ -199,6 +199,16 @@ describe('revertDoneWithEmptyRequired', () => {
     });
   });
 
+  it('uses the board columns for a subitem once the board has no subitem columns', async () => {
+    const after = { st: { index: 1 } };
+    const mem = memoryStore({ ...BOARD, subitemColumns: [] }, after);
+    const out = await revertDoneWithEmptyRequired(
+      mem.store,
+      event({ st: { index: 0 } }, after, { parentItemId: 'p1' }),
+    );
+    expect(out.reverted).toBe(true);
+  });
+
   it('uses the subitem columns for a subitem', async () => {
     const after = { sst: { index: 1 } };
     const mem = memoryStore(BOARD, after);
