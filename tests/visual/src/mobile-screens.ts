@@ -249,7 +249,7 @@ export const MOBILE_SCREENS: MobileScreen[] = [
       await boardTableReady(page);
       await page
         .locator(`[role="row"][data-item-id="${FULL_VIEW_ITEM}"]`)
-        .getByRole('button', { name: 'Ship the pipeline', exact: true })
+        .getByRole('button', { name: 'CI/CD pipeline 3', exact: true })
         .click();
       const card = page.getByRole('dialog', { name: 'Item card' });
       await expect(card).toBeVisible();
