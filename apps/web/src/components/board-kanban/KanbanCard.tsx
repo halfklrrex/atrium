@@ -142,7 +142,7 @@ export function CardBody({
           }
           onClick={(event) => {
             stop(event);
-            openItem(boardId, item.id);
+            openItem(boardId, item.id, { tab: 'updates' });
           }}
         >
           {updatesCount > 0 ? <span className={styles.footerCount}>{updatesCount}</span> : null}

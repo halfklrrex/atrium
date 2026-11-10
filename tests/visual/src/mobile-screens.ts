@@ -22,7 +22,7 @@ import {
 } from './seed';
 
 /**
- * The phone screens shared by the baseline project (`mobile-screens.spec.ts`, fourteen screenshots)
+ * The phone screens shared by the baseline project (`mobile-screens.spec.ts`, fifteen screenshots)
  * and the defect audit (`mobile-audit.spec.ts`, every screen at five sizes). Each screen knows how
  * to get itself on screen and what to wait for; no timers, only real content.
  */
@@ -241,6 +241,23 @@ export const MOBILE_SCREENS: MobileScreen[] = [
     },
   },
   {
+    name: 'item-card',
+    title: 'Item card: Overview',
+    overlay: '[role="dialog"]',
+    open: async (page) => {
+      await page.goto(`/boards/${IDS.roadmap}`);
+      await boardTableReady(page);
+      await page
+        .locator(`[role="row"][data-item-id="${FULL_VIEW_ITEM}"]`)
+        .getByRole('button', { name: 'Ship the pipeline', exact: true })
+        .click();
+      const card = page.getByRole('dialog', { name: 'Item card' });
+      await expect(card).toBeVisible();
+      await expect(card.getByLabel('Key information')).toBeVisible();
+      await expect(page.getByText('Loading…')).toHaveCount(0);
+    },
+  },
+  {
     name: 'notifications-panel',
     title: 'Notifications panel',
     overlay: '#notifications-panel',
@@ -376,6 +393,7 @@ export const BASELINE_SCREENS = [
   'board-table',
   'kanban',
   'item-view',
+  'item-card',
   'notifications-panel',
   'settings-profile',
   'settings-notifications',

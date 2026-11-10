@@ -599,6 +599,88 @@ export async function removeView(): Promise<void> {
     .delete();
 }
 
+/** Ids of the columns `addPanelFields` adds to the roadmap board (the side panel's fields grid). */
+const PANEL_FIELD_IDS = [
+  'owner_team',
+  'estimate',
+  'window',
+  'tags',
+  'reviewer',
+  'prototype',
+  'sprint',
+  'last_updated',
+];
+
+/**
+ * Eight more columns on the roadmap board with values on `FULL_VIEW_ITEM`, so the item side panel's
+ * grid has twelve fields and shows its cap. "Spec / PR" is marked required for the run (the item has
+ * no spec), so the required styling shows. `removePanelFields` puts both back.
+ */
+export async function addPanelFields(): Promise<void> {
+  const boardRef = adminDb().collection('boards').doc(IDS.roadmap);
+  const columns = ((await boardRef.get()).data()?.columns ?? []) as ColumnDef[];
+  const extra = [
+    column('owner_team', 'text', 'Owner team', 'a8'),
+    column('estimate', 'numbers', 'Estimate (h)', 'a9'),
+    column('window', 'timeline', 'Window', 'aA'),
+    column('tags', 'tags', 'Tags', 'aB', {
+      tags: [
+        { id: 1, name: 'Release', color: '#579bfc' },
+        { id: 2, name: 'Infra', color: '#a25ddc' },
+      ],
+    }),
+    column('reviewer', 'people', 'Reviewer', 'aC'),
+    column('prototype', 'link', 'Prototype', 'aD'),
+    column('sprint', 'dropdown', 'Sprint', 'aE', {
+      limitSelect: false,
+      labels: [
+        { id: 0, label: 'Sprint 12' },
+        { id: 1, label: 'Sprint 13' },
+      ],
+    }),
+    column('last_updated', 'last_updated', 'Last updated', 'aF'),
+  ];
+  await boardRef.update({
+    columns: [
+      ...columns
+        .filter((c) => !PANEL_FIELD_IDS.includes(c.id))
+        .map((c) => (c.id === 'spec' ? { ...c, required: true } : c)),
+      ...extra,
+    ],
+    requiredColumnIds: ['spec'],
+  });
+  await fullViewItemRef().update({
+    'values.owner_team': 'Platform',
+    'values.estimate': '24',
+    'values.window': { from: '2026-11-02', to: '2026-11-20' },
+    'values.tags': { tag_ids: [1, 2] },
+    'values.reviewer': { personsAndTeams: [{ id: AVERY.uid, kind: 'person' }] },
+    'values.prototype': { url: 'https://example.com/prototype', text: 'Prototype board' },
+    'values.sprint': { ids: [1] },
+  });
+}
+
+/** Undo `addPanelFields`: the extra columns and values go, and "Spec / PR" is optional again. */
+export async function removePanelFields(): Promise<void> {
+  const boardRef = adminDb().collection('boards').doc(IDS.roadmap);
+  const columns = ((await boardRef.get()).data()?.columns ?? []) as (ColumnDef & {
+    required?: boolean;
+  })[];
+  await boardRef.update({
+    columns: columns
+      .filter((c) => !PANEL_FIELD_IDS.includes(c.id))
+      .map((c) => {
+        if (c.id !== 'spec') return c;
+        const { required: _required, ...rest } = c;
+        return rest;
+      }),
+    requiredColumnIds: [],
+  });
+  await fullViewItemRef().update(
+    Object.fromEntries(PANEL_FIELD_IDS.map((id) => [`values.${id}`, FieldValue.delete()])),
+  );
+}
+
 /** Id of the shared Kanban view the Kanban screens add to the roadmap board (and remove again). */
 export const KANBAN_VIEW = 'view-status-board';
 

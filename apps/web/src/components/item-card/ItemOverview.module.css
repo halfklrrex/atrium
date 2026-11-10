@@ -1,0 +1,49 @@
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-16);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.blockHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.blockTitle {
+  margin: 0;
+  font: var(--font-text2-bold);
+  color: var(--secondary-text-color);
+}
+
+.requiredCount {
+  font: var(--font-text2-normal);
+  color: var(--negative-color);
+}
+
+.editorFallback {
+  min-block-size: var(--atrium-item-panel-desc-fallback-height);
+}
+
+.fieldsHost {
+  min-width: 0;
+}
+
+/* An empty required cell: dashed red border and red hint text. */
+.fieldsHost [data-required-empty='true'] {
+  border-style: dashed;
+  border-color: var(--negative-color);
+}
+
+.fieldsHost [data-required-empty='true'] > span {
+  color: var(--negative-color);
+}

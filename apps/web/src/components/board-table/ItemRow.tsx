@@ -430,7 +430,7 @@ function NameCell({
                 ? `Updates for ${item.name} (${updatesCount})`
                 : `Updates for ${item.name}`
             }
-            onClick={() => openItem(env.boardId, item.id)}
+            onClick={() => openItem(env.boardId, item.id, { tab: 'updates' })}
           >
             {updatesCount > 0 ? (
               <span className={styles.bubbleWithCount}>

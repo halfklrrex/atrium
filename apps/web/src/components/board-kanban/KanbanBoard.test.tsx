@@ -13,6 +13,7 @@ import { makeBoard, makeItem } from '../../test/fixtures';
 import { currentViewState, isViewDirty, useFilterStore, viewKey } from '../board-filters';
 import { tableActions } from '../board-table/table-actions';
 import { useTableStore } from '../board-table/table-store';
+import { useItemCardStore } from '../item-card/item-card-store';
 import { KanbanBoard } from './KanbanBoard';
 
 const mocks = vi.hoisted(() => ({
@@ -138,6 +139,17 @@ describe('KanbanBoard', () => {
     // Only the chosen columns, so the date column is not on the card.
     const empty = within(screen.getByRole('button', { name: 'Build board' }));
     expect(empty.queryByText('Cover the lanes')).toBeNull();
+  });
+
+  it('opens the side panel on Updates from the updates button and on Overview from the card', async () => {
+    open();
+    const card = within(screen.getByRole('button', { name: 'Build board' }));
+    await userEvent.click(card.getByRole('button', { name: 'Updates for Build board' }));
+    expect(useItemCardStore.getState().tab).toBe('updates');
+    useItemCardStore.getState().closeItemCard();
+    await userEvent.click(screen.getByRole('button', { name: 'Build board' }));
+    expect(useItemCardStore.getState()).toMatchObject({ tab: 'overview' });
+    useItemCardStore.getState().closeItemCard();
   });
 
   it('renders the plain updates icon (no plus) without updates, and dims an empty subitems icon', () => {

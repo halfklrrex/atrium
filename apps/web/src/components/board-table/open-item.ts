@@ -1,4 +1,4 @@
-import { useItemCardStore } from '../item-card/item-card-store';
+import { useItemCardStore, type ItemPanelTab } from '../item-card/item-card-store';
 import {
   FROM_BOARD_STATE,
   boardPath,
@@ -8,13 +8,14 @@ import {
 
 /**
  * Open an item's side panel (the updates bubble). The full item view and the panel never show at
- * the same time, so an open window goes back to its board first.
+ * the same time, so an open window goes back to its board first. It opens on Overview unless the
+ * opener names a tab (the updates bubbles open Updates).
  */
-export function openItem(boardId: string, itemId: string): void {
+export function openItem(boardId: string, itemId: string, options?: { tab?: ItemPanelTab }): void {
   const view = useItemViewStore.getState();
   if (view.openBoardId && view.navigate)
     view.navigate(boardPath(view.openBoardId), { replace: true });
-  useItemCardStore.getState().open(boardId, itemId);
+  useItemCardStore.getState().open(boardId, itemId, undefined, options?.tab);
 }
 
 /**

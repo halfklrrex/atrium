@@ -1,4 +1,4 @@
-import { columnRegistry } from '@atrium/shared';
+import { columnRegistry, isColumnValueEmpty } from '@atrium/shared';
 import classNames from 'classnames';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { getColumnUi, type CellContext } from '../../columns/registry';
@@ -23,6 +23,11 @@ interface ItemCellProps {
   ctx: TableCtx;
   canEdit: boolean;
   className?: string;
+  /**
+   * Shown in place of the value while an editable cell is empty (the side panel's key bar:
+   * "Set status", "Assign"). It replaces the "Required" hint on a required column.
+   */
+  emptyHint?: string;
 }
 
 /**
@@ -30,7 +35,14 @@ interface ItemCellProps {
  * `Editor`), written through `tableActions.setCell`. Derived and server-managed columns are
  * read-only and never open an editor. The open-editor state is local to the cell.
  */
-export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }: ItemCellProps) {
+export function ItemCell({
+  item,
+  column,
+  ctx,
+  canEdit: canEditBoard,
+  className,
+  emptyHint,
+}: ItemCellProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -114,11 +126,16 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
     saveSettings,
   };
 
+  const requiredEmpty = isRequiredEmpty(column.def, raw);
+  const hint = canEdit && emptyHint && isColumnValueEmpty(column.def.type, raw) ? emptyHint : null;
+  const hintText = hint ?? (requiredEmpty ? REQUIRED_HINT : null);
+
   return (
     <div
       ref={ref}
       className={classNames(styles.cell, editing && styles.cellEditing, className)}
       data-cell={`${itemId}:${columnId}`}
+      data-required-empty={canEdit && requiredEmpty ? 'true' : undefined}
       title={readOnlyTooltip}
       onClick={onClick}
     >
@@ -134,9 +151,9 @@ export function ItemCell({ item, column, ctx, canEdit: canEditBoard, className }
         />
       )}
       {showEditor && ui.editor === 'popover' ? <Editor {...editorProps} /> : null}
-      {!showEditor && isRequiredEmpty(column.def, raw) ? (
+      {!showEditor && hintText ? (
         <span className={styles.requiredHint} data-testid={`required-hint-${itemId}:${columnId}`}>
-          {REQUIRED_HINT}
+          {hintText}
         </span>
       ) : null}
       {migrating ? <CellSpinner /> : null}

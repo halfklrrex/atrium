@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ItemDoc } from '../../data';
 import { makeBoard, makeItem } from '../../test/fixtures';
+import { useItemCardStore } from '../item-card/item-card-store';
 import { BoardTable } from './BoardTable';
 import { useTablePrefs, useTableStore } from './table-store';
 
@@ -264,6 +265,17 @@ describe('BoardTable', () => {
     // Counts above nine squeeze into the badge as "9+"; the accessible name keeps the real number.
     const many = screen.getByRole('button', { name: 'Updates for Ship it (12)' });
     expect(within(many).getByText('9+')).toBeInTheDocument();
+  });
+
+  it('opens the side panel on Updates from the bubble and on Overview from the name', async () => {
+    mocks.items = [makeItem({ id: 'i1', name: 'Write spec', groupId: 'g1', position: 'a0' })];
+    renderTable();
+    await userEvent.click(screen.getByRole('button', { name: 'Updates for Write spec' }));
+    expect(useItemCardStore.getState()).toMatchObject({ activeItemId: 'i1', tab: 'updates' });
+    useItemCardStore.getState().closeItemCard();
+    await userEvent.click(screen.getByRole('button', { name: 'Write spec' }));
+    expect(useItemCardStore.getState()).toMatchObject({ activeItemId: 'i1', tab: 'overview' });
+    useItemCardStore.getState().closeItemCard();
   });
 
   it('lets viewers read but not edit', async () => {

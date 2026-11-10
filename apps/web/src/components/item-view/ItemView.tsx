@@ -1,10 +1,4 @@
-import {
-  canEditBoard,
-  isSubitem,
-  resolveBoardRole,
-  validateRequiredColumns,
-  columnRegistry,
-} from '@atrium/shared';
+import { canEditBoard, isSubitem, resolveBoardRole } from '@atrium/shared';
 import { IconButton, Loader, Menu, MenuButton, MenuItem, Tooltip } from '@vibe/core';
 import {
   Archive,
@@ -19,12 +13,13 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, type CSSProper
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { itemWrites, useItems, useWorkspace, type BoardDoc } from '../../data';
-import { tableActions, type TableCtx } from '../board-table/table-actions';
+import { countMissingRequired } from '../board-table/required';
+import { tableActions } from '../board-table/table-actions';
 import { buildColumnViews } from '../board-table/table-model';
 import { UpdatesFeed } from '../item-card/UpdatesFeed';
 import { InlineEdit } from '../InlineEdit';
-import { showToast } from '../toast-store';
 import { FieldsPanel } from './FieldsPanel';
+import { copyItemLink } from './item-link';
 import { ItemSubitems } from './ItemSubitems';
 import type { DescriptionValue } from './description';
 import {
@@ -34,6 +29,7 @@ import {
   neighbours,
   useItemViewStore,
 } from './item-view-store';
+import { useItemTableCtx } from './use-item-ctx';
 import styles from './ItemView.module.css';
 
 const DescriptionEditor = lazy(() => import('./DescriptionEditor'));
@@ -79,34 +75,15 @@ export function ItemView({ board, itemId }: ItemViewProps) {
     [board.subitemColumns],
   );
   // Soft "Required" rule: only counts columns a person fills in; nothing is blocked.
-  const missingRequired = useMemo(() => {
-    if (!item) return 0;
-    const fillable = board.columns.filter(
-      (c) => !columnRegistry.isDerived(c.type) && !columnRegistry.isServerManaged(c.type),
-    );
-    return validateRequiredColumns(fillable, item.values).missingColumns.length;
-  }, [item, board.columns]);
+  const missingRequired = useMemo(
+    () => (item ? countMissingRequired(board.columns, item.values) : 0),
+    [item, board.columns],
+  );
+  const { ctx, subCtx } = useItemTableCtx({ board, uid, items, boardRole });
   const itemsRef = useRef(items);
-  const groupsRef = useRef(board.groups);
   useEffect(() => {
     itemsRef.current = items;
-    groupsRef.current = board.groups;
   });
-  const ctx = useMemo<TableCtx>(
-    () => ({
-      boardId,
-      uid,
-      columns: board.columns,
-      subitemColumns: board.subitemColumns ?? [],
-      getItems: () => itemsRef.current,
-      getGroups: () => groupsRef.current,
-    }),
-    [boardId, uid, board.columns, board.subitemColumns],
-  );
-  const subCtx = useMemo<TableCtx>(
-    () => ({ ...ctx, columns: board.subitemColumns ?? [], scope: 'subitems' }),
-    [ctx, board.subitemColumns],
-  );
 
   // ---- Open/closed state shared with the side panel, and prev/next order
   useEffect(() => {
@@ -153,13 +130,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
   }, [itemId]);
 
   // ---- Actions
-  const copyLink = () => {
-    const url = `${window.location.origin}${itemViewPath(board, itemId)}`;
-    navigator.clipboard.writeText(url).then(
-      () => showToast('Link copied.', { type: 'positive' }),
-      () => showToast('Could not copy the link.', { type: 'negative' }),
-    );
-  };
+  const copyLink = () => copyItemLink(board, itemId);
   const retire = async (state: 'archived' | 'deleted') => {
     if (!item) return;
     if (await tableActions.retireItems(ctx, [item.id], state)) close();
