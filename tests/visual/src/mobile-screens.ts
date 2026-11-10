@@ -22,7 +22,7 @@ import {
 } from './seed';
 
 /**
- * The phone screens shared by the baseline project (`mobile-screens.spec.ts`, fifteen screenshots)
+ * The phone screens shared by the baseline project (`mobile-screens.spec.ts`, sixteen screenshots)
  * and the defect audit (`mobile-audit.spec.ts`, every screen at five sizes). Each screen knows how
  * to get itself on screen and what to wait for; no timers, only real content.
  */
@@ -92,7 +92,7 @@ async function chooseAccountMenuEntry(page: Page, entry: string, dialogHeading: 
   }).toPass({ timeout: 20_000 });
 }
 
-/** A Settings tab on a phone: the tab bar and the first heading of the tab are up. */
+/** A Settings tab on a phone: the "Back to Settings" button (the nav at desktop widths) and the first heading of the tab are up. */
 async function openSettingsTab(page: Page, tab: string, heading: string) {
   // Deterministic whatever the browser build offers: hide the push API.
   await page.addInitScript(() => {
@@ -100,8 +100,13 @@ async function openSettingsTab(page: Page, tab: string, heading: string) {
   });
   await page.goto(`/settings/${tab}`);
   await appReady(page);
-  await expect(page.getByRole('navigation', { name: 'Settings sections' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+  const phone = (page.viewportSize()?.width ?? 0) < 768;
+  await expect(
+    phone
+      ? page.getByRole('button', { name: 'Back to Settings' })
+      : page.getByRole('navigation', { name: 'Settings sections' }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible();
 }
 
 export const MOBILE_SCREENS: MobileScreen[] = [
@@ -272,6 +277,19 @@ export const MOBILE_SCREENS: MobileScreen[] = [
     },
   },
   {
+    name: 'settings-index',
+    title: 'Settings: index',
+    open: async (page) => {
+      await page.addInitScript(() => {
+        Reflect.deleteProperty(window, 'PushManager');
+      });
+      await page.goto('/settings');
+      await appReady(page);
+      await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+      await expect(page.getByRole('link', { name: /Appearance/ })).toBeVisible();
+    },
+  },
+  {
     name: 'settings-profile',
     title: 'Settings: Profile',
     open: async (page) => {
@@ -395,6 +413,7 @@ export const BASELINE_SCREENS = [
   'item-view',
   'item-card',
   'notifications-panel',
+  'settings-index',
   'settings-profile',
   'settings-notifications',
   'profile-menu',

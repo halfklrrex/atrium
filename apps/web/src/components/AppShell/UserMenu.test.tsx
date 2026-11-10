@@ -116,7 +116,7 @@ describe('UserMenu', () => {
       <AuthContext.Provider value={auth}>
         <MemoryRouter>
           <Routes>
-            <Route path="/settings/profile" element={<p>settings page</p>} />
+            <Route path="/settings" element={<p>settings page</p>} />
             <Route path="*" element={<UserMenu />} />
           </Routes>
         </MemoryRouter>

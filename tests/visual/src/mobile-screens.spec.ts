@@ -2,7 +2,7 @@ import { expect, shoot, test } from './fixtures';
 import { BASELINE_SCREENS, MOBILE_SCREENS } from './mobile-screens';
 
 /**
- * Light-theme baselines of fifteen key screens on an iPhone 15 (WebKit, touch, 3x). Linux images
+ * Light-theme baselines of sixteen key screens on an iPhone 15 (WebKit, touch, 3x). Linux images
  * only, made by the "Update visual baselines" workflow like every other baseline. Files are named
  * `phone-<screen>-light-linux.png`. The device (iPhone 15) comes from the `mobile-webkit` project. WebKit on Linux is not iOS Safari: see docs/visual-testing.md.
  */

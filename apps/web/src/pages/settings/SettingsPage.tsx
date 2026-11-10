@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
-import { Navigate, NavLink, useParams } from 'react-router';
+import { IconButton } from '@vibe/core';
+import { NavigationChevronLeft } from '@vibe/icons';
+import { Navigate, NavLink, useNavigate, useParams } from 'react-router';
+import { useIsPhone } from '../../lib/use-media-query';
 import { AccountTab } from './AccountTab';
 import { AppearanceTab } from './AppearanceTab';
 import { NotificationsTab } from './NotificationsTab';
@@ -40,9 +43,30 @@ function SettingsTabHeader({ tab }: { tab: SettingsTabInfo }) {
   );
 }
 
-/** `/settings/:tab`: everything about "me", one URL per tab. An unknown tab lands on Profile. */
+/** Phone header: Back to the index, then the tab's title (the page's h1) and hint. */
+function SettingsPhoneHeader({ tab }: { tab: SettingsTabInfo }) {
+  const navigate = useNavigate();
+  return (
+    <header className={styles.tabHeader}>
+      <IconButton
+        icon={NavigationChevronLeft}
+        aria-label="Back to Settings"
+        kind="tertiary"
+        onClick={() => void navigate('/settings')}
+      />
+      <h1 className={styles.tabTitle}>{tab.label}</h1>
+      <p className={styles.tabHint}>{tab.hint}</p>
+    </header>
+  );
+}
+
+/**
+ * `/settings/:tab`: everything about "me", one URL per tab. An unknown tab lands on Profile, or on
+ * the index on a phone, where the tab has no nav and a "Back to Settings" button instead.
+ */
 export function SettingsPage() {
   const { tab } = useParams<{ tab?: string }>();
+  const isPhone = useIsPhone();
 
   useEffect(() => {
     const previous = document.title;
@@ -52,8 +76,19 @@ export function SettingsPage() {
     };
   }, []);
 
-  if (!isTab(tab)) return <Navigate to="/settings/profile" replace />;
+  if (!isTab(tab)) return <Navigate to={isPhone ? '/settings' : '/settings/profile'} replace />;
   const current = TABS.find((entry) => entry.id === tab)!;
+
+  if (isPhone) {
+    return (
+      <div className={styles.phonePage}>
+        <div className={styles.column}>
+          <SettingsPhoneHeader tab={current} />
+          <TabBody tab={tab} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
