@@ -270,7 +270,7 @@ export const MOBILE_SCREENS: MobileScreen[] = [
   {
     name: 'settings-notifications',
     title: 'Settings: Notifications',
-    open: (page) => openSettingsTab(page, 'notifications', 'On this device'),
+    open: (page) => openSettingsTab(page, 'notifications', 'What notifies you'),
   },
   {
     name: 'settings-account',

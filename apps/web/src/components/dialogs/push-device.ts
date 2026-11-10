@@ -1,4 +1,3 @@
-import type { PushPrefs } from '@atrium/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   disablePush,
@@ -9,21 +8,6 @@ import {
 } from '../../lib/push';
 import { pushDeps as realPushDeps } from '../../lib/push-runtime';
 import { showToast } from '../toast-store';
-
-/** The seven push switches, in the order shown. */
-export const PUSH_KINDS: readonly { kind: keyof PushPrefs; label: string; hint: string }[] = [
-  { kind: 'assigned', label: 'Assigned to me', hint: 'Someone adds you to a People column.' },
-  { kind: 'reply', label: 'Replies', hint: 'Someone replies to an update you wrote.' },
-  { kind: 'mention', label: 'Mentions', hint: 'Someone mentions you in an update or reply.' },
-  { kind: 'button', label: 'Button clicks', hint: 'Someone clicks a button that notifies you.' },
-  { kind: 'automation', label: 'Automations', hint: 'An automation notifies you. Off by default.' },
-  {
-    kind: 'account',
-    label: 'Account requests and approvals',
-    hint: 'Someone asks to join, or your own request is approved.',
-  },
-  { kind: 'inbox', label: 'Inbox messages', hint: 'New Inbox messages and replies to yours.' },
-];
 
 export const STATUS_TEXT: Record<Exclude<PushDeviceState, 'off' | 'on'>, string> = {
   unsupported: "This browser can't receive push notifications.",
