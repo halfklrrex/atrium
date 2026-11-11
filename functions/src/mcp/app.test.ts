@@ -251,7 +251,9 @@ describe('POST /mcp authentication', () => {
     expect(header).toMatch(/^Bearer /);
     expect(header).toContain(`resource_metadata="${MCP_RESOURCE_METADATA_URL}"`);
     expect(MCP_RESOURCE_METADATA_URL).toBe(`${ORIGIN}/.well-known/oauth-protected-resource/mcp`);
-    expect(header).toContain('scope="atrium:read"');
+    expect(header).toBe(
+      `Bearer error="invalid_token", error_description="Missing Authorization header", scope="atrium:read atrium:write", resource_metadata="${MCP_RESOURCE_METADATA_URL}"`,
+    );
     expect(header).toContain('error="invalid_token"');
   });
 
