@@ -76,6 +76,8 @@ export interface AccountStore {
   closeOpenAppeals(uid: string): Promise<unknown>;
   /** Deletes `users/{uid}/pushTokens` so a blocked account gets no more pushes. */
   deletePushTokens(uid: string): Promise<unknown>;
+  /** Revokes every MCP connection of a blocked account (OPS4 section 4.4); best effort. */
+  revokeMcpGrants(uid: string): Promise<unknown>;
 }
 
 /** Placeholder ids for notification fields that point at boards; account notices have none. */
@@ -192,6 +194,12 @@ export async function setAccountStatus(
       await store.deletePushTokens(uid);
     } catch (error) {
       logger.error('Could not delete the push tokens of a blocked account', { uid, error });
+    }
+    // Best effort too: `/mcp` and `/token` also refuse a blocked account, this just ends the grants.
+    try {
+      await store.revokeMcpGrants(uid);
+    } catch (error) {
+      logger.error('Could not revoke the MCP grants of a blocked account', { uid, error });
     }
     // The Auth user is NOT disabled: the person can sign in and see the blocked screen. Never touch
     // `disabled` here (an account an operator disabled in the console stays disabled).

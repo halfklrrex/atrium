@@ -7,6 +7,8 @@ import { APPROVAL_BOOTSTRAP_OPTIONS, bootstrapUserInTransaction } from './bootst
 import { adminInboxStore } from './admin-inbox';
 import { adminNotificationStore } from './admin-notifications';
 import { closeOpenAppeals } from './inbox';
+import { adminMcpStore } from '../mcp/oauth/admin-store';
+import { revokeAllMcpGrants } from '../mcp/oauth/grants';
 
 const iso = (value: string | undefined): string | null => {
   if (!value) return null;
@@ -118,6 +120,7 @@ export function adminAccountStore(firestore: Firestore): AccountStore {
       const tokens = firestore.collection('users').doc(uid).collection('pushTokens');
       await firestore.recursiveDelete(tokens);
     },
+    revokeMcpGrants: (uid) => revokeAllMcpGrants(adminMcpStore(firestore), Date.now(), uid),
     closeOpenAppeals: (uid) => closeOpenAppeals({ store: adminInboxStore(firestore) }, uid),
     createNotification: (uid, id, data) =>
       adminNotificationStore(firestore).createNotification(uid, id, data),
