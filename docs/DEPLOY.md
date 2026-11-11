@@ -244,17 +244,17 @@ Both scripts target `atrium-1` by default; `--database <id>` overrides it.
 
 ## The hosted MCP connector (OPS4)
 
-The hosted connector is the Cloud Function `mcp` (`europe-west1`) behind Hosting rewrites on the canonical site (`https://atrium-workboards.web.app/mcp`). The normal deploy on merge ships the function (public invoker), the rewrites, the rules and the callables, with **no new IAM roles, secrets or schedulers**. It ships **disabled**: `MCP_CONNECTOR_ENABLED=false` in `functions/.env.atrium-board` makes every route answer `503 {"error":"connector_disabled"}`. User docs: `docs/mcp-connector.md`; spec: `docs/specs/OPS4-hosted-mcp-connector.md` (section 11 and 12).
+The hosted connector is the Cloud Function `mcp` (`europe-west1`) behind Hosting rewrites on the canonical site (`https://atrium-workboards.web.app/mcp`). The normal deploy on merge ships the function (public invoker), the rewrites, the rules and the callables, with **no new IAM roles, secrets or schedulers**. It was deployed **disabled** first and **enabled on 2026-11-11** (`MCP_CONNECTOR_ENABLED=true` in `functions/.env.atrium-board`; `false` makes every route answer `503 {"error":"connector_disabled"}`). User docs: `docs/mcp-connector.md`; spec: `docs/specs/OPS4-hosted-mcp-connector.md` (section 11 and 12).
 
 ### Owner steps after the first deploy (single-line `gcloud`, project `atrium-board`, database `atrium-1`)
 
-1. **TTL policies** so expired tokens, sign-in requests, clients and audit entries are removed. On 2026-11-11 only `activity`, `automationRuns` and `presence` had a TTL policy, so the `entries` collection group (audit entries under `system/mcpAudit`) had none. Run each once (deletion lags up to about a day; the code also checks `expiresAt` itself):
+1. **TTL policies** so expired tokens, sign-in requests, clients and audit entries are removed. On 2026-11-11 only `activity`, `automationRuns` and `presence` had a TTL policy, so the `entries` collection group (audit entries under `system/mcpAudit`) had none. Run each once (`--enable-ttl` is required; deletion lags up to about a day; the code also checks `expiresAt` itself). On 2026-11-11 the policies for `mcpTokens`, `mcpAuthRequests`, `mcpClients` and `entries` were created (state CREATING, then ACTIVE):
 
 ```
-gcloud firestore fields ttls update expiresAt --collection-group=mcpTokens --database=atrium-1 --project=atrium-board
-gcloud firestore fields ttls update expiresAt --collection-group=mcpAuthRequests --database=atrium-1 --project=atrium-board
-gcloud firestore fields ttls update expiresAt --collection-group=mcpClients --database=atrium-1 --project=atrium-board
-gcloud firestore fields ttls update expiresAt --collection-group=entries --database=atrium-1 --project=atrium-board
+gcloud firestore fields ttls update expiresAt --collection-group=mcpTokens --enable-ttl --database=atrium-1 --project=atrium-board
+gcloud firestore fields ttls update expiresAt --collection-group=mcpAuthRequests --enable-ttl --database=atrium-1 --project=atrium-board
+gcloud firestore fields ttls update expiresAt --collection-group=mcpClients --enable-ttl --database=atrium-1 --project=atrium-board
+gcloud firestore fields ttls update expiresAt --collection-group=entries --enable-ttl --database=atrium-1 --project=atrium-board
 ```
 
 Check `gcloud firestore fields ttls list --database=atrium-1 --project=atrium-board` before running the last one, in case another feature has since claimed `entries`: a collection group has one TTL field, and `system/accountAudit/entries` and `inboxAudit/*/entries` share that name, so they get the same policy (their documents have no `expiresAt`, so nothing in them is deleted).
