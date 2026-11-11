@@ -57,7 +57,7 @@ const ALLOWED = new Map([
   ['apps/web/src/data/firestore.ts', 'new and duplicated boards are created with []'],
   ['apps/web/src/data/structure-writes.ts', 'legacy column scope (until the migration ran)'],
   [
-    'scripts/mcp/lib/service.mjs',
+    'packages/mcp-core/src/service.mjs',
     'legacy boards (not yet migrated) still list their subitem columns',
   ],
 ]);

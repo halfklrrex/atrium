@@ -212,13 +212,22 @@ export function createFirestoreRest({
     },
 
     /**
-     * Documents of a top-level collection whose fields equal the given values (AND), decoded, with
-     * ids and `updateTime`. `where` is `{ field: value }`; equality only (no composite index).
+     * Documents of a top-level collection matching every filter (AND), decoded, with ids and
+     * `updateTime`. `where` is `{ field: value }` for equality, or `{ field: { arrayContains: value } }`
+     * for an array membership test (`memberIds` array-contains uid). No composite index is needed.
      */
     async runQuery(collectionId, where = {}) {
-      const filters = Object.entries(where).map(([field, value]) => ({
-        fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: encodeValue(value) },
-      }));
+      const filters = Object.entries(where).map(([field, condition]) => {
+        const contains =
+          condition !== null && typeof condition === 'object' && 'arrayContains' in condition;
+        return {
+          fieldFilter: {
+            field: { fieldPath: field },
+            op: contains ? 'ARRAY_CONTAINS' : 'EQUAL',
+            value: encodeValue(contains ? condition.arrayContains : condition),
+          },
+        };
+      });
       const structuredQuery = {
         from: [{ collectionId }],
         ...(filters.length > 0 ? { where: { compositeFilter: { op: 'AND', filters } } } : {}),

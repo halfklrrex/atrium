@@ -86,7 +86,8 @@ function parseOrThrow(schema, value, what) {
 // ---- boards ------------------------------------------------------------------------------------
 
 export function buildBoardDoc({
-  config,
+  workspaceId,
+  uid,
   name,
   description = '',
   position,
@@ -96,13 +97,13 @@ export function buildBoardDoc({
   const structure = defaultBoardStructure(() => newId());
   const stamp = ts(now);
   const doc = {
-    workspaceId: config.workspaceId,
+    workspaceId,
     folderId: null,
     name: name.trim(),
     description,
     kind: 'main',
-    access: { [config.uid]: 'owner' },
-    accessUids: [config.uid],
+    access: { [uid]: 'owner' },
+    accessUids: [uid],
     position,
     icon: null,
     ...structure,
@@ -112,9 +113,9 @@ export function buildBoardDoc({
     state: 'active',
     deletedAt: null,
     createdAt: stamp,
-    createdBy: config.uid,
+    createdBy: uid,
     updatedAt: stamp,
-    updatedBy: config.uid,
+    updatedBy: uid,
   };
   parseOrThrow(boardSchema, doc, 'The board');
   return doc;
@@ -233,15 +234,7 @@ export function buildColumn({ title, type, settings, existingColumns, newId = ne
 
 // ---- items -------------------------------------------------------------------------------------
 
-export function buildItemDoc({
-  config,
-  name,
-  groupId,
-  position,
-  values,
-  now,
-  parentItemId = null,
-}) {
+export function buildItemDoc({ uid, name, groupId, position, values, now, parentItemId = null }) {
   const stamp = ts(now);
   const doc = {
     name: name.trim(),
@@ -252,9 +245,9 @@ export function buildItemDoc({
     state: 'active',
     deletedAt: null,
     createdAt: stamp,
-    createdBy: config.uid,
+    createdBy: uid,
     updatedAt: stamp,
-    updatedBy: config.uid,
+    updatedBy: uid,
   };
   parseOrThrow(itemSchema, doc, 'The item');
   return doc;
@@ -264,8 +257,8 @@ export function buildItemDoc({
  * The commit `update` write for an item patch: field paths only (`values.<colId>`), never the
  * whole `values` map. `null` removes the cell, like the web's `deleteField()`.
  */
-export function buildItemPatch({ config, now, name, groupId, position, cells }) {
-  const set = { updatedAt: ts(now), updatedBy: config.uid };
+export function buildItemPatch({ uid, now, name, groupId, position, cells }) {
+  const set = { updatedAt: ts(now), updatedBy: uid };
   const remove = [];
   if (name !== undefined) set.name = name.trim();
   if (groupId !== undefined) {
@@ -286,7 +279,7 @@ export function positionRightAfter(positions, current) {
 }
 
 export function buildUpdateDoc({
-  config,
+  uid,
   itemId,
   id,
   content,
@@ -299,7 +292,7 @@ export function buildUpdateDoc({
   const stamp = ts(now);
   const doc = {
     itemId,
-    authorId: config.uid,
+    authorId: uid,
     ...(authorName ? { authorName } : {}),
     ...(authorPhotoUrl !== undefined ? { authorPhotoUrl } : {}),
     content: content.trim(),
@@ -316,7 +309,7 @@ export function buildUpdateDoc({
 }
 
 export function buildReplyDoc({
-  config,
+  uid,
   updateId,
   id,
   content,
@@ -329,7 +322,7 @@ export function buildReplyDoc({
   const stamp = ts(now);
   const doc = {
     updateId,
-    authorId: config.uid,
+    authorId: uid,
     ...(authorName ? { authorName } : {}),
     ...(authorPhotoUrl !== undefined ? { authorPhotoUrl } : {}),
     content: content.trim(),

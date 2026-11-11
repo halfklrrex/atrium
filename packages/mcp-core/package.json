@@ -1,0 +1,23 @@
+{
+  "name": "@atrium/mcp-core",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "description": "Atrium MCP connector tool logic (service, tool catalogue, builders), shared by the local stdio server and the hosted Function.",
+  "main": "./src/index.mjs",
+  "types": "./src/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.mts",
+      "default": "./src/index.mjs"
+    },
+    "./fake-client": "./src/fake-client.mjs"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@atrium/shared": "workspace:*",
+    "fractional-indexing": "^4.0.0",
+    "zod": "^4.6.7"
+  }
+}

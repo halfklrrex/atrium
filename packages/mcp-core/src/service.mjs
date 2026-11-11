@@ -1,10 +1,15 @@
 // The connector's tool logic, free of any MCP wiring. Every function takes plain arguments and returns
 // plain JSON, so it can be tested against an in-memory Firestore. See docs/mcp-connector.md.
 //
-// Safety rules enforced here (the Admin-style REST client bypasses security rules, so we do it):
-//   - only boards of `config.workspaceId`, only `state = active`, only where the configured user has
-//     a role (structure changes need `owner`, item changes `editor` or `owner`);
-//   - never writes derivedColumnIds / serverManagedColumnIds / requiredColumnIds / seq / boardSeq / activity / notifications;
+// Safety rules enforced here (both clients bypass security rules, so we mirror them):
+//   - the actor is one Atrium user (`actor.uid`); only the workspaces whose `memberIds` list them,
+//     and, with `actor.workspaceFilter`, only that one workspace;
+//   - only boards with `state = active` where the actor has a role, computed like the rules'
+//     `boardRole()` (board `access`, or the workspace role on a `main` board); a board outside the
+//     actor's memberships reads as "not found"; viewers read only; structure changes need `owner`,
+//     item changes `editor` or `owner`;
+//   - never writes derivedColumnIds / serverManagedColumnIds / requiredColumnIds / seq / boardSeq /
+//     activity / notifications, and never empties a required cell (REQ-1);
 //   - no hard deletes; only the documents of one board are ever touched.
 import {
   boardRoleFromWorkspaceRole,
@@ -12,6 +17,7 @@ import {
   columnsForItem,
   columnsForSubitems,
   hasLegacySubitemColumns,
+  isColumnValueEmpty,
 } from '@atrium/shared';
 import {
   addLabelsToSettings,
@@ -43,7 +49,14 @@ import {
 
 export const MAX_ITEMS_PER_CALL = 50;
 
+/** How long a workspace membership lookup is reused (bounds how long a removal takes to bite). */
+const MEMBERSHIP_TTL_MS = 60_000;
+
 const EDIT_ROLES = ['owner', 'editor'];
+/** Workspace roles that may create boards (rules: `canCreateInWs`). */
+const CREATE_BOARD_ROLES = ['owner', 'admin', 'member'];
+
+export const PICK_WORKSPACE_MESSAGE = 'Give workspaceId; call atrium_list_workspaces first.';
 
 function labelSummary(column) {
   const s = column.settings ?? {};
@@ -55,62 +68,136 @@ function labelSummary(column) {
   return {};
 }
 
-export function createService({ client, config, now = () => new Date() }) {
-  let workspaceCache;
+/**
+ * @param {object} options
+ * @param {object} options.client  A Firestore client (`getDoc`, `getDocMeta`, `listAllDocs`, `runQuery`, `commit`).
+ * @param {{ uid: string, workspaceFilter?: string|null }} options.actor  The Atrium user every
+ *   read and write is done as, and optionally the one workspace they may touch.
+ * @param {() => Date} [options.now]
+ */
+export function createService({ client, actor, now = () => new Date() }) {
+  const uid = assertId(actor?.uid, 'actor.uid');
+  const workspaceFilter =
+    actor.workspaceFilter == null ? null : assertId(actor.workspaceFilter, 'workspaceFilter');
+
+  /** workspaceId -> { expires, pending: Promise<membership|null> } */
+  const memberships = new Map();
   let profileCache;
 
-  /** The workspace doc, checked once: the configured user must be a non-viewer member. */
-  async function workspace() {
-    workspaceCache ??= (async () => {
-      const ws = await client.getDoc(`workspaces/${config.workspaceId}`);
-      if (!ws) throw new McpUserError('The configured workspace does not exist.');
-      const role = ws.roles?.[config.uid];
-      if (!(ws.memberIds ?? []).includes(config.uid) || !role) {
-        throw new McpUserError('The configured user is not a member of the configured workspace.');
-      }
-      if (role === 'viewer') {
-        throw new McpUserError('The configured user is only a viewer of the workspace.');
-      }
-      return { role, roles: ws.roles ?? {}, memberUids: ws.memberIds ?? [] };
+  const shapeMembership = (id, ws) => {
+    const role = ws.roles?.[uid];
+    if (!(ws.memberIds ?? []).includes(uid) || !role) return null;
+    return {
+      id,
+      name: typeof ws.name === 'string' ? ws.name : id,
+      role,
+      roles: ws.roles ?? {},
+      memberUids: ws.memberIds ?? [],
+    };
+  };
+
+  /**
+   * The actor's membership of one workspace (`{ id, name, role, roles, memberUids }`), or `null`
+   * when they are not a member, the workspace does not exist, or it is outside `workspaceFilter`.
+   * Cached for a short while; the role is checked again on every call that needs it.
+   */
+  function membership(workspaceId) {
+    if (typeof workspaceId !== 'string' || workspaceId === '') return Promise.resolve(null);
+    if (workspaceFilter && workspaceId !== workspaceFilter) return Promise.resolve(null);
+    const cached = memberships.get(workspaceId);
+    if (cached && cached.expires > now().getTime()) return cached.pending;
+    const pending = (async () => {
+      const ws = await client.getDoc(`workspaces/${workspaceId}`);
+      return ws ? shapeMembership(workspaceId, ws) : null;
     })();
-    try {
-      return await workspaceCache;
-    } catch (error) {
-      workspaceCache = undefined;
-      throw error;
-    }
+    memberships.set(workspaceId, { expires: now().getTime() + MEMBERSHIP_TTL_MS, pending });
+    pending.catch(() => memberships.delete(workspaceId));
+    return pending;
   }
 
+  /** Like {@link membership}, for a workspace the caller named: a non-member gets a plain error. */
+  async function workspace(workspaceId) {
+    assertId(workspaceId, 'workspaceId');
+    const found = await membership(workspaceId);
+    if (!found) {
+      throw new McpUserError(
+        `Workspace "${workspaceId}" was not found among your workspaces. Call atrium_list_workspaces.`,
+      );
+    }
+    return found;
+  }
+
+  /** Every workspace the actor is a member of (within the filter): `{ id, name, role }`, by name. */
+  async function listWorkspaces() {
+    const rows = await client.runQuery('workspaces', { memberIds: { arrayContains: uid } });
+    const out = [];
+    for (const row of rows) {
+      if (workspaceFilter && row.id !== workspaceFilter) continue;
+      const found = shapeMembership(row.id, row.data);
+      if (!found) continue;
+      memberships.set(row.id, {
+        expires: now().getTime() + MEMBERSHIP_TTL_MS,
+        pending: Promise.resolve(found),
+      });
+      out.push({ id: found.id, name: found.name, role: found.role });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  }
+
+  /**
+   * The workspace a workspace-level call works in: the one given, or the actor's only workspace.
+   * With several, the caller must choose (so Claude never guesses where a board lands).
+   */
+  async function resolveWorkspace(workspaceId) {
+    if (workspaceId !== undefined && workspaceId !== null) return workspace(workspaceId);
+    const mine = await listWorkspaces();
+    if (mine.length === 1) return workspace(mine[0].id);
+    if (mine.length === 0) {
+      throw new McpUserError(
+        workspaceFilter
+          ? `You are not a member of workspace "${workspaceFilter}".`
+          : 'You are not a member of any workspace.',
+      );
+    }
+    throw new McpUserError(PICK_WORKSPACE_MESSAGE);
+  }
+
+  /** The actor's role on a board, as the rules' `boardRole()` computes it; `null` when none. */
   async function roleOn(board) {
-    const direct = board.access?.[config.uid];
+    const ws = await membership(board.workspaceId);
+    if (!ws) return null;
+    const direct = board.access?.[uid];
     if (direct) return direct;
     // Main boards are open to workspace members through their workspace role.
-    if (board.kind === 'main') return boardRoleFromWorkspaceRole((await workspace()).role);
+    if (board.kind === 'main') return boardRoleFromWorkspaceRole(ws.role);
     return null;
   }
 
   /** Loads a board and applies the safety checks. `need` is 'read', 'edit' or 'owner'. */
   async function loadBoard(boardId, need = 'edit') {
     assertId(boardId, 'boardId');
-    await workspace();
     const meta = await client.getDocMeta(`boards/${boardId}`);
-    // Same message for "missing" and "someone else's": do not reveal other workspaces.
-    const notFound = new McpUserError(
-      `Board "${boardId}" was not found in the configured workspace.`,
-    );
-    if (!meta || meta.data.workspaceId !== config.workspaceId) throw notFound;
+    // Same message for "missing" and "not yours": never reveal boards outside the memberships.
+    const notFound = new McpUserError(`Board "${boardId}" was not found in your workspaces.`);
+    if (!meta) throw notFound;
+    const role = await roleOn(meta.data);
+    if (!role) throw notFound;
     if (meta.data.state !== 'active') {
       throw new McpUserError(`Board "${boardId}" is ${meta.data.state}, not active.`);
     }
-    const role = await roleOn(meta.data);
-    if (!role) throw notFound;
     if (need === 'owner' && role !== 'owner') {
       throw new McpUserError("Changing a board's structure needs the board owner role.");
     }
     if (need === 'edit' && !EDIT_ROLES.includes(role)) {
-      throw new McpUserError('The configured user can only view this board.');
+      throw new McpUserError('You can only view this board.');
     }
-    return { id: boardId, board: meta.data, updateTime: meta.updateTime, role };
+    return {
+      id: boardId,
+      board: meta.data,
+      updateTime: meta.updateTime,
+      role,
+      workspaceId: meta.data.workspaceId,
+    };
   }
 
   /** Read-modify-write of the board doc with an `updateTime` precondition; retried once. */
@@ -123,7 +210,7 @@ export function createService({ client, config, now = () => new Date() }) {
           {
             op: 'patch',
             path: `boards/${boardId}`,
-            data: { ...patch, updatedAt: now(), updatedBy: config.uid },
+            data: { ...patch, updatedAt: now(), updatedBy: uid },
             precondition: { updateTime: loaded.updateTime },
           },
         ]);
@@ -135,8 +222,8 @@ export function createService({ client, config, now = () => new Date() }) {
     }
   }
 
-  async function cellContext() {
-    return { uid: config.uid, memberUids: (await workspace()).memberUids };
+  async function cellContext(loaded) {
+    return { uid, memberUids: (await workspace(loaded.workspaceId)).memberUids };
   }
 
   /** Checks that a person may write this column on this board; returns nothing. */
@@ -151,7 +238,7 @@ export function createService({ client, config, now = () => new Date() }) {
 
   /** `{ "<column title or id>": input }` -> `{ <columnId>: storedValue }`, fully validated. */
   async function convertValues(loaded, values = {}, columns = loaded.board.columns) {
-    const ctx = await cellContext();
+    const ctx = await cellContext(loaded);
     const out = {};
     for (const [ref, input] of Object.entries(values)) {
       const column = findColumn({ columns }, ref);
@@ -166,6 +253,23 @@ export function createService({ client, config, now = () => new Date() }) {
     return out;
   }
 
+  /**
+   * REQ-1, as `requiredCellsOk` in firestore.rules: an item update may not empty a cell of a column in
+   * `board.requiredColumnIds` (or marked `required`). Only cells the write changes count, so clearing
+   * a cell that is not stored at all is a no-op and passes. Creation is exempt (items start empty).
+   */
+  function assertRequiredKept(loaded, columns, item, cells) {
+    const required = new Set(loaded.board.requiredColumnIds ?? []);
+    for (const column of columns) if (column.required) required.add(column.id);
+    for (const [columnId, value] of Object.entries(cells)) {
+      if (!required.has(columnId)) continue;
+      const column = columns.find((c) => c.id === columnId);
+      if (!isColumnValueEmpty(column.type, value)) continue;
+      if (value === null && item.values?.[columnId] === undefined) continue; // nothing to remove
+      throw new McpUserError(`Column "${column.title}" is required and cannot be emptied.`);
+    }
+  }
+
   const itemsOf = (boardId, fields) => client.listAllDocs(`boards/${boardId}/items`, { fields });
 
   async function loadItem(boardId, itemId) {
@@ -176,19 +280,25 @@ export function createService({ client, config, now = () => new Date() }) {
     return item;
   }
 
+  async function profileOf(memberUid) {
+    return (await client.getDoc(`users/${memberUid}`)) ?? {};
+  }
+
   /** Workspace members who can read the board: `{ uid, name, email, role }` (role on the board). */
   async function boardMembers(board) {
-    const { roles, memberUids } = await workspace();
+    const { roles, memberUids } = await workspace(board.workspaceId);
     const out = [];
-    for (const uid of memberUids) {
+    for (const memberUid of memberUids) {
       const role =
-        board.access?.[uid] ??
-        (board.kind === 'main' && roles[uid] ? boardRoleFromWorkspaceRole(roles[uid]) : null);
+        board.access?.[memberUid] ??
+        (board.kind === 'main' && roles[memberUid]
+          ? boardRoleFromWorkspaceRole(roles[memberUid])
+          : null);
       if (!role) continue;
-      const profile = (await client.getDoc(`users/${uid}`)) ?? {};
+      const profile = await profileOf(memberUid);
       out.push({
-        uid,
-        name: profile.displayName || profile.email || uid,
+        uid: memberUid,
+        name: profile.displayName || profile.email || memberUid,
         email: profile.email ?? null,
         role,
       });
@@ -199,7 +309,7 @@ export function createService({ client, config, now = () => new Date() }) {
   const iso = (value) => (value instanceof Date ? value.toISOString() : null);
 
   async function authorProfile() {
-    profileCache ??= (await client.getDoc(`users/${config.uid}`)) ?? {};
+    profileCache ??= await profileOf(uid);
     return profileCache;
   }
 
@@ -221,7 +331,7 @@ export function createService({ client, config, now = () => new Date() }) {
 
   /** `{ uid, name, ... }` of the members a post may mention, as the web's @ list would offer. */
   async function mentionResolver(loaded) {
-    return memberResolver(await boardMembers(loaded.board), config.uid);
+    return memberResolver(await boardMembers(loaded.board), uid);
   }
 
   async function loadUpdate(boardId, itemId, updateId, replyId) {
@@ -244,7 +354,7 @@ export function createService({ client, config, now = () => new Date() }) {
   const shapePost = (id, post) => ({
     id,
     author: { uid: post.authorId, name: post.authorName ?? null },
-    mine: post.authorId === config.uid,
+    mine: post.authorId === uid,
     text: post.content,
     markdown: post.contentDoc ? docToMarkdown(post.contentDoc) : post.content,
     createdAt: iso(post.createdAt),
@@ -260,21 +370,28 @@ export function createService({ client, config, now = () => new Date() }) {
   });
 
   return {
-    // ---- read ------------------------------------------------------------------------------
-    async listBoards() {
-      const { role: wsRole } = await workspace();
-      const boards = await client.runQuery('boards', { workspaceId: config.workspaceId });
+    // ---- workspaces and boards (read) --------------------------------------------------------
+    async listWorkspaces() {
+      return { workspaces: await listWorkspaces() };
+    },
+
+    async listBoards({ workspaceId } = {}) {
+      const ws = await resolveWorkspace(workspaceId);
+      const boards = await client.runQuery('boards', { workspaceId: ws.id });
       const visible = boards.filter((b) => {
         if (b.data.state !== 'active') return false;
-        if (b.data.access?.[config.uid]) return true;
-        return b.data.kind === 'main' && boardRoleFromWorkspaceRole(wsRole) !== null;
+        if (b.data.access?.[uid]) return true;
+        return b.data.kind === 'main' && boardRoleFromWorkspaceRole(ws.role) !== null;
       });
-      return sortedByPosition(visible.map((b) => ({ ...b.data, id: b.id }))).map((b) => ({
-        id: b.id,
-        name: b.name,
-        kind: b.kind,
-        state: b.state,
-      }));
+      return {
+        workspaceId: ws.id,
+        boards: sortedByPosition(visible.map((b) => ({ ...b.data, id: b.id }))).map((b) => ({
+          id: b.id,
+          name: b.name,
+          kind: b.kind,
+          state: b.state,
+        })),
+      };
     },
 
     async getBoard({ boardId, includeItems = true, limit = 200 }) {
@@ -289,6 +406,7 @@ export function createService({ client, config, now = () => new Date() }) {
       }
       const result = {
         id: boardId,
+        workspaceId: board.workspaceId,
         name: board.name,
         description: board.description,
         kind: board.kind,
@@ -353,12 +471,18 @@ export function createService({ client, config, now = () => new Date() }) {
     },
 
     // ---- boards and structure ----------------------------------------------------------------
-    async createBoard({ name, description }) {
-      await workspace();
-      const existing = await client.runQuery('boards', { workspaceId: config.workspaceId });
+    async createBoard({ name, description, workspaceId }) {
+      const ws = await resolveWorkspace(workspaceId);
+      if (!CREATE_BOARD_ROLES.includes(ws.role)) {
+        throw new McpUserError(
+          `Creating a board needs the member role or higher in workspace "${ws.name}" (you are a ${ws.role}).`,
+        );
+      }
+      const existing = await client.runQuery('boards', { workspaceId: ws.id });
       const roots = existing.filter((b) => b.data.folderId === null);
       const doc = buildBoardDoc({
-        config,
+        workspaceId: ws.id,
+        uid,
         name,
         description,
         position: positionAfter(roots.map((b) => b.data.position)),
@@ -370,6 +494,7 @@ export function createService({ client, config, now = () => new Date() }) {
       ]);
       return {
         id,
+        workspaceId: ws.id,
         name: doc.name,
         columns: doc.columns.map((c) => ({ id: c.id, title: c.title, type: c.type })),
         groups: doc.groups.map((g) => ({ id: g.id, title: g.title })),
@@ -490,7 +615,7 @@ export function createService({ client, config, now = () => new Date() }) {
         last.set(group.id, position);
         const id = newDocId();
         const data = buildItemDoc({
-          config,
+          uid,
           name: input.name,
           groupId: group.id,
           position,
@@ -513,7 +638,9 @@ export function createService({ client, config, now = () => new Date() }) {
       const loaded = await loadBoard(boardId, 'edit');
       const item = await loadItem(boardId, itemId);
       const isSub = Boolean(item.parentItemId);
-      const cells = await convertValues(loaded, values, columnsForItem(loaded.board, item));
+      const columns = columnsForItem(loaded.board, item);
+      const cells = await convertValues(loaded, values, columns);
+      assertRequiredKept(loaded, columns, item, cells);
       let groupId;
       let position;
       if (group !== undefined && isSub) {
@@ -535,7 +662,7 @@ export function createService({ client, config, now = () => new Date() }) {
         throw new McpUserError('Nothing to change: give a name, a group or values.');
       }
       const { set, remove } = buildItemPatch({
-        config,
+        uid,
         now: now(),
         name,
         groupId,
@@ -549,7 +676,7 @@ export function createService({ client, config, now = () => new Date() }) {
           writes.push({
             op: 'update',
             path: `boards/${boardId}/items/${sub.id}`,
-            set: { groupId, updatedAt: ts(now()), updatedBy: config.uid },
+            set: { groupId, updatedAt: ts(now()), updatedBy: uid },
             remove: [],
           });
         }
@@ -599,7 +726,7 @@ export function createService({ client, config, now = () => new Date() }) {
         {
           op: 'update',
           path: `boards/${boardId}/items/${itemId}`,
-          set: { description, updatedAt: ts(now()), updatedBy: config.uid },
+          set: { description, updatedAt: ts(now()), updatedBy: uid },
           remove: [],
         },
       ]);
@@ -625,7 +752,7 @@ export function createService({ client, config, now = () => new Date() }) {
             state,
             deletedAt: state === 'deleted' ? now() : null,
             updatedAt: now(),
-            updatedBy: config.uid,
+            updatedBy: uid,
           },
         })),
       );
@@ -662,7 +789,7 @@ export function createService({ client, config, now = () => new Date() }) {
       const profile = await authorProfile();
       const id = newDocId();
       const doc = buildUpdateDoc({
-        config,
+        uid,
         itemId,
         id,
         ...body,
@@ -696,7 +823,7 @@ export function createService({ client, config, now = () => new Date() }) {
       const profile = await authorProfile();
       const id = newDocId();
       const doc = buildReplyDoc({
-        config,
+        uid,
         updateId,
         id,
         ...body,
@@ -716,8 +843,8 @@ export function createService({ client, config, now = () => new Date() }) {
       await loadBoard(boardId, 'edit');
       await loadItem(boardId, itemId);
       const { target, path } = await loadUpdate(boardId, itemId, updateId, replyId);
-      if (target.authorId !== config.uid) {
-        throw new McpUserError('Only the configured user can edit their own updates and replies.');
+      if (target.authorId !== uid) {
+        throw new McpUserError('You can only edit your own updates and replies.');
       }
       if (target.attachments?.length) {
         throw new McpUserError('This post has attachments; edit it in Atrium.');
@@ -738,10 +865,8 @@ export function createService({ client, config, now = () => new Date() }) {
       await loadBoard(boardId, 'edit');
       const item = await loadItem(boardId, itemId);
       const { update, target, path } = await loadUpdate(boardId, itemId, updateId, replyId);
-      if (target.authorId !== config.uid) {
-        throw new McpUserError(
-          'Only the configured user can delete their own updates and replies.',
-        );
+      if (target.authorId !== uid) {
+        throw new McpUserError('You can only delete your own updates and replies.');
       }
       const writes = [{ op: 'delete', path }];
       // Counters only move down while positive (the rules refuse a decrement from 0).
@@ -815,7 +940,7 @@ export function createService({ client, config, now = () => new Date() }) {
         positions.push(position);
         const id = newDocId();
         const data = buildItemDoc({
-          config,
+          uid,
           name: input.name,
           groupId: parent.groupId,
           position,
@@ -868,7 +993,7 @@ export function createService({ client, config, now = () => new Date() }) {
           op: 'set',
           path: `boards/${boardId}/items/${id}`,
           data: buildItemDoc({
-            config,
+            uid,
             name: `${item.name} (copy)`.slice(0, 500),
             groupId: item.groupId,
             position,
@@ -889,7 +1014,7 @@ export function createService({ client, config, now = () => new Date() }) {
             op: 'set',
             path: `boards/${boardId}/items/${newDocId()}`,
             data: buildItemDoc({
-              config,
+              uid,
               name: child.data.name,
               groupId: item.groupId,
               position: child.data.position,
@@ -932,27 +1057,35 @@ export function createService({ client, config, now = () => new Date() }) {
       };
     },
 
-    async listMembers({ boardId }) {
+    async listMembers({ boardId, workspaceId } = {}) {
       if (boardId !== undefined) {
         const { board } = await loadBoard(boardId, 'view');
-        return { members: await boardMembers(board) };
+        return { workspaceId: board.workspaceId, members: await boardMembers(board) };
       }
-      const { roles, memberUids } = await workspace();
+      const ws = await resolveWorkspace(workspaceId);
       const members = [];
-      for (const uid of memberUids) {
-        const profile = (await client.getDoc(`users/${uid}`)) ?? {};
+      for (const memberUid of ws.memberUids) {
+        const profile = await profileOf(memberUid);
         members.push({
-          uid,
-          name: profile.displayName || profile.email || uid,
+          uid: memberUid,
+          name: profile.displayName || profile.email || memberUid,
           email: profile.email ?? null,
-          workspaceRole: roles[uid] ?? null,
-          me: uid === config.uid,
+          workspaceRole: ws.roles[memberUid] ?? null,
+          me: memberUid === uid,
         });
       }
-      return { members };
+      return { workspaceId: ws.id, members };
     },
 
-    /** Checks the configuration against the database; used at startup. */
-    verify: workspace,
+    /**
+     * Checks the actor against the database; used at startup. The user must exist, and, with a
+     * workspace filter, be a member of that workspace. Returns `{ uid, workspaces }`.
+     */
+    async verify() {
+      const profile = await client.getDoc(`users/${uid}`);
+      if (!profile) throw new McpUserError(`User "${uid}" does not exist in Atrium.`);
+      if (workspaceFilter) await workspace(workspaceFilter);
+      return { uid, workspaces: await listWorkspaces() };
+    },
   };
 }
