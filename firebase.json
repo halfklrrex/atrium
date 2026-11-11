@@ -4,7 +4,22 @@
       "target": "app",
       "public": "apps/web/dist",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-      "rewrites": [{ "source": "**", "destination": "/index.html" }],
+      "rewrites": [
+        { "source": "/mcp", "function": { "functionId": "mcp", "region": "europe-west1" } },
+        { "source": "/authorize", "function": { "functionId": "mcp", "region": "europe-west1" } },
+        { "source": "/token", "function": { "functionId": "mcp", "region": "europe-west1" } },
+        { "source": "/register", "function": { "functionId": "mcp", "region": "europe-west1" } },
+        { "source": "/revoke", "function": { "functionId": "mcp", "region": "europe-west1" } },
+        {
+          "source": "/.well-known/oauth-authorization-server",
+          "function": { "functionId": "mcp", "region": "europe-west1" }
+        },
+        {
+          "source": "/.well-known/oauth-protected-resource/mcp",
+          "function": { "functionId": "mcp", "region": "europe-west1" }
+        },
+        { "source": "**", "destination": "/index.html" }
+      ],
       "headers": [
         {
           "source": "**",
@@ -13,6 +28,10 @@
         {
           "source": "**/*.@(ico|svg|png)",
           "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
+        },
+        {
+          "source": "/mcp",
+          "headers": [{ "key": "Cache-Control", "value": "no-store" }]
         },
         {
           "source": "/assets/**",
