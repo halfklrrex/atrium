@@ -5,7 +5,11 @@
     "lib": ["ES2023"],
     "types": ["node"],
     "paths": {
-      "@atrium/shared": ["../packages/shared/src/index.ts"]
+      "@atrium/shared": ["../packages/shared/src/index.ts"],
+      "@atrium/mcp-core": [
+        "../packages/mcp-core/src/index.d.mts",
+        "../packages/mcp-core/src/index.mjs"
+      ]
     }
   },
   "include": ["src", "tsup.config.ts", "vitest.config.mts"]
