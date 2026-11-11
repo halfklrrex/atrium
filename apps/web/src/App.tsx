@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell/AppShell';
 import { DashboardPage } from './components/dashboard/DashboardPage';
+import { ConnectPage } from './pages/connect/ConnectPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { BoardPage } from './pages/BoardPage';
 import { FeedbackThreadView } from './pages/feedback/FeedbackThreadView';
@@ -26,6 +27,7 @@ export function App() {
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route element={<RequireAuth />}>
         <Route path="forms/:boardId/:viewId" element={<FormPage />} />
+        <Route path="connect" element={<ConnectPage />} />
         <Route element={<AppShell />}>
           <Route index element={<HomePage />} />
           <Route path="invite/:workspaceId/:inviteId" element={<InvitePage />} />

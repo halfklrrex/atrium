@@ -1,4 +1,19 @@
 import {
+  MCP_AUTHORIZE_CALLABLE,
+  MCP_AUTH_REQUEST_INFO_CALLABLE,
+  REVOKE_MCP_GRANT_CALLABLE,
+  mcpAuthRequestInfoRequestSchema,
+  mcpAuthRequestInfoResultSchema,
+  mcpAuthorizeRequestSchema,
+  mcpAuthorizeResultSchema,
+  revokeMcpGrantRequestSchema,
+  revokeMcpGrantResultSchema,
+  type McpAuthRequestInfoRequest,
+  type McpAuthRequestInfoResult,
+  type McpAuthorizeRequest,
+  type McpAuthorizeResult,
+  type RevokeMcpGrantRequest,
+  type RevokeMcpGrantResult,
   LIST_ACCOUNTS_CALLABLE,
   MANAGE_INBOX_THREAD_CALLABLE,
   SEND_INBOX_MESSAGE_CALLABLE,
@@ -430,6 +445,33 @@ export const columnTypeCalls = {
       { timeout: MIGRATION_CALL_TIMEOUT_MS },
     )(revertColumnTypeRequestSchema.parse(request));
     return revertColumnTypeResultSchema.parse(data);
+  },
+};
+
+/** Hosted MCP connector (OPS4): the consent page and the Connected apps card. */
+export const mcpCalls = {
+  authRequestInfo: async (
+    request: McpAuthRequestInfoRequest,
+  ): Promise<McpAuthRequestInfoResult> => {
+    const { data } = await httpsCallable<McpAuthRequestInfoRequest, unknown>(
+      functions,
+      MCP_AUTH_REQUEST_INFO_CALLABLE,
+    )(mcpAuthRequestInfoRequestSchema.parse(request));
+    return mcpAuthRequestInfoResultSchema.parse(data);
+  },
+  authorize: async (request: McpAuthorizeRequest): Promise<McpAuthorizeResult> => {
+    const { data } = await httpsCallable<McpAuthorizeRequest, unknown>(
+      functions,
+      MCP_AUTHORIZE_CALLABLE,
+    )(mcpAuthorizeRequestSchema.parse(request));
+    return mcpAuthorizeResultSchema.parse(data);
+  },
+  revokeGrant: async (request: RevokeMcpGrantRequest): Promise<RevokeMcpGrantResult> => {
+    const { data } = await httpsCallable<RevokeMcpGrantRequest, unknown>(
+      functions,
+      REVOKE_MCP_GRANT_CALLABLE,
+    )(revokeMcpGrantRequestSchema.parse(request));
+    return revokeMcpGrantResultSchema.parse(data);
   },
 };
 
