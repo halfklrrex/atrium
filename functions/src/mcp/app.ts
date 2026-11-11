@@ -2,7 +2,7 @@ import { MCP_SCOPES } from '@atrium/shared';
 import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js';
 import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import express, { type ErrorRequestHandler, type Express } from 'express';
+import express, { type ErrorRequestHandler, type Express, type RequestHandler } from 'express';
 import { logger } from 'firebase-functions/v2';
 import { ATRIUM_ORIGIN, MCP_RESOURCE_URL } from './oauth/constants';
 import { AtriumOAuthProvider } from './oauth/provider';
@@ -52,12 +52,26 @@ export function createMcpApp(deps: McpAppDeps): Express {
     }),
   );
 
-  const bearer = requireBearerAuth({
+  const bearerRead = requireBearerAuth({
     verifier: provider,
     requiredScopes: ['atrium:read'],
     resourceMetadataUrl: MCP_RESOURCE_METADATA_URL,
     expectedResource: new URL(MCP_RESOURCE_URL),
   });
+
+  // `requiredScopes` drives both enforcement (atrium:read) and the `scope` hint of the challenge.
+  // Claude requests the scopes named in that hint, so the hint must offer Write too (spec 3.2).
+  const bearer: RequestHandler = (req, res, next) => {
+    const setHeader = res.setHeader.bind(res);
+    res.setHeader = ((name: string, value: unknown) =>
+      setHeader(
+        name,
+        name.toLowerCase() === 'www-authenticate' && typeof value === 'string'
+          ? value.replace('scope="atrium:read"', `scope="${MCP_SCOPES.join(' ')}"`)
+          : (value as string),
+      )) as typeof res.setHeader;
+    return bearerRead(req, res, next);
+  };
 
   app.post('/mcp', bearer, express.json({ limit: '1mb' }), async (req, res) => {
     // A new server and transport per request: stateless, so any instance can answer.
