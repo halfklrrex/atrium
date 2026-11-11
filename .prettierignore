@@ -14,9 +14,6 @@ HANDOFF.md
 .claude/worktrees
 THIRD_PARTY_NOTICES.md
 LICENSE
-<<<<<<< HEAD
 apps/web/src/theme/fonts
-=======
 apps/web/src/components/workspace-icons/icons.generated.ts
 apps/web/src/components/workspace-icons/icons-regular.generated.ts
->>>>>>> f0c84a8 (feat(web): Material Symbols icons for workspaces)
