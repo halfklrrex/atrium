@@ -3,7 +3,13 @@
   "compilerOptions": {
     "target": "ES2023",
     "lib": ["ES2023"],
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@atrium/mcp-core": [
+        "../../packages/mcp-core/src/index.d.mts",
+        "../../packages/mcp-core/src/index.mjs"
+      ]
+    }
   },
   "include": ["src", "vitest.config.ts"]
 }
