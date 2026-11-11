@@ -241,3 +241,49 @@ The data in `atrium-1` starts empty. Once the deploy (rules, indexes, functions)
 3. Re-seed the showcase with the new workspace id and owner uid (dry run first, then `--yes`): `pnpm showcase --project atrium-board --workspace <workspaceId> --owner <ownerUid>`.
 
 Both scripts target `atrium-1` by default; `--database <id>` overrides it.
+
+## The hosted MCP connector (OPS4)
+
+The hosted connector is the Cloud Function `mcp` (`europe-west1`) behind Hosting rewrites on the canonical site (`https://atrium-workboards.web.app/mcp`). The normal deploy on merge ships the function (public invoker), the rewrites, the rules and the callables, with **no new IAM roles, secrets or schedulers**. It ships **disabled**: `MCP_CONNECTOR_ENABLED=false` in `functions/.env.atrium-board` makes every route answer `503 {"error":"connector_disabled"}`. User docs: `docs/mcp-connector.md`; spec: `docs/specs/OPS4-hosted-mcp-connector.md` (section 11 and 12).
+
+### Owner steps after the first deploy (single-line `gcloud`, project `atrium-board`, database `atrium-1`)
+
+1. **TTL policies** so expired tokens, sign-in requests, clients and audit entries are removed. On 2026-11-11 only `activity`, `automationRuns` and `presence` had a TTL policy, so the `entries` collection group (audit entries under `system/mcpAudit`) had none. Run each once (deletion lags up to about a day; the code also checks `expiresAt` itself):
+
+```
+gcloud firestore fields ttls update expiresAt --collection-group=mcpTokens --database=atrium-1 --project=atrium-board
+gcloud firestore fields ttls update expiresAt --collection-group=mcpAuthRequests --database=atrium-1 --project=atrium-board
+gcloud firestore fields ttls update expiresAt --collection-group=mcpClients --database=atrium-1 --project=atrium-board
+gcloud firestore fields ttls update expiresAt --collection-group=entries --database=atrium-1 --project=atrium-board
+```
+
+Check `gcloud firestore fields ttls list --database=atrium-1 --project=atrium-board` before running the last one, in case another feature has since claimed `entries`: a collection group has one TTL field, and `system/accountAudit/entries` and `inboxAudit/*/entries` share that name, so they get the same policy (their documents have no `expiresAt`, so nothing in them is deleted).
+
+2. **Invoker binding.** The output must list `allUsers` with `roles/run.invoker`. If a failed first deploy left it off, delete the function and redeploy (the AGENTS.md deploy gotcha).
+
+```
+gcloud run services get-iam-policy mcp --region=europe-west1 --project=atrium-board
+```
+
+3. **Smoke test while disabled.** Both answer `503` with `{"error":"connector_disabled"}`:
+
+```
+curl -i https://atrium-workboards.web.app/.well-known/oauth-protected-resource/mcp
+curl -i -X POST https://atrium-workboards.web.app/mcp
+```
+
+4. **Enable.** Merge the enable PR (it sets `MCP_CONNECTOR_ENABLED=true`). Then the first curl returns `200` with the resource metadata, and the second returns `401` with a `WWW-Authenticate: Bearer resource_metadata="https://atrium-workboards.web.app/.well-known/oauth-protected-resource/mcp"` header.
+
+5. **Connect with Read only first** (see `docs/mcp-connector.md`): try `atrium_list_workspaces`, `atrium_list_boards`, `atrium_get_board`. Then disconnect (Settings, Account, Connected apps), reconnect with Write, and create an item on a scratch board.
+
+### Rollback ladder (least to most drastic)
+
+1. **Kill switch:** a PR setting `MCP_CONNECTOR_ENABLED=false` (about 10 minutes to deploy). Connections stay stored and work again when it is flipped back.
+2. **Instant stop (owner):** remove the public invoker binding, which stops the service immediately. Add it back to resume.
+
+```
+gcloud run services remove-iam-policy-binding mcp --region=europe-west1 --project=atrium-board --member=allUsers --role=roles/run.invoker
+gcloud run services add-iam-policy-binding mcp --region=europe-west1 --project=atrium-board --member=allUsers --role=roles/run.invoker
+```
+
+3. **Revert** the function PR (the revert deploys). Leftover `mcpTokens`, `mcpAuthRequests` and similar documents expire by TTL; connections can also be revoked one by one in Settings, or by blocking the account.
