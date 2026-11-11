@@ -9,7 +9,7 @@ The tool logic lives in the workspace package `@atrium/mcp-core` (`packages/mcp-
 
 ## Hosted connector
 
-> **Status (2026-11-11):** the function ships **disabled** (`MCP_CONNECTOR_ENABLED=false`, every request answers `503 connector_disabled`) until the owner has run the steps in `docs/DEPLOY.md` ("The hosted MCP connector") and a small enable PR flips the switch. The connect steps below work once it is enabled.
+> **Status (2026-11-11):** the connector is **enabled** (`MCP_CONNECTOR_ENABLED=true`; it was deployed disabled first, then switched on by a small PR once the owner had approved). The steps in `docs/DEPLOY.md` ("The hosted MCP connector") cover operations and rollback.
 
 ### Connect
 
