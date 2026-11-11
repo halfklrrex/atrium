@@ -31,7 +31,12 @@ export const connectorEnabled = (): boolean => process.env.MCP_CONNECTOR_ENABLED
 export function createMcpApp(deps: McpAppDeps): Express {
   const app = express();
   // The SDK's rate limiters key on X-Forwarded-For, which Hosting and Cloud Run set.
-  app.set('trust proxy', true);
+  // Trust exactly two hops. The request reaches the container as client -> Firebase Hosting ->
+  // Google front end -> container, and each of those two proxies appends one entry to
+  // X-Forwarded-For, so the entry two from the right is the real client. `true` would trust the whole
+  // header, let anyone spoof it and bypass the IP rate limits (express-rate-limit
+  // ERR_ERL_PERMISSIVE_TRUST_PROXY).
+  app.set('trust proxy', 2);
   app.disable('x-powered-by');
 
   // The kill switch comes first: while off, nothing below runs and no Firestore read happens.

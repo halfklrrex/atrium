@@ -83,7 +83,7 @@ async function start(options: Options = {}) {
   servers.push(server);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  return { store, clock, state, usage, base };
+  return { store, clock, state, usage, base, app: mcp };
 }
 
 type Harness = Awaited<ReturnType<typeof start>>;
@@ -294,6 +294,13 @@ describe('POST /mcp authentication', () => {
     const { body } = await connect(h);
     h.clock.now += 2 * 60 * 60 * 1000;
     expect((await rpc(h, body.access_token, 'tools/list')).status).toBe(401);
+  });
+});
+
+describe('trust proxy', () => {
+  it('is a hop count, never true (a spoofable X-Forwarded-For would bypass the IP rate limits)', async () => {
+    const h = await start();
+    expect(h.app.get('trust proxy')).toBe(2);
   });
 });
 
