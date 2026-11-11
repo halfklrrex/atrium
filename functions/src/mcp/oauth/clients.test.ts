@@ -82,7 +82,7 @@ describe('registerClient', () => {
     expect(await h.provider.clientsStore.getClient('given-by-sdk')).toEqual(client);
   });
 
-  it('forces public clients: a secret is dropped and a confidential method refused', async () => {
+  it('forces public clients: a secret is dropped and a confidential method is forced to none', async () => {
     const h = harness();
     const client = await h.provider.clientsStore.registerClient({
       redirect_uris: [CLAUDE_REDIRECT],
@@ -92,14 +92,14 @@ describe('registerClient', () => {
     expect(client).not.toHaveProperty('client_secret');
     expect(client.token_endpoint_auth_method).toBe('none');
     expect(h.store.allStoredText()).not.toContain('shh');
-    expect(
-      await rejection(
-        h.provider.clientsStore.registerClient({
-          redirect_uris: [CLAUDE_REDIRECT],
-          token_endpoint_auth_method: 'client_secret_basic',
-        }),
-      ),
-    ).toBeInstanceOf(InvalidClientMetadataError);
+    for (const method of ['client_secret_post', 'client_secret_basic'] as const) {
+      const other = await h.provider.clientsStore.registerClient({
+        redirect_uris: [CLAUDE_REDIRECT],
+        token_endpoint_auth_method: method,
+      });
+      expect(other.token_endpoint_auth_method).toBe('none');
+      expect(other).not.toHaveProperty('client_secret');
+    }
   });
 
   it('refuses a missing or disallowed redirect URI', async () => {
