@@ -1,5 +1,6 @@
 import {
   canEditBoard,
+  columnsForItem,
   columnsForSubitems,
   hasLegacySubitemColumns,
   resolveBoardRole,
@@ -306,9 +307,9 @@ function PanelBody({
   const canEdit = canEditBoard(boardRole);
   const { ctx } = useItemTableCtx({ board, uid, items, boardRole });
   const columns = useMemo(() => buildColumnViews(board.columns), [board.columns]);
-  const subitemColumns = useMemo(
-    () => buildColumnViews(board.subitemColumns ?? []),
-    [board.subitemColumns],
+  const subColumns = useMemo(
+    () => buildColumnViews(columnsForItem(board, { parentItemId: item.id })),
+    [board, item.id],
   );
   const keySlots = useMemo(() => selectKeyBarColumns(columns), [columns]);
   const keyBarIds = useMemo(() => new Set(keySlots.map((k) => k.column.def.id)), [keySlots]);
@@ -364,7 +365,7 @@ function PanelBody({
             ctx={ctx}
             canEdit={canEdit}
             items={items}
-            subitemColumns={subitemColumns}
+            subColumns={subColumns}
             updates={updates}
             onOpenUpdates={openUpdates}
           />

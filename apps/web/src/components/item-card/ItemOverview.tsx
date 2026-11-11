@@ -37,7 +37,7 @@ interface ItemOverviewProps {
   canEdit: boolean;
   /** Every active item of the board (the subitems row counts this item's children). */
   items: readonly ItemDoc[];
-  subitemColumns: readonly ColumnView[];
+  subColumns: readonly ColumnView[];
   /** The item's updates, newest first. */
   updates: readonly ItemUpdateDoc[];
   /** Switch to Updates, optionally with an update focused or the composer ready. */
@@ -58,7 +58,7 @@ export function ItemOverview({
   ctx,
   canEdit,
   items,
-  subitemColumns,
+  subColumns,
   updates,
   onOpenUpdates,
 }: ItemOverviewProps) {
@@ -68,8 +68,8 @@ export function ItemOverview({
   const [clampable, setClampable] = useState(false);
   const clamp = useMemo(() => ({ open: descOpen, onClampableChange: setClampable }), [descOpen]);
   const subs = useMemo(
-    () => subitemSummary(items, item.id, subitemColumns),
-    [items, item.id, subitemColumns],
+    () => subitemSummary(items, item.id, subColumns),
+    [items, item.id, subColumns],
   );
   const latest = updates[0];
   const boardId = board.id;

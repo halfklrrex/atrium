@@ -86,12 +86,12 @@ export function descriptionMode(contentHeight: number, lineHeight: number): 'ful
 export function subitemSummary(
   items: readonly ItemDoc[],
   parentId: string,
-  subitemColumns: readonly ColumnView[],
+  subColumns: readonly ColumnView[],
 ): { total: number; done: number | null } {
   const subs = items.filter((i) => i.parentItemId === parentId);
-  const hasStatus = subitemColumns.some((c) => c.def.type === 'status');
+  const hasStatus = subColumns.some((c) => c.def.type === 'status');
   return {
     total: subs.length,
-    done: hasStatus ? subs.filter((s) => isRowDone(s, subitemColumns)).length : null,
+    done: hasStatus ? subs.filter((s) => isRowDone(s, subColumns)).length : null,
   };
 }
