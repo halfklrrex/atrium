@@ -3,7 +3,7 @@
 // The text mirror is built by the web app's own `docToText`; the result is checked with the same
 // input schema the web uses (`createItemUpdateInputSchema`), so nothing the app would reject is written.
 import { NOTIFICATION_LIMITS, createItemUpdateInputSchema } from '@atrium/shared';
-import { docToText, isEmptyDoc } from '../../../apps/web/src/components/item-view/description.ts';
+import { docToText, isEmptyDoc } from '@atrium/shared';
 import { McpUserError } from './errors.mjs';
 import { markdownToDoc } from './description.mjs';
 

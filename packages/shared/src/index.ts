@@ -6,6 +6,7 @@ export * from './callable';
 export * from './boards';
 export * from './forms';
 export * from './subitems';
+export * from './description-doc';
 export * from './schemas/common';
 export * from './schemas/user';
 export * from './schemas/workspace';

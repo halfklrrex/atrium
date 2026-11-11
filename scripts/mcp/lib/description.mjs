@@ -3,7 +3,7 @@
 // already supports (StarterKit + task lists), and the final value is built by the web app's own
 // `buildDescription` (empty -> null, size cap, plain-text field), so nothing the app would reject is written.
 import { itemDescriptionSchema } from '@atrium/shared';
-import { buildDescription } from '../../../apps/web/src/components/item-view/description.ts';
+import { buildDescription } from '@atrium/shared';
 import { McpUserError } from './errors.mjs';
 
 export const MAX_MARKDOWN_CHARS = 50_000;
