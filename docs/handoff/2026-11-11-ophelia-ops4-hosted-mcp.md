@@ -16,6 +16,15 @@ Spec: `docs/specs/OPS4-hosted-mcp-connector.md`. User guide: `docs/mcp-connector
 
 All seven PRs are merged. The hosted function was deployed disabled, then enabled by the enable PR (`claude/mcp-enable`). The exact wording of tool errors for limits was not re-checked; the docs describe behaviour per the spec.
 
+## Live status (end of 2026-11-11)
+
+- **Live and working.** Enabled by #247; a registration bug found right after enabling was fixed by #248. Claude registers with `token_endpoint_auth_method: client_secret_post` because the SDK's metadata advertised it; the first version of our client store refused anything but `none`, so claude.ai failed with "can't sign in" and the log showed `POST /register` 400. Now any method is accepted but the stored client is always public (no secret), and the metadata advertises only `none`. Lesson: test a registration the way the real client sends it, not only the happy path.
+- **Verified live:** well-known documents (200), 401 challenge with `scope="atrium:read atrium:write"`, 405 on `GET /mcp`, redirect-URI allow-list (a foreign URI is refused), authorize redirects to `/connect?request=`, TTL policies ACTIVE/CREATING on `mcpTokens`, `mcpAuthRequests`, `mcpClients`, `entries`, `allUsers` invoker on the `mcp` Cloud Run service. One owner account completed the full flow (register, authorize, token, working `/mcp` tool calls); a second Claude account needed its stale connector removed and re-added (it had been created while registration was broken).
+- **Connector scope:** a connector added in claude.ai or the desktop app belongs to the Claude account, so it should follow that account into Claude Code on other devices (`claude mcp list` shows `claude.ai Atrium`). `claude mcp add --scope user` is per machine only.
+- **Not verified:** `trust proxy` is `2` (Hosting, then Google front end) on reasoning, not measured; check the real client IP in a log line once there is traffic. The two `POST /mcp` 400s seen at the start of a session are the usual startup handshake (a 200 follows) but were not inspected.
+- **Local stdio mode still works** (`claude mcp add atrium --scope user -e ATRIUM_USER_UID=<uid> -- pnpm --silent --dir <checkout> exec tsx scripts/mcp/atrium-mcp.mjs`); `ATRIUM_WORKSPACE_ID` is an optional filter now.
+- **Models:** PRs B to D were written by Fable agents (hit the 5-hour limit twice; resume with SendMessage after the reset); everything else by Sonnet. The owner asked to avoid Fable from here on.
+
 ## What's next (in order)
 
 1. Done: E, F and G merged (function deployed disabled).
