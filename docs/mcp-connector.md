@@ -1,10 +1,88 @@
 # Atrium MCP connector
 
-A local MCP server (stdio) that lets Claude create and edit boards, groups, columns, items and updates in the live Atrium, as one Atrium user. Nothing is deployed: it runs on the owner's machine, only when Claude Code starts it. Spec: `docs/specs/OPS3-atrium-mcp-connector.md`; the hosted variant (same tools, OAuth sign-in) is specified in `docs/specs/OPS4-hosted-mcp-connector.md` and documented here once it ships.
+Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions and updates in the live Atrium, as the person who signed in. It comes in two modes with the same 25 tools:
 
-It writes to Firestore (`atrium-board`, database `atrium-1`) through the REST API with `gcloud auth print-access-token`, like the showcase seeder (`docs/showcase.md`). That is an admin-style write that bypasses security rules, so the connector enforces the rules itself (see Safety). The tool logic lives in the workspace package `@atrium/mcp-core` (`packages/mcp-core`), shared with the hosted connector; `scripts/mcp/` only holds the stdio wiring.
+- **Hosted (OPS4, recommended):** one public URL, `https://atrium-workboards.web.app/mcp`. You add it once as a connector in claude.ai and in Claude Code, sign in with your Atrium (Google) account, and it works in every project and on every device. Spec: `docs/specs/OPS4-hosted-mcp-connector.md`.
+- **Local stdio (OPS3):** a server that Claude Code starts on your own machine with admin credentials. Spec: `docs/specs/OPS3-atrium-mcp-connector.md`. Use it for development and tests, or when the hosted connector is switched off.
 
-## Setup (once per machine)
+The tool logic lives in the workspace package `@atrium/mcp-core` (`packages/mcp-core`) and is shared by both modes. Both write to Firestore (`atrium-board`, database `atrium-1`) with admin-style access that bypasses security rules, so the connector enforces the rules itself (see Safety).
+
+## Hosted connector
+
+> **Status (2026-11-11):** the function ships **disabled** (`MCP_CONNECTOR_ENABLED=false`, every request answers `503 connector_disabled`) until the owner has run the steps in `docs/DEPLOY.md` ("The hosted MCP connector") and a small enable PR flips the switch. The connect steps below work once it is enabled.
+
+### Connect
+
+- **claude.ai:** Settings, Connectors, Add custom connector, URL `https://atrium-workboards.web.app/mcp`. Leave client id and secret empty (Atrium registers Claude automatically). Click Connect, sign in with Google if asked, choose what to allow on the Atrium consent page, then Allow.
+- **Claude Code:**
+
+```
+claude mcp add --transport http --scope user atrium https://atrium-workboards.web.app/mcp
+```
+
+Then run `/mcp` inside Claude Code, pick `atrium`, and choose Authenticate. A browser tab opens on the same consent page; the result returns to a `localhost` address, and the consent page warns about that ("the code will be sent to a program on this computer"). There are no ids or secrets to paste, and nothing goes in the repo.
+
+### Who may connect
+
+Any Atrium account the Site Admin has **approved**. Accounts that are `pending` or `blocked` cannot connect: the consent page shows the usual waiting or blocked screen, and the account status is checked again on every request and every token refresh. Blocking an account also revokes all of its connected apps. Each person sees exactly what they see in Atrium: every workspace they are a member of and, in each, the boards their role allows (see "Workspaces and roles").
+
+### Scopes and the consent page
+
+The consent page (`/connect`) names the app that asks (for example "Claude"), the address the result is sent back to, and two permissions:
+
+| Scope          | Meaning                                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------------------- |
+| `atrium:read`  | Read workspaces, boards, items, descriptions, updates, activity and members. Always on, locked.                 |
+| `atrium:write` | Create and change boards, groups, columns, items, descriptions and updates. On by default, can be switched off. |
+
+With Write off, the connection is read-only: a write tool answers "This connection is read-only. Reconnect in Atrium and allow Write." A read-only connection also limits the damage a prompt injection hidden in board text could do. To change the scope, disconnect and connect again.
+
+### How long a connection lasts
+
+| Token         | Lifetime                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| Access token  | 1 hour. Claude refreshes it automatically; you never see it.                                  |
+| Refresh token | 30 days, rotating: every refresh issues a new one. Reusing an old one revokes the connection. |
+| Connection    | At most 90 days in total: reconnect (Authenticate again) at the latest every 90 days.         |
+
+Tokens are random and opaque; Atrium stores only their hashes. A revoked or blocked connection stops working within about a minute (a short verification cache).
+
+### Connected apps (Disconnect)
+
+Settings, Account tab, **Connected apps** lists every active connection ("Claude, Read and Write, connected 3 Nov, last used today"). **Disconnect** (with a confirmation) revokes it at once. Removing the connector in claude.ai or Claude Code only forgets it on their side; use Atrium's Disconnect to revoke it for real.
+
+### Limits and audit
+
+- Per person: 60 tool calls a minute per server instance, and per day 2,000 calls of which at most 500 are writes. Over a limit, the tool answers with a plain message and nothing is written. The constants are in `functions/src/mcp/limits.ts`.
+- The OAuth endpoints (`/authorize`, `/token`, `/register`, `/revoke`) are rate-limited, and the function runs on at most 3 instances.
+- Every tool call, grant event (created, revoked, refreshed) and refused sign-in is written to `system/mcpAudit/entries` (who, which app, which tool and board, success, duration; never tokens or content). Entries are removed after 90 days by a TTL policy. Board history shows the person as the editor, as for any edit.
+
+### Kill switch and emergency stop
+
+- **Kill switch:** `MCP_CONNECTOR_ENABLED` in `functions/.env.atrium-board`. Anything but `true` makes every route answer `503`. Change it in a PR (about 10 minutes to deploy).
+- **Emergency stop (owner):** remove the `allUsers` `roles/run.invoker` binding from the `mcp` Cloud Run service, which stops it at once. Steps and the full rollback ladder: `docs/DEPLOY.md`.
+
+### What the hosted connector protects against
+
+It acts with the signed-in person's permissions only, checked per call. Tokens are bound to the Atrium URL as their audience, there is no CORS, tokens, codes and `Authorization` headers are never logged, item text is treated as data and not as instructions, control characters are stripped from what is returned, and the write tools never fetch URLs. Details: the spec, section 5.
+
+## Hosted and local stdio compared
+
+|              | Local stdio (OPS3)                      | Hosted (OPS4)                                     |
+| ------------ | --------------------------------------- | ------------------------------------------------- |
+| Who          | `ATRIUM_USER_UID` from the environment  | The signed-in Atrium user (token to uid)          |
+| Where        | REST + `gcloud auth print-access-token` | Admin SDK, the function's runtime service account |
+| Scope        | Optional `ATRIUM_WORKSPACE_ID` filter   | All memberships, per-call role checks             |
+| Registration | Per machine, per project                | Once per Claude surface (claude.ai, Claude Code)  |
+| Consent      | None (your machine, your `gcloud`)      | Consent page with Read and Write scopes           |
+| Limits       | None                                    | Rate and daily limits, audit log, kill switch     |
+| New tools    | Pull `main`, restart Claude Code        | Automatic with every deploy                       |
+
+## Local stdio server
+
+A local MCP server (stdio). Nothing is deployed: it runs on the owner's machine, only when Claude Code starts it, using `gcloud` credentials like the showcase seeder (`docs/showcase.md`).
+
+### Setup (once per machine)
 
 1. Be signed in to `gcloud` (`gcloud auth login`) with the account that owns the project.
 2. Find your Atrium user uid (Firebase console; keep it in `.private/project-ids.md`, never in the repo). The connector then sees every workspace you are a member of; to limit it to one, also note that workspace's id.
@@ -22,7 +100,7 @@ claude mcp add atrium --scope local ^
 
 To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 25 tools.
 
-## Environment variables
+### Environment variables
 
 | Variable              | Meaning                                                                                                                                                                                                                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -76,6 +154,8 @@ Updates: the text is markdown (same conversion as descriptions) stored as the `c
 Example flow: `atrium_list_workspaces` (when you are in more than one), `atrium_list_boards`, then `atrium_get_board` (columns, groups), `atrium_list_members` (uids for People cells), `atrium_create_items` / `atrium_create_subitems`, `atrium_add_update` with `Thanks @[Jordan Lee], done`.
 
 ## Safety
+
+The rules below apply to both modes.
 
 - Every tool loads the board first and checks: the user is a member of the board's workspace (and, with `ATRIUM_WORKSPACE_ID`, that it is that workspace), `state` is `active`, and the user has a role on it (board `access`, or, on `main` boards, the role implied by the workspace role). Structure changes need `owner`; item changes `editor` or `owner`; viewers read. A board outside the user's memberships looks the same as a missing one. Memberships are re-read after a minute at most.
 - Structure changes (groups, columns) read the board, change it and write it with an `updateTime` precondition, retrying once on a conflict.
