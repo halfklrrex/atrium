@@ -15,6 +15,7 @@ vi.mock('../../auth/auth-context', () => ({
     },
   }),
 }));
+vi.mock('./ConnectedAppsCard', () => ({ ConnectedAppsCard: () => <p>connected apps</p> }));
 vi.mock('../../auth/useIsSiteAdmin', () => ({ useIsSiteAdmin: () => mocks.admin }));
 
 describe('AccountTab', () => {

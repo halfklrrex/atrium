@@ -3,6 +3,7 @@ import { FullPageLoader, FullPageMessage } from '../components/FullPage';
 import { BOOTSTRAP_ERROR_MESSAGE } from './auth-errors';
 import { AccountGate } from './AccountGate';
 import { useAuth } from './auth-context';
+import { rememberReturnTo } from './return-to';
 
 /** Layout route guard: only renders children for a signed-in, bootstrapped user. */
 export function RequireAuth() {
@@ -16,6 +17,7 @@ export function RequireAuth() {
         <FullPageLoader label={status === 'loading' ? 'Loading…' : 'Setting up your workspace…'} />
       );
     case 'signedOut':
+      rememberReturnTo(location.pathname, location.search, location.hash);
       return <Navigate to="/login" replace state={{ from: location }} />;
     case 'error':
       return (

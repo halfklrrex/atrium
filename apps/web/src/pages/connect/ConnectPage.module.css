@@ -1,0 +1,104 @@
+.page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: var(--space-24) var(--space-16);
+  background: var(--primary-background-color);
+  color: var(--primary-text-color);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--atrium-message-max-width);
+  padding: var(--space-24);
+  border: var(--border-width) var(--border-style) var(--layout-border-color);
+  border-radius: var(--border-radius-big);
+  background: var(--atrium-surface-bg);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font: var(--font-h3-normal);
+}
+
+.lead {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text1-normal);
+  overflow-wrap: anywhere;
+}
+
+.clientName {
+  color: var(--primary-text-color);
+  font: var(--font-text1-bold);
+}
+
+.destination {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+  overflow-wrap: anywhere;
+}
+
+.host {
+  color: var(--primary-text-color);
+  font: var(--font-text2-bold);
+}
+
+.warning {
+  margin: 0;
+  padding: var(--space-12);
+  border-radius: var(--border-radius-medium);
+  background: var(--warning-color-selected);
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.scopes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.scopesLabel {
+  padding: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-bold);
+}
+
+.scopeHint {
+  margin: 0;
+  padding-inline-start: var(--space-24);
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.error {
+  margin: 0;
+  color: var(--negative-color);
+  font: var(--font-text2-normal);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}

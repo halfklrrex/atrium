@@ -2,6 +2,7 @@ import { Button, Heading, Text } from '@vibe/core';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router';
 import { useAuth } from '../auth/auth-context';
+import { clearReturnTo, peekReturnTo } from '../auth/return-to';
 import {
   BOOTSTRAP_ERROR_MESSAGE,
   getErrorCode,
@@ -29,6 +30,9 @@ export function LoginPage() {
   useEffect(() => {
     clearBlockedNotice();
   }, []);
+  useEffect(() => {
+    if (status === 'ready') clearReturnTo();
+  }, [status]);
 
   if (status === 'loading') return <FullPageLoader label="Loading…" />;
 
@@ -36,10 +40,11 @@ export function LoginPage() {
     const from = (
       location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null
     )?.from;
+    const remembered = peekReturnTo();
     const target =
       from?.pathname && from.pathname !== '/login'
         ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
-        : '/';
+        : (remembered ?? '/');
     return <Navigate to={target} replace />;
   }
 

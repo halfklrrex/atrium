@@ -73,6 +73,7 @@ import {
   seedActivity,
   seedAutomations,
   seedInbox,
+  seedMcpGrant,
   seedNotifications,
   seedRichUpdate,
 } from './seed';
@@ -933,6 +934,14 @@ for (const theme of ['light', 'dark'] as const) {
       await appReady(page);
       await expect(page.getByRole('radio', { name: 'Black' })).toBeAttached();
       await shoot(page, `settings-appearance-${theme}`);
+    });
+
+    test('settings: account, with a connected app', async ({ page }) => {
+      await seedMcpGrant();
+      await page.goto('/settings/account');
+      await appReady(page);
+      await expect(page.getByRole('button', { name: 'Disconnect Claude' })).toBeVisible();
+      await shoot(page, `settings-account-${theme}`);
     });
 
     test('settings: notifications, push not supported', async ({ page }) => {

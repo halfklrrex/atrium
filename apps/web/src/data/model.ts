@@ -7,6 +7,7 @@ import type {
   Folder,
   Item,
   ItemUpdate,
+  McpGrant,
   Notification,
   Recent,
   UpdateReply,
@@ -35,6 +36,7 @@ export type UserDoc = WithId<User>;
 export type FavoriteDoc = WithId<Favorite>;
 export type RecentDoc = WithId<Recent>;
 export type NotificationDoc = WithId<Notification>;
+export type McpGrantDoc = WithId<McpGrant>;
 /** `workspaces/{id}/members/{uid}`: the uid is the document id. */
 export type MemberDoc = WithId<WorkspaceMember>;
 export type InviteDoc = WithId<WorkspaceInvite>;

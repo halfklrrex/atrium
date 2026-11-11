@@ -24,12 +24,16 @@ function authValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue 
   };
 }
 
-function renderLogin(value: AuthContextValue) {
+function renderLogin(
+  value: AuthContextValue,
+  entry: Parameters<typeof MemoryRouter>[0]['initialEntries'] = ['/login'],
+) {
   return render(
     <AuthContext.Provider value={value}>
-      <MemoryRouter initialEntries={['/login']}>
+      <MemoryRouter initialEntries={entry}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/connect" element={<div>connect page</div>} />
           <Route path="/" element={<div>home page</div>} />
         </Routes>
       </MemoryRouter>
@@ -43,6 +47,20 @@ describe('LoginPage', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     sessionStorage.clear();
+  });
+
+  it('returns to the page the visitor came from, keeping its query', () => {
+    renderLogin(authValue({ status: 'ready' }), [
+      { pathname: '/login', state: { from: { pathname: '/connect', search: '?request=r1' } } },
+    ]);
+    expect(screen.getByText('connect page')).toBeInTheDocument();
+  });
+
+  it('uses the remembered destination when sign-in reloaded the page', () => {
+    sessionStorage.setItem('atrium:return-to', '/connect?request=r1');
+    renderLogin(authValue({ status: 'ready' }));
+    expect(screen.getByText('connect page')).toBeInTheDocument();
+    expect(sessionStorage.getItem('atrium:return-to')).toBeNull();
   });
 
   it('links to the privacy notice', () => {

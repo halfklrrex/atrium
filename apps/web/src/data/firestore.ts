@@ -26,6 +26,7 @@ import {
   type FolderInput,
   type Item,
   type ItemUpdate,
+  type McpGrant,
   type Notification,
   type Recent,
   type SaveTemplateInput,
@@ -73,6 +74,7 @@ import type {
   ItemDoc,
   InviteDoc,
   ItemUpdateDoc,
+  McpGrantDoc,
   MemberDoc,
   NotificationDoc,
   RecentDoc,
@@ -109,6 +111,7 @@ const updateReplyConverter = converter<UpdateReply>();
 const favoriteConverter = converter<Favorite>();
 const recentConverter = converter<Recent>();
 const notificationConverter = converter<Notification>();
+const mcpGrantConverter = converter<McpGrant>();
 const memberConverter = converter<WorkspaceMember>();
 const inviteConverter = converter<WorkspaceInvite>();
 const templateConverter = converter<BoardTemplate>();
@@ -128,6 +131,7 @@ const COLLECTIONS = {
   favorites: 'favorites',
   recents: 'recents',
   notifications: 'notifications',
+  mcpGrants: 'mcpGrants',
 } as const;
 
 /**
@@ -153,6 +157,10 @@ export const refs = {
     collection(db, COLLECTIONS.users, uid, COLLECTIONS.notifications).withConverter(
       notificationConverter,
     ),
+
+  /** Connected apps (OPS4). Written only by Cloud Functions; the owner reads their own. */
+  mcpGrants: (uid: string): CollectionReference<McpGrantDoc> =>
+    collection(db, COLLECTIONS.users, uid, COLLECTIONS.mcpGrants).withConverter(mcpGrantConverter),
 
   workspaces: (): CollectionReference<WorkspaceDoc> =>
     collection(db, COLLECTIONS.workspaces).withConverter(workspaceConverter),
@@ -270,6 +278,10 @@ export const plainRefs = {
 };
 
 export const queries = {
+  /** The person's connected apps that are still live (OPS4). */
+  liveMcpGrants: (uid: string): Query<McpGrantDoc> =>
+    query(refs.mcpGrants(uid), where('revokedAt', '==', null)),
+
   /** "My workspaces" - the query the rules are written for. */
   workspacesForMember: (uid: string): Query<WorkspaceDoc> =>
     query(refs.workspaces(), where('memberIds', 'array-contains', uid)),

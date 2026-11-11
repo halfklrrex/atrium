@@ -1,6 +1,7 @@
 export * from './boards';
 export * from './hooks';
 export * from './members-store';
+export * from './mcp-grants';
 export * from './model';
 export * from './notifications';
 export { plainRefs, queries, refs, writes } from './firestore';

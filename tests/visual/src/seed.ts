@@ -94,7 +94,7 @@ export async function resetUserState(
 ): Promise<void> {
   const user = firestore.collection('users').doc(AVERY.uid);
   await firestore.collection('workspaces').doc(IDS.emptyWorkspace).delete();
-  for (const name of ['favorites', 'recents', 'notifications']) {
+  for (const name of ['favorites', 'recents', 'notifications', 'mcpGrants']) {
     const stale = await user.collection(name).listDocuments();
     await Promise.all(stale.map((ref) => ref.delete()));
   }
@@ -1207,6 +1207,25 @@ export async function seedNotifications(): Promise<void> {
     readAt: null,
   });
   await batch.commit();
+}
+
+/** One live connected app for Avery, as the Functions would have written it (removed by `resetUserState`). */
+export async function seedMcpGrant(): Promise<void> {
+  await adminDb()
+    .collection('users')
+    .doc(AVERY.uid)
+    .collection('mcpGrants')
+    .doc('grant-visual')
+    .set({
+      clientId: 'client-visual',
+      clientName: 'Claude',
+      redirectHost: 'claude.ai',
+      scopes: ['atrium:read', 'atrium:write'],
+      createdAt: Timestamp.fromMillis(NOW - 3 * DAY),
+      lastUsedAt: ago(5 * 60_000),
+      lastRefreshAt: null,
+      revokedAt: null,
+    });
 }
 
 /** The item whose history the item card's Activity Log tab screen shows. */
