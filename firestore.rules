@@ -189,6 +189,17 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
+    // users/{uid}/mcpGrants/{grantId} (OPS4): one connected MCP app, written only by Cloud Functions.
+    // The approved owner reads them for the Connected apps card; nobody writes. The other connector
+    // collections (mcpClients, mcpAuthRequests, mcpTokens, mcpUsage, system/mcpAudit) have no rule at
+    // all: Functions only.
+    // ---------------------------------------------------------------------
+    match /users/{userId}/mcpGrants/{grantId} {
+      allow read: if signedIn() && uid() == userId;
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------------
     // users/{uid}/favorites/{boardId} and users/{uid}/recents/{boardId}: self only. The document id
     // is the board id. Whether the board exists is not checked: the data is private to the user.
     // ---------------------------------------------------------------------
