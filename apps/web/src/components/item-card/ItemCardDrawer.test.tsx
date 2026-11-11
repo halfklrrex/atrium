@@ -468,6 +468,7 @@ describe('ItemCardDrawer', () => {
     });
 
     it('counts subitems without a status column and ignores other parents', () => {
+      mockColumns = KEY_COLUMNS.filter((c) => c.type !== 'status'); // subitems share the board's columns
       mockItems = [sub('s1'), sub('s2'), { ...sub('x'), parentItemId: 'other' }];
       useItemCardStore.getState().openItemCard('b1', 'i1');
       render(<ItemCardDrawer />);
