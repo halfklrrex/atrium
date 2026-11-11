@@ -12,15 +12,15 @@ User sign-in is **not** re-implemented: `/authorize` parks the request in Firest
 
 ## 2. Decisions (log on the Decisions board)
 
-| # | Decision | Why |
-|---|---|---|
-| D1 | Cloud Functions 2nd gen (`mcp`, `onRequest`) behind Hosting rewrites; URL `https://atrium-workboards.web.app/mcp`. | Same build, deploy and IAM as the other functions. The raw cloudfunctions.net URL cannot work: Claude fetches authorization-server metadata at the issuer's root `/.well-known/...`. Hosting's 60 s cap is harmless with a stateless JSON transport. |
-| D2 | Atrium is its own OAuth 2.1 authorization server (SDK router + Firestore `OAuthServerProvider`); user authentication is delegated to the existing web session. | Firebase Auth is an identity provider, not an AS for third-party clients; Google OAuth directly ignores `resource`, needs an owner-made client, and refuses Claude Code's loopback client. |
-| D3 | Dynamic Client Registration with a redirect-URI allow-list (the four callbacks above), public clients only (`token_endpoint_auth_method: none`), no stored secrets. | Nothing to type into Claude. CIMD can be added later behind the same provider. |
-| D4 | Opaque tokens stored as SHA-256 hashes; access 1 h, refresh 30 d rotating with reuse detection, grant absolute 90 d. | One read per request, instant revocation, no key material. |
-| D5 | Scopes `atrium:read` and `atrium:write`, chosen on the consent screen; write tools return a tool error without `atrium:write`. | Read-only connections limit prompt-injection blast radius. |
-| D6 | Per-user, all-memberships scoping replaces `ATRIUM_WORKSPACE_ID`/`ATRIUM_USER_UID`; `ATRIUM_WORKSPACE_ID` becomes an optional filter in stdio mode. | The uid comes from the token; boards from `workspaces.memberIds` / `board.access`, as the rules compute them. |
-| D7 | `@atrium/mcp-core` workspace package (`packages/mcp-core`, `.mjs` + hand-written `index.d.mts`), inlined into the Functions bundle via tsup `noExternal`. | No duplication, no rewrite of the tested library, no runtime `workspace:` dependency in `functions/package.json`. |
+| #   | Decision                                                                                                                                                            | Why                                                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Cloud Functions 2nd gen (`mcp`, `onRequest`) behind Hosting rewrites; URL `https://atrium-workboards.web.app/mcp`.                                                  | Same build, deploy and IAM as the other functions. The raw cloudfunctions.net URL cannot work: Claude fetches authorization-server metadata at the issuer's root `/.well-known/...`. Hosting's 60 s cap is harmless with a stateless JSON transport. |
+| D2  | Atrium is its own OAuth 2.1 authorization server (SDK router + Firestore `OAuthServerProvider`); user authentication is delegated to the existing web session.      | Firebase Auth is an identity provider, not an AS for third-party clients; Google OAuth directly ignores `resource`, needs an owner-made client, and refuses Claude Code's loopback client.                                                           |
+| D3  | Dynamic Client Registration with a redirect-URI allow-list (the four callbacks above), public clients only (`token_endpoint_auth_method: none`), no stored secrets. | Nothing to type into Claude. CIMD can be added later behind the same provider.                                                                                                                                                                       |
+| D4  | Opaque tokens stored as SHA-256 hashes; access 1 h, refresh 30 d rotating with reuse detection, grant absolute 90 d.                                                | One read per request, instant revocation, no key material.                                                                                                                                                                                           |
+| D5  | Scopes `atrium:read` and `atrium:write`, chosen on the consent screen; write tools return a tool error without `atrium:write`.                                      | Read-only connections limit prompt-injection blast radius.                                                                                                                                                                                           |
+| D6  | Per-user, all-memberships scoping replaces `ATRIUM_WORKSPACE_ID`/`ATRIUM_USER_UID`; `ATRIUM_WORKSPACE_ID` becomes an optional filter in stdio mode.                 | The uid comes from the token; boards from `workspaces.memberIds` / `board.access`, as the rules compute them.                                                                                                                                        |
+| D7  | `@atrium/mcp-core` workspace package (`packages/mcp-core`, `.mjs` + hand-written `index.d.mts`), inlined into the Functions bundle via tsup `noExternal`.           | No duplication, no rewrite of the tested library, no runtime `workspace:` dependency in `functions/package.json`.                                                                                                                                    |
 
 ## 3. Hosting and transport
 
@@ -28,16 +28,16 @@ User sign-in is **not** re-implemented: `/authorize` parks the request in Firest
 
 Routes (`functions/src/mcp/app.ts`), in order:
 
-| Route | Handler |
-|---|---|
-| all (first middleware) | kill switch: `MCP_CONNECTOR_ENABLED !== 'true'` -> `503 {"error":"connector_disabled"}`, `Cache-Control: no-store` |
-| `GET /.well-known/oauth-authorization-server` | SDK metadata: issuer, `code_challenge_methods_supported: ["S256"]`, `scopes_supported`, `token_endpoint_auth_methods_supported: ["none"]`, `grant_types_supported: ["authorization_code","refresh_token"]`, registration and revocation endpoints |
-| `GET /.well-known/oauth-protected-resource/mcp` | SDK metadata: `resource`, `authorization_servers`, `scopes_supported`, `resource_name: "Atrium"`, `bearer_methods_supported: ["header"]` |
-| `GET /authorize` | SDK handler -> `provider.authorize` stores the request, 302 to `/connect?request=<id>` |
-| `POST /token` | SDK handler (`authorization_code` with PKCE, `refresh_token` with rotation); test form-urlencoded parsing under Functions' body parser |
-| `POST /register`, `POST /revoke` | SDK handlers (rate-limited) |
-| `POST /mcp` | `requireBearerAuth({ verifier, resourceMetadataUrl, expectedResource })` -> account gate -> usage limit -> per-request `McpServer` + `StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })`. Unauthenticated: `401` with `WWW-Authenticate: Bearer resource_metadata="https://atrium-workboards.web.app/.well-known/oauth-protected-resource/mcp", scope="atrium:read atrium:write"` |
-| `GET /mcp`, `DELETE /mcp` | `405`, `Allow: POST` |
+| Route                                           | Handler                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| all (first middleware)                          | kill switch: `MCP_CONNECTOR_ENABLED !== 'true'` -> `503 {"error":"connector_disabled"}`, `Cache-Control: no-store`                                                                                                                                                                                                                                                                                                         |
+| `GET /.well-known/oauth-authorization-server`   | SDK metadata: issuer, `code_challenge_methods_supported: ["S256"]`, `scopes_supported`, `token_endpoint_auth_methods_supported: ["none"]`, `grant_types_supported: ["authorization_code","refresh_token"]`, registration and revocation endpoints                                                                                                                                                                          |
+| `GET /.well-known/oauth-protected-resource/mcp` | SDK metadata: `resource`, `authorization_servers`, `scopes_supported`, `resource_name: "Atrium"`, `bearer_methods_supported: ["header"]`                                                                                                                                                                                                                                                                                   |
+| `GET /authorize`                                | SDK handler -> `provider.authorize` stores the request, 302 to `/connect?request=<id>`                                                                                                                                                                                                                                                                                                                                     |
+| `POST /token`                                   | SDK handler (`authorization_code` with PKCE, `refresh_token` with rotation); test form-urlencoded parsing under Functions' body parser                                                                                                                                                                                                                                                                                     |
+| `POST /register`, `POST /revoke`                | SDK handlers (rate-limited)                                                                                                                                                                                                                                                                                                                                                                                                |
+| `POST /mcp`                                     | `requireBearerAuth({ verifier, resourceMetadataUrl, expectedResource })` -> account gate -> usage limit -> per-request `McpServer` + `StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })`. Unauthenticated: `401` with `WWW-Authenticate: Bearer resource_metadata="https://atrium-workboards.web.app/.well-known/oauth-protected-resource/mcp", scope="atrium:read atrium:write"` |
+| `GET /mcp`, `DELETE /mcp`                       | `405`, `Allow: POST`                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 `firebase.json` (hot-spot, one small PR): add seven rewrites (`/mcp`, `/authorize`, `/token`, `/register`, `/revoke`, the two `/.well-known/...` paths) to function `mcp`, region `europe-west1`, **before** the `** -> /index.html` catch-all of the `app` target, plus a `Cache-Control: no-store` header on `/mcp`. No `pinTag`. `scripts/mcp-hosting.test.mjs` asserts the rewrites exist, target `mcp`/`europe-west1` and precede the catch-all. None of the paths collide with SPA routes (the new SPA route is `/connect`).
 
@@ -63,6 +63,7 @@ users/{uid}/mcpGrants/{id}   clientId, clientName, redirectHost, scopes[], creat
 mcpUsage/{uid}               day 'YYYY-MM-DD', calls, writes, updatedAt
 system/mcpAudit/entries/{id} kind grant_created|grant_revoked|token_refreshed|tool_call|auth_denied, at, uid, clientId, grantId?, tool?, boardId?, ok?, error?, ms?, expiresAt (TTL 90 d)
 ```
+
 Tokens: 32 random bytes base64url with prefix `atr_`; only the hash is stored. Codes: `<requestId>.<32 random bytes base64url>`, hash stored. Rules: `mcpGrants` `allow read: if signedIn() && uid() == userId; allow write: if false;` plus `tests/rules` tests (owner reads own, other denied, writes denied) and denial tests for the Functions-only collections.
 
 ### 4.3 Callables (`functions/src/callable/`, approved accounts only via `actorFromRequest`)
@@ -105,13 +106,13 @@ Access 1 h; refresh 30 d rotating; grant absolute 90 d; auth request 10 min; cod
 
 ## 8. Local vs hosted
 
-| | Local stdio (OPS3) | Hosted (OPS4) |
-|---|---|---|
-| Who | `ATRIUM_USER_UID` from env | the signed-in Atrium user (token -> uid) |
-| Where | REST + `gcloud auth print-access-token` | Admin SDK, runtime service account |
-| Scope | optional `ATRIUM_WORKSPACE_ID` filter | all memberships, per-call role checks |
-| Registration | per machine, per project | once per Claude surface |
-| Limits | none | rate and daily limits, audit log, kill switch |
+|              | Local stdio (OPS3)                      | Hosted (OPS4)                                 |
+| ------------ | --------------------------------------- | --------------------------------------------- |
+| Who          | `ATRIUM_USER_UID` from env              | the signed-in Atrium user (token -> uid)      |
+| Where        | REST + `gcloud auth print-access-token` | Admin SDK, runtime service account            |
+| Scope        | optional `ATRIUM_WORKSPACE_ID` filter   | all memberships, per-call role checks         |
+| Registration | per machine, per project                | once per Claude surface                       |
+| Limits       | none                                    | rate and daily limits, audit log, kill switch |
 
 ## 9. Tests
 
@@ -126,6 +127,7 @@ mcp-core: existing fake-client tests re-pointed at `actor`, plus viewer-in-A/own
 **Workflow on merge:** deploys the `mcp` function (public invoker), Hosting rewrites, rules and callables. No new IAM roles, secrets or schedulers.
 
 **Owner/lead one-offs (single-line `gcloud`, project `atrium-board`, database `atrium-1`):**
+
 1. Firestore TTL policies (checked 2026-11-11: only `activity`, `automationRuns` and `presence` have one, so `entries` is free): `gcloud firestore fields ttls update expiresAt --collection-group=mcpTokens --database=atrium-1 --project=atrium-board`, and the same for `mcpAuthRequests`, `mcpClients` and `entries`.
 2. After the first deploy: `gcloud run services get-iam-policy mcp --region=europe-west1 --project=atrium-board` must list `allUsers` with `roles/run.invoker` (if a failed first deploy left it off, delete and redeploy; AGENTS.md gotcha).
 3. Smoke: `curl -i https://atrium-workboards.web.app/.well-known/oauth-protected-resource/mcp` -> 503 while disabled, 200 after enabling; `curl -i -X POST https://atrium-workboards.web.app/mcp` -> 401 with the `WWW-Authenticate` header.
@@ -141,17 +143,17 @@ mcp-core: existing fake-client tests re-pointed at `actor`, plus viewer-in-A/own
 
 ## 13. PR breakdown
 
-| PR | Branch | Content | Agent |
-|---|---|---|---|
-| A | `claude/mcp-shared-description` | Move description helpers into `@atrium/shared` | Sonnet |
-| B | `claude/mcp-core-package` | `packages/mcp-core`, actor model, `atrium_list_workspaces`, `arrayContains`, stdio config change, docs table | Fable |
-| C | `claude/mcp-admin-client` | Admin SDK adapter + emulator e2e + functions aliases | Fable |
-| D | `claude/mcp-oauth-provider` | provider, stores, tokens, callables, block hook, shared schemas, rules + tests | Fable |
-| E | `claude/mcp-function` | function, rewrites, env key, deps + notices, hosting test, e2e; deploys disabled | Sonnet (Fable reviews 401/metadata) |
-| F | `claude/mcp-connect-page` | `/connect` page, Connected apps card, baselines | Sonnet |
-| G | `claude/mcp-docs` | `docs/mcp-connector.md` (hosted first), `docs/DEPLOY.md`, `docs/architecture.md`, handoff, Decisions D1-D7 | Sonnet |
-| Enable | `claude/mcp-enable` | `MCP_CONNECTOR_ENABLED=true` | Sonnet |
-| H (optional) | `claude/mcp-via-label` | `updatedVia: 'mcp'`, "via Claude" in the activity log | Sonnet |
+| PR           | Branch                          | Content                                                                                                      | Agent                               |
+| ------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| A            | `claude/mcp-shared-description` | Move description helpers into `@atrium/shared`                                                               | Sonnet                              |
+| B            | `claude/mcp-core-package`       | `packages/mcp-core`, actor model, `atrium_list_workspaces`, `arrayContains`, stdio config change, docs table | Fable                               |
+| C            | `claude/mcp-admin-client`       | Admin SDK adapter + emulator e2e + functions aliases                                                         | Fable                               |
+| D            | `claude/mcp-oauth-provider`     | provider, stores, tokens, callables, block hook, shared schemas, rules + tests                               | Fable                               |
+| E            | `claude/mcp-function`           | function, rewrites, env key, deps + notices, hosting test, e2e; deploys disabled                             | Sonnet (Fable reviews 401/metadata) |
+| F            | `claude/mcp-connect-page`       | `/connect` page, Connected apps card, baselines                                                              | Sonnet                              |
+| G            | `claude/mcp-docs`               | `docs/mcp-connector.md` (hosted first), `docs/DEPLOY.md`, `docs/architecture.md`, handoff, Decisions D1-D7   | Sonnet                              |
+| Enable       | `claude/mcp-enable`             | `MCP_CONNECTOR_ENABLED=true`                                                                                 | Sonnet                              |
+| H (optional) | `claude/mcp-via-label`          | `updatedVia: 'mcp'`, "via Claude" in the activity log                                                        | Sonnet                              |
 
 Each PR: `pnpm lint`, `typecheck`, `test`, `test:rules`, `build`, `licenses:check` green; rebase merge.
 
