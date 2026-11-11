@@ -1,42 +1,52 @@
-// Tests for the Atrium MCP connector: the builders, the value conversion and the guard rails, against
-// an in-memory Firestore. Nothing here touches the emulator or production.
+// Tests for the Atrium MCP connector's core: the builders, the value conversion and the guard rails
+// of the actor model, against an in-memory Firestore. Nothing here touches the emulator or production.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FIRESTORE_DATABASE_ID, boardSchema, itemSchema } from '@atrium/shared';
-import { createFirestoreRest, maskPath } from '../showcase/firestore-rest.mjs';
+import { boardSchema, itemSchema } from '@atrium/shared';
 import { createFakeClient } from './fake-client.mjs';
-import { buildColumnSettings, ts } from './lib/builders.mjs';
-import { readConfig } from './lib/config.mjs';
-import { createService } from './lib/service.mjs';
-import { defineTools } from './lib/tools.mjs';
+import { buildColumnSettings, ts } from './builders.mjs';
+import { PICK_WORKSPACE_MESSAGE, createService } from './service.mjs';
+import { defineTools } from './tools.mjs';
 
 const WS = 'ws1';
 const ME = 'user-me';
 const OTHER = 'user-other';
 const NOW = new Date('2026-11-01T10:00:00Z');
-const config = {
-  workspaceId: WS,
-  uid: ME,
-  project: 'atrium-board',
-  database: FIRESTORE_DATABASE_ID,
-  emulator: null,
-};
+const actor = { uid: ME, workspaceFilter: null };
 
-const workspaceDoc = (roles = { [ME]: 'owner', [OTHER]: 'member' }) => ({
+const workspaceDoc = (roles = { [ME]: 'owner', [OTHER]: 'member' }, name = 'Home') => ({
+  name,
   ownerId: ME,
   roles,
   memberIds: Object.keys(roles),
 });
 
-function setup({ roles, extra = {} } = {}) {
+function setup({ roles, extra = {}, actor: who = actor } = {}) {
   const client = createFakeClient({
     [`workspaces/${WS}`]: workspaceDoc(roles),
     [`users/${ME}`]: { displayName: 'Avery Quinn', photoURL: null },
     ...extra,
   });
-  const service = createService({ client, config, now: () => NOW });
+  const service = createService({ client, actor: who, now: () => NOW });
   return { client, service };
 }
+
+/** A minimal active board document of workspace `ws` with the given `access` map. */
+const boardDoc = (ws, access, more = {}) => ({
+  workspaceId: ws,
+  state: 'active',
+  kind: 'private',
+  access,
+  accessUids: Object.keys(access),
+  position: 'a0',
+  folderId: null,
+  name: 'B',
+  description: '',
+  columns: [{ id: 't1', type: 'text', title: 'Note', position: 'a0', settings: {} }],
+  subitemColumns: [],
+  groups: [{ id: 'g1', title: 'G', color: '#579bfc', position: 'a0' }],
+  ...more,
+});
 
 async function boardWithStructure(service) {
   const { id } = await service.createBoard({ name: 'Launch plan' });
@@ -49,27 +59,17 @@ async function boardWithStructure(service) {
   return id;
 }
 
-// ---- configuration ----------------------------------------------------------------------------
+// ---- actor ------------------------------------------------------------------------------------
 
-test('config: refuses to start without a workspace or user, and only local emulators', () => {
-  assert.throws(() => readConfig({}), /ATRIUM_WORKSPACE_ID is not set/);
-  assert.throws(() => readConfig({ ATRIUM_WORKSPACE_ID: 'w' }), /ATRIUM_USER_UID is not set/);
+test('createService needs a plain uid and, when given, a plain workspace filter', () => {
+  const client = createFakeClient();
+  assert.throws(() => createService({ client, actor: { uid: '../x' } }), /plain id/);
+  assert.throws(() => createService({ client, actor: {} }), /plain id/);
   assert.throws(
-    () =>
-      readConfig({
-        ATRIUM_WORKSPACE_ID: 'w',
-        ATRIUM_USER_UID: 'u',
-        ATRIUM_EMULATOR: 'example.com:8080',
-      }),
-    /not a local address/,
-  );
-  assert.throws(
-    () => readConfig({ ATRIUM_WORKSPACE_ID: '../x', ATRIUM_USER_UID: 'u' }),
+    () => createService({ client, actor: { uid: ME, workspaceFilter: 'a/b' } }),
     /plain id/,
   );
-  const ok = readConfig({ ATRIUM_WORKSPACE_ID: 'w', ATRIUM_USER_UID: 'u' });
-  assert.equal(ok.project, 'atrium-board');
-  assert.equal(ok.database, FIRESTORE_DATABASE_ID);
+  assert.ok(createService({ client, actor: { uid: ME } }));
 });
 
 // ---- boards -----------------------------------------------------------------------------------
@@ -110,13 +110,14 @@ test('createBoard positions a new board after the last root board', async () => 
   const pb = client.docs.get(`boards/${b.id}`).data.position;
   assert.ok(pb > pa);
   const list = await service.listBoards();
+  assert.equal(list.workspaceId, WS);
   assert.deepEqual(
-    list.map((x) => x.name),
+    list.boards.map((x) => x.name),
     ['A', 'B'],
   );
 });
 
-test('listBoards only shows active boards of the configured workspace', async () => {
+test('listBoards only shows active boards the actor can see in the workspace', async () => {
   const { service } = setup({
     extra: {
       'boards/foreign': {
@@ -150,35 +151,144 @@ test('listBoards only shows active boards of the configured workspace', async ()
   });
   await service.createBoard({ name: 'Mine' });
   assert.deepEqual(
-    (await service.listBoards()).map((b) => b.name),
+    (await service.listBoards()).boards.map((b) => b.name),
     ['Mine'],
   );
 });
 
 // ---- guards -----------------------------------------------------------------------------------
 
-test('guards: a board of another workspace, or a missing one, looks the same', async () => {
+test('guards: a board of a workspace the actor is not in, or a missing one, looks the same', async () => {
   const { service } = setup({
     extra: {
-      'boards/foreign': {
-        workspaceId: 'other-ws',
-        state: 'active',
-        kind: 'main',
-        access: { [ME]: 'owner' },
-        columns: [],
-        groups: [],
-      },
+      // Listed in the board's access map, yet not a workspace member: the rules say no, so do we.
+      'workspaces/other-ws': workspaceDoc({ [OTHER]: 'owner' }, 'Theirs'),
+      'boards/foreign': boardDoc('other-ws', { [ME]: 'owner' }, { kind: 'main' }),
+      'boards/orphan': boardDoc('gone-ws', { [ME]: 'owner' }, { kind: 'main' }),
     },
   });
-  await assert.rejects(
-    service.getBoard({ boardId: 'foreign' }),
-    /not found in the configured workspace/,
-  );
-  await assert.rejects(
-    service.getBoard({ boardId: 'nope' }),
-    /not found in the configured workspace/,
-  );
+  const notFound = /was not found in your workspaces/;
+  await assert.rejects(service.getBoard({ boardId: 'foreign' }), notFound);
+  await assert.rejects(service.getBoard({ boardId: 'orphan' }), notFound);
+  await assert.rejects(service.getBoard({ boardId: 'nope' }), notFound);
   await assert.rejects(service.getBoard({ boardId: '../x' }), /plain id/);
+  // A board the actor is not in at all is "not found" too, whatever its state.
+  const { service: s2 } = setup({
+    extra: { 'boards/secret': boardDoc(WS, { [OTHER]: 'owner' }, { state: 'archived' }) },
+  });
+  await assert.rejects(s2.getBoard({ boardId: 'secret' }), notFound);
+});
+
+test('guards: the actor is a viewer in workspace A and an owner in workspace B', async () => {
+  const { service, client } = setup({
+    roles: { [ME]: 'viewer', [OTHER]: 'owner' },
+    extra: {
+      'workspaces/ws2': workspaceDoc({ [ME]: 'owner' }, 'Mine'),
+      'boards/a-main': boardDoc(WS, {}, { kind: 'main', name: 'A main' }),
+      'boards/b-main': boardDoc('ws2', {}, { kind: 'main', name: 'B main' }),
+    },
+  });
+  // A: read only, through the workspace role on the main board.
+  const a = await service.getBoard({ boardId: 'a-main', includeItems: false });
+  assert.equal(a.workspaceId, WS);
+  await assert.rejects(
+    service.createItems({ boardId: 'a-main', items: [{ name: 'x' }] }),
+    /only view/,
+  );
+  await assert.rejects(service.addGroup({ boardId: 'a-main', title: 'New' }), /owner role/);
+  await assert.rejects(service.createBoard({ name: 'x', workspaceId: WS }), /you are a viewer/);
+  // B: full owner, in the same service instance.
+  await service.createItems({ boardId: 'b-main', items: [{ name: 'x' }] });
+  await service.addGroup({ boardId: 'b-main', title: 'New' });
+  const created = await service.createBoard({ name: 'New in B', workspaceId: 'ws2' });
+  assert.equal(client.docs.get(`boards/${created.id}`).data.workspaceId, 'ws2');
+  // listBoards is per workspace, with the role of that workspace.
+  assert.deepEqual(
+    (await service.listBoards({ workspaceId: WS })).boards.map((b) => b.name),
+    ['A main'],
+  );
+  assert.deepEqual(
+    (await service.listBoards({ workspaceId: 'ws2' })).boards.map((b) => b.name).sort(),
+    ['B main', 'New in B'],
+  );
+});
+
+test('guards: a workspace filter hides every other workspace and its boards', async () => {
+  const { service } = setup({
+    actor: { uid: ME, workspaceFilter: 'ws2' },
+    extra: {
+      'workspaces/ws2': workspaceDoc({ [ME]: 'owner' }, 'Mine'),
+      'boards/a-main': boardDoc(WS, {}, { kind: 'main', name: 'A main' }),
+      'boards/b-main': boardDoc('ws2', {}, { kind: 'main', name: 'B main' }),
+    },
+  });
+  assert.deepEqual(
+    (await service.listWorkspaces()).workspaces.map((w) => w.id),
+    ['ws2'],
+  );
+  // The filter workspace is the default, so no workspaceId is needed.
+  const list = await service.listBoards();
+  assert.equal(list.workspaceId, 'ws2');
+  assert.deepEqual(
+    list.boards.map((b) => b.name),
+    ['B main'],
+  );
+  await assert.rejects(service.getBoard({ boardId: 'a-main' }), /not found in your workspaces/);
+  await assert.rejects(service.listBoards({ workspaceId: WS }), /not found among your workspaces/);
+  await assert.rejects(service.createBoard({ name: 'x', workspaceId: WS }), /not found among/);
+  await service.getBoard({ boardId: 'b-main', includeItems: false });
+  // A filter on a workspace the actor is not in: nothing works, and verify says so.
+  const { service: outsider } = setup({ actor: { uid: ME, workspaceFilter: 'nope' } });
+  await assert.rejects(outsider.listBoards(), /not a member of workspace "nope"/);
+  await assert.rejects(outsider.verify(), /"nope" was not found among your workspaces/);
+});
+
+test('listWorkspaces: memberships by array-contains, with the role, sorted by name', async () => {
+  const { service, client } = setup({
+    extra: {
+      'workspaces/ws2': workspaceDoc({ [ME]: 'member', [OTHER]: 'owner' }, 'Alpha'),
+      'workspaces/ws3': workspaceDoc({ [OTHER]: 'owner' }, 'Not mine'),
+      // In memberIds but without a role: not a membership the rules would honour.
+      'workspaces/ws4': { name: 'Half', roles: {}, memberIds: [ME] },
+    },
+  });
+  const { workspaces } = await service.listWorkspaces();
+  assert.deepEqual(workspaces, [
+    { id: 'ws2', name: 'Alpha', role: 'member' },
+    { id: WS, name: 'Home', role: 'owner' },
+  ]);
+  const everything = await client.runQuery('workspaces', { memberIds: { arrayContains: ME } });
+  assert.deepEqual(everything.map((w) => w.id).sort(), ['ws1', 'ws2', 'ws4']);
+  assert.deepEqual(await client.runQuery('workspaces', { memberIds: { arrayContains: 'x' } }), []);
+});
+
+test('listBoards, createBoard and listMembers default to the only workspace, else ask for one', async () => {
+  const one = setup();
+  assert.equal((await one.service.listBoards()).workspaceId, WS);
+  assert.equal((await one.service.listMembers()).workspaceId, WS);
+  assert.equal((await one.service.createBoard({ name: 'x' })).workspaceId, WS);
+
+  const two = setup({ extra: { 'workspaces/ws2': workspaceDoc({ [ME]: 'owner' }, 'Second') } });
+  await assert.rejects(two.service.listBoards(), new RegExp(PICK_WORKSPACE_MESSAGE));
+  await assert.rejects(two.service.createBoard({ name: 'x' }), new RegExp(PICK_WORKSPACE_MESSAGE));
+  await assert.rejects(two.service.listMembers({}), new RegExp(PICK_WORKSPACE_MESSAGE));
+  assert.equal((await two.service.listBoards({ workspaceId: 'ws2' })).workspaceId, 'ws2');
+  await assert.rejects(two.service.listBoards({ workspaceId: 'nope' }), /not found among/);
+  await assert.rejects(two.service.listBoards({ workspaceId: '../x' }), /plain id/);
+
+  const none = setup({ roles: { [OTHER]: 'owner' } });
+  await assert.rejects(none.service.listBoards(), /not a member of any workspace/);
+});
+
+test('createBoard needs the member role or higher in the workspace', async () => {
+  for (const role of ['owner', 'admin', 'member']) {
+    const { service, client } = setup({ roles: { [ME]: role } });
+    const { id } = await service.createBoard({ name: 'ok' });
+    assert.deepEqual(client.docs.get(`boards/${id}`).data.access, { [ME]: 'owner' });
+  }
+  const viewer = setup({ roles: { [ME]: 'viewer' } });
+  await assert.rejects(viewer.service.createBoard({ name: 'x' }), /you are a viewer/);
+  assert.equal(viewer.client.commits.length, 0);
 });
 
 test('guards: a non-active board is refused', async () => {
@@ -226,14 +336,26 @@ test('guards: a viewer cannot write, an editor cannot change structure', async (
   assert.equal(created.created.length, 1);
 });
 
-test('guards: a viewer of the workspace cannot use the connector at all', async () => {
-  const { service } = setup({ roles: { [ME]: 'viewer' } });
-  await assert.rejects(service.listBoards(), /only a viewer/);
+test('guards: a viewer of the workspace reads and never writes', async () => {
+  const { service, client } = setup({
+    roles: { [ME]: 'viewer', [OTHER]: 'owner' },
+    extra: { 'boards/m': boardDoc(WS, {}, { kind: 'main', name: 'Main' }) },
+  });
+  assert.deepEqual(
+    (await service.listBoards()).boards.map((b) => b.id),
+    ['m'],
+  );
+  await service.getBoard({ boardId: 'm' });
+  await assert.rejects(service.createItems({ boardId: 'm', items: [{ name: 'x' }] }), /only view/);
+  await assert.rejects(service.createBoard({ name: 'x' }), /you are a viewer/);
+  assert.equal(client.commits.length, 0);
 });
 
-test('guards: a non-member uid is refused', async () => {
+test('guards: a non-member uid sees nothing', async () => {
   const { service } = setup({ roles: { [OTHER]: 'owner' } });
-  await assert.rejects(service.createBoard({ name: 'x' }), /not a member/);
+  await assert.rejects(service.createBoard({ name: 'x' }), /not a member of any workspace/);
+  await assert.rejects(service.createBoard({ name: 'x', workspaceId: WS }), /not found among/);
+  assert.deepEqual((await service.listWorkspaces()).workspaces, []);
 });
 
 // ---- groups and columns -----------------------------------------------------------------------
@@ -503,6 +625,62 @@ test('updateItem moves an item to the end of another group and renames it', asyn
   await assert.rejects(service.updateItem({ boardId, itemId: created[0].id }), /Nothing to change/);
 });
 
+test('updateItem never empties a required cell (REQ-1), like the rules', async () => {
+  const columns = [
+    {
+      id: 'st',
+      type: 'status',
+      title: 'Status',
+      position: 'a0',
+      settings: buildColumnSettings('status'),
+    },
+    { id: 'tx', type: 'text', title: 'Note', position: 'a1', settings: {}, required: true },
+    { id: 'op', type: 'text', title: 'Optional', position: 'a2', settings: {} },
+  ];
+  const { service, client } = setup({
+    extra: {
+      'boards/b': boardDoc(WS, { [ME]: 'owner' }, { columns, requiredColumnIds: ['st'] }),
+      'boards/b/items/i': {
+        name: 'Task',
+        groupId: 'g1',
+        position: 'a0',
+        parentItemId: null,
+        state: 'active',
+        values: { st: { index: 0 }, tx: 'keep me', op: 'x' },
+      },
+      'boards/b/items/empty': {
+        name: 'Fresh',
+        groupId: 'g1',
+        position: 'a1',
+        parentItemId: null,
+        state: 'active',
+        values: {},
+      },
+    },
+  });
+  const before = client.commits.length;
+  // Listed in requiredColumnIds, and marked `required` on the column: both are refused.
+  await assert.rejects(
+    service.updateItem({ boardId: 'b', itemId: 'i', values: { Status: null } }),
+    /"Status" is required and cannot be emptied/,
+  );
+  await assert.rejects(
+    service.updateItem({ boardId: 'b', itemId: 'i', values: { Note: null, Optional: null } }),
+    /"Note" is required/,
+  );
+  await assert.rejects(
+    service.updateItem({ boardId: 'b', itemId: 'i', values: { Note: '   ' } }),
+    /"Note" is required/,
+  );
+  assert.equal(client.commits.length, before, 'nothing was written');
+  // Non-empty values and optional cells are fine; a required cell that is not stored at all
+  // can be "cleared" (the rules see no change).
+  await service.updateItem({ boardId: 'b', itemId: 'i', values: { Note: 'new', Optional: null } });
+  assert.equal(client.docs.get('boards/b/items/i').data.values.tx, 'new');
+  await service.updateItem({ boardId: 'b', itemId: 'empty', values: { Note: null, Status: 1 } });
+  assert.deepEqual(client.docs.get('boards/b/items/empty').data.values, { st: { index: 1 } });
+});
+
 test('archive and delete are soft; a deleted item cannot be edited', async () => {
   const { service, client } = setup();
   const boardId = await boardWithStructure(service);
@@ -612,86 +790,57 @@ test('structure changes give up after a second conflict', async () => {
   await assert.rejects(service.addGroup({ boardId: id, title: 'Late' }), (e) => e.status === 409);
 });
 
-// ---- REST client additions --------------------------------------------------------------------
-
-test('maskPath quotes segments that are not plain identifiers', () => {
-  assert.equal(maskPath('values.abc'), 'values.abc');
-  assert.equal(maskPath('values.my-col'), 'values.`my-col`');
-  assert.equal(maskPath('values.9lives'), 'values.`9lives`');
-});
-
-test('REST client: update writes nested field paths, deletes and increments; runQuery filters by equality', async () => {
-  const calls = [];
-  const fetch = async (url, init) => {
-    calls.push({ url, body: JSON.parse(init.body) });
-    return {
-      ok: true,
-      status: 200,
-      json: async () =>
-        url.endsWith(':runQuery')
-          ? [
-              {
-                document: {
-                  name: 'projects/p/databases/d/documents/boards/b1',
-                  fields: { name: { stringValue: 'B' } },
-                  updateTime: 't',
-                },
-              },
-              { readTime: 'x' },
-            ]
-          : {},
-    };
-  };
-  const rest = createFirestoreRest({
-    origin: 'http://x',
-    project: 'p',
-    database: 'd',
-    getToken: () => 't',
-    fetch,
-  });
-  await rest.commit([
-    {
-      op: 'update',
-      path: 'boards/b/items/i',
-      set: { name: 'N', 'values.my-col': { text: 'v' } },
-      remove: ['values.old'],
-      increment: { updatesCount: 1 },
-    },
-  ]);
-  const [write] = calls[0].body.writes;
-  assert.deepEqual(write.updateMask.fieldPaths, ['name', 'values.`my-col`', 'values.old']);
-  assert.deepEqual(write.update.fields.values.mapValue.fields['my-col'].mapValue.fields.text, {
-    stringValue: 'v',
-  });
-  assert.equal('old' in write.update.fields.values.mapValue.fields, false);
-  assert.deepEqual(write.updateTransforms, [
-    { fieldPath: 'updatesCount', increment: { integerValue: '1' } },
-  ]);
-  assert.deepEqual(write.currentDocument, { exists: true });
-  const rows = await rest.runQuery('boards', { workspaceId: 'w' });
-  assert.deepEqual(
-    rows.map((r) => [r.id, r.data.name]),
-    [['b1', 'B']],
-  );
-  const filter = calls[1].body.structuredQuery.where.compositeFilter.filters[0].fieldFilter;
-  assert.equal(filter.op, 'EQUAL');
-  assert.equal(filter.field.fieldPath, 'workspaceId');
-});
-
 // ---- tool catalogue ---------------------------------------------------------------------------
 
-test('tool catalogue: unique atrium_ names, every tool described, schemas validate input', () => {
+test('tool catalogue: unique atrium_ names, every tool described, scoped and annotated', () => {
   const tools = defineTools({});
   const names = tools.map((t) => t.name);
+  assert.equal(tools.length, 25);
   assert.equal(new Set(names).size, names.length);
   for (const tool of tools) {
     assert.match(tool.name, /^atrium_[a-z_]+$/);
     assert.ok(tool.description.length > 20, tool.name);
     assert.equal(typeof tool.run, 'function');
+    assert.ok(['read', 'write'].includes(tool.scope), tool.name);
+    assert.equal(tool.annotations.readOnlyHint, tool.scope === 'read', tool.name);
+    assert.equal(typeof tool.annotations.destructiveHint, 'boolean', tool.name);
+    // A read tool says so in its description; a write tool never claims to be read-only.
+    assert.equal(tool.description.startsWith('Read-only.'), tool.scope === 'read', tool.name);
+    if (tool.scope === 'read') assert.equal(tool.annotations.destructiveHint, false, tool.name);
   }
   const get = tools.find((t) => t.name === 'atrium_get_board');
   assert.equal(get.inputSchema.boardId.safeParse('../etc').success, false);
   assert.equal(get.inputSchema.boardId.safeParse('abc_DEF-1').success, true);
+  for (const name of ['atrium_list_boards', 'atrium_create_board', 'atrium_list_members']) {
+    const tool = tools.find((t) => t.name === name);
+    assert.equal(tool.inputSchema.workspaceId.safeParse(undefined).success, true, name);
+    assert.equal(tool.inputSchema.workspaceId.safeParse('a/b').success, false, name);
+  }
+  assert.deepEqual(tools.find((t) => t.name === 'atrium_list_workspaces').inputSchema, {});
+  assert.equal(
+    tools.find((t) => t.name === 'atrium_delete_update').annotations.destructiveHint,
+    true,
+  );
+  assert.equal(
+    tools.find((t) => t.name === 'atrium_create_items').annotations.destructiveHint,
+    false,
+  );
+});
+
+test('tool catalogue: the workspace tools reach the service', async () => {
+  const calls = [];
+  const service = new Proxy(
+    {},
+    { get: (_, method) => async (args) => (calls.push([method, args]), { ok: method }) },
+  );
+  const tools = Object.fromEntries(defineTools(service).map((t) => [t.name, t]));
+  assert.deepEqual(await tools.atrium_list_workspaces.run({}), { ok: 'listWorkspaces' });
+  await tools.atrium_list_boards.run({ workspaceId: 'w' });
+  await tools.atrium_list_members.run({});
+  assert.deepEqual(calls.slice(1), [
+    ['listBoards', { workspaceId: 'w' }],
+    ['listMembers', {}],
+  ]);
 });
 
 // ---- item descriptions --------------------------------------------------------------------------
@@ -881,7 +1030,7 @@ test('replies: posted under an update, bump repliesCount and list nested; editin
   assert.equal(updates[0].replies[0].edited, true);
 });
 
-test("edit and delete only touch the configured user's own posts; counters move down safely", async () => {
+test("edit and delete only touch the actor's own posts; counters move down safely", async () => {
   const { service, client, boardId, itemId } = await feedFixture();
   const { id: updateId } = await service.addUpdate({ boardId, itemId, text: 'Mine' });
   const { id: replyId } = await service.addReply({ boardId, itemId, updateId, text: 'Mine too' });
@@ -1169,15 +1318,27 @@ test('activity and members: read-only lookups, filtered and bounded', async () =
   assert.equal(one.events[0].to, 'B');
 
   const everyone = await service.listMembers({});
+  assert.equal(everyone.workspaceId, WS);
   assert.deepEqual(everyone.members.map((m) => m.uid).sort(), [OTHER, ME].sort());
   assert.equal(everyone.members.find((m) => m.uid === ME).me, true);
   client.docs.get(`boards/${boardId}`).data.kind = 'private';
   client.docs.get(`boards/${boardId}`).data.access = { [ME]: 'owner' };
   const onBoard = await service.listMembers({ boardId });
+  assert.equal(onBoard.workspaceId, WS);
   assert.deepEqual(
     onBoard.members.map((m) => m.uid),
     [ME],
   );
+});
+
+test('verify: the user must exist; it reports the memberships', async () => {
+  const { service } = setup();
+  assert.deepEqual(await service.verify(), {
+    uid: ME,
+    workspaces: [{ id: WS, name: 'Home', role: 'owner' }],
+  });
+  const ghost = setup({ actor: { uid: 'nobody' } });
+  await assert.rejects(ghost.service.verify(), /User "nobody" does not exist/);
 });
 
 test('the new tools are in the catalogue with validating schemas', () => {

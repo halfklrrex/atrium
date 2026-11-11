@@ -71,9 +71,14 @@ export function createFakeClient(initial = {}) {
         updateTime: v.updateTime,
       }));
     },
+    /** Equality (`{ field: value }`) and array membership (`{ field: { arrayContains: value } }`). */
     async runQuery(collectionId, where = {}) {
+      const matches = (have, want) =>
+        want !== null && typeof want === 'object' && 'arrayContains' in want
+          ? Array.isArray(have) && have.includes(want.arrayContains)
+          : have === want;
       return direct(collectionId)
-        .filter(([, v]) => Object.entries(where).every(([k, want]) => v.data[k] === want))
+        .filter(([, v]) => Object.entries(where).every(([k, want]) => matches(v.data[k], want)))
         .map(([path, v]) => ({
           id: path.split('/').at(-1),
           data: clone(v.data),

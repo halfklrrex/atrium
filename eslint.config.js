@@ -101,12 +101,13 @@ export default tseslint.config(
     rules: { 'react-refresh/only-export-components': 'off' },
   },
 
-  // Node: functions, rules tests, scripts and tool configs
+  // Node: functions, rules tests, scripts, the MCP core package and tool configs
   {
     files: [
       'functions/**/*.{ts,mts}',
       'tests/**/*.ts',
       'scripts/**/*.mjs',
+      'packages/mcp-core/**/*.{mjs,mts}',
       '*.config.{js,ts}',
       '**/vite.config.ts',
       '**/vitest.config.{ts,mts}',

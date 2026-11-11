@@ -1,8 +1,8 @@
 // Builds the Firestore REST client for a config: the emulator (tests) or production, authenticated
 // with `gcloud auth print-access-token` like the showcase seeder (no key files, no ADC).
 import { execFileSync } from 'node:child_process';
+import { McpUserError } from '@atrium/mcp-core';
 import { createFirestoreRest } from '../../showcase/firestore-rest.mjs';
-import { McpUserError } from './errors.mjs';
 
 const PRODUCTION_ORIGIN = 'https://firestore.googleapis.com';
 

@@ -83,7 +83,7 @@ function people(input, ctx) {
   for (const uid of list) {
     if (typeof uid !== 'string' || !ctx.memberUids.includes(uid)) {
       throw new McpUserError(
-        'People cells take workspace member uids (or "me" for the configured user). ' +
+        'People cells take workspace member uids (or "me" for yourself). ' +
           'Emails are not supported yet.',
       );
     }

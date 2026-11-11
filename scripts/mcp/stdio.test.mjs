@@ -32,6 +32,7 @@ const EXPECTED = [
   'atrium_list_members',
   'atrium_list_subitems',
   'atrium_list_updates',
+  'atrium_list_workspaces',
   'atrium_rename_group',
   'atrium_set_item_description',
   'atrium_update_column_settings',
@@ -45,7 +46,6 @@ test('the server lists its tools over stdio', async () => {
     cwd: root,
     env: {
       ...process.env,
-      ATRIUM_WORKSPACE_ID: 'test-workspace',
       ATRIUM_USER_UID: 'test-user',
       ATRIUM_EMULATOR: '127.0.0.1:1', // nothing listens here
     },
@@ -55,15 +55,20 @@ test('the server lists its tools over stdio', async () => {
   await client.connect(transport);
   try {
     const { tools } = await client.listTools();
+    assert.equal(tools.length, 25);
     assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
     const createItems = tools.find((t) => t.name === 'atrium_create_items');
     assert.deepEqual(createItems.inputSchema.required.sort(), ['boardId', 'items']);
+    const listBoards = tools.find((t) => t.name === 'atrium_list_boards');
+    assert.deepEqual(listBoards.inputSchema.required ?? [], []);
+    assert.equal(listBoards.annotations.readOnlyHint, true);
+    assert.equal(createItems.annotations.readOnlyHint, false);
   } finally {
     await client.close();
   }
 });
 
-test('without ATRIUM_WORKSPACE_ID the server exits with a clear message and writes nothing', () => {
+test('without ATRIUM_USER_UID the server exits with a clear message and writes nothing', () => {
   const env = { ...process.env, ATRIUM_EMULATOR: '127.0.0.1:1' };
   delete env.ATRIUM_WORKSPACE_ID;
   delete env.ATRIUM_USER_UID;
@@ -74,6 +79,6 @@ test('without ATRIUM_WORKSPACE_ID the server exits with a clear message and writ
     timeout: 30_000,
   });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /ATRIUM_WORKSPACE_ID is not set/);
+  assert.match(result.stderr, /ATRIUM_USER_UID is not set/);
   assert.equal(result.stdout, '');
 });
