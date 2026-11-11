@@ -128,7 +128,7 @@ mcp-core: existing fake-client tests re-pointed at `actor`, plus viewer-in-A/own
 
 **Owner/lead one-offs (single-line `gcloud`, project `atrium-board`, database `atrium-1`):**
 
-1. Firestore TTL policies (checked 2026-11-11: only `activity`, `automationRuns` and `presence` have one, so `entries` is free): `gcloud firestore fields ttls update expiresAt --collection-group=mcpTokens --database=atrium-1 --project=atrium-board`, and the same for `mcpAuthRequests`, `mcpClients` and `entries`.
+1. Firestore TTL policies (checked 2026-11-11: only `activity`, `automationRuns` and `presence` have one, so `entries` is free): `gcloud firestore fields ttls update expiresAt --collection-group=mcpTokens --enable-ttl --database=atrium-1 --project=atrium-board`, and the same for `mcpAuthRequests`, `mcpClients` and `entries`.
 2. After the first deploy: `gcloud run services get-iam-policy mcp --region=europe-west1 --project=atrium-board` must list `allUsers` with `roles/run.invoker` (if a failed first deploy left it off, delete and redeploy; AGENTS.md gotcha).
 3. Smoke: `curl -i https://atrium-workboards.web.app/.well-known/oauth-protected-resource/mcp` -> 503 while disabled, 200 after enabling; `curl -i -X POST https://atrium-workboards.web.app/mcp` -> 401 with the `WWW-Authenticate` header.
 4. Connect: claude.ai -> Settings -> Connectors -> Add custom connector -> URL `https://atrium-workboards.web.app/mcp` (no client id/secret) -> Connect -> consent. Claude Code: `claude mcp add --transport http --scope user atrium https://atrium-workboards.web.app/mcp`, then `/mcp` -> Authenticate.
