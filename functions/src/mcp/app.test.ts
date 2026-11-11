@@ -89,14 +89,18 @@ async function start(options: Options = {}) {
 type Harness = Awaited<ReturnType<typeof start>>;
 
 /** Registers, authorizes (checking the 302), consents and exchanges, all over HTTP. */
-async function connect(h: Harness, scopes: string[] = ['atrium:read', 'atrium:write']) {
+async function connect(
+  h: Harness,
+  scopes: string[] = ['atrium:read', 'atrium:write'],
+  authMethod = 'none',
+) {
   const reg = await fetch(`${h.base}/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       redirect_uris: [REDIRECT],
       client_name: 'Claude',
-      token_endpoint_auth_method: 'none',
+      token_endpoint_auth_method: authMethod,
     }),
   });
   expect(reg.status).toBe(201);
@@ -207,6 +211,48 @@ describe('kill switch', () => {
   });
 });
 
+describe('dynamic client registration', () => {
+  const register = (h: Harness, body: object) =>
+    fetch(`${h.base}/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  it.each(['client_secret_post', 'client_secret_basic', 'none'])(
+    'accepts %s but registers a public client without a secret',
+    async (method) => {
+      const h = await start();
+      const res = await register(h, {
+        redirect_uris: [REDIRECT],
+        token_endpoint_auth_method: method,
+      });
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as Record<string, unknown>;
+      expect(body.token_endpoint_auth_method).toBe('none');
+      expect(body).not.toHaveProperty('client_secret');
+      expect(body).not.toHaveProperty('client_secret_expires_at');
+    },
+  );
+
+  it('still refuses a redirect URI outside the allow-list', async () => {
+    const h = await start();
+    const res = await register(h, {
+      redirect_uris: ['https://evil.example.com/cb'],
+      token_endpoint_auth_method: 'client_secret_post',
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('invalid_client_metadata');
+  });
+
+  it('exchanges a code for a client that asked for client_secret_post, with no secret', async () => {
+    const h = await start();
+    const { status, body } = await connect(h, undefined, 'client_secret_post');
+    expect(status).toBe(200);
+    expect(body.access_token).toBeTruthy();
+  });
+});
+
 describe('metadata documents', () => {
   it('serves the exact authorization-server metadata', async () => {
     const h = await start();
@@ -221,11 +267,11 @@ describe('metadata documents', () => {
       scopes_supported: ['atrium:read', 'atrium:write'],
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
-      // The SDK always advertises client_secret_post; registration forces public clients (none).
-      token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
+      // Every client is public (registration forces none), so only none is advertised.
+      token_endpoint_auth_methods_supported: ['none'],
       code_challenge_methods_supported: ['S256'],
       revocation_endpoint: `${ORIGIN}/revoke`,
-      revocation_endpoint_auth_methods_supported: ['client_secret_post'],
+      revocation_endpoint_auth_methods_supported: ['none'],
     });
   });
 

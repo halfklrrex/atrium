@@ -46,6 +46,25 @@ export function createMcpApp(deps: McpAppDeps): Express {
     res.status(503).json({ error: 'connector_disabled' });
   });
 
+  // The SDK always advertises `client_secret_post`, but every client here is public (registration
+  // forces `none`). Rewrite those two fields so the metadata is honest; everything else is the SDK's.
+  app.get('/.well-known/oauth-authorization-server', (_req, res, next) => {
+    const json = res.json.bind(res);
+    res.json = ((body: unknown) =>
+      json(
+        body && typeof body === 'object'
+          ? {
+              ...body,
+              token_endpoint_auth_methods_supported: ['none'],
+              ...('revocation_endpoint_auth_methods_supported' in body
+                ? { revocation_endpoint_auth_methods_supported: ['none'] }
+                : {}),
+            }
+          : body,
+      )) as typeof res.json;
+    next();
+  });
+
   const provider = new AtriumOAuthProvider(deps.store, { now: deps.server.now });
   app.use(
     mcpAuthRouter({

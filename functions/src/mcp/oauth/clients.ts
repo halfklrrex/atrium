@@ -75,7 +75,9 @@ export class McpClientsStore implements OAuthRegisteredClientsStore {
 
   /**
    * The SDK generates `client_id` (and a secret, which is dropped: public clients only). Only the
-   * fields in OPS4 section 4.2 are stored; the rest of the metadata is ignored.
+   * fields in OPS4 section 4.2 are stored; the rest of the metadata is ignored. Any requested
+   * `token_endpoint_auth_method` (Claude sends `client_secret_post`) is accepted but forced to
+   * `none`: no secret is ever stored or returned, and PKCE is the client authentication.
    */
   async registerClient(
     client: Omit<OAuthClientInformationFull, 'client_id' | 'client_id_issued_at'> & {
@@ -90,12 +92,6 @@ export class McpClientsStore implements OAuthRegisteredClientsStore {
       if (!isAllowedRedirectUri(uri)) {
         throw new InvalidClientMetadataError('redirect_uri is not allowed for this server');
       }
-    }
-    if (
-      client.token_endpoint_auth_method !== undefined &&
-      client.token_endpoint_auth_method !== 'none'
-    ) {
-      throw new InvalidClientMetadataError('Only public clients (token_endpoint_auth_method none)');
     }
     const clientId = client.client_id || this.store.newId();
     const now = this.now();
