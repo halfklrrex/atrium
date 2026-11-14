@@ -46,8 +46,8 @@ interface ItemOverviewProps {
 
 /**
  * The panel's landing tab: the description, the item's fields in a compact grid, the subitems row
- * and the latest update. Mounted with `key={item.id}` so the "Show all fields" and "Show more"
- * states start closed for every item.
+ * and the latest update. Mounted with `key={item.id}` so the "Show all fields" state starts
+ * closed for every item.
  */
 export function ItemOverview({
   board,
@@ -64,9 +64,6 @@ export function ItemOverview({
 }: ItemOverviewProps) {
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
-  const [descOpen, setDescOpen] = useState(false);
-  const [clampable, setClampable] = useState(false);
-  const clamp = useMemo(() => ({ open: descOpen, onClampableChange: setClampable }), [descOpen]);
   const subs = useMemo(
     () => subitemSummary(items, item.id, subColumns),
     [items, item.id, subColumns],
@@ -97,21 +94,9 @@ export function ItemOverview({
             readOnly={!canEdit}
             onSave={saveDescription}
             toolbar="focus"
-            clamp={clamp}
+            scrollable
           />
         </Suspense>
-        {clampable ? (
-          <div>
-            <Button
-              kind="tertiary"
-              size="small"
-              aria-expanded={descOpen}
-              onClick={() => setDescOpen((v) => !v)}
-            >
-              {descOpen ? 'Show less' : 'Show more'}
-            </Button>
-          </div>
-        ) : null}
       </section>
 
       {showFields ? (

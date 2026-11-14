@@ -1,4 +1,4 @@
-import { findStatusLabel, type StatusSettings, type StatusValue } from '@atrium/shared';
+import { findStatusLabel, orderStatusLabels, type StatusSettings, type StatusValue } from '@atrium/shared';
 import { Edit, Status as StatusIcon } from '@vibe/icons';
 import classNames from 'classnames';
 import { useState } from 'react';
@@ -29,7 +29,7 @@ function StatusEditor({
 }: EditorProps<StatusValue, StatusSettings>) {
   const [editingLabels, setEditingLabels] = useState(false);
   const selected = value ? findStatusLabel(value, settings) : null;
-  const labels = [...settings.labels].sort((a, b) => a.index - b.index);
+  const labels = orderStatusLabels(settings.labels);
 
   return (
     <AnchoredPopup anchor={anchor} onClose={onClose} label={`${column.title} labels`} center>

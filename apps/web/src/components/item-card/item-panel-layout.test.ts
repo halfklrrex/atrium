@@ -3,9 +3,7 @@ import type { ColumnDef } from '@atrium/shared';
 import { buildColumnViews, type ColumnView } from '../board-table/table-model';
 import type { ItemDoc } from '../../data';
 import {
-  DESCRIPTION_FULL_LINES,
   GRID_FIELD_CAP,
-  descriptionMode,
   isWideFieldType,
   keyBarEmptyHint,
   partitionGridFields,
@@ -166,18 +164,6 @@ describe('field helpers', () => {
     expect(keyBarEmptyHint('timeline')).toBe('Set dates');
     expect(keyBarEmptyHint('dropdown')).toBe('Choose');
     expect(keyBarEmptyHint('text')).toBeUndefined();
-  });
-});
-
-describe('descriptionMode', () => {
-  const line = 24;
-  it('shows up to 12 lines in full and clamps from 13', () => {
-    expect(descriptionMode(11 * line, line)).toBe('full');
-    expect(descriptionMode(DESCRIPTION_FULL_LINES * line, line)).toBe('full');
-    expect(descriptionMode(13 * line, line)).toBe('clamped');
-  });
-  it('treats a zero line height as full', () => {
-    expect(descriptionMode(900, 0)).toBe('full');
   });
 });
 

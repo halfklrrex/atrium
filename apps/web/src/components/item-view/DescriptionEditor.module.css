@@ -15,13 +15,12 @@
   display: none;
 }
 
-/* A long description in the side panel: cut to the clamp height until "Show more" or editing. */
-.root[data-clamp='true']:not(:focus-within) .contentHost {
+/* Side panel: a long description scrolls inside its box instead of growing the panel. */
+.root[data-scrollable='true'] .contentHost {
   max-block-size: calc(
-    var(--atrium-item-panel-desc-clamp-lines) * var(--atrium-editor-line-height) + 2 *
-      var(--space-16)
+    var(--atrium-item-panel-desc-max-lines) * var(--atrium-editor-line-height) + 2 * var(--space-16)
   );
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .toolbar {
