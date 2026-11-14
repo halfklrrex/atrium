@@ -66,6 +66,15 @@ The agents can't message each other. **Pull-request comments are the channel**: 
 
 **Ophelia (Claude Opus, as lead):** at the start of each session, she also checks every open PR from either agent for new commits or replies, re-reviews what changed, and merges what's ready.
 
+## Keep HANDOFF.md and monday up to date, constantly (owner decision, 2026-11-14)
+
+The documentation must always match the latest changes. Update as you go, not at the end of the session:
+
+- **monday:** every time something changes (claim, status, PR opened or merged, question, fix live), update the Roadmap item the same moment: Status, Actionable, Agent, Branch, Spec / PR, plus an update saying what changed. Reply on the bug-inbox update too.
+- **HANDOFF.md:** whenever the live state, the open work, the queue or a standing fact changes (a PR merges, something goes live, an owner decision lands), edit its "Current state", "Open work" and "Notes index" in the same PR or straight after the merge. Don't let it describe things that are no longer true.
+- **Handoff notes:** keep your `docs/handoff/YYYY-MM-DD-<agent>-<task>.md` current during the session, not only at the end (see rule 8 below).
+- **A PR isn't ready** until monday and `HANDOFF.md` reflect it.
+
 ## Multi-agent workflow (mandatory)
 
 1. **Claim before you start.** On the Roadmap item, set **Agent** (Claude / Ophelia or Antigravity / Ava), **Branch**, and Status = Planning or Building. Never start an item another agent has claimed. Don't take two items that change the same screen at once.

@@ -85,6 +85,15 @@ export const DEFAULT_PRIORITY_LABELS: readonly StatusLabel[] = [
   { id: 'low_light_blue', index: 3, label: 'Low', color: '#66ccff' },
 ];
 
+/**
+ * Labels in picker order: the blank grey "no status" label first, then the named labels by index.
+ * (The empty label has index 5 by default, which would otherwise put it among the named ones.)
+ */
+export function orderStatusLabels(labels: readonly StatusLabel[]): StatusLabel[] {
+  const blank = (l: StatusLabel) => l.label.trim() === '';
+  return [...labels].sort((a, b) => Number(blank(b)) - Number(blank(a)) || a.index - b.index);
+}
+
 /** monday's grey for a cell without a status (`explosive`). */
 export const EMPTY_STATUS_COLOR = '#c4c4c4';
 

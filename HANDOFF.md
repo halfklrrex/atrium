@@ -31,6 +31,12 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **No open-PR limits** (owner, 2026-11-04). Pace is set by usage and the owner's availability; hot-spot PRs merge in order and rebase.
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
+## Open work (2026-11-14)
+
+- **Ava is back (2026-11-14, Claude Sonnet fallback model).** Owner priority this session: two small items from the bug inbox, in PR `ag/empty-label-first-and-scroll-description`: the grey empty Status/Priority label now lists first in the picker (`orderStatusLabels`, monday 3358418968), and the sidebar description box scrolls (12 lines) instead of Show more / Show less (monday 3358419142). Notes: `docs/handoff/2026-11-14-ava-empty-label-scroll-description.md`.
+- **New rule (owner, 2026-11-14):** HANDOFF.md and monday are updated constantly, not at the end (see `AGENTS.md`).
+- Everything under "Open work (2026-11-10)" below is still current unless a note above says otherwise.
+
 ## Open work (2026-11-10)
 
 - **Latest session notes:** `docs/handoff/2026-11-10-ophelia-settings-sidebar-mcp.md` (Settings layout A, the sidebar Overview tab, MCP priority 1, the showcase-id bug), then `docs/handoff/2026-11-08-ophelia-autonomous-run.md` (what the autonomous run shipped, gotchas), then `docs/handoff/2026-11-07-ophelia-queue-and-next-steps.md`. The monday "Autonomous run log" item (3339139580) has one entry per merge.
@@ -53,6 +59,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 
 ## Notes index
 
+- [2026-11-14 · Ava · empty label first, scrollable sidebar description](docs/handoff/2026-11-14-ava-empty-label-scroll-description.md)
 - [2026-11-11 · Ophelia · OPS4 hosted MCP connector (PRs A to G, enable steps, next gap batches)](docs/handoff/2026-11-11-ophelia-ops4-hosted-mcp.md)
 - [2026-11-10 · Ophelia · Settings layout A, sidebar Overview tab, MCP priority 1, showcase ids](docs/handoff/2026-11-10-ophelia-settings-sidebar-mcp.md)
 - [2026-11-08 · Ophelia · the autonomous run (inbox, export, print, Twemoji, PWA-1)](docs/handoff/2026-11-08-ophelia-autonomous-run.md)

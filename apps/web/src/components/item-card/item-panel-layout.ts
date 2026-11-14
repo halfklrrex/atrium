@@ -7,11 +7,8 @@ export type KeySlot = 'status' | 'owner' | 'due' | 'priority';
 /** How many grid fields show before "Show all fields (N)". */
 export const GRID_FIELD_CAP = 10;
 
-/** A description up to this many lines shows in full. */
-export const DESCRIPTION_FULL_LINES = 12;
-
-/** A longer one clamps to this many lines; must match `--atrium-item-panel-desc-clamp-lines`. */
-export const DESCRIPTION_CLAMP_LINES = 8;
+/** The description box grows to this many lines, then scrolls; must match `--atrium-item-panel-desc-max-lines`. */
+export const DESCRIPTION_MAX_LINES = 12;
 
 /** Types whose value needs the whole row of the fields grid. */
 export const WIDE_FIELD_TYPES: ReadonlySet<string> = new Set(['long_text', 'link', 'files']);
@@ -73,13 +70,6 @@ const KEY_BAR_HINTS: Record<string, string> = {
 /** Key-bar empty hint per type, or undefined for types the bar never holds. */
 export function keyBarEmptyHint(type: string): string | undefined {
   return KEY_BAR_HINTS[type];
-}
-
-/** 'full' up to DESCRIPTION_FULL_LINES lines, else 'clamped'. A lineHeight of 0 is 'full'. */
-export function descriptionMode(contentHeight: number, lineHeight: number): 'full' | 'clamped' {
-  if (!(lineHeight > 0)) return 'full';
-  // Rounding keeps sub-pixel noise in the measured height from tipping a 12-line text over.
-  return Math.round(contentHeight / lineHeight) > DESCRIPTION_FULL_LINES ? 'clamped' : 'full';
 }
 
 /** Total subitems of the parent and how many are done (null `done` without a status column). */

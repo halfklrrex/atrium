@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BOARD_STATUS_LABELS } from '../boards';
-import { DEFAULT_PRIORITY_LABELS, DEFAULT_STATUS_LABELS, statusSettingsSchema } from './status';
+import { DEFAULT_PRIORITY_LABELS, orderStatusLabels, DEFAULT_STATUS_LABELS, statusSettingsSchema } from './status';
 
 describe('default status and priority labels', () => {
   it('a new Status column and a new board start with the same labels', () => {
@@ -16,5 +16,14 @@ describe('default status and priority labels', () => {
       [3, 'Low', '#66ccff'],
     ]);
     expect(statusSettingsSchema.safeParse({ labels: DEFAULT_PRIORITY_LABELS }).success).toBe(true);
+  });
+
+  it('the picker lists the blank grey label first, then the named labels by index', () => {
+    expect(orderStatusLabels(DEFAULT_STATUS_LABELS).map((l) => l.id)).toEqual([
+      'default_grey',
+      'working_orange',
+      'done_green',
+      'stuck_red',
+    ]);
   });
 });

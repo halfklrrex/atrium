@@ -14,7 +14,6 @@ import {
   createDebouncer,
   type DescriptionValue,
 } from './description';
-import { descriptionMode } from '../item-card/item-panel-layout';
 import { DescriptionToolbar } from './DescriptionToolbar';
 import { ensureDocFontsLoaded } from './editor-fonts';
 import { createEditorExtensions } from './editor-extensions';
@@ -42,11 +41,10 @@ export interface DescriptionEditorProps {
    */
   toolbar?: 'always' | 'focus';
   /**
-   * Long text clamp for the side panel. A text over the full-length limit is cut to the clamp
-   * height unless `open` (or the editor has focus). `onClampableChange` reports whether the text
-   * is long enough to need the clamp, so the owner can show "Show more".
+   * Side panel: the text box stops growing at a fixed height and scrolls inside instead of
+   * pushing the rest of the panel down.
    */
-  clamp?: { open: boolean; onClampableChange: (clampable: boolean) => void };
+  scrollable?: boolean;
 }
 
 type SaveState = 'idle' | 'saving' | 'saved';
@@ -66,11 +64,9 @@ export default function DescriptionEditor({
   readOnly,
   onSave,
   toolbar = 'always',
-  clamp,
+  scrollable = false,
 }: DescriptionEditorProps) {
   const [toolbarPopup, setToolbarPopup] = useState(false);
-  const [clampable, setClampable] = useState(false);
-  const onClampableChange = clamp?.onClampableChange;
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [expanded, setExpanded] = useState(false);
   const [contentHost, setContentHost] = useState<HTMLElement | null>(null);
@@ -189,28 +185,6 @@ export default function DescriptionEditor({
     wasExpanded.current = expanded;
   }, [editor, expanded, readOnly]);
 
-  // Measure the text (not the clamped box) to decide whether it needs the clamp.
-  const clampActive = clamp !== undefined && !expanded;
-  useEffect(() => {
-    if (!clampActive || !contentHost || typeof ResizeObserver === 'undefined') return;
-    const measure = () => {
-      const prose = contentHost.querySelector<HTMLElement>('.ProseMirror');
-      if (!prose) return;
-      const css = getComputedStyle(prose);
-      const lineHeight = parseFloat(css.lineHeight) || 0;
-      const padding = (parseFloat(css.paddingTop) || 0) + (parseFloat(css.paddingBottom) || 0);
-      const contentHeight = prose.offsetHeight - padding;
-      const next = descriptionMode(contentHeight, lineHeight) === 'clamped';
-      setClampable(next);
-      onClampableChange?.(next);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    const prose = contentHost.querySelector('.ProseMirror');
-    if (prose) observer.observe(prose);
-    return () => observer.disconnect();
-  }, [clampActive, contentHost, onClampableChange]);
-
   if (!editor) return null;
 
   const saveHint = saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : '';
@@ -221,7 +195,7 @@ export default function DescriptionEditor({
       ref={shellRef}
       data-toolbar={toolbar === 'focus' ? 'focus' : undefined}
       data-popover-open={toolbarPopup || emojiAnchor !== null ? 'true' : undefined}
-      data-clamp={clampActive && clampable && !clamp.open ? 'true' : undefined}
+      data-scrollable={scrollable && !expanded ? 'true' : undefined}
     >
       {!readOnly ? (
         <DescriptionToolbar

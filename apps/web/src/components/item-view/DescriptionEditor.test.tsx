@@ -405,7 +405,7 @@ describe('read-only rendering', () => {
   });
 });
 
-describe('toolbar="focus" and clamp', () => {
+describe('toolbar="focus" and scrollable', () => {
   const hello = doc(text('Hello'));
 
   it('shows the toolbar only while the editor has focus', () => {
@@ -441,28 +441,7 @@ describe('toolbar="focus" and clamp', () => {
     expect(container.querySelector('[data-toolbar]')).toBeNull();
   });
 
-  it('reports a long text as clampable and clamps until opened', async () => {
-    const onClampableChange = vi.fn();
-    // jsdom has no layout: give the editor a 14-line height of 24px lines.
-    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(14 * 24);
-    const realGetComputedStyle = window.getComputedStyle.bind(window);
-    vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) => {
-      const css = realGetComputedStyle(el, pseudo);
-      return new Proxy(css, {
-        get: (target, prop) =>
-          prop === 'lineHeight'
-            ? '24px'
-            : prop === 'paddingTop' || prop === 'paddingBottom'
-              ? '0px'
-              : Reflect.get(target, prop),
-      });
-    });
-    class RO {
-      constructor(private cb: () => void) {}
-      observe() {}
-      disconnect() {}
-    }
-    vi.stubGlobal('ResizeObserver', RO);
+  it('marks the box scrollable in the side panel only', () => {
     const { container, rerender } = render(
       <DescriptionEditor
         boardId="b1"
@@ -470,11 +449,10 @@ describe('toolbar="focus" and clamp', () => {
         initial={hello}
         readOnly={false}
         onSave={save()}
-        clamp={{ open: false, onClampableChange }}
+        scrollable
       />,
     );
-    await waitFor(() => expect(onClampableChange).toHaveBeenCalledWith(true));
-    expect(container.querySelector('[data-clamp="true"]')).not.toBeNull();
+    expect(container.querySelector('[data-scrollable="true"]')).not.toBeNull();
     rerender(
       <DescriptionEditor
         boardId="b1"
@@ -482,11 +460,8 @@ describe('toolbar="focus" and clamp', () => {
         initial={hello}
         readOnly={false}
         onSave={save()}
-        clamp={{ open: true, onClampableChange }}
       />,
     );
-    expect(container.querySelector('[data-clamp]')).toBeNull();
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
+    expect(container.querySelector('[data-scrollable]')).toBeNull();
   });
 });
