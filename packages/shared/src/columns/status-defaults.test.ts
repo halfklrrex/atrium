@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BOARD_STATUS_LABELS } from '../boards';
-import { DEFAULT_PRIORITY_LABELS, orderStatusLabels, DEFAULT_STATUS_LABELS, statusSettingsSchema } from './status';
+import {
+  DEFAULT_PRIORITY_LABELS,
+  orderStatusLabels,
+  DEFAULT_STATUS_LABELS,
+  statusSettingsSchema,
+} from './status';
 
 describe('default status and priority labels', () => {
   it('a new Status column and a new board start with the same labels', () => {
