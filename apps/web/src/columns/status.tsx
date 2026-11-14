@@ -1,4 +1,9 @@
-import { findStatusLabel, orderStatusLabels, type StatusSettings, type StatusValue } from '@atrium/shared';
+import {
+  findStatusLabel,
+  orderStatusLabels,
+  type StatusSettings,
+  type StatusValue,
+} from '@atrium/shared';
 import { Edit, Status as StatusIcon } from '@vibe/icons';
 import classNames from 'classnames';
 import { useState } from 'react';
