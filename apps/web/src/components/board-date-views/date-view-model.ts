@@ -155,7 +155,6 @@ export function buildLegend(
   return colorColumn
     ? (colorColumn.settings as StatusSettings).labels
         .filter((l) => l.label.trim() !== '')
-        .sort((a, b) => a.index - b.index)
         .map((l) => ({ key: l.id, name: l.label, color: l.color }))
     : [...groups].sort(comparePositions).map((g) => ({ key: g.id, name: g.title, color: g.color }));
 }

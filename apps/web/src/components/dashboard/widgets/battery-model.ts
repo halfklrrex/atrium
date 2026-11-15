@@ -71,9 +71,9 @@ export function buildBatteryModel(input: {
       continue;
     }
     // Register the board's labels first so the legend follows the board's label order.
-    const labels = [...((def.settings as unknown as StatusSettings).labels ?? [])]
-      .filter((l) => l.label.trim() !== '')
-      .sort((a, b) => a.index - b.index);
+    const labels = [...((def.settings as unknown as StatusSettings).labels ?? [])].filter(
+      (l) => l.label.trim() !== '',
+    );
     for (const l of labels) {
       const key = l.label.trim().toLowerCase();
       if (!segments.has(key)) {

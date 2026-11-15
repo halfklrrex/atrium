@@ -158,7 +158,7 @@ function columnAxis(boards: readonly WidgetBoardData[], ref: ColumnDef, synthId:
       const labels = (
         def?.settings as { labels?: { label: string; color: string; index: number }[] }
       )?.labels;
-      for (const l of [...(labels ?? [])].sort((a, b) => a.index - b.index)) {
+      for (const l of labels ?? []) {
         if (l.label.trim() === '' || texts.some((t) => lower(t.text) === lower(l.label))) continue;
         texts.push({ text: l.label, color: l.color });
       }

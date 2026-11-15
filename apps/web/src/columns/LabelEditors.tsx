@@ -9,6 +9,8 @@ import { Add, Check, Delete } from '@vibe/icons';
 import classNames from 'classnames';
 import { useState, type KeyboardEvent } from 'react';
 import { newSlugId } from '../lib/ids';
+import { LabelSortable, SortableLabelRow, moveAnnouncement } from './LabelSortable';
+import { moveItem, moveItemOver } from './reorder';
 import { STATUS_LABEL_COLORS, nextGroupColor } from '../theme/palette';
 import popups from './popups.module.css';
 
@@ -33,6 +35,17 @@ export function StatusLabelEditor({
   );
   const [openPalette, setOpenPalette] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+
+  const move = (id: string, delta: -1 | 1) =>
+    setLabels((list) => {
+      const from = list.findIndex((l) => l.id === id);
+      const next = moveItem(list, from, from + delta);
+      const to = next.findIndex((l) => l.id === id);
+      if (to !== from)
+        setAnnouncement(moveAnnouncement(list[from]?.label ?? '', to + 1, list.length));
+      return next;
+    });
 
   const patch = (id: string, change: Partial<StatusLabel>) =>
     setLabels((list) => list.map((l) => (l.id === id ? { ...l, ...change } : l)));
@@ -49,7 +62,9 @@ export function StatusLabelEditor({
     const kept = labels
       .filter((l) => l.label.trim() !== '')
       .map((l) => ({ ...l, label: l.label.trim() }));
-    const next = { labels: [...kept, ...fixed].sort((a, b) => a.index - b.index) };
+    // The list order is the saved order. `index` is what cell values reference, so it is never
+    // renumbered; the blank "no status" label stays out of the list and sorts first in pickers.
+    const next = { labels: [...kept, ...fixed] };
     const parsed = statusSettingsSchema.safeParse(next);
     if (!parsed.success || kept.length === 0) {
       setError('Keep at least one label with a name.');
@@ -68,70 +83,85 @@ export function StatusLabelEditor({
   return (
     <div className={popups.body} onKeyDown={onKeyDown}>
       <div className={popups.labelRows}>
-        {labels.map((label) => (
-          <div key={label.id}>
-            <div className={popups.labelRow}>
-              <button
-                type="button"
-                className={popups.swatch}
-                style={{ backgroundColor: label.color }}
-                aria-label={`Colour of ${label.label || 'new label'}`}
-                onClick={() => setOpenPalette(openPalette === label.id ? null : label.id)}
-              />
-              <input
-                className={popups.input}
-                value={label.label}
-                maxLength={MAX_LABEL}
-                placeholder="Label name"
-                aria-label="Label name"
-                onChange={(event) => patch(label.id, { label: event.target.value })}
-              />
-              <button
-                type="button"
-                className={classNames(popups.iconButton)}
-                aria-label={`${label.isDone ? 'Unmark' : 'Mark'} ${label.label || 'label'} as done`}
-                aria-pressed={label.isDone === true}
-                title="Counts as done"
-                onClick={() => patch(label.id, { isDone: label.isDone ? undefined : true })}
-              >
-                <Check aria-hidden="true" style={{ opacity: label.isDone ? 1 : 0.35 }} />
-              </button>
-              <button
-                type="button"
-                className={popups.iconButton}
-                aria-label={`Delete ${label.label || 'label'}`}
-                disabled={labels.length <= 1}
-                onClick={() => setLabels((list) => list.filter((l) => l.id !== label.id))}
-              >
-                <Delete aria-hidden="true" />
-              </button>
-            </div>
-            {openPalette === label.id ? (
-              <div className={popups.palette} role="radiogroup" aria-label="Label colour">
-                {STATUS_LABEL_COLORS.map((color) => (
-                  <button
-                    key={color.hex}
-                    type="button"
-                    role="radio"
-                    aria-checked={color.hex === label.color}
-                    aria-label={color.label}
-                    title={color.label}
-                    className={classNames(
-                      popups.paletteSwatch,
-                      color.hex === label.color && popups.paletteSelected,
-                    )}
-                    style={{ backgroundColor: color.hex }}
-                    onClick={() => {
-                      patch(label.id, { color: color.hex });
-                      setOpenPalette(null);
-                    }}
-                  />
-                ))}
+        <LabelSortable
+          ids={labels.map((l) => l.id)}
+          onDragMove={(id, overId) =>
+            setLabels((list) => moveItemOver(list, (l) => l.id, id, overId))
+          }
+        >
+          {labels.map((label) => (
+            <SortableLabelRow
+              key={label.id}
+              id={label.id}
+              name={label.label}
+              onMove={(delta) => move(label.id, delta)}
+            >
+              <div className={popups.labelRow}>
+                <button
+                  type="button"
+                  className={popups.swatch}
+                  style={{ backgroundColor: label.color }}
+                  aria-label={`Colour of ${label.label || 'new label'}`}
+                  onClick={() => setOpenPalette(openPalette === label.id ? null : label.id)}
+                />
+                <input
+                  className={popups.input}
+                  value={label.label}
+                  maxLength={MAX_LABEL}
+                  placeholder="Label name"
+                  aria-label="Label name"
+                  onChange={(event) => patch(label.id, { label: event.target.value })}
+                />
+                <button
+                  type="button"
+                  className={classNames(popups.iconButton)}
+                  aria-label={`${label.isDone ? 'Unmark' : 'Mark'} ${label.label || 'label'} as done`}
+                  aria-pressed={label.isDone === true}
+                  title="Counts as done"
+                  onClick={() => patch(label.id, { isDone: label.isDone ? undefined : true })}
+                >
+                  <Check aria-hidden="true" style={{ opacity: label.isDone ? 1 : 0.35 }} />
+                </button>
+                <button
+                  type="button"
+                  className={popups.iconButton}
+                  aria-label={`Delete ${label.label || 'label'}`}
+                  disabled={labels.length <= 1}
+                  onClick={() => setLabels((list) => list.filter((l) => l.id !== label.id))}
+                >
+                  <Delete aria-hidden="true" />
+                </button>
               </div>
-            ) : null}
-          </div>
-        ))}
+              {openPalette === label.id ? (
+                <div className={popups.palette} role="radiogroup" aria-label="Label colour">
+                  {STATUS_LABEL_COLORS.map((color) => (
+                    <button
+                      key={color.hex}
+                      type="button"
+                      role="radio"
+                      aria-checked={color.hex === label.color}
+                      aria-label={color.label}
+                      title={color.label}
+                      className={classNames(
+                        popups.paletteSwatch,
+                        color.hex === label.color && popups.paletteSelected,
+                      )}
+                      style={{ backgroundColor: color.hex }}
+                      onClick={() => {
+                        patch(label.id, { color: color.hex });
+                        setOpenPalette(null);
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </SortableLabelRow>
+          ))}
+        </LabelSortable>
       </div>
+      <span className={popups.srOnly} data-testid="label-live" role="status" aria-live="polite">
+        {announcement}
+      </span>
       <button type="button" className={popups.editLink} onClick={add}>
         <Add aria-hidden="true" /> New label
       </button>
@@ -162,6 +192,18 @@ export function DropdownLabelEditor({
     settings.labels.map((l) => ({ ...l })),
   );
 
+  const [announcement, setAnnouncement] = useState('');
+
+  const move = (id: number, delta: -1 | 1) =>
+    setLabels((list) => {
+      const from = list.findIndex((l) => l.id === id);
+      const next = moveItem(list, from, from + delta);
+      const to = next.findIndex((l) => l.id === id);
+      if (to !== from)
+        setAnnouncement(moveAnnouncement(list[from]?.label ?? '', to + 1, list.length));
+      return next;
+    });
+
   const add = () =>
     setLabels((list) => [...list, { id: Math.max(-1, ...list.map((l) => l.id)) + 1, label: '' }]);
 
@@ -174,31 +216,50 @@ export function DropdownLabelEditor({
     <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
       <div className={popups.labelRows}>
         {labels.length === 0 ? <p className={popups.muted}>No labels yet</p> : null}
-        {labels.map((label) => (
-          <div key={label.id} className={popups.labelRow}>
-            <input
-              className={popups.input}
-              value={label.label}
-              maxLength={MAX_LABEL}
-              placeholder="Label name"
-              aria-label="Label name"
-              onChange={(event) =>
-                setLabels((list) =>
-                  list.map((l) => (l.id === label.id ? { ...l, label: event.target.value } : l)),
-                )
-              }
-            />
-            <button
-              type="button"
-              className={popups.iconButton}
-              aria-label={`Delete ${label.label || 'label'}`}
-              onClick={() => setLabels((list) => list.filter((l) => l.id !== label.id))}
+        <LabelSortable
+          ids={labels.map((l) => l.id)}
+          onDragMove={(id, overId) =>
+            setLabels((list) => moveItemOver(list, (l) => l.id, id, overId))
+          }
+        >
+          {labels.map((label) => (
+            <SortableLabelRow
+              key={label.id}
+              id={label.id}
+              name={label.label}
+              onMove={(delta) => move(label.id, delta)}
             >
-              <Delete aria-hidden="true" />
-            </button>
-          </div>
-        ))}
+              <div className={popups.labelRow}>
+                <input
+                  className={popups.input}
+                  value={label.label}
+                  maxLength={MAX_LABEL}
+                  placeholder="Label name"
+                  aria-label="Label name"
+                  onChange={(event) =>
+                    setLabels((list) =>
+                      list.map((l) =>
+                        l.id === label.id ? { ...l, label: event.target.value } : l,
+                      ),
+                    )
+                  }
+                />
+                <button
+                  type="button"
+                  className={popups.iconButton}
+                  aria-label={`Delete ${label.label || 'label'}`}
+                  onClick={() => setLabels((list) => list.filter((l) => l.id !== label.id))}
+                >
+                  <Delete aria-hidden="true" />
+                </button>
+              </div>
+            </SortableLabelRow>
+          ))}
+        </LabelSortable>
       </div>
+      <span className={popups.srOnly} data-testid="label-live" role="status" aria-live="polite">
+        {announcement}
+      </span>
       <button type="button" className={popups.editLink} onClick={add}>
         <Add aria-hidden="true" /> New label
       </button>

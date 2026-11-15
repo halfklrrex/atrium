@@ -250,9 +250,7 @@ function makeReader(
           const label = findStatusLabel(raw as StatusValue, settings);
           return label && label.label.trim() !== '' ? [label.id] : [];
         },
-        known: [...labels]
-          .sort((a, b) => a.index - b.index)
-          .map((l) => ({ key: l.id, label: l.label, color: l.color })),
+        known: labels.map((l) => ({ key: l.id, label: l.label, color: l.color })),
         labelOf: (k) => k,
         multi: false,
       };

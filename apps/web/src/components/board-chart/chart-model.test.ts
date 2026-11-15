@@ -32,9 +32,9 @@ const column = (
 
 const statusSettings = {
   labels: [
-    { id: 'stuck', index: 2, label: 'Stuck', color: '#df2f4a' },
-    { id: 'done', index: 1, label: 'Done', color: '#00c875' },
     { id: 'todo', index: 0, label: 'To do', color: '#579bfc' },
+    { id: 'done', index: 1, label: 'Done', color: '#00c875' },
+    { id: 'stuck', index: 2, label: 'Stuck', color: '#df2f4a' },
   ],
 };
 const priorityStatus = {
@@ -156,7 +156,7 @@ describe('axis resolution', () => {
 });
 
 describe('X kinds', () => {
-  it('buckets by status in label-index order, with the label colour', () => {
+  it('buckets by status in label order, with the label colour', () => {
     const m = build();
     expect(labels(m)).toEqual(['To do', 'Done', 'Stuck', 'Empty']);
     expect(counts(m)).toEqual([1, 2, 1, 1]);
