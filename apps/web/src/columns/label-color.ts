@@ -73,10 +73,7 @@ export function relativeLuminance(hex: string): number {
   return 0.2126 * srgbToLinear(r) + 0.7152 * srgbToLinear(g) + 0.0722 * srgbToLinear(b);
 }
 
-/**
- * The readable text token for a fill: dark on bright colors, white on dark ones. Palette colors
- * keep their white label (monday's look); only light custom colors flip to dark.
- */
+/** The readable text token for a fill: dark on bright colors, white on dark ones (luminance only). */
 export function getReadableTextColor(
   hex: string,
 ): 'var(--fixed-dark-color)' | 'var(--atrium-table-on-fill)' {
@@ -87,6 +84,17 @@ const PALETTE_HEXES = new Set(STATUS_LABEL_COLORS.map((c) => c.hex.toLowerCase()
 
 export function isPaletteColor(hex: string): boolean {
   return PALETTE_HEXES.has(hex.toLowerCase());
+}
+
+/**
+ * The text color for a status label fill. Palette colors (including the default labels) return
+ * `undefined`, so they keep the white text of the cell styles exactly as monday shows it. Only a
+ * custom color uses the luminance rule.
+ */
+export function getLabelTextColor(
+  hex: string,
+): 'var(--fixed-dark-color)' | 'var(--atrium-table-on-fill)' | undefined {
+  return isPaletteColor(hex) ? undefined : getReadableTextColor(hex);
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   customLabelColors,
+  getLabelTextColor,
   getReadableTextColor,
   hexToHsv,
   hsvToHex,
@@ -57,5 +58,26 @@ describe('customLabelColors', () => {
       { labels: 'bad' },
     ]);
     expect(colors).toEqual(['#123456', '#abcdef']);
+  });
+});
+
+describe('getLabelTextColor', () => {
+  it('leaves palette and default label colors on the cell white text', () => {
+    for (const hex of [
+      '#fdab3d',
+      '#00c875',
+      '#df2f4a',
+      '#579bfc',
+      '#66ccff',
+      '#c4c4c4',
+      '#FFCB00',
+    ]) {
+      expect(getLabelTextColor(hex)).toBeUndefined();
+    }
+  });
+
+  it('uses dark text on a light custom color and white on a dark one', () => {
+    expect(getLabelTextColor('#f0f0a0')).toBe('var(--fixed-dark-color)');
+    expect(getLabelTextColor('#112233')).toBe('var(--atrium-table-on-fill)');
   });
 });
