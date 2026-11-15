@@ -123,6 +123,14 @@ Atrium is licensed **AGPL-3.0-only** (`LICENSE`, `NOTICE`; owner decision, 2026-
 - **Visual QA gate:** a UI epic isn't Done until its screens have been compared side by side with the monday reference in light and dark, and the gaps fixed or logged in the Roadmap's VF group.
 - **Motion:** don't animate layout properties (width, height, padding, margin). Use transform or opacity, and respect `prefers-reduced-motion`.
 
+## Language (owner decision, 2026-11-15)
+
+Use **American English** everywhere: in the app (labels, buttons, messages, placeholders), in code comments, docs, specs, commit messages, PR text, monday updates and replies, and in chat with the owner. Examples: color (not colour), gray (not grey), organize, canceled, center, behavior, favorite, license (noun and verb).
+
+- Existing British spellings in the app's user-visible text are bugs: fix them when you touch the file, or log them.
+- Don't rename identifiers, file names, CSS classes, database fields or stored values just for spelling (that breaks data and history). Use American spelling for anything new.
+- Quoted third-party names and text stay as they are.
+
 ## Engineering rules
 
 - **Stack:** a pnpm monorepo with `apps/web` (Vite + React 19 + TypeScript + `@vibe/core`), `functions` (Cloud Functions 2nd gen, bundled with tsup), `packages/shared` (types, zod schemas, the column registry) and `tests/rules`.
