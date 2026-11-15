@@ -15,6 +15,8 @@ export interface CellContext {
   itemId?: string;
   /** True when the user can edit the board (used by server-managed cells whose client `canEdit` is false). */
   canAct?: boolean;
+  /** Custom label colors the board already uses (lazy: only the label editor calls it). */
+  getBoardColors?: () => string[];
   /** Live board items accessor (used by dependency cells and editors to resolve item names and cycles). */
   getItems?: () => readonly {
     id: string;

@@ -188,6 +188,100 @@
   box-shadow: inset 0 0 0 var(--space-2) var(--atrium-table-popup-bg);
 }
 
+.paletteWheel {
+  background: conic-gradient(var(--atrium-picker-hues));
+}
+
+.customRow {
+  display: grid;
+  grid-template-columns: repeat(var(--atrium-table-palette-columns), var(--atrium-table-swatch));
+  gap: var(--space-8);
+  padding: var(--space-4) 0;
+}
+
+.customCaption {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8) 0;
+}
+
+.pickerSquare {
+  position: relative;
+  height: var(--atrium-picker-square-height);
+  border-radius: var(--atrium-table-radius);
+  background-image:
+    linear-gradient(to top, var(--atrium-picker-black), transparent),
+    linear-gradient(to right, var(--atrium-table-on-fill), transparent);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.pickerSquare:focus-visible,
+.pickerHue:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.pickerHandle {
+  position: absolute;
+  width: var(--atrium-picker-handle);
+  height: var(--atrium-picker-handle);
+  margin: calc(var(--atrium-picker-handle) / -2) 0 0 calc(var(--atrium-picker-handle) / -2);
+  border: var(--space-2) solid var(--atrium-table-on-fill);
+  border-radius: 50%;
+  box-shadow: 0 0 0 var(--border-width) var(--atrium-picker-black);
+  pointer-events: none;
+}
+
+.pickerHue {
+  width: 100%;
+  height: var(--atrium-picker-hue-height);
+  margin: 0;
+  border-radius: var(--atrium-table-radius);
+  background: linear-gradient(to right, var(--atrium-picker-hues));
+  appearance: none;
+  cursor: pointer;
+}
+
+.pickerHue::-webkit-slider-thumb {
+  width: var(--atrium-picker-handle);
+  height: var(--atrium-picker-handle);
+  border: var(--space-2) solid var(--atrium-table-on-fill);
+  border-radius: 50%;
+  box-shadow: 0 0 0 var(--border-width) var(--atrium-picker-black);
+  appearance: none;
+}
+
+.pickerHue::-moz-range-thumb {
+  width: var(--atrium-picker-handle);
+  height: var(--atrium-picker-handle);
+  border: var(--space-2) solid var(--atrium-table-on-fill);
+  border-radius: 50%;
+  box-shadow: 0 0 0 var(--border-width) var(--atrium-picker-black);
+}
+
+.pickerFields {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.pickerPreview {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--atrium-table-swatch);
+  height: var(--atrium-table-swatch);
+  border-radius: var(--atrium-table-radius);
+  font: var(--font-text3-normal);
+}
+
 .iconButton {
   display: inline-grid;
   flex: none;

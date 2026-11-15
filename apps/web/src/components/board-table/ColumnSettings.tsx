@@ -25,6 +25,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchBoardColumns } from '../../columns/board-relation';
 import { getColumnUi, type CellContext } from '../../columns/registry';
 import { DropdownLabelEditor, StatusLabelEditor } from '../../columns/LabelEditors';
+import { customLabelColors } from '../../columns/label-color';
 import popups from '../../columns/popups.module.css';
 import { useBoards } from '../../data';
 import { GROUP_COLORS } from '../../theme/palette';
@@ -1185,6 +1186,7 @@ export function ColumnSettingsPopup({
       {column.def.type === 'status' ? (
         <StatusLabelEditor
           settings={column.settings as StatusSettings}
+          boardColors={customLabelColors((env.allColumns ?? env.columns).map((c) => c.settings))}
           onSave={save}
           onCancel={close}
         />
