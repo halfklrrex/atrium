@@ -1,6 +1,6 @@
 import type { DropdownSettings, StatusSettings } from '@atrium/shared';
 import { orderStatusLabels } from '@atrium/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { DropdownLabelEditor, StatusLabelEditor } from './LabelEditors';
@@ -93,5 +93,99 @@ describe('DropdownLabelEditor reorder', () => {
     await user.click(screen.getByRole('button', { name: 'Apply' }));
     const saved = onSave.mock.calls[0]?.[0] as DropdownSettings;
     expect(saved.labels.map((l) => l.label)).toEqual(['One', 'Fresh', 'Two', 'Three']);
+  });
+});
+
+describe('custom label colors', () => {
+  const open = async (user: ReturnType<typeof userEvent.setup>, boardColors?: string[]) => {
+    const onSave = vi.fn();
+    render(
+      <StatusLabelEditor
+        settings={status}
+        boardColors={boardColors}
+        onSave={onSave}
+        onCancel={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Color of Alpha' }));
+    return onSave;
+  };
+
+  it('puts the wheel swatch last and applies a typed hex with Use', async () => {
+    const user = userEvent.setup();
+    const onSave = await open(user);
+    const wheel = screen.getByRole('radio', { name: 'Pick a custom color' });
+    const radios = screen.getAllByRole('radio');
+    expect(radios[radios.length - 1]).toBe(wheel);
+    await user.click(wheel);
+    const hex = screen.getByLabelText('Hex color');
+    await user.clear(hex);
+    await user.type(hex, 'abc');
+    expect(screen.getByTestId('color-preview').style.backgroundColor).toBe('rgb(170, 187, 204)');
+    await user.click(screen.getByRole('button', { name: 'Use' }));
+    expect(screen.queryByRole('group', { name: 'Custom color' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    const saved = onSave.mock.calls[0]?.[0] as StatusSettings;
+    expect(saved.labels.find((l) => l.id === 'a')?.color).toBe('#aabbcc');
+  });
+
+  it('flags invalid hex and does not apply it', async () => {
+    const user = userEvent.setup();
+    const onSave = await open(user);
+    await user.click(screen.getByRole('radio', { name: 'Pick a custom color' }));
+    const hex = screen.getByLabelText('Hex color');
+    await user.clear(hex);
+    await user.type(hex, '#12zz');
+    expect(hex.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByRole('alert').textContent).toContain('Enter a color');
+    expect((screen.getByRole('button', { name: 'Use' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect((onSave.mock.calls[0]?.[0] as StatusSettings).labels[0]?.color).toBe('#fdab3d');
+  });
+
+  it('cancels with the Cancel button and with Escape', async () => {
+    const user = userEvent.setup();
+    await open(user);
+    await user.click(screen.getByRole('radio', { name: 'Pick a custom color' }));
+    // The editor footer also has a Cancel, so scope to the picker.
+    await user.click(
+      within(screen.getByRole('group', { name: 'Custom color' })).getByRole('button', {
+        name: 'Cancel',
+      }),
+    );
+    expect(screen.queryByRole('group', { name: 'Custom color' })).toBeNull();
+    await user.click(screen.getByRole('radio', { name: 'Pick a custom color' }));
+    screen.getByLabelText('Hex color').focus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('group', { name: 'Custom color' })).toBeNull();
+  });
+
+  it('moves the saturation/brightness handle with the arrow keys', async () => {
+    const user = userEvent.setup();
+    const onSave = await open(user);
+    await user.click(screen.getByRole('radio', { name: 'Pick a custom color' }));
+    const square = screen.getByRole('slider', { name: 'Saturation and brightness' });
+    square.focus();
+    const before = (screen.getByLabelText('Hex color') as HTMLInputElement).value;
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowLeft}');
+    const after = (screen.getByLabelText('Hex color') as HTMLInputElement).value;
+    expect(after).not.toBe(before);
+    expect(square.getAttribute('aria-valuetext')).toMatch(/Saturation \d+ percent/);
+    await user.click(screen.getByRole('button', { name: 'Use' }));
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect((onSave.mock.calls[0]?.[0] as StatusSettings).labels[0]?.color).toBe(after);
+  });
+
+  it('lists saved board colors once, selects the wheel for a custom color and reuses a saved one', async () => {
+    const user = userEvent.setup();
+    const onSave = await open(user, ['#123456', '#123456', '#654321']);
+    expect(screen.getAllByRole('radio', { name: /^Custom color #/ })).toHaveLength(2);
+    await user.click(screen.getByRole('radio', { name: 'Custom color #654321' }));
+    await user.click(screen.getByRole('button', { name: 'Color of Alpha' }));
+    expect(
+      screen.getByRole('radio', { name: 'Pick a custom color' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect((onSave.mock.calls[0]?.[0] as StatusSettings).labels[0]?.color).toBe('#654321');
   });
 });

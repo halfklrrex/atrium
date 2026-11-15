@@ -10,6 +10,8 @@ import classNames from 'classnames';
 import { useState, type KeyboardEvent } from 'react';
 import { newSlugId } from '../lib/ids';
 import { LabelSortable, SortableLabelRow, moveAnnouncement } from './LabelSortable';
+import { ColorPicker } from './ColorPicker';
+import { customLabelColors, isPaletteColor } from './label-color';
 import { moveItem, moveItemOver } from './reorder';
 import { STATUS_LABEL_COLORS, nextGroupColor } from '../theme/palette';
 import popups from './popups.module.css';
@@ -17,15 +19,88 @@ import popups from './popups.module.css';
 const MAX_LABEL = 60;
 
 /**
- * "Edit Labels" for a status column: rename, recolour, mark as done, add and delete labels. The
+ * The color choices for one label: the recommended swatches, the board's saved custom colors and a
+ * color-wheel swatch that opens an inline picker.
+ */
+function LabelPalette({
+  color,
+  saved,
+  onPick,
+}: {
+  color: string;
+  saved: readonly string[];
+  onPick: (color: string) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  const current = color.toLowerCase();
+  const custom = !isPaletteColor(current);
+  const swatch = (hex: string, label: string, extra?: string) => (
+    <button
+      key={hex}
+      type="button"
+      role="radio"
+      aria-checked={hex.toLowerCase() === current}
+      aria-label={label}
+      title={label}
+      className={classNames(
+        popups.paletteSwatch,
+        hex.toLowerCase() === current && popups.paletteSelected,
+        extra,
+      )}
+      style={{ backgroundColor: hex }}
+      onClick={() => onPick(hex)}
+    />
+  );
+  return (
+    <>
+      <div className={popups.palette} role="radiogroup" aria-label="Label color">
+        {STATUS_LABEL_COLORS.map((c) => swatch(c.hex, c.label))}
+      </div>
+      <p className={popups.customCaption}>Custom</p>
+      <div className={popups.customRow} role="radiogroup" aria-label="Custom label colors">
+        {saved.map((hex) => swatch(hex, `Custom color ${hex}`))}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={custom}
+          aria-expanded={picking}
+          aria-label="Pick a custom color"
+          title="Pick a custom color"
+          className={classNames(
+            popups.paletteSwatch,
+            popups.paletteWheel,
+            custom && popups.paletteSelected,
+          )}
+          onClick={() => setPicking((open) => !open)}
+        />
+      </div>
+      {picking ? (
+        <ColorPicker
+          value={current}
+          onCancel={() => setPicking(false)}
+          onUse={(hex) => {
+            setPicking(false);
+            onPick(hex);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * "Edit Labels" for a status column: rename, recolor, mark as done, add and delete labels. The
  * grey label with no text (monday's "no status" default) is kept as it is and not listed.
  */
 export function StatusLabelEditor({
   settings,
+  boardColors = [],
   onSave,
   onCancel,
 }: {
   settings: StatusSettings;
+  /** Custom colors the board's labels already use (any column), offered for reuse. */
+  boardColors?: readonly string[];
   onSave: (settings: StatusSettings) => void;
   onCancel: () => void;
 }) {
@@ -46,6 +121,10 @@ export function StatusLabelEditor({
         setAnnouncement(moveAnnouncement(list[from]?.label ?? '', to + 1, list.length));
       return next;
     });
+
+  // Saved custom colors: the board's, plus any picked in this editor before Apply.
+  const customColors = customLabelColors([{ labels: labels.map((l) => ({ color: l.color })) }]);
+  const savedColors = [...new Set([...boardColors.map((c) => c.toLowerCase()), ...customColors])];
 
   const patch = (id: string, change: Partial<StatusLabel>) =>
     setLabels((list) => list.map((l) => (l.id === id ? { ...l, ...change } : l)));
@@ -101,7 +180,7 @@ export function StatusLabelEditor({
                   type="button"
                   className={popups.swatch}
                   style={{ backgroundColor: label.color }}
-                  aria-label={`Colour of ${label.label || 'new label'}`}
+                  aria-label={`Color of ${label.label || 'new label'}`}
                   onClick={() => setOpenPalette(openPalette === label.id ? null : label.id)}
                 />
                 <input
@@ -133,27 +212,14 @@ export function StatusLabelEditor({
                 </button>
               </div>
               {openPalette === label.id ? (
-                <div className={popups.palette} role="radiogroup" aria-label="Label colour">
-                  {STATUS_LABEL_COLORS.map((color) => (
-                    <button
-                      key={color.hex}
-                      type="button"
-                      role="radio"
-                      aria-checked={color.hex === label.color}
-                      aria-label={color.label}
-                      title={color.label}
-                      className={classNames(
-                        popups.paletteSwatch,
-                        color.hex === label.color && popups.paletteSelected,
-                      )}
-                      style={{ backgroundColor: color.hex }}
-                      onClick={() => {
-                        patch(label.id, { color: color.hex });
-                        setOpenPalette(null);
-                      }}
-                    />
-                  ))}
-                </div>
+                <LabelPalette
+                  color={label.color}
+                  saved={savedColors}
+                  onPick={(color) => {
+                    patch(label.id, { color });
+                    setOpenPalette(null);
+                  }}
+                />
               ) : null}
             </SortableLabelRow>
           ))}

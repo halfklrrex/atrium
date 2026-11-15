@@ -24,6 +24,7 @@ import { CellSpinner } from './CellSpinner';
 import { bulkPeers, isBulkEditableType } from './bulk-edit';
 import { REQUIRED_HINT, isRequiredEmpty } from './required';
 import { tableActions } from './table-actions';
+import { customLabelColors } from '../../columns/label-color';
 import { useTableEnv } from './table-env';
 import type { ColumnView } from './table-model';
 import { useTableStore } from './table-store';
@@ -168,6 +169,10 @@ export const TableCell = memo(function TableCell({
     itemId,
     canAct: env.canEdit,
     getItems: env.getItems,
+    getBoardColors:
+      column.def.type === 'status'
+        ? () => customLabelColors((env.allColumns ?? env.columns).map((c) => c.settings))
+        : undefined,
   };
 
   const onClick = (event: MouseEvent<HTMLDivElement>) => {

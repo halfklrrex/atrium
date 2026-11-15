@@ -57,12 +57,12 @@ export const GROUP_COLORS: readonly PaletteColor[] = [
   { name: 'aquamarine', label: 'Aquamarine', hex: '#4eccc6' },
 ];
 
-/** Colours offered for status labels: the group palette plus monday's greys and brown. */
+/** Colours offered for status labels: the group palette plus monday's grays and brown. */
 export const STATUS_LABEL_COLORS: readonly PaletteColor[] = [
   ...GROUP_COLORS,
   { name: 'brown', label: 'Brown', hex: '#7f5347' },
-  { name: 'american_gray', label: 'Dark grey', hex: '#757575' },
-  { name: 'explosive', label: 'Grey', hex: '#c4c4c4' },
+  { name: 'american_gray', label: 'Dark gray', hex: '#757575' },
+  { name: 'explosive', label: 'Gray', hex: '#c4c4c4' },
 ];
 
 /** The next group colour for a new group: the first palette colour not in use yet. */

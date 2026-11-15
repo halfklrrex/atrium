@@ -50,6 +50,11 @@
   --atrium-table-add-column-width: 440px;
   --atrium-table-palette-columns: 5;
   --atrium-table-swatch: 24px;
+  --atrium-picker-square-height: 120px;
+  --atrium-picker-handle: 14px;
+  --atrium-picker-hue-height: 12px;
+  --atrium-picker-black: #000;
+  --atrium-picker-hues: #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00;
   --atrium-table-tile: 32px;
   --atrium-table-batch-bottom: var(--space-24);
   --atrium-table-batch-height: 48px;
