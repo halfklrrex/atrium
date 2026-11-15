@@ -167,9 +167,9 @@ export function buildBoardWorkbookData(input: WorkbookDataInput): BoardWorkbookD
   };
 
   const statusLabels = statusDef
-    ? [...((statusDef.settings as { labels?: { color: string; index: number }[] }).labels ?? [])]
-        .sort((a, b) => a.index - b.index)
-        .map((l) => l.color)
+    ? [
+        ...((statusDef.settings as { labels?: { color: string; index: number }[] }).labels ?? []),
+      ].map((l) => l.color)
     : [];
 
   const allTop = input.items.filter((i) => i.state === 'active');

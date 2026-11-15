@@ -139,9 +139,9 @@ export function statusLabelsOf(
   for (const board of boards) {
     const def: ColumnDef | undefined = board.columns.find((c) => c.id === columnId);
     if (def && isStatusColumn(def)) {
-      return [...((def.settings as unknown as StatusSettings).labels ?? [])]
-        .filter((l) => l.label.trim() !== '')
-        .sort((a, b) => a.index - b.index);
+      return [...((def.settings as unknown as StatusSettings).labels ?? [])].filter(
+        (l) => l.label.trim() !== '',
+      );
     }
   }
   return [];

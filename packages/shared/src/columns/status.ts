@@ -3,7 +3,7 @@ import { hexColorSchema } from '../schemas/common';
 import { defineColumnType } from './registry';
 import type { DistributionSegment } from './types';
 
-/** One selectable status label. `index` is what cell values reference; it never changes once issued. */
+/** One selectable status label. `index` is what cell values reference; it never changes once issued, so it is not the display order (the order of `labels` is). */
 export const statusLabelSchema = z.object({
   id: z.string().min(1).max(64),
   index: z.number().int().min(0),
@@ -86,12 +86,13 @@ export const DEFAULT_PRIORITY_LABELS: readonly StatusLabel[] = [
 ];
 
 /**
- * Labels in picker order: the blank grey "no status" label first, then the named labels by index.
- * (The empty label has index 5 by default, which would otherwise put it among the named ones.)
+ * Labels in picker order: the blank grey "no status" label first, then the named labels in the
+ * order of `settings.labels`. That array order is the display order everywhere (owner-arranged in
+ * the label editor); `index` is only the stable id cell values reference and is never renumbered.
  */
 export function orderStatusLabels(labels: readonly StatusLabel[]): StatusLabel[] {
   const blank = (l: StatusLabel) => l.label.trim() === '';
-  return [...labels].sort((a, b) => Number(blank(b)) - Number(blank(a)) || a.index - b.index);
+  return [...labels].sort((a, b) => Number(blank(b)) - Number(blank(a)));
 }
 
 /** monday's grey for a cell without a status (`explosive`). */
@@ -115,12 +116,10 @@ export function statusDistribution(
     if (!label || label.label.trim() === '') empty += 1;
     else counts.set(label.id, (counts.get(label.id) ?? 0) + 1);
   }
-  const segments: DistributionSegment[] = [...settings.labels]
-    .sort((a, b) => a.index - b.index)
-    .flatMap((label) => {
-      const count = counts.get(label.id) ?? 0;
-      return count > 0 ? [{ key: label.id, label: label.label, color: label.color, count }] : [];
-    });
+  const segments: DistributionSegment[] = [...settings.labels].flatMap((label) => {
+    const count = counts.get(label.id) ?? 0;
+    return count > 0 ? [{ key: label.id, label: label.label, color: label.color, count }] : [];
+  });
   if (empty > 0) {
     segments.push({ key: EMPTY_STATUS_KEY, label: '', color: EMPTY_STATUS_COLOR, count: empty });
   }
