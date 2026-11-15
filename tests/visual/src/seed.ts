@@ -283,10 +283,10 @@ function column(
 function roadmapStructure(): BoardStructure {
   const status = {
     labels: [
-      { id: 'done', index: 1, label: 'Done', color: '#00c875', isDone: true },
       { id: 'building', index: 0, label: 'Building', color: '#fdab3d' },
-      { id: 'review', index: 3, label: 'In review', color: '#579bfc' },
+      { id: 'done', index: 1, label: 'Done', color: '#00c875', isDone: true },
       { id: 'stuck', index: 2, label: 'Stuck', color: '#df2f4a' },
+      { id: 'review', index: 3, label: 'In review', color: '#579bfc' },
       { id: 'notstarted', index: 4, label: 'Not started', color: '#757575' },
       { id: 'default_grey', index: 5, label: '', color: '#c4c4c4' },
     ],
