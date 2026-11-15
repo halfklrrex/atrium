@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
 import styles from './cells.module.css';
 import { StatusLabelEditor } from './LabelEditors';
-import { getReadableTextColor } from './label-color';
+import { getLabelTextColor } from './label-color';
 import popups from './popups.module.css';
 import { defineColumnUi, type CellProps, type EditorProps } from './types';
 
@@ -21,9 +21,7 @@ function StatusCell({ value, settings }: CellProps<StatusValue, StatusSettings>)
     <div
       className={styles.status}
       style={
-        label
-          ? { backgroundColor: label.color, color: getReadableTextColor(label.color) }
-          : undefined
+        label ? { backgroundColor: label.color, color: getLabelTextColor(label.color) } : undefined
       }
     >
       {label?.label ? <span className={styles.statusText}>{label.label}</span> : null}
@@ -71,7 +69,7 @@ function StatusEditor({
                   popups.chip,
                   selected?.id === label.id && popups.chipSelected,
                 )}
-                style={{ backgroundColor: label.color, color: getReadableTextColor(label.color) }}
+                style={{ backgroundColor: label.color, color: getLabelTextColor(label.color) }}
                 onClick={() => {
                   // The blank grey label is "no status": clearing is an empty value, not an index.
                   onChange(label.label.trim() === '' ? null : { index: label.index });
