@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit';
 import type { EmojiSuggestController } from '../item-view/emoji-data';
 import { createEmojiExtension } from '../item-view/emoji-extension';
 import { ScrollingTableView } from '../item-view/editor-extensions';
+import { DescriptionImage, ImageFileHandlers, ImageUpload } from '../item-view/editor-images';
 import { KeyedHighlight, TextStyleKeys } from '../item-view/editor-marks';
 import type { MentionController } from '../item-view/mention/mention-controller';
 import { createMentionExtension } from '../item-view/mention/mention-extension';
@@ -18,6 +19,9 @@ export interface ComposerExtensionOptions {
   /** Feeds the `@` member list. */
   mentionController: MentionController;
   placeholder: string;
+  /** The item the images belong to (pasted images are stored on it, like description images). */
+  boardId?: string;
+  itemId?: string;
 }
 
 /**
@@ -25,9 +29,11 @@ export interface ComposerExtensionOptions {
  * strikethrough, inline code, links, bullet / numbered lists, checklists, quotes, a level 2 heading,
  * code blocks, dividers, undo and redo (StarterKit, with their markdown input rules), tables,
  * keyed text colour, highlight and size, paragraph alignment and direction (all keys, never CSS),
- * emoji and `@` mentions. Left out on purpose: images and uploads, the "/" menu and fonts.
+ * emoji, `@` mentions and pasted or dropped images (the description's image pipeline: they are
+ * stored on the item). Left out on purpose: the "/" menu and fonts.
  */
 export function createComposerExtensions(options: ComposerExtensionOptions) {
+  const image = { boardId: options.boardId ?? '', itemId: options.itemId ?? '' };
   return [
     StarterKit.configure({
       heading: { levels: [2] },
@@ -43,6 +49,9 @@ export function createComposerExtensions(options: ComposerExtensionOptions) {
     KeyedHighlight,
     createEmojiExtension(options.emojiController ?? new SuggestController()),
     createMentionExtension(options.mentionController),
+    DescriptionImage.configure(image),
+    ImageUpload,
+    ImageFileHandlers.configure(image),
     Placeholder.configure({ placeholder: options.placeholder }),
   ];
 }

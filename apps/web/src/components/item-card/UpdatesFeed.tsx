@@ -80,6 +80,7 @@ export function UpdatesFeed({
       {uid && (
         <LazyUpdateComposer
           boardId={boardId}
+          itemId={itemId}
           variant="update"
           autoFocus={autoFocusComposer}
           placeholder="Write an update and mention others with @"
@@ -160,7 +161,7 @@ export function UpdatesFeed({
 
                 <div className={styles.updateContent}>
                   {update.contentDoc ? (
-                    <RichText doc={update.contentDoc} />
+                    <RichText doc={update.contentDoc} boardId={boardId} itemId={itemId} />
                   ) : (
                     <MentionedText text={update.content} mentions={update.mentions} />
                   )}

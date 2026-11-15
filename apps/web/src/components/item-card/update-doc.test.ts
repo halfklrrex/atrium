@@ -60,3 +60,22 @@ describe('buildUpdateBody: tables, code, dividers and layout keys', () => {
     );
   });
 });
+
+describe('buildUpdateBody: pasted images', () => {
+  const image = { type: 'image', attrs: { fileId: 'f1', alt: '', width: null } };
+
+  it('lets a post with only an image be sent, mirrored as [Image], and keeps the node', () => {
+    const body = buildUpdateBody(doc(image));
+    expect(body?.content).toBe('[Image]');
+    expect(body?.contentDoc).toEqual(doc(image));
+  });
+
+  it('keeps the text around an image in the mirror', () => {
+    const body = buildUpdateBody(doc(para(text('See')), image));
+    expect(body?.content).toBe('See\n[Image]');
+  });
+
+  it('still drops an upload placeholder', () => {
+    expect(buildUpdateBody(doc({ type: 'imageUpload', attrs: { uploadId: 'u' } }))).toBeNull();
+  });
+});

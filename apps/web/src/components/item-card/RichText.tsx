@@ -1,7 +1,10 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Alert } from '@vibe/icons';
+import { createContext, Fragment, useContext, useEffect, useState, type ReactNode } from 'react';
 import { isAlignKey, isDirKey, isFontSizeKey } from './composer-marks';
 import { DEFAULT_HIGHLIGHT, isColorKey } from '../item-view/editor-palette';
 import mentionStyles from './MentionTextarea.module.css';
+import { useDescriptionImageUrl } from '../item-view/description-image-url';
+import { normalizeImageWidth } from '../item-view/editor-images';
 import { safeLinkHref } from './safe-link';
 import styles from './RichText.module.css';
 
@@ -35,6 +38,35 @@ function plainText(node: DocNode): string {
       return next ? plainText(next) : '';
     })
     .join('');
+}
+
+/** The item a post is on: where its images are stored (set by `RichText`). */
+const ImageScope = createContext<{ boardId: string; itemId: string } | null>(null);
+
+/** An image pasted into a post. The doc holds only a fileId; the signed URL comes from the server. */
+function RichImage({ fileId, width }: { fileId: string; width: number | null }) {
+  const scope = useContext(ImageScope);
+  const image = useDescriptionImageUrl(scope?.boardId ?? '', scope?.itemId ?? '', fileId);
+  const style = width ? { width: `${width}%` } : undefined;
+  if (!scope || !fileId || image.status === 'unavailable') {
+    return (
+      <div className={styles.imageUnavailable} role="img" aria-label="Image unavailable">
+        <Alert aria-hidden />
+        <span>Image unavailable</span>
+      </div>
+    );
+  }
+  return image.status === 'ready' ? (
+    <img
+      className={styles.image}
+      style={style}
+      src={image.url}
+      alt="Image in the update"
+      onError={image.onError}
+    />
+  ) : (
+    <div className={styles.imageSkeleton} style={style} role="status" aria-label="Loading image" />
+  );
 }
 
 const emojiCache = new Map<string, string>();
@@ -193,6 +225,14 @@ function renderNode(value: unknown, key: number, depth: number): ReactNode {
       );
     case 'blockquote':
       return <blockquote key={key}>{renderChildren(node, depth)}</blockquote>;
+    case 'image':
+      return (
+        <RichImage
+          key={key}
+          fileId={typeof node.attrs?.fileId === 'string' ? node.attrs.fileId : ''}
+          width={normalizeImageWidth(node.attrs?.width)}
+        />
+      );
     case 'mention':
       return (
         <span key={key} className={mentionStyles.mention}>
@@ -214,8 +254,22 @@ function renderNode(value: unknown, key: number, depth: number): ReactNode {
  * elements. It renders only the nodes and marks the composer can produce; there is no HTML
  * parsing and no `dangerouslySetInnerHTML`, and links must be http, https or mailto.
  */
-export function RichText({ doc }: { doc: unknown }) {
+export function RichText({
+  doc,
+  boardId,
+  itemId,
+}: {
+  doc: unknown;
+  /** With `itemId`, lets the post's images load. Without them an image shows as unavailable. */
+  boardId?: string;
+  itemId?: string;
+}) {
   const root = asNode(doc);
   if (!root) return null;
-  return <div className={styles.root}>{renderChildren(root, 0)}</div>;
+  const scope = boardId && itemId ? { boardId, itemId } : null;
+  return (
+    <ImageScope.Provider value={scope}>
+      <div className={styles.root}>{renderChildren(root, 0)}</div>
+    </ImageScope.Provider>
+  );
 }

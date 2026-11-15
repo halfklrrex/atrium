@@ -35,6 +35,8 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 
 export interface UpdateComposerProps {
   boardId: string;
+  /** The item the post is on; pasted images are stored on it. */
+  itemId: string;
   placeholder: string;
   /** An update starts as one line and opens on focus; a reply is open from the start. */
   variant: 'update' | 'reply';
@@ -70,6 +72,7 @@ let chipCounter = 0;
  */
 export default function UpdateComposer({
   boardId,
+  itemId,
   placeholder,
   variant,
   autoFocus = false,
@@ -143,8 +146,10 @@ export default function UpdateComposer({
         emojiController: emojiSuggest,
         mentionController: mentionSuggest,
         placeholder,
+        boardId,
+        itemId,
       }),
-    [emojiSuggest, mentionSuggest, placeholder],
+    [emojiSuggest, mentionSuggest, placeholder, boardId, itemId],
   );
 
   const editor = useEditor({
