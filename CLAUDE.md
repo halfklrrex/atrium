@@ -4,6 +4,10 @@
 
 Everything shared with other agents (project facts, multi-agent workflow, visual identity, engineering rules) is in `AGENTS.md` above. This file adds Claude-only rules.
 
+## Language
+
+Write American English in every reply to the owner, in the app, and in everything you commit or post. The full rule is in `AGENTS.md` ("Language"). Brief your coding subagents on it too.
+
 ## Codenames
 
 - **Ophelia:** Claude (Opus 5.5 technical lead, Sonnet 5.5 coding sub-agents)
