@@ -35,6 +35,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 
 - **Ava is back (2026-11-14, Claude Sonnet fallback model).** Owner priority this session: two small items from the bug inbox, in PR `ag/empty-label-first-and-scroll-description`: the grey empty Status/Priority label now lists first in the picker (`orderStatusLabels`, monday 3358418968), and the sidebar description box scrolls (12 lines) instead of Show more / Show less (monday 3358419142). Notes: `docs/handoff/2026-11-14-ava-empty-label-scroll-description.md`.
 - **New rule (owner, 2026-11-14):** HANDOFF.md and monday are updated constantly, not at the end (see `AGENTS.md`).
+- **Paste images into updates and replies (2026-11-15, Ophelia, branch `claude/update-image-paste`):** the composer reuses the description image pipeline; spec `docs/specs/update-image-paste.md`, design note in `docs/architecture.md` section on description images.
 - Everything under "Open work (2026-11-10)" below is still current unless a note above says otherwise.
 
 ## Open work (2026-11-10)

@@ -101,7 +101,7 @@ export function UpdateReplies({
                     </div>
                     <div className={styles.replyContent}>
                       {reply.contentDoc ? (
-                        <RichText doc={reply.contentDoc} />
+                        <RichText doc={reply.contentDoc} boardId={boardId} itemId={itemId} />
                       ) : (
                         <MentionedText text={reply.content} mentions={reply.mentions} />
                       )}
@@ -169,6 +169,7 @@ export function UpdateReplies({
             {composerOpen ? (
               <LazyUpdateComposer
                 boardId={boardId}
+                itemId={itemId}
                 variant="reply"
                 placeholder="Write a reply and mention others with @"
                 autoFocus

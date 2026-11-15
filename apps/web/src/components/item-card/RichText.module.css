@@ -139,3 +139,33 @@
 .root th > * {
   margin: 0;
 }
+
+/* Images pasted into a post (width is a percentage of the post's width). */
+.image {
+  display: block;
+  max-width: 100%;
+  max-height: var(--atrium-image-max-height);
+  border-radius: var(--border-radius-4);
+  object-fit: contain;
+  object-position: left top;
+}
+
+.imageSkeleton {
+  width: 100%;
+  aspect-ratio: var(--atrium-image-skeleton-ratio);
+  border-radius: var(--border-radius-4);
+  background: var(--allgrey-background-color);
+}
+
+.imageUnavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  width: 100%;
+  aspect-ratio: var(--atrium-image-skeleton-ratio);
+  border: var(--border-width) dashed var(--layout-border-color);
+  border-radius: var(--border-radius-4);
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}

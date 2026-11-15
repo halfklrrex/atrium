@@ -68,12 +68,25 @@ function flattenTables(node: unknown): unknown {
   return Array.isArray(n.content) ? { ...n, content: n.content.map(flattenTables) } : n;
 }
 
+/** The text an image leaves in the plain-text mirror, so an image-only post is not empty. */
+export const IMAGE_MIRROR_TEXT = '[Image]';
+
+/** Each image replaced by a paragraph reading `[Image]` (for the mirror only, never stored). */
+function imagesToText(node: unknown): unknown {
+  if (!node || typeof node !== 'object') return node;
+  const n = node as Json & { type?: string; content?: unknown[] };
+  if (n.type === 'image') {
+    return { type: 'paragraph', content: [{ type: 'text', text: IMAGE_MIRROR_TEXT }] };
+  }
+  return Array.isArray(n.content) ? { ...n, content: n.content.map(imagesToText) } : n;
+}
+
 /** What to store for the composer's doc, or `null` when it is empty and so cannot be posted. */
 export function buildUpdateBody(editorDoc: Record<string, unknown>): UpdateBody | null {
   const contentDoc = dropUnsetBlockAttrs(stripTransientNodes(editorDoc)) as Json;
   if (isEmptyDoc(contentDoc)) return null;
   // A post that is only a divider has no text, so (like the server) it counts as empty.
-  const content = docToText(flattenTables(contentDoc));
+  const content = docToText(imagesToText(flattenTables(contentDoc)));
   if (!content) return null;
   return { contentDoc, content, mentions: mentionIdsInDoc(contentDoc) };
 }
