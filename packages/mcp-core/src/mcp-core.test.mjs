@@ -2,7 +2,7 @@
 // of the actor model, against an in-memory Firestore. Nothing here touches the emulator or production.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { boardSchema, itemSchema } from '@atrium/shared';
+import { boardSchema, columnRegistry, itemSchema } from '@atrium/shared';
 import { createFakeClient } from './fake-client.mjs';
 import { buildColumnSettings, ts } from './builders.mjs';
 import { PICK_WORKSPACE_MESSAGE, createService } from './service.mjs';
@@ -795,7 +795,7 @@ test('structure changes give up after a second conflict', async () => {
 test('tool catalogue: unique atrium_ names, every tool described, scoped and annotated', () => {
   const tools = defineTools({});
   const names = tools.map((t) => t.name);
-  assert.equal(tools.length, 43);
+  assert.equal(tools.length, 44);
   assert.equal(new Set(names).size, names.length);
   for (const tool of tools) {
     assert.match(tool.name, /^atrium_[a-z_]+$/);
@@ -1979,7 +1979,7 @@ test('tool catalogue: the batch 1b tools reach the service with the right scopes
       ['setColumnLock', false],
     ],
   );
-  assert.equal(tools.length, 43);
+  assert.equal(tools.length, 44);
 });
 
 test('findItems pages through equal positions and unknown groups without gaps or repeats', async () => {
@@ -2410,5 +2410,214 @@ test('tool catalogue: batch 1c PR 1 tools, scopes, annotations and schemas', asy
   );
   assert.equal(byName('atrium_list_boards').inputSchema.state.safeParse('trash').success, false);
   assert.equal(byName('atrium_rename_board').inputSchema.name.safeParse('').success, false);
-  assert.equal(tools.length, 43);
+  assert.equal(tools.length, 44);
+});
+
+// ---- templates (batch 1c PR 2) ----------------------------------------------------------------
+
+test('tool catalogue: batch 1c PR 2 tools reach the service', async () => {
+  const calls = [];
+  const spy = new Proxy({}, { get: (_, key) => async (args) => calls.push([key, args]) });
+  const tools = defineTools(spy);
+  const byName = (n) => tools.find((t) => t.name === n);
+  assert.equal(byName('atrium_list_templates').scope, 'read');
+  assert.equal(byName('atrium_create_board').scope, 'write');
+  assert.equal(byName('atrium_create_board').annotations.destructiveHint, false);
+  await byName('atrium_list_templates').run({ workspaceId: 'w' });
+  await byName('atrium_create_board').run({ name: 'B', templateId: 'bug-tracker' });
+  assert.deepEqual(calls[0], ['listTemplates', { workspaceId: 'w' }]);
+  assert.equal(calls[1][1].templateId, 'bug-tracker');
+  assert.equal(
+    byName('atrium_create_board').inputSchema.templateId.safeParse('a/b').success,
+    false,
+  );
+  assert.equal(tools.length, 44);
+});
+
+const savedTemplate = (more = {}) => ({
+  name: 'Our plan',
+  description: 'Saved',
+  structure: {
+    columns: [
+      {
+        id: 'c1',
+        type: 'text',
+        title: 'Note',
+        position: 'a0',
+        settings: {},
+        migrating: { snapshotId: 's1', startedAt: 1, kind: 'change' },
+      },
+      { id: 'c2', type: 'vote', title: 'Votes', position: 'a1', settings: {} },
+    ],
+    subitemColumns: [],
+    groups: [{ id: 'g1', title: 'Todo', color: '#579bfc', position: 'a0' }],
+    itemTerminology: 'Item',
+  },
+  sampleItems: [
+    { name: 'One', groupId: 'g1', values: { c1: 'hello', c2: { votersIds: ['x'] }, gone: 'x' } },
+    { name: 'Two', groupId: 'g1', values: {} },
+  ],
+  itemCount: 2,
+  ...more,
+});
+const withTemplate = (roles) =>
+  setup({ roles, extra: { [`workspaces/${WS}/templates/t1`]: savedTemplate() } });
+
+test('listTemplates lists the built-ins, then the saved templates', async () => {
+  const { service } = withTemplate();
+  const { workspaceId, templates } = await service.listTemplates();
+  assert.equal(workspaceId, WS);
+  const builtIns = templates.filter((t) => t.source === 'built-in');
+  assert.ok(builtIns.length >= 3);
+  assert.deepEqual(
+    templates.slice(0, builtIns.length).map((t) => t.source),
+    builtIns.map(() => 'built-in'),
+  );
+  const saved = templates.at(-1);
+  assert.deepEqual(saved, {
+    id: 't1',
+    source: 'workspace',
+    name: 'Our plan',
+    description: 'Saved',
+    columns: [
+      { title: 'Note', type: 'text' },
+      { title: 'Votes', type: 'vote' },
+    ],
+    groups: ['Todo'],
+    sampleItems: 2,
+  });
+});
+
+test('listTemplates: a viewer may list, a non-member and an unknown workspace are refused', async () => {
+  const viewer = withTemplate({ [ME]: 'viewer' });
+  assert.ok((await viewer.service.listTemplates()).templates.length > 0);
+  const outsider = withTemplate({ [OTHER]: 'owner' });
+  await assert.rejects(outsider.service.listTemplates(), /not a member|not found/);
+  await assert.rejects(outsider.service.listTemplates({ workspaceId: WS }), /not found/);
+});
+
+test('createBoard from every built-in template is valid, with empty server id lists', async () => {
+  const { templates } = await setup().service.listTemplates();
+  for (const t of templates.filter((x) => x.source === 'built-in')) {
+    const { client, service } = setup();
+    const created = await service.createBoard({ name: t.name, templateId: t.id });
+    const board = client.docs.get(`boards/${created.id}`).data;
+    assert.equal(
+      boardSchema.safeParse({
+        ...board,
+        createdAt: ts(board.createdAt),
+        updatedAt: ts(board.updatedAt),
+      }).success,
+      true,
+      t.id,
+    );
+    assert.deepEqual(board.derivedColumnIds, [], t.id);
+    assert.deepEqual(board.serverManagedColumnIds, [], t.id);
+    assert.deepEqual(board.requiredColumnIds, [], t.id);
+    assert.equal('voteColumnIds' in board, false, t.id);
+    assert.deepEqual(board.subitemColumns, [], t.id);
+    assert.equal(created.sampleItems, t.sampleItems, t.id);
+    const groupIds = new Set(board.groups.map((g) => g.id));
+    const items = [...client.docs.entries()].filter(([p]) =>
+      p.startsWith(`boards/${created.id}/items/`),
+    );
+    assert.equal(items.length, t.sampleItems, t.id);
+    for (const [, { data }] of items) {
+      const stamped = { ...data, createdAt: ts(data.createdAt), updatedAt: ts(data.updatedAt) };
+      const parsed = itemSchema.safeParse(stamped);
+      assert.equal(parsed.success, true, `${t.id} ${JSON.stringify(parsed.error?.issues)}`);
+      assert.ok(groupIds.has(data.groupId), t.id);
+      assert.equal(data.createdBy, ME);
+    }
+  }
+});
+
+test('createBoard from a template: sample items off, positions per group, derived values skipped', async () => {
+  const { client, service } = setup();
+  const off = await service.createBoard({
+    name: 'Off',
+    templateId: 'bug-tracker',
+    includeSampleItems: false,
+  });
+  assert.equal(off.sampleItems, 0);
+  assert.equal(
+    [...client.docs.keys()].filter((p) => p.startsWith(`boards/${off.id}/items/`)).length,
+    0,
+  );
+  const on = await service.createBoard({ name: 'On', templateId: 'bug-tracker' });
+  const board = client.docs.get(`boards/${on.id}`).data;
+  const derived = new Set(
+    board.columns.filter((c) => columnRegistry.isDerived(c.type)).map((c) => c.id),
+  );
+  const items = [...client.docs.entries()]
+    .filter(([p]) => p.startsWith(`boards/${on.id}/items/`))
+    .map(([, v]) => v.data);
+  for (const item of items) {
+    for (const key of Object.keys(item.values)) assert.equal(derived.has(key), false);
+  }
+  const byGroup = new Map();
+  for (const item of items)
+    byGroup.set(item.groupId, [...(byGroup.get(item.groupId) ?? []), item.position]);
+  for (const positions of byGroup.values()) {
+    assert.equal(new Set(positions).size, positions.length);
+  }
+});
+
+test('createBoard from a saved template strips server fields and vote values', async () => {
+  const { client, service } = withTemplate();
+  const created = await service.createBoard({ name: 'Mine', templateId: 't1' });
+  assert.deepEqual(created.template, { id: 't1', source: 'workspace', name: 'Our plan' });
+  assert.equal(created.sampleItems, 2);
+  const board = client.docs.get(`boards/${created.id}`).data;
+  assert.equal('migrating' in board.columns[0], false);
+  assert.deepEqual(
+    board.columns.map((c) => c.id),
+    ['c1', 'c2'],
+  );
+  assert.equal(board.name, 'Mine');
+  assert.deepEqual(board.access, { [ME]: 'owner' });
+  const items = [...client.docs.entries()]
+    .filter(([p]) => p.startsWith(`boards/${created.id}/items/`))
+    .map(([, v]) => v.data)
+    .sort((a, b) => (a.position < b.position ? -1 : 1));
+  assert.deepEqual(
+    items.map((i) => i.name),
+    ['One', 'Two'],
+  );
+  assert.deepEqual(items[0].values, { c1: 'hello' });
+  const none = await service.createBoard({
+    name: 'Bare',
+    templateId: 't1',
+    includeSampleItems: false,
+  });
+  assert.equal(none.sampleItems, 0);
+});
+
+test('createBoard with templateId: unknown id, bad id, stray includeSampleItems, role and sample-item failure', async () => {
+  const { service } = withTemplate();
+  await assert.rejects(service.createBoard({ name: 'X', templateId: 'nope' }), /was not found/);
+  await assert.rejects(service.createBoard({ name: 'X', templateId: 'a/b' }), /plain id/);
+  await assert.rejects(
+    service.createBoard({ name: 'X', includeSampleItems: false }),
+    /only applies together with templateId/,
+  );
+  const viewer = withTemplate({ [ME]: 'viewer' });
+  await assert.rejects(
+    viewer.service.createBoard({ name: 'X', templateId: 't1' }),
+    /member role or higher/,
+  );
+  // A damaged saved template is refused before anything is written.
+  const bad = setup({
+    extra: { [`workspaces/${WS}/templates/bad`]: { name: 'Bad', structure: { columns: 1 } } },
+  });
+  await assert.rejects(bad.service.createBoard({ name: 'X', templateId: 'bad' }), /damaged/);
+  assert.equal([...bad.client.docs.keys()].filter((p) => p.startsWith('boards/')).length, 0);
+  // A failing second commit keeps the board and says so.
+  const flaky = withTemplate();
+  const commit = flaky.client.commit.bind(flaky.client);
+  let n = 0;
+  flaky.client.commit = async (w) => (++n === 2 ? Promise.reject(new Error('boom')) : commit(w));
+  const created = await flaky.service.createBoard({ name: 'Flaky', templateId: 't1' });
+  assert.equal(created.sampleItems, 0);
+  assert.match(created.warning, /sample items could not be added/);
 });

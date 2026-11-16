@@ -89,10 +89,24 @@ export interface McpService {
     includeItems?: boolean;
     limit?: number;
   }): Promise<Record<string, unknown>>;
+  listTemplates(args?: { workspaceId?: string }): Promise<{
+    workspaceId: string;
+    templates: {
+      id: string;
+      source: 'built-in' | 'workspace';
+      name: string;
+      description: string;
+      columns: { title: string; type: string }[];
+      groups: string[];
+      sampleItems: number;
+    }[];
+  }>;
   createBoard(args: {
     name: string;
     description?: string;
     workspaceId?: string;
+    templateId?: string;
+    includeSampleItems?: boolean;
   }): Promise<Record<string, unknown>>;
   addGroup(args: { boardId: string; title: string; color?: string }): Promise<unknown>;
   renameGroup(args: { boardId: string; group: string; title: string }): Promise<unknown>;
@@ -227,7 +241,7 @@ export interface ToolDefinition {
   run(args: Record<string, unknown>): Promise<unknown>;
 }
 
-/** The tool catalogue bound to a service (43 tools). */
+/** The tool catalogue bound to a service (44 tools). */
 export declare function defineTools(service: McpService): ToolDefinition[];
 
 // ---- lower-level helpers (used by tests and the hosted server's own checks) ----------------------
