@@ -384,15 +384,57 @@ describe('description images', () => {
     expect(editorOf().getJSON().content?.[0]?.attrs?.width).toBe(30);
   });
 
-  it('keeps an image with no stored width at its natural size, and sizes one with a width', async () => {
+  it('keeps an unsized image full width while loading or unavailable, natural once ready', async () => {
+    let resolveUrl: (v: { url: string; expiresAt: number }) => void = () => {};
+    mocks.getUrl.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUrl = resolve;
+      }),
+    );
+    mount(doc({ type: 'image', attrs: { fileId: 'img1', alt: '', width: null } }));
+    const skeleton = await screen.findByRole('status', { name: 'Loading image' });
+    expect(skeleton.parentElement).not.toHaveAttribute('data-natural');
+    expect(skeleton.parentElement).not.toHaveAttribute('data-sized');
+    expect(skeleton.parentElement?.style.width).toBe('');
+    await act(async () => {
+      resolveUrl({ url: 'https://files.example.com/a.png', expiresAt: farFuture() });
+    });
+    const img = await screen.findByRole('img', { name: 'Image in the description' });
+    expect(img.parentElement).toHaveAttribute('data-natural', 'true');
+    expect(img.parentElement).not.toHaveAttribute('data-sized');
+    expect(img.parentElement?.style.width).toBe('');
+  });
+
+  it('does not mark an unavailable unsized image as natural', async () => {
+    mocks.getUrl.mockRejectedValue(new Error('not-found'));
+    mount(doc({ type: 'image', attrs: { fileId: 'img1', alt: '', width: null } }));
+    const box = await screen.findByRole('img', { name: 'Image unavailable' });
+    expect(box.parentElement).not.toHaveAttribute('data-natural');
+    expect(box.parentElement).not.toHaveAttribute('data-sized');
+  });
+
+  it('starts keyboard resize of an unsized image from its current width', async () => {
+    const user = userEvent.setup();
     mocks.getUrl.mockResolvedValue({
       url: 'https://files.example.com/a.png',
       expiresAt: farFuture(),
     });
     mount(doc({ type: 'image', attrs: { fileId: 'img1', alt: '', width: null } }));
-    const natural = await screen.findByRole('img', { name: 'Image in the description' });
-    expect(natural.parentElement).not.toHaveAttribute('data-sized');
-    expect(natural.parentElement?.style.width).toBe('');
+    const img = await screen.findByRole('img', { name: 'Image in the description' });
+    const wrap = img.parentElement as HTMLElement;
+    // A 200px image in a 1000px column is 20 percent wide.
+    vi.spyOn(wrap, 'getBoundingClientRect').mockReturnValue({ width: 300 } as DOMRect);
+    Object.defineProperty(wrap.parentElement as HTMLElement, 'clientWidth', {
+      configurable: true,
+      value: 1000,
+    });
+    act(() => {
+      editorOf().commands.setNodeSelection(0);
+    });
+    const handle = await screen.findByRole('slider', { name: 'Resize image' });
+    handle.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(editorOf().getJSON().content?.[0]?.attrs?.width).toBe(35);
   });
 
   it('sizes an image with a stored width as a percentage of the content', async () => {

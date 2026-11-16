@@ -40,6 +40,17 @@ export function ImageNodeView({
   const shown = liveWidth ?? stored;
   // No stored width: show the image at its natural size (never stretched past it).
   const sized = liveWidth !== null || typeof node.attrs.width === 'number';
+  const natural = !sized && image.status === 'ready';
+  const [measured, setMeasured] = useState<number | null>(null);
+  /** The image's current width as a percentage of the content width (for an unsized image). */
+  const measure = (): number | null => {
+    const wrap = wrapRef.current;
+    const container = wrap?.parentElement;
+    if (!wrap || !container) return null;
+    const pct = (wrap.getBoundingClientRect().width / (container.clientWidth || 1)) * 100;
+    return clampWidth(pct);
+  };
+  const shownValue = natural ? (measured ?? shown) : shown;
   const alt = String(node.attrs.alt || 'Image in the description');
 
   const startResize = (event: PointerEvent<HTMLElement>) => {
@@ -71,7 +82,8 @@ export function ImageNodeView({
     if (!delta) return;
     event.preventDefault();
     event.stopPropagation();
-    updateAttributes({ width: clampWidth(stored + delta) });
+    const base = typeof node.attrs.width === 'number' ? stored : (measure() ?? stored);
+    updateAttributes({ width: clampWidth(base + delta) });
   };
 
   return (
@@ -80,6 +92,7 @@ export function ImageNodeView({
       className={styles.image}
       data-selected={(selected && editable) || undefined}
       data-sized={sized || undefined}
+      data-natural={natural || undefined}
       style={sized ? { width: `${shown}%` } : undefined}
       contentEditable={false}
     >
@@ -90,6 +103,7 @@ export function ImageNodeView({
           alt={alt}
           draggable={false}
           onError={image.onError}
+          onLoad={() => setMeasured(measure())}
         />
       ) : image.status === 'loading' ? (
         <div className={styles.imageSkeleton} role="status" aria-label="Loading image" />
@@ -108,8 +122,8 @@ export function ImageNodeView({
           aria-orientation="horizontal"
           aria-valuemin={MIN_WIDTH}
           aria-valuemax={MAX_WIDTH}
-          aria-valuenow={shown}
-          aria-valuetext={`${shown}% of the width`}
+          aria-valuenow={shownValue}
+          aria-valuetext={`${shownValue}% of the width`}
           onPointerDown={startResize}
           onKeyDown={onHandleKey}
         />
