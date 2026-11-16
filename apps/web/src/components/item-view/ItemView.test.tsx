@@ -9,6 +9,7 @@ import { ItemView } from './ItemView';
 
 const mocks = vi.hoisted(() => ({
   setValue: vi.fn(() => Promise.resolve()),
+  setState: vi.fn(() => Promise.resolve()),
   items: [] as unknown[],
 }));
 
@@ -22,7 +23,12 @@ vi.mock('../../data', async (importOriginal) => ({
     loading: false,
     error: null,
   }),
-  itemWrites: { setValue: mocks.setValue, setDescription: vi.fn(), rename: vi.fn() },
+  itemWrites: {
+    setValue: mocks.setValue,
+    setDescription: vi.fn(),
+    rename: vi.fn(),
+    setState: mocks.setState,
+  },
 }));
 vi.mock('../item-card/UpdatesFeed', () => ({ UpdatesFeed: () => <div>updates feed</div> }));
 vi.mock('./DescriptionEditor', () => ({ default: () => <div>description editor</div> }));
@@ -46,7 +52,13 @@ const board = makeBoard({
 });
 
 function Where() {
-  return <div data-testid="where">{useLocation().pathname}</div>;
+  const location = useLocation();
+  return (
+    <>
+      <div data-testid="where">{location.pathname}</div>
+      <div data-testid="state">{JSON.stringify(location.state)}</div>
+    </>
+  );
 }
 
 function renderView(itemId = 'i2', shownBoard = board, state: object = { fromBoard: true }) {
@@ -70,6 +82,7 @@ function renderView(itemId = 'i2', shownBoard = board, state: object = { fromBoa
 describe('ItemView', () => {
   beforeEach(() => {
     mocks.setValue.mockClear();
+    mocks.setState.mockClear();
     mocks.items = [
       makeItem({ id: 'i1', name: 'First', position: 'a0' }),
       makeItem({ id: 'i2', name: 'Second', position: 'a1', values: { cost: '5' } }),
@@ -153,13 +166,31 @@ describe('ItemView', () => {
     expect(screen.getByTestId('where').textContent).toBe('/boards/b1');
   });
 
-  it('opens a subitem page from the parent, with fromItem, and Back returns', async () => {
+  it('opens a subitem page from the parent, recording fromItem and fromBoard', async () => {
     const user = userEvent.setup();
     renderView();
     await user.click(screen.getByRole('button', { name: 'Child task' }));
     await waitFor(() =>
       expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/s1'),
     );
+    expect(JSON.parse(screen.getByTestId('state').textContent!)).toEqual({
+      fromBoard: true,
+      fromItem: 'i2',
+    });
+  });
+
+  it('opens a subitem with the keyboard (Enter) and renames with F2', async () => {
+    const user = userEvent.setup();
+    const first = renderView();
+    screen.getByRole('button', { name: 'Child task' }).focus();
+    await user.keyboard('{F2}');
+    expect(screen.getByRole('textbox', { name: 'Subitem name Child task' })).toBeTruthy();
+    expect(screen.getByTestId('where').textContent).toBe('/boards/b1/items/i2');
+    first.unmount();
+    renderView();
+    screen.getByRole('button', { name: 'Child task' }).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/s1');
   });
 
   it('opens a subitem with its Open icon', async () => {
@@ -212,6 +243,62 @@ describe('ItemView', () => {
       ).toBe('true');
       await userEvent.click(screen.getByRole('button', { name: 'Next subitem' }));
       expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/s2');
+    });
+
+    it('closes to the board, not back to the parent, when opened from it', async () => {
+      renderView('s1', board, { fromBoard: true, fromItem: 'i2' });
+      await userEvent.keyboard('{Escape}');
+      expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1');
+    });
+
+    it('steps to a sibling keeping only fromBoard and fromItem', async () => {
+      renderView('s1', board, {
+        fromBoard: true,
+        fromItem: 'i2',
+        updateId: 'u9',
+        section: 'subitems',
+      });
+      await userEvent.click(screen.getByRole('button', { name: 'Next subitem' }));
+      expect(JSON.parse(screen.getByTestId('state').textContent!)).toEqual({
+        fromBoard: true,
+        fromItem: 'i2',
+      });
+    });
+
+    it('archive goes to the parent, and Close from there goes to the board', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      renderView('s1', board, { fromBoard: true, fromItem: 'i2' });
+      await user.click(screen.getByRole('button', { name: 'Subitem actions' }));
+      await user.click(await screen.findByRole('menuitem', { name: 'Archive subitem' }));
+      await waitFor(() =>
+        expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/i2'),
+      );
+      expect(mocks.setState).toHaveBeenCalledWith('u1', 'b1', ['s1'], 'archived');
+      expect(JSON.parse(screen.getByTestId('state').textContent!)).toEqual({
+        fromBoard: true,
+        toBoard: true,
+      });
+    });
+
+    it('the parent crumb replaces the entry and marks Close to the board', async () => {
+      renderView('s1', board, { fromBoard: true, fromItem: 'i2' });
+      await userEvent.click(screen.getByRole('link', { name: 'Back to Second' }));
+      expect(JSON.parse(screen.getByTestId('state').textContent!)).toEqual({
+        fromBoard: true,
+        toBoard: true,
+      });
+    });
+
+    it('hides the crumb when the parent is not active', () => {
+      mocks.items = mocks.items.filter((i) => (i as { id: string }).id !== 'i2');
+      renderView('s1', board, {});
+      expect(screen.queryByTestId('parent-crumb')).toBeNull();
+    });
+
+    it('skips an archived sibling when stepping', () => {
+      mocks.items = mocks.items.filter((i) => (i as { id: string }).id !== 's2');
+      renderView('s1', board, {});
+      expect(screen.queryByRole('button', { name: 'Next subitem' })).toBeNull();
     });
 
     it('opens directly from a link with no router state', () => {

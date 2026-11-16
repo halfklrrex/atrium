@@ -89,7 +89,14 @@ export function ItemSubitems({
                   <button
                     type="button"
                     className={styles.subitemLink}
-                    onClick={() => clickName(sub.id)}
+                    onClick={(event) => (event.detail === 0 ? onOpen(sub.id) : clickName(sub.id))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'F2' && canEdit) {
+                        event.preventDefault();
+                        renameName(sub.id);
+                      }
+                    }}
+                    title={canEdit ? 'Open (F2 or double click to rename)' : undefined}
                     onDoubleClick={() => canEdit && renameName(sub.id)}
                   >
                     {sub.name}

@@ -65,6 +65,8 @@ export const FROM_BOARD_STATE = { fromBoard: true } as const;
 export interface ItemViewRouteState {
   fromBoard?: boolean;
   fromItem?: string;
+  /** Close goes to the board, not one step back (the history holds the parent's page). */
+  toBoard?: boolean;
   /** Open the thread of this update and scroll it into view. */
   updateId?: string | null;
   replyId?: string | null;
