@@ -54,7 +54,7 @@ export function LabelSortable({
       </SortableContext>
       {renderOverlay
         ? createPortal(
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
               {activeId !== null ? (
                 <div className={popups.dragPreview}>{renderOverlay(activeId)}</div>
               ) : null}
