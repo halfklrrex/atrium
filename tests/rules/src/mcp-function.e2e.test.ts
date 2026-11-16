@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createService } from '@atrium/mcp-core';
+import { createService, defineTools } from '@atrium/mcp-core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -163,7 +163,8 @@ describe('the mcp function against the emulator', () => {
     await client.connect(transport);
     try {
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(37);
+      // The catalogue length, so later batches don't edit this file.
+      expect(tools).toHaveLength(defineTools({} as never).length);
       expect(tools.map((tool) => tool.name)).toContain('atrium_list_workspaces');
 
       const result = await client.callTool({ name: 'atrium_list_workspaces', arguments: {} });

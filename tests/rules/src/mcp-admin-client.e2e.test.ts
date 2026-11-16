@@ -365,6 +365,44 @@ describe('@atrium/mcp-core on the Admin SDK client', () => {
     expect((read.items as { name: string }[]).map((i) => i.name)).toEqual(['Write spec']);
   });
 
+  it('votes and runs the board lifecycle through the Admin SDK client', async () => {
+    const service = createService({ client, actor: { uid: USERS.owner } });
+    const board = await service.createBoard({ name: 'Ideas' });
+    const boardId = board.id as string;
+    const stored = (await client.getDoc(`boards/${boardId}`))!;
+    // The connector can't create vote columns, so the test adds one the way the web app would.
+    await client.commit([
+      {
+        op: 'patch',
+        path: `boards/${boardId}`,
+        data: {
+          columns: [
+            ...(stored.columns as unknown[]),
+            { id: 'vote1', type: 'vote', title: 'Votes', position: 'z0', settings: {} },
+          ],
+        },
+      },
+    ]);
+    const { created } = await service.createItems({ boardId, items: [{ name: 'Idea' }] });
+    const itemId = created[0]!.id;
+    await expect(service.setVote({ boardId, itemId, voted: true })).resolves.toMatchObject({
+      votes: 1,
+      changed: true,
+    });
+    const item = await client.getDoc(`boards/${boardId}/items/${itemId}`);
+    expect((item!.values as Record<string, unknown>).vote1).toEqual({ votersIds: [USERS.owner] });
+    await expect(service.setVote({ boardId, itemId, voted: false })).resolves.toMatchObject({
+      votes: 0,
+    });
+
+    await service.renameBoard({ boardId, name: 'Ideas 2' });
+    await service.setBoardState({ boardId, to: 'archived' });
+    const archived = await service.listBoards({ state: 'archived' });
+    expect(archived.boards.map((b) => b.name)).toEqual(['Ideas 2']);
+    await service.setBoardState({ boardId, to: 'active' });
+    expect((await client.getDoc(`boards/${boardId}`))!.state).toBe('active');
+  });
+
   it('keeps boards outside the memberships invisible', async () => {
     const service = createService({ client, actor: { uid: USERS.outsider } });
     await expect(service.listWorkspaces()).resolves.toEqual({ workspaces: [] });
