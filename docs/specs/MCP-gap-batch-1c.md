@@ -34,7 +34,7 @@ Everything below uses writes the rules already allow to the same role, so none o
 
 1. **Vote integrity in the rules.** The rules don't check that a write to a vote column only adds or removes the writer's own uid, so any editor (web or connector) could rewrite `votersIds`. The MCP tools never do, but the fix belongs in `firestore.rules` and `tests/rules/**` (a SEC item; hot spots). Opus logs it on the Roadmap.
 2. **A faithful move.** Keeping `createdAt`, `createdBy` and the item number (`seq`), copying the updates and replies, and copying the Storage objects of files columns all need a Cloud Function (the rules require `createdAt == request.time`, and files columns are server-managed). That is a web feature too (monday's "Move to board"), so it should be specced once as a callable that both the web and the connector call. Until then the MCP move is "copy and retire".
-3. **Moving across workspaces.** People values, mirrors and connections don't carry over, and the rules for two workspaces are a product decision. Owner decision needed; v1 refuses it.
+3. **Moving across workspaces: deferred.** The owner is fine with it in principle but sees no use case yet (2026-11-16), so don't build it by default. It would need: an editor check on both workspaces' boards (already the rule); people values filtered to members of the target workspace (others reported as dropped); vote `votersIds` filtered the same way; connect-boards and mirror values dropped (their links are workspace-scoped); and a test per case. No rules change. Add it only when the owner asks, as a `crossWorkspace` path in the same tool.
 4. **Permanent board deletion** stays with the scheduled purge (30 days in the trash).
 5. **Duplicating a board** (the web's `duplicateBoard`) is a natural next tool but wasn't in the gap list; add it in batch 2 if wanted.
 
@@ -83,7 +83,7 @@ Count: 37 now, 45 after PR 3 (PR 1: 43, PR 2: 44).
 
 `atrium_move_item_to_board { boardId, itemId, targetBoardId, group?, dryRun? = false, allowDataLoss? = false }`
 
-- **Scope:** an active top-level item; a subitem is refused ("Move its parent instead"). Source and target must be different, active boards in the **same workspace**, and the caller must be an editor on both (the target is "not found" otherwise).
+- **Scope:** an active top-level item; a subitem is refused ("Move its parent instead"). Source and target must be different, active boards in the **same workspace** (cross-workspace is deferred, see amendment 3; refuse it with "Moving to another workspace isn't supported yet."), and the caller must be an editor on both (the target is "not found" otherwise).
 - **Target group:** `group` (id or title) on the target; default the target's first group. Placed last in that group.
 - **Column mapping**, per source column with a non-empty value, using `columnsForItem` on each side:
   1. same column id and same type on the target, else
