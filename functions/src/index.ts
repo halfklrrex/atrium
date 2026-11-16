@@ -18,6 +18,7 @@ export { requestUpdateAttachmentUpload } from './callable/requestUpdateAttachmen
 export { finalizeUpdateAttachment } from './callable/finalizeUpdateAttachment';
 export { getUpdateAttachmentUrl } from './callable/getUpdateAttachmentUrl';
 export { deleteUpdateAttachment } from './callable/deleteUpdateAttachment';
+export { listBoardUpdateFiles } from './callable/listBoardUpdateFiles';
 export { clickButton } from './callable/clickButton';
 export { getForm } from './callable/getForm';
 export { submitForm } from './callable/submitForm';

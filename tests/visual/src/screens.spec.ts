@@ -395,8 +395,8 @@ for (const theme of ['light', 'dark'] as const) {
       await addFilesBoard();
       try {
         await page.goto(`/boards/${IDS.files}/views/${FILES_VIEW}`);
-        // Six items and eight files (one item has none, one has none either).
-        await filesViewReady(page, 8);
+        // Eight column files plus one update file and one reply file.
+        await filesViewReady(page, 10);
         await shoot(page, `files-view-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeFilesBoard();

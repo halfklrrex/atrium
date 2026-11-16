@@ -3,6 +3,7 @@ import {
   type FileAttachment,
   type FilesViewKind,
   type FilesViewSettings,
+  type UpdateFileEntry,
 } from '@atrium/shared';
 import type { ItemDoc } from '../../data';
 
@@ -11,8 +12,17 @@ export interface FileCard {
   key: string;
   itemId: string;
   itemName: string;
+  /** A Files column, or an update or reply the file was attached to. */
+  source: 'column' | 'update' | 'reply';
+  /** Set for column files. */
   columnId: string;
   columnTitle: string;
+  /** Set for update and reply files. */
+  updateId: string;
+  replyId: string | null;
+  authorId: string;
+  /** When the update or reply was posted (epoch ms); 0 for column files. */
+  postedAt: number;
   file: FileAttachment;
   kind: FilesViewKind;
   /** The item's index in the order `items` came in (board order). */
@@ -115,6 +125,8 @@ export interface CollectFilesInput {
   settings: FilesViewSettings;
   /** Matches the item name or the file name, case-insensitively. */
   search: string;
+  /** Files of the board's updates and replies; used when `settings.includeUpdates` is on. */
+  updateFiles?: readonly UpdateFileEntry[];
 }
 
 const byName = (a: FileCard, b: FileCard) =>
@@ -123,7 +135,13 @@ const uploadedAt = (c: FileCard): number => Date.parse(c.file.uploadedAt) || 0;
 const byItem = (a: FileCard, b: FileCard) => a.itemIndex - b.itemIndex;
 
 /** One card per file in the chosen files columns, filtered and sorted. */
-export function collectFiles({ items, columns, settings, search }: CollectFilesInput): FileCard[] {
+export function collectFiles({
+  items,
+  columns,
+  settings,
+  search,
+  updateFiles = [],
+}: CollectFilesInput): FileCard[] {
   const chosen = settings.columnIds ? new Set(settings.columnIds) : null;
   const shownColumns = columns.filter((c) => !chosen || chosen.has(c.id));
   const kinds = settings.kinds.length > 0 ? new Set<FilesViewKind>(settings.kinds) : null;
@@ -149,8 +167,13 @@ export function collectFiles({ items, columns, settings, search }: CollectFilesI
           key: `${item.id}/${column.id}/${file.id}`,
           itemId: item.id,
           itemName: item.name,
+          source: 'column',
           columnId: column.id,
           columnTitle: column.title,
+          updateId: '',
+          replyId: null,
+          authorId: '',
+          postedAt: 0,
           file,
           kind,
           itemIndex,
@@ -158,6 +181,46 @@ export function collectFiles({ items, columns, settings, search }: CollectFilesI
       }
     }
   });
+
+  if (settings.includeUpdates && !chosen && updateFiles.length > 0) {
+    const itemIndexes = new Map<string, number>();
+    items.forEach((item, index) => {
+      if (item.parentItemId === null || item.parentItemId === undefined) {
+        itemIndexes.set(item.id, index);
+      }
+    });
+    const names = new Map(items.map((item) => [item.id, item.name]));
+    for (const entry of updateFiles) {
+      const itemIndex = itemIndexes.get(entry.itemId);
+      if (itemIndex === undefined) continue;
+      const { file } = entry;
+      const kind = fileKind(file.mimeType, file.name);
+      if (kinds && !kinds.has(kind)) continue;
+      const itemName = names.get(entry.itemId) ?? '';
+      if (
+        needle &&
+        !file.name.toLowerCase().includes(needle) &&
+        !itemName.toLowerCase().includes(needle)
+      ) {
+        continue;
+      }
+      cards.push({
+        key: `${entry.itemId}/update/${entry.updateId}/${entry.replyId ?? ''}/${file.id}`,
+        itemId: entry.itemId,
+        itemName,
+        source: entry.replyId ? 'reply' : 'update',
+        columnId: '',
+        columnTitle: '',
+        updateId: entry.updateId,
+        replyId: entry.replyId,
+        authorId: entry.authorId,
+        postedAt: entry.createdAt,
+        file,
+        kind,
+        itemIndex,
+      });
+    }
+  }
 
   const newest = (a: FileCard, b: FileCard) =>
     uploadedAt(b) - uploadedAt(a) || byItem(a, b) || byName(a, b);

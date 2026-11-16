@@ -114,3 +114,40 @@ describe('update attachments', () => {
     ).toBe(false);
   });
 });
+
+describe('listBoardUpdateFiles schemas', () => {
+  const entry = {
+    itemId: 'i_1',
+    updateId: 'u_1',
+    replyId: null,
+    authorId: 'usr_1',
+    createdAt: 1000,
+    file: {
+      id: 'f1',
+      name: 'a.png',
+      storagePath: 'boards/b/items/i/updates/u/f1',
+      size: 1,
+      mimeType: 'image/png',
+      uploadedAt: '2026-11-01T10:00:00.000Z',
+      uploadedBy: 'usr_1',
+    },
+  };
+
+  it('accepts a request and a result, and refuses extra keys and bad ids', async () => {
+    const m = await import('./update-attachments');
+    expect(m.listBoardUpdateFilesRequestSchema.safeParse({ boardId: 'b_1' }).success).toBe(true);
+    expect(m.listBoardUpdateFilesRequestSchema.safeParse({ boardId: 'b/1' }).success).toBe(false);
+    expect(
+      m.listBoardUpdateFilesRequestSchema.safeParse({ boardId: 'b_1', extra: 1 }).success,
+    ).toBe(false);
+    expect(
+      m.listBoardUpdateFilesResultSchema.safeParse({ files: [entry], truncated: false }).success,
+    ).toBe(true);
+    expect(
+      m.listBoardUpdateFilesResultSchema.safeParse({
+        files: [{ ...entry, downloadUrl: 'https://x.test' }],
+        truncated: false,
+      }).success,
+    ).toBe(false);
+  });
+});

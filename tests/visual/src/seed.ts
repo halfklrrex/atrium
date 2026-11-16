@@ -2189,6 +2189,46 @@ export async function addFilesBoard(): Promise<void> {
     updatedAt: ago(DAY),
     updatedBy: AVERY.uid,
   });
+  // One update file and one reply file, so the view shows both source labels (PR 2).
+  const attached = (id: string, name: string, mimeType: string, size: number, daysAgo: number) => ({
+    id,
+    name,
+    storagePath: `boards/${IDS.files}/items/files-item-1/updates/${id}`,
+    size,
+    mimeType,
+    uploadedAt: new Date(NOW - daysAgo * DAY).toISOString(),
+    uploadedBy: AVERY.uid,
+  });
+  const post = {
+    authorId: AVERY.uid,
+    authorName: AVERY.displayName,
+    authorPhotoUrl: null,
+    likes: [],
+    createdAt: ago(DAY),
+    updatedAt: ago(DAY),
+  };
+  const kickoffUpdate = board_.collection('items').doc('files-item-1').collection('updates');
+  batch.set(kickoffUpdate.doc('files-update-1'), {
+    ...post,
+    itemId: 'files-item-1',
+    content: 'Site visit notes attached.',
+    repliesCount: 0,
+    attachments: [attached('upd-file-1', 'site-visit-notes.pdf', 'application/pdf', 96_000, 1)],
+  });
+  const landingUpdates = board_.collection('items').doc('files-item-2').collection('updates');
+  batch.set(landingUpdates.doc('files-update-2'), {
+    ...post,
+    itemId: 'files-item-2',
+    content: 'Mood board thread.',
+    repliesCount: 1,
+  });
+  batch.set(landingUpdates.doc('files-update-2').collection('replies').doc('files-reply-1'), {
+    ...post,
+    updateId: 'files-update-2',
+    itemId: 'files-item-2',
+    content: 'Mood board attached.',
+    attachments: [attached('rep-file-1', 'mood-board.png', 'image/png', 420_000, 2)],
+  });
   await batch.commit();
 }
 

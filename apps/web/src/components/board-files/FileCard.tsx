@@ -1,7 +1,14 @@
 import { formatFileSize } from '@atrium/shared';
 import { Icon } from '@vibe/core';
 import { memo } from 'react';
-import { fetchColumnFileUrl, openColumnFile, columnFileKey } from '../../lib/file-open';
+import {
+  columnFileKey,
+  fetchColumnFileUrl,
+  fetchUpdateFileUrl,
+  openColumnFile,
+  openUpdateFile,
+  updateFileKey,
+} from '../../lib/file-open';
 import { formatRelativeShort } from '../../lib/format';
 import { LazyThumbnail } from '../files/LazyThumbnail';
 import { attachmentIcon, isImageType } from '../item-card/update-attachments';
@@ -12,14 +19,33 @@ interface FileCardProps {
   boardId: string;
   card: FileCardModel;
   onOpenItem: (itemId: string) => void;
+  /** Display name of a user id (the author of an update or reply). */
+  userName?: (uid: string) => string | undefined;
 }
 
 /** One file: a thumbnail button (opens the file), its name, its item and a meta line. */
-export const FileCard = memo(function FileCard({ boardId, card, onOpenItem }: FileCardProps) {
+export const FileCard = memo(function FileCard({
+  boardId,
+  card,
+  onOpenItem,
+  userName,
+}: FileCardProps) {
   const { file } = card;
+  const fromUpdate = card.source !== 'column';
   const target = { boardId, itemId: card.itemId, columnId: card.columnId, fileId: file.id };
+  const updateTarget = {
+    boardId,
+    itemId: card.itemId,
+    updateId: card.updateId,
+    replyId: card.replyId,
+    fileId: file.id,
+  };
   const uploaded = formatRelativeShort({ toMillis: () => Date.parse(file.uploadedAt) });
-  const meta = [card.columnTitle, formatFileSize(file.size), uploaded].filter(Boolean).join(' · ');
+  const author = fromUpdate ? userName?.(card.authorId) : undefined;
+  const label = fromUpdate
+    ? `${card.source === 'reply' ? 'Reply' : 'Update'}${author ? ` by ${author}` : ''}`
+    : card.columnTitle;
+  const meta = [label, formatFileSize(file.size), uploaded].filter(Boolean).join(' · ');
   const image = isImageType(file.mimeType);
 
   return (
@@ -28,14 +54,20 @@ export const FileCard = memo(function FileCard({ boardId, card, onOpenItem }: Fi
         type="button"
         className={styles.thumbButton}
         aria-label={`Open ${file.name}`}
-        onClick={() => void openColumnFile(target, 'Could not open the file. Try again.')}
+        onClick={() =>
+          void (fromUpdate
+            ? openUpdateFile(updateTarget, 'Could not open the file. Try again.')
+            : openColumnFile(target, 'Could not open the file. Try again.'))
+        }
       >
         <span className={styles.thumb}>
           {image ? (
             <LazyThumbnail
-              cacheKey={columnFileKey(target)}
+              cacheKey={fromUpdate ? updateFileKey(updateTarget) : columnFileKey(target)}
               mimeType={file.mimeType}
-              fetchUrl={() => fetchColumnFileUrl(target)}
+              fetchUrl={() =>
+                fromUpdate ? fetchUpdateFileUrl(updateTarget) : fetchColumnFileUrl(target)
+              }
               className={styles.imageWrap}
               imageClassName={styles.image}
               iconSize={32}
