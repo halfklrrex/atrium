@@ -418,7 +418,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto(`/boards/${IDS.roadmap}/items/${FULL_VIEW_SUBITEM}`);
       const view = page.getByRole('dialog', { name: /^Subitem / });
       await expect(view).toBeVisible();
-      await expect(view.getByRole('link', { name: 'Back to Ship the pipeline' })).toBeVisible();
+      await expect(view.getByRole('link', { name: 'Back to CI/CD pipeline 3' })).toBeVisible();
       await expect(view.getByRole('heading', { name: 'Subitems' })).toHaveCount(0);
       await expect(page.getByText('Loading…')).toHaveCount(0);
       await shoot(page, `item-view-subitem-${theme}`);
