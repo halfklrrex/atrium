@@ -175,7 +175,9 @@ vi.mock('../toast-store', async (importOriginal) => ({
 }));
 vi.mock('../../data/updates', () => ({
   useItem: (_bId?: string, itemId?: string) => ({
-    data: itemId === 'i1' ? mockItem : { ...mockItem, id: itemId, name: `Item ${itemId}` },
+    data:
+      mockItems.find((i) => i.id === itemId) ??
+      (itemId === 'i1' ? mockItem : { ...mockItem, id: itemId, name: `Item ${itemId}` }),
     loading: false,
     error: null,
   }),
@@ -533,6 +535,16 @@ describe('ItemCardDrawer', () => {
       expect(row).toHaveTextContent('2 of 4 done');
       await userEvent.click(row);
       expect(openItemFull).toHaveBeenCalledWith('b1', 'i1', { section: 'subitems' });
+    });
+
+    it('opens a subitem with a parent crumb, no subitems row, and goes back to the parent', async () => {
+      mockItems = [{ ...mockItem, id: 'i1', name: 'Parent item' }, sub('s1')];
+      useItemCardStore.getState().openItemCard('b1', 's1');
+      render(<ItemCardDrawer />);
+      expect(screen.queryByRole('button', { name: /^Subitems/ })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Open parent item Parent item' }));
+      expect(useItemCardStore.getState().activeItemId).toBe('i1');
+      expect(screen.queryByRole('button', { name: /^Open parent item/ })).not.toBeInTheDocument();
     });
 
     it('counts subitems without a status column and ignores other parents', () => {

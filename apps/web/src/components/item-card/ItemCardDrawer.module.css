@@ -130,6 +130,29 @@
   white-space: nowrap;
 }
 
+.crumbLink {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.crumbLink:hover {
+  color: var(--primary-text-color);
+  text-decoration: underline;
+}
+
+.crumbLink:focus-visible {
+  outline: var(--border-width) solid var(--primary-color);
+  outline-offset: var(--space-2);
+}
+
 .groupDot {
   flex: none;
   width: var(--space-8);
