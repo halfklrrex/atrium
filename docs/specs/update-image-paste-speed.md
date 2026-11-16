@@ -39,7 +39,7 @@ The description editor shares this pipeline, so it gets the same speed-up.
 
 ## Recommendations (not done: server side or cost)
 
-1. Set `minInstances: 1` on `requestDescriptionImageUpload`, `finalizeDescriptionImage` and `getDescriptionImageUrl` (small recurring cost on Blaze) to remove cold starts. Owner decision.
+1. Set `minInstances: 1` on `requestDescriptionImageUpload`, `finalizeDescriptionImage` and `getDescriptionImageUrl` (small recurring cost on Blaze) to remove cold starts. **Owner decision (2026-11-16): not doing this; accept the cold start.**
 2. Optionally merge request and finalize, or let finalize run in the background and send the post as soon as the PUT ends (needs a rules and server design: the post must not reference an unfinalized file).
 3. Optional later: downscale very large screenshots client side before upload (a 10 MB PNG is slow on slow uplinks). Not done: it changes stored bytes and needs a quality decision.
 
