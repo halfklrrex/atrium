@@ -139,12 +139,35 @@
 /* ---- Label editor ---- */
 
 .labelRows {
-  composes: atrium-scroll from global;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  max-height: var(--atrium-popover-max-height);
-  overflow: auto;
+}
+
+/* The label editor modal: its content scrolls (the Modal's body), never the list itself. */
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.sortableList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* A drop target below the last row: dropping here makes the dragged label the last one. */
+.endZone {
+  min-height: var(--space-32);
+  border: var(--border-width) dashed transparent;
+  border-radius: var(--atrium-table-radius);
+}
+
+.endZoneOver {
+  border-color: var(--primary-color);
+  background: var(--primary-selected-color);
 }
 
 .labelRow {

@@ -3,25 +3,50 @@ import {
   DragOverlay,
   PointerSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type Modifier,
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Drag } from '@vibe/icons';
 import classNames from 'classnames';
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import popups from './popups.module.css';
 
 /**
  * Drag-to-reorder wrapper for the label editors. Pointer drag uses dnd-kit; the handle also takes
  * ArrowUp / ArrowDown as the keyboard path, and the editor announces moves through a live region.
- * The dragged preview is drawn in a portal on `document.body`, so the editor's scrolling list
- * (which clips its rows) never cuts it off.
+ * The dragged preview is drawn in a portal on `document.body`, so a scrolling modal body never clips
+ * it. The preview is kept inside the list (vertical axis only), so dragging can't stretch the
+ * scroll height, and an explicit drop zone below the last row makes "move to last" easy to hit.
  */
+const END_ZONE_ID = '__label-end-zone__';
+
+/** Where a dropped row lands: the id it goes onto, or the last row for the end zone. */
+export function dropTargetId(
+  ids: readonly (string | number)[],
+  overId: string | number,
+): string | number | undefined {
+  return overId === END_ZONE_ID ? ids[ids.length - 1] : overId;
+}
+
+function EndZone() {
+  const { setNodeRef, isOver } = useDroppable({ id: END_ZONE_ID });
+  return (
+    <div
+      ref={setNodeRef}
+      className={classNames(popups.endZone, isOver && popups.endZoneOver)}
+      data-testid="label-end-zone"
+      aria-hidden="true"
+    />
+  );
+}
+
 export function LabelSortable({
   ids,
   onDragMove,
@@ -35,22 +60,36 @@ export function LabelSortable({
   children: ReactNode;
 }) {
   const [activeId, setActiveId] = useState<string | number | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const keepInList: Modifier = ({ transform, draggingNodeRect }) => {
+    const list = listRef.current?.getBoundingClientRect();
+    if (!list || !draggingNodeRect) return { ...transform, x: 0 };
+    const min = list.top - draggingNodeRect.top;
+    const max = list.bottom - draggingNodeRect.bottom;
+    return { ...transform, x: 0, y: Math.max(min, Math.min(max, transform.y)) };
+  };
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const onDragStart = ({ active }: DragStartEvent) => setActiveId(active.id);
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveId(null);
-    if (over && active.id !== over.id) onDragMove(active.id, over.id);
+    if (!over) return;
+    const target = dropTargetId(ids, over.id);
+    if (target !== undefined && active.id !== target) onDragMove(active.id, target);
   };
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      modifiers={[keepInList]}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
       <SortableContext items={[...ids]} strategy={verticalListSortingStrategy}>
-        {children}
+        <div ref={listRef} className={popups.sortableList}>
+          {children}
+          <EndZone />
+        </div>
       </SortableContext>
       {renderOverlay
         ? createPortal(
