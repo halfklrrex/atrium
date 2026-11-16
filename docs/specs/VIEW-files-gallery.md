@@ -4,12 +4,12 @@ Author: Ophelia (Opus 5.5) · Implementers: Sonnet 5.5 (medium effort) · Roadma
 
 ## Goal
 
-monday has a Files view: one place that shows every file on a board as a grid of thumbnails, so you find "the PDF someone attached last week" without opening items one by one. Atrium has the pieces (files columns, signed download URLs, the sidebar Files tab, the saved-views framework) but no board-wide file list. Add a **Files** view type: a thumbnail grid of the files in the board's files columns, each card showing the file name and the item it belongs to, with the board's search, person and filter controls plus a column, type and sort picker. Opening and downloading go through the existing callables. No new Storage rules.
+monday has a Files view: one place that shows every file on a board as a grid of thumbnails, so you find "the PDF someone attached last week" without opening items one by one. Atrium has the pieces (files columns, signed download URLs, the sidebar Files tab, the saved-views framework) but no board-wide file list. Add a **Files** view type: a thumbnail grid of the files in the board's files columns and the files attached to its updates and replies (owner decision, 2026-11-16), each card showing the file name and the item it belongs to, with the board's search, person and filter controls plus a column, type and sort picker. Opening and downloading go through the existing callables. No new Storage rules, no `firestore.rules` change for the update files, no IAM or secret change.
 
 ## Decisions this spec makes (the owner can overrule them)
 
 - **View type id `files`, default tab name "Files", menu label "Files gallery".** The "Add view" menu entry sits after Chart and uses the Vibe `Gallery` icon.
-- **Files columns only.** Update and reply attachments are not in the gallery. Listing them board-wide is not cheap (see "Update attachments" below); the sidebar's Files tab already shows them per item.
+- **Update and reply files come from a read callable** (`listBoardUpdateFiles`), not from a server-maintained index. Reasoning in "Update and reply files" below. PR 1 ships column files only; PR 2 adds update files.
 - **Top-level items only, active only**, like the Kanban, Calendar and Chart views. Subitem files come later.
 - **Click a card to open the file** in a new tab through its signed URL, as the files cell does today. No in-app lightbox in this spec.
 - **Click the item name to open the item's side panel on its Files tab** (`openItem(boardId, itemId, { tab: 'files' })`).
@@ -38,13 +38,12 @@ monday has a Files view: one place that shows every file on a board as a grid of
 
 ## Non-goals
 
-- Update and reply attachments in the gallery (see below).
 - Subitem files, archived or trashed items.
 - Uploading from the gallery, deleting from it, renaming files. Upload and delete stay in the cell and the sidebar.
 - An in-app preview or lightbox, PDF previews, video posters.
 - Server-made thumbnails (resized images). Images load at full size through the signed URL, lazily.
 - Export of the view to Excel.
-- Any Storage rules, Functions or `firebase.json` change.
+- Any Storage rules or `firebase.json` change, and any `firestore.rules` change beyond the views lists. The only new Function is the read callable in PR 2.
 
 ## Design
 
@@ -74,11 +73,11 @@ monday has a Files view: one place that shows every file on a board as a grid of
 - **Item name button:** `openItem(boardId, itemId, { tab: 'files' })`.
 - **Thumbnails:** move `Thumbnail` out of `UpdateAttachments.tsx` into `components/files/LazyThumbnail.tsx` with a `fetchUrl: () => Promise<string>` prop and a `size` prop, and use it in both places (update chips unchanged to the eye). Add a module-level URL cache keyed by `boardId/itemId/columnId/fileId` that reuses a URL until 60 s before its `expiresAt`, and a queue that runs at most 4 fetches at once. Opening a file reuses a cached URL when it is still fresh.
 
-### Gallery controls (PR 2)
+### Gallery controls (PR 3)
 
 Saved in `settings.files` and dirty-tracked like the other views ("Save to this view"):
 
-- **Files column picker:** "All files columns" or a checked list of the board's files columns. Hidden when the board has one files column.
+- **Source picker:** "All files", or a checked list of the board's files columns plus "Updates" (update and reply files). Hidden when there is only one source.
 - **Type chips** in a menu: Images, PDFs, Documents, Spreadsheets, Presentations, Video, Audio, Archives, Other. None checked means all. The kind comes from a pure `fileKind(mimeType, name)` (mime first, extension as fallback).
 - **Sort:** Newest, Oldest, Name (A to Z), Item (board order).
 
@@ -88,9 +87,31 @@ Saved in `settings.files` and dirty-tracked like the other views ("Save to this 
 - Files columns but no files: "No files yet" / "Files added to this board's Files columns show up here."
 - Filters leave nothing: "No files match" / "Try other filters or clear the search."
 
-### Update attachments (not in this spec)
+### Update and reply files (PR 2)
 
-Update docs live under `boards/{b}/items/{i}/updates/{u}` and carry no `boardId`, so the client has no cheap board-wide query: a listener per item does not scale, and a collection-group query needs a new rules match and a field to filter on. The two real options are (a) a read callable that lists a board's attachments with the Admin SDK, paid per open, or (b) a server-maintained `boards/{b}/fileIndex` collection written by the attachment Functions, with rules, a backfill and tests. Both touch `packages/shared`, Functions and (b) `firestore.rules`. Opus writes an amendment when the owner asks for it; until then the gallery shows column files only and the empty-state copy says so.
+Update docs live under `boards/{b}/items/{i}/updates/{u}` (replies one level deeper) and carry no `boardId`, so the client has no board-wide query, and a listener per item doesn't scale. Two server options were weighed:
+
+|               | (a) Read callable `listBoardUpdateFiles` (**chosen**)                                                                                                                                                                                                                  | (b) Server-maintained `boards/{b}/fileIndex`                                                                                                                                   |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Cost per open | One invocation; reads every update and reply of the board (Admin SDK collection-group query on `updates` and `replies`, bounded to the `boards/{b}/` path with a document-id range, field mask `attachments, authorId, createdAt`). Hundreds of reads on a busy board. | Reads one index doc per file, live. Plus a write per attachment change, forever.                                                                                               |
+| Freshness     | Snapshot at open; refetched on view open, window focus and a Refresh button, and after the user's own upload.                                                                                                                                                          | Live through a listener.                                                                                                                                                       |
+| Security      | The callable checks the board role with the existing helper (`resolveBoardRole`, as `getFileDownloadUrl`), returns metadata only, never URLs. Downloads still go through `getUpdateAttachmentUrl`.                                                                     | Needs a new rules match (board readers) and tests; the index copies file names and uploader uids into a second place to keep private.                                          |
+| Rules / IAM   | No `firestore.rules` change. No IAM or secret change: the Functions runtime account already reads Firestore, and an `onCall` function gets its public invoker binding on deploy like every other callable.                                                             | Rules and rules tests; triggers on update and reply delete (clients delete those directly), item purge and attachment finalize/delete; a production backfill (owner approval). |
+| Hot spots     | `packages/shared/**` (request and result schemas) only.                                                                                                                                                                                                                | `firestore.rules`, `tests/rules/**`, `packages/shared/**`, `firestore.indexes.json`.                                                                                           |
+| Drift risk    | None (reads the source of truth).                                                                                                                                                                                                                                      | A missed trigger leaves ghost or missing files.                                                                                                                                |
+
+**Recommendation: (a).** Atrium boards are small (personal use), the view is opened occasionally, and (a) is correct by construction, adds no rules surface and no backfill. Revisit (b) only if the callable shows up in billing or gets slow; the result shape is the same, so the web wouldn't change.
+
+**The callable** (`functions/src/callable/listBoardUpdateFiles.ts`, region `europe-west1`, default memory, no `minInstances`, owner decision 2026-11-16):
+
+- Request `{ boardId }`; result `{ files: UpdateFileEntry[], truncated }`, where `UpdateFileEntry` is `{ itemId, updateId, replyId: string | null, authorId, createdAt, file: FileAttachment }`. Schemas in `packages/shared/src/schemas/update-attachments.ts`, client in `lib/callables.ts` (`updateAttachmentCalls.listForBoard`).
+- Refuses signed-out callers (`unauthenticated`) and callers without a board role (`not-found`, so it can't probe board ids). It returns files for every item; the client keeps only those of the active top-level items it already shows, so the callable doesn't read the items.
+- Caps: 5,000 update and reply docs read per call, then `truncated: true` and the view says "Some update files aren't shown." Max 2,000 entries returned.
+- Tests live in `functions/` against the Firestore emulator, like the other attachment callables; no `tests/rules/**` change.
+
+**In the web:** `useBoardUpdateFiles(boardId)` calls it; `collectFiles` merges these entries with the column files (meta line says "Update" or "Reply" instead of a column title). Thumbnails and open use `getUpdateAttachmentUrl` with `{ boardId, itemId, updateId, replyId?, fileId }` through `LazyThumbnail`. The item name still opens the panel on Files (which lists update files; reply files are a known gap there).
+
+**What ships without it:** PR 1 (column files) is complete on its own; its empty-state copy names Files columns only, and PR 2 changes it to "Files added to this board's Files columns or updates show up here."
 
 ## Data model and rules
 
@@ -113,15 +134,17 @@ Update docs live under `boards/{b}/items/{i}/updates/{u}` and carry no `boardId`
     /** File kinds shown; empty = all. */
     kinds: z.array(z.enum(FILES_VIEW_KINDS)).max(FILES_VIEW_KINDS.length),
     sort: z.enum(['newest', 'oldest', 'name', 'item']),
+    /** Show update and reply files (used from PR 2). */
+    includeUpdates: z.boolean(),
   });
   export function defaultFilesViewSettings() {
-    return { columnIds: null, kinds: [], sort: 'newest' };
+    return { columnIds: null, kinds: [], sort: 'newest', includeUpdates: true };
   }
   ```
   and `files: filesViewSettingsSchema.optional()` in `viewSettingsSchema`. Tests in `view.test.ts`.
 - `firestore.rules`: `'files'` in the `d.type in [...]` list, `'files'` in `viewSettingsOk`'s `hasOnly`, and `&& (!('files' in s.keys()) || s.files is map)`. Nothing else changes; reading files still goes through the callables.
 - New `tests/rules/src/views-files.test.ts` (pattern: `views-workload.test.ts`): an editor creates a shared `files` view; a viewer creates a personal one; a `files` view with a non-map `settings.files` is refused; an unknown type is still refused.
-- No item, board or Storage change. No index.
+- No item, board or Storage change. No index. PR 2 adds no rules (the callable reads with the Admin SDK).
 
 ## Pure functions (unit-tested, `apps/web/src/components/board-files/files-view-model.ts`)
 
@@ -131,21 +154,22 @@ Update docs live under `boards/{b}/items/{i}/updates/{u}` and carry no `boardId`
 
 ## Components and files
 
-| File                                                                                                                                  | Change                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `packages/shared/src/schemas/view.ts`, `view.test.ts`                                                                                 | type, settings schema, defaults (PR 1)                            |
-| `firestore.rules`, `tests/rules/src/views-files.test.ts`                                                                              | allow the type and the settings key (PR 1)                        |
-| `apps/web/src/components/board-files/FilesView.tsx`, `.module.css`                                                                    | the view (PR 1), pickers (PR 2)                                   |
-| `apps/web/src/components/board-files/FileCard.tsx`                                                                                    | one card (PR 1)                                                   |
-| `apps/web/src/components/board-files/files-view-model.ts` (+ test)                                                                    | pure functions (PR 1; kinds and sort used by the UI in PR 2)      |
-| `apps/web/src/components/board-files/FilesViewControls.tsx`                                                                           | column, kind and sort menus (PR 2)                                |
-| `apps/web/src/components/files/LazyThumbnail.tsx` (+ test)                                                                            | extracted thumbnail, cache, queue (PR 1)                          |
-| `apps/web/src/lib/file-open.ts`                                                                                                       | `openColumnFile`, used by `columns/files.tsx` and the card (PR 1) |
-| `item-card/UpdateAttachments.tsx`                                                                                                     | uses `LazyThumbnail` (PR 1, no visible change)                    |
-| `board-views/view-actions.ts`, `ViewTabs.tsx`, `pages/BoardPage.tsx`, `board-filters/filter-store.ts`, `board-table/BoardToolbar.tsx` | registration (PR 1)                                               |
-| `apps/web/src/theme/files-view-tokens.css` + import in `main.tsx`                                                                     | tokens (PR 1)                                                     |
-| `scripts/showcase/data.mjs`                                                                                                           | a shared "Files gallery" view on the showcase board (PR 1)        |
-| `tests/visual/src/seed.ts`, a views spec                                                                                              | a small seeded "Files board" and the screens (PR 1, PR 2)         |
+| File                                                                                                                                                                                                  | Change                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `packages/shared/src/schemas/view.ts`, `view.test.ts`                                                                                                                                                 | type, settings schema, defaults (PR 1)                            |
+| `firestore.rules`, `tests/rules/src/views-files.test.ts`                                                                                                                                              | allow the type and the settings key (PR 1)                        |
+| `apps/web/src/components/board-files/FilesView.tsx`, `.module.css`                                                                                                                                    | the view (PR 1), pickers (PR 2)                                   |
+| `apps/web/src/components/board-files/FileCard.tsx`                                                                                                                                                    | one card (PR 1)                                                   |
+| `apps/web/src/components/board-files/files-view-model.ts` (+ test)                                                                                                                                    | pure functions (PR 1; kinds and sort used by the UI in PR 2)      |
+| `apps/web/src/components/board-files/FilesViewControls.tsx`                                                                                                                                           | source, kind and sort menus (PR 3)                                |
+| `functions/src/callable/listBoardUpdateFiles.ts` (+ test), `functions/src/index.ts`, `packages/shared/src/schemas/update-attachments.ts`, `lib/callables.ts`, `board-files/use-board-update-files.ts` | update and reply files (PR 2)                                     |
+| `apps/web/src/components/files/LazyThumbnail.tsx` (+ test)                                                                                                                                            | extracted thumbnail, cache, queue (PR 1)                          |
+| `apps/web/src/lib/file-open.ts`                                                                                                                                                                       | `openColumnFile`, used by `columns/files.tsx` and the card (PR 1) |
+| `item-card/UpdateAttachments.tsx`                                                                                                                                                                     | uses `LazyThumbnail` (PR 1, no visible change)                    |
+| `board-views/view-actions.ts`, `ViewTabs.tsx`, `pages/BoardPage.tsx`, `board-filters/filter-store.ts`, `board-table/BoardToolbar.tsx`                                                                 | registration (PR 1)                                               |
+| `apps/web/src/theme/files-view-tokens.css` + import in `main.tsx`                                                                                                                                     | tokens (PR 1)                                                     |
+| `scripts/showcase/data.mjs`                                                                                                                                                                           | a shared "Files gallery" view on the showcase board (PR 1)        |
+| `tests/visual/src/seed.ts`, a views spec                                                                                                                                                              | a small seeded "Files board" and the screens (PR 1 to PR 3)       |
 
 ## Tokens (`files-view-tokens.css`)
 
@@ -161,7 +185,8 @@ Update docs live under `boards/{b}/items/{i}/updates/{u}` and carry no `boardId`
 
 - **Unit (Vitest):** `files-view-model.test.ts` (collect across columns and items, search on file and item name, kinds, every sort, ties, archived and subitems excluded), `LazyThumbnail.test.tsx` (fetch on intersect only, cache reuse until expiry, at most 4 in flight, icon fallback on error), `FilesView.test.tsx` (three empty states, count, open calls `getDownloadUrl` with the right ids, item click opens the panel on Files), `view-actions` test for the new type's default settings, `ViewTabs.test.tsx` for the menu entry.
 - **Rules:** as listed above.
-- **Visual (Playwright):** seed a separate small "Files board" (two files columns, six items, eight files: png, jpg, pdf, docx, xlsx, zip) so no existing baseline changes. Screens `files-view-{theme}` (desktop, PR 1) and `files-view-filtered-{theme}` (a kind chip on, PR 2). Wait for the cards and the icon fallbacks, not network idle.
+- **Visual (Playwright):** seed a separate small "Files board" (two files columns, six items, eight files: png, jpg, pdf, docx, xlsx, zip) so no existing baseline changes. Screens `files-view-{theme}` (desktop, PR 1; PR 2 re-runs it with two seeded update attachments) and `files-view-filtered-{theme}` (a kind chip on, PR 3).
+- **Functions (PR 2):** `listBoardUpdateFiles` against the emulator: owner, editor and viewer get files; non-member gets `not-found`; replies included; other boards' updates never leak (path-prefix bound); cap and `truncated`. Wait for the cards and the icon fallbacks, not network idle.
 
 ## Acceptance criteria
 
@@ -170,10 +195,11 @@ Update docs live under `boards/{b}/items/{i}/updates/{u}` and carry no `boardId`
 3. Clicking a card opens the file in a new tab; a viewer can too. Clicking the item name opens the side panel on Files.
 4. Search, Person and Filter narrow the cards; search also matches file names.
 5. Image thumbnails load only when scrolled into view and are fetched once per file per URL lifetime; at most four fetches run at once.
-6. (PR 2) The column, kind and sort pickers work, mark the view dirty, and "Save to this view" keeps them.
-7. The three empty states show the copy above.
-8. `firestore.rules` changes only the views lists; rules tests pass; no Storage rules or Functions change.
-9. Tokens only (`pnpm lint`); light and dark compared with the monday capture, gaps fixed or logged in VF.
+6. (PR 2) Files attached to updates and replies appear with "Update" or "Reply" in the meta line and open through `getUpdateAttachmentUrl`; Refresh picks up a new attachment.
+7. (PR 3) The source, kind and sort pickers work, mark the view dirty, and "Save to this view" keeps them.
+8. The three empty states show the copy above.
+9. `firestore.rules` changes only the views lists; no Storage rules, IAM or secret change.
+10. Tokens only (`pnpm lint`); light and dark compared with the monday capture, gaps fixed or logged in VF.
 
 ## Task breakdown (Sonnet-ready)
 
@@ -182,9 +208,10 @@ Each PR starts from fresh `origin/main` in its own worktree (`/Users/lepetitchat
 | #   | Branch                       | Offset | Depends on | Hot spots touched                                                                                             |
 | --- | ---------------------------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------- |
 | 1   | `claude/files-view-1`        | 10     | none       | `packages/shared/**`, `firestore.rules`, `tests/rules/**`, `tests/visual/__screenshots__/**` (new files only) |
-| 2   | `claude/files-view-controls` | 20     | PR 1       | `tests/visual/__screenshots__/**`                                                                             |
+| 2   | `claude/files-view-updates`  | 20     | PR 1       | `packages/shared/**` (callable schemas), `tests/visual/__screenshots__/**`                                    |
+| 3   | `claude/files-view-controls` | 40     | PR 2       | `tests/visual/__screenshots__/**`                                                                             |
 
-Not touched by either: `apps/web/src/theme/tokens.css`, `firebase.json`, `pnpm-lock.yaml` (no new dependency). Schedule PR 1 after any other open PR that edits `firestore.rules` or `packages/shared/src/schemas/view.ts`, and rebase it before merging.
+Not touched by any: `apps/web/src/theme/tokens.css`, `firebase.json`, `pnpm-lock.yaml` (no new dependency). Schedule PR 1 after any other open PR that edits `firestore.rules` or `packages/shared/src/schemas/view.ts`, and rebase it before merging.
 
 ### PR 1: the view, the grid, open and download (small and shippable)
 
@@ -196,9 +223,15 @@ Not touched by either: `apps/web/src/theme/tokens.css`, `firebase.json`, `pnpm-l
 6. Showcase view in `scripts/showcase/data.mjs`.
 7. Visual seed board and the `files-view` screens; all checks; the baseline workflow.
 
-### PR 2: gallery controls
+### PR 2: update and reply files
 
-1. `FilesViewControls` (column, kind, sort), wired to `useViewTypeSettings(boardId, 'files')` and `setTypeSettings`.
+1. Shared request and result schemas; the callable and its emulator tests; export in `functions/src/index.ts`.
+2. `updateAttachmentCalls.listForBoard`, `useBoardUpdateFiles`, the merge in `collectFiles`, the Refresh button, the truncated note, the new empty-state copy.
+3. Seed two update attachments on the Files board; checks; the baseline workflow. After the deploy, check the function has its public invoker (deploy gotcha in `AGENTS.md`).
+
+### PR 3: gallery controls
+
+1. `FilesViewControls` (source, kind, sort), wired to `useViewTypeSettings(boardId, 'files')` and `setTypeSettings`.
 2. Kind and sort paths of `collectFiles` exercised by the UI; tests.
 3. The `files-view-filtered` screen; checks; the baseline workflow.
 
@@ -216,11 +249,13 @@ Each PR description: what changed, the Roadmap item, light and dark screenshots,
 1. On a board with a Files column, add a "Files gallery" view: every file shows, newest first.
 2. Click an image card: it opens in a new tab. Click the item name: the side panel opens on Files.
 3. Type part of a file name in Search: only matching cards stay.
-4. (PR 2) Pick "PDFs" and save the view; reload: the filter is still on.
+4. (PR 2) Attach a file to an update, press Refresh in the view: it shows, marked "Update".
+5. (PR 3) Pick "PDFs" and save the view; reload: the filter is still on.
 
 ## Risks
 
 - **Function calls per thumbnail.** Each image costs one `getFileDownloadUrl` call the first time it scrolls into view. The lazy load, cache and cap keep a normal board cheap; a board with hundreds of images still makes hundreds of calls over a long scroll. If that shows up in billing, the follow-up is a batch URL callable (up to 50 files per call), which touches `packages/shared` and Functions.
 - **Full-size images as thumbnails.** Large photos load in full. Acceptable for a personal app; resized thumbnails need a Storage trigger and are out of scope.
+- **Callable cost on big boards.** Each open reads every update and reply of the board (capped at 5,000). Fine at Atrium's scale; if not, switch to option (b) with the same result shape.
 - **Shared hot spots.** PR 1 touches `firestore.rules`, `tests/rules/**` and `packages/shared/**`; keep its rules diff to the views lists so it rebases cleanly.
 - **The monday capture may move details** (card size, meta line). Treat the numbers here as defaults; the capture wins for layout.
