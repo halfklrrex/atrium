@@ -566,16 +566,23 @@ export function createService({ client, actor, now = () => new Date() }) {
           ),
           ...saved
             .sort((a, b) => String(a.data.name).localeCompare(String(b.data.name)))
-            .map((t) =>
-              summary(
-                t.id,
-                'workspace',
-                t.data.name,
-                t.data.description ?? '',
-                t.data.structure ?? {},
-                t.data.sampleItems ?? [],
-              ),
-            ),
+            .flatMap((t) => {
+              // One damaged saved template must not fail the whole listing.
+              try {
+                return [
+                  summary(
+                    t.id,
+                    'workspace',
+                    t.data.name,
+                    t.data.description ?? '',
+                    t.data.structure ?? {},
+                    t.data.sampleItems ?? [],
+                  ),
+                ];
+              } catch {
+                return [];
+              }
+            }),
         ],
       };
     },
@@ -653,7 +660,9 @@ export function createService({ client, actor, now = () => new Date() }) {
       try {
         await client.commit(writes);
         result.sampleItems = writes.length;
-      } catch {
+      } catch (error) {
+        // stderr only: the stdio transport owns stdout.
+        console.error(`atrium: sample items for board ${id} were not written: ${error?.message}`);
         result.warning = 'The board was created, but its sample items could not be added.';
       }
       return result;
