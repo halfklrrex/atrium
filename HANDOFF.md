@@ -31,6 +31,16 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **No open-PR limits** (owner, 2026-11-04). Pace is set by usage and the owner's availability; hot-spot PRs merge in order and rebase.
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
+## Open work (2026-11-16)
+
+- **Merged and live today:** custom label colors (#255), icons at whole-pixel regular weight (#259, owner check pending on item 3340735612), MCP batch 1a with restore, move, reorder groups, like, unlike and find-member tools (#258, 31 tools), the sidebar Files tab (#260), faster image paste with instant local preview and parallel uploads (#257), and the subitem full page with keyboard rename and the Close/Back fixes (#262). Handoff note: `docs/handoff/2026-11-16-ophelia-day-plan.md`.
+- **Open PR:** #256 (menu-hover test flake fix). Its `verify` job failed on an unrelated, clock-dependent test (`forms.e2e.test.ts`, the per-hour submission limit; it ran across the 10:00 UTC boundary). It needs a re-run of the failed job. That forms test should get a pinned clock.
+- **Waiting on the owner:** the icons check (3340735612: sharp at 14 and 24 px?), image paste speed versus monday, and a yes or no on `minInstances 1` for the three description-image callables (removes cold starts, small recurring cost). Also still waiting on the subitem overlap sentence (3346809308; only SUBITEMS PR 5 needs it) and approval to run the showcase seeder against production.
+- **Next in the queue:** SUBITEMS PR 4 and 5, MCP gap batch 1b, the minor #258 follow-ups (stale "25 tools" comment in `index.d.mts`, a clear error when two siblings share a position), Decisions D1 to D7 on the Decisions board, then the epics that need specs.
+- **Lesson (machine load):** six agents running test suites at once pushed the load average above 70 and made every suite time out. Run at most two or three test-heavy agents at a time.
+- **Lesson (visual job):** `maxDiffPixelRatio: 0.002` hides small tile changes, so a green visual job doesn't prove a visual fix. Take real screenshots.
+- Everything under the older "Open work" sections below is still current unless a note above says otherwise.
+
 ## Open work (2026-11-14)
 
 - **Ava is back (2026-11-14, Claude Sonnet fallback model).** Owner priority this session: two small items from the bug inbox, in PR `ag/empty-label-first-and-scroll-description`: the grey empty Status/Priority label now lists first in the picker (`orderStatusLabels`, monday 3358418968), and the sidebar description box scrolls (12 lines) instead of Show more / Show less (monday 3358419142). Notes: `docs/handoff/2026-11-14-ava-empty-label-scroll-description.md`.
@@ -60,6 +70,7 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 
 ## Notes index
 
+- [2026-11-16 · Ophelia · day plan: icons, subitem page, MCP batch 1a, Files tab, paste speed](docs/handoff/2026-11-16-ophelia-day-plan.md)
 - [2026-11-14 · Ava · empty label first, scrollable sidebar description](docs/handoff/2026-11-14-ava-empty-label-scroll-description.md)
 - [2026-11-11 · Ophelia · OPS4 hosted MCP connector (PRs A to G, enable steps, next gap batches)](docs/handoff/2026-11-11-ophelia-ops4-hosted-mcp.md)
 - [2026-11-10 · Ophelia · Settings layout A, sidebar Overview tab, MCP priority 1, showcase ids](docs/handoff/2026-11-10-ophelia-settings-sidebar-mcp.md)
