@@ -3,5 +3,13 @@
   --atrium-icon-picker-cell: 40px;
   --atrium-icon-picker-glyph: 24px;
   --atrium-icon-picker-height: 224px;
+
+  /* Glyph size per workspace tile size. Whole pixels, and tile size minus glyph size is even, so the
+     icon sits on the pixel grid and the regular weight's strokes stay sharp (docs/specs/BUG-workspace-icons-blurry.md). */
+  --atrium-tile-glyph-xs: 14px;
+  --atrium-tile-glyph-sm: 16px;
+  --atrium-tile-glyph-md: 24px;
+  --atrium-tile-glyph-lg: 32px;
+  --atrium-tile-glyph-xl: 40px;
   --atrium-workspace-dialog-width: 540px;
 }

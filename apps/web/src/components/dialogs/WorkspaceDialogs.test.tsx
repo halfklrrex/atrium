@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { REGULAR_PATHS } from '../workspace-icons/icons-regular.generated';
 import { findWorkspaceIcon } from '../workspace-icons/icons';
 import { NewWorkspaceDialog, WorkspaceSettingsDialog } from './WorkspaceDialogs';
 
@@ -63,23 +62,15 @@ describe('workspace icon picker in the dialogs', () => {
     expect(mocks.createWorkspace.mock.calls[0]![1]).toMatchObject({ icon: 'ph:rocket-launch' });
   });
 
-  it('shows the regular weight in the grid and the fill weight on the selected icon', async () => {
+  it('keeps the regular weight in the grid, also on the selected icon', async () => {
     renderNew();
     await userEvent.click(screen.getByRole('tab', { name: 'Icons' }));
     await userEvent.type(screen.getByLabelText('Search icons'), 'rocket');
     const button = screen.getByRole('button', { name: 'rocket launch' });
-    await waitFor(() =>
-      expect(button.closest('[data-weights-loaded]')).toHaveAttribute(
-        'data-weights-loaded',
-        'true',
-      ),
-    );
     const def = findWorkspaceIcon('ph:rocket-launch')!;
-    await waitFor(() =>
-      expect(button.querySelector('path')).toHaveAttribute('d', REGULAR_PATHS['rocket-launch']),
-    );
+    expect(button.querySelector('path')).toHaveAttribute('d', def.regular);
     await userEvent.click(button);
-    expect(button.querySelector('path')).toHaveAttribute('d', def.fill);
+    expect(button.querySelector('path')).toHaveAttribute('d', def.regular);
   });
 
   it('moves between icons with the arrow keys and shows an empty state', async () => {
