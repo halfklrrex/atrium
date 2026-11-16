@@ -51,7 +51,6 @@ import {
 
 export const MAX_ITEMS_PER_CALL = 50;
 
-/** How long a workspace membership lookup is reused (bounds how long a removal takes to bite). */
 /** Milliseconds of a stored timestamp (Date, Firestore timestamp or ISO string). */
 const millis = (value) =>
   value instanceof Date
@@ -60,6 +59,7 @@ const millis = (value) =>
       ? value.toMillis()
       : new Date(value).getTime();
 
+/** How long a workspace membership lookup is reused (bounds how long a removal takes to bite). */
 const MEMBERSHIP_TTL_MS = 60_000;
 
 const EDIT_ROLES = ['owner', 'editor'];
@@ -639,6 +639,11 @@ export function createService({ client, actor, now = () => new Date() }) {
     async deleteColumn({ boardId, column }) {
       const outcome = await mutateBoard(boardId, (board) => {
         const target = findColumn(board, column);
+        if (target.migrating) {
+          throw new McpUserError(
+            `Column "${target.title}" is changing type; try again in a minute.`,
+          );
+        }
         const patch = { columns: board.columns.filter((c) => c.id !== target.id) };
         // The lock goes with the column (as the web does), so no stale id stays in `columnLocks`.
         if ((board.columnLocks ?? []).includes(target.id)) {
@@ -658,23 +663,34 @@ export function createService({ client, actor, now = () => new Date() }) {
       // client may write, and a required column's cells cannot be emptied until the server drops
       // its required flag (rules REQ-1); their leftovers are invisible without the column.
       let cleared = 0;
+      let warning;
       if (!outcome.keepValues) {
         const withValue = (await itemsOf(boardId)).filter(
           (d) => d.data.values?.[outcome.id] !== undefined,
         );
-        for (let at = 0; at < withValue.length; at += 200) {
-          await client.commit(
-            withValue.slice(at, at + 200).map((d) => ({
-              op: 'update',
-              path: `boards/${boardId}/items/${d.id}`,
-              set: { updatedAt: now(), updatedBy: uid },
-              remove: [`values.${outcome.id}`],
-            })),
-          );
+        try {
+          for (let at = 0; at < withValue.length; at += 200) {
+            const chunk = withValue.slice(at, at + 200);
+            await client.commit(
+              chunk.map((d) => ({
+                op: 'update',
+                path: `boards/${boardId}/items/${d.id}`,
+                set: { updatedAt: now(), updatedBy: uid },
+                remove: [`values.${outcome.id}`],
+              })),
+            );
+            cleared += chunk.length;
+          }
+        } catch {
+          warning = `The column was deleted, but cleaning up its values stopped after ${cleared} of ${withValue.length} item(s); the rest keep invisible leftovers.`;
         }
-        cleared = withValue.length;
       }
-      return { deleted: outcome.id, title: outcome.title, valuesCleared: cleared };
+      return {
+        deleted: outcome.id,
+        title: outcome.title,
+        valuesCleared: cleared,
+        ...(warning ? { warning } : {}),
+      };
     },
 
     async reorderColumns({ boardId, columns }) {
@@ -720,7 +736,15 @@ export function createService({ client, actor, now = () => new Date() }) {
     async findItems({ boardId, name, group, where = [], limit = 25, offset = 0 }) {
       const { board } = await loadBoard(boardId, 'read');
       const groupId = group !== undefined ? findGroup(board, group).id : null;
-      const filters = where.map((w) => ({ column: findColumn(board, w.column), equals: w.equals }));
+      const filters = where.map((w) => {
+        const column = findColumn(board, w.column);
+        if (columnRegistry.isDerived(column.type) || columnRegistry.isServerManaged(column.type)) {
+          throw new McpUserError(
+            `Column "${column.title}" is a calculated or managed column, cannot filter on it.`,
+          );
+        }
+        return { column, equals: w.equals };
+      });
       const needle = name === undefined ? '' : name.trim().toLowerCase();
       const norm = (v) => String(v).trim().toLowerCase();
       const cellMatches = (column, stored, wanted) => {
@@ -750,8 +774,11 @@ export function createService({ client, actor, now = () => new Date() }) {
         )
         .sort(
           (a, b) =>
-            (groupOrder.get(a.data.groupId) ?? 0) - (groupOrder.get(b.data.groupId) ?? 0) ||
-            (a.data.position < b.data.position ? -1 : 1),
+            (groupOrder.get(a.data.groupId) ?? Infinity) -
+              (groupOrder.get(b.data.groupId) ?? Infinity) ||
+            (a.data.groupId < b.data.groupId ? -1 : a.data.groupId > b.data.groupId ? 1 : 0) ||
+            (a.data.position < b.data.position ? -1 : a.data.position > b.data.position ? 1 : 0) ||
+            (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
         );
       const page = found.slice(offset, offset + limit).map((d) => ({
         id: d.id,
