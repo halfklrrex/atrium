@@ -127,7 +127,10 @@ export async function uploadDescriptionImage(
   }
   const uploadId = newUploadId();
   const placeholder = { type: 'imageUpload', attrs: { uploadId } };
-  if (position === undefined) editor.chain().focus().insertContent(placeholder).run();
+  // Insert after the selection's end: a placeholder just added is selected, and replacing it
+  // would drop the earlier image of a multi-image paste.
+  if (position === undefined)
+    editor.chain().focus().insertContentAt(editor.state.selection.to, placeholder).run();
   else editor.chain().focus().insertContentAt(position, placeholder).run();
   const previewUrl = makePreview(file);
   if (previewUrl) previews.set(uploadId, previewUrl);
