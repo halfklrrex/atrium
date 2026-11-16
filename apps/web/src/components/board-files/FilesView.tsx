@@ -11,6 +11,7 @@ import { useTableStore } from '../board-table/table-store';
 import { useDeepStable } from '../board-table/useDeepStable';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { FileCard } from './FileCard';
+import { FilesViewControls } from './FilesViewControls';
 import { useBoardUpdateFiles } from './useBoardUpdateFiles';
 import { collectFiles } from './files-view-model';
 import styles from './files-view.module.css';
@@ -88,6 +89,9 @@ export function FilesView({ board }: FilesViewProps) {
   const count = cards.length === 1 ? '1 file' : `${cards.length} files`;
   const trailing = (
     <>
+      {fileColumns.length > 0 ? (
+        <FilesViewControls boardId={boardId} settings={settings} fileColumns={fileColumns} />
+      ) : null}
       <span className={styles.count} aria-live="polite">
         {loading || error || !anyFiles ? '' : count}
       </span>
