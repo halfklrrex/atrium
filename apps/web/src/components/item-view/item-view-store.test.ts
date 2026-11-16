@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openItem, openItemFull } from '../board-table/open-item';
 import { useItemCardStore } from '../item-card/item-card-store';
-import { neighbours, useItemViewStore } from './item-view-store';
+import {
+  neighbours,
+  subitemNeighbours,
+  subitemOpenState,
+  useItemViewStore,
+} from './item-view-store';
 
 const groups = [
   { groupId: 'g1', ids: ['a', 'b', 'c'] },
@@ -16,6 +21,46 @@ describe('neighbours', () => {
     expect(neighbours(groups, 'd')).toMatchObject({ prev: null, next: null, total: 1 });
     expect(neighbours(groups, 'zzz').total).toBe(0);
     expect(neighbours(undefined, 'a').total).toBe(0);
+  });
+});
+
+describe('subitemNeighbours', () => {
+  const sub = (id: string, position: string, parentItemId: string | null = 'p') => ({
+    id,
+    position,
+    parentItemId,
+  });
+  const all = [
+    sub('p', 'a0', null),
+    sub('s2', 'a1'),
+    sub('s1', 'a0'),
+    sub('s3', 'a2'),
+    sub('o', 'a0', 'q'),
+  ];
+
+  it('steps through the siblings of the same parent in position order', () => {
+    expect(subitemNeighbours(all, sub('s2', 'a1'))).toEqual({
+      prev: 's1',
+      next: 's3',
+      index: 1,
+      total: 3,
+    });
+    expect(subitemNeighbours(all, sub('s1', 'a0')).prev).toBeNull();
+    expect(subitemNeighbours(all, sub('s3', 'a2')).next).toBeNull();
+  });
+
+  it('has no siblings for an item without a parent', () => {
+    expect(subitemNeighbours(all, sub('p', 'a0', null)).total).toBe(0);
+  });
+});
+
+describe('subitemOpenState', () => {
+  it('records the parent and keeps fromBoard', () => {
+    expect(subitemOpenState({ fromBoard: true, section: 'subitems' }, 'p')).toEqual({
+      fromBoard: true,
+      fromItem: 'p',
+    });
+    expect(subitemOpenState(null, 'p')).toEqual({ fromItem: 'p' });
   });
 });
 

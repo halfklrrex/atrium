@@ -334,6 +334,79 @@
   font-weight: var(--font-weight-bold);
 }
 
+.subitemHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.subitemLink {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-text-color);
+  font: var(--atrium-update-body-font);
+  font-weight: var(--font-weight-bold);
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subitemLink:hover {
+  color: var(--primary-color);
+  text-decoration: underline;
+}
+
+.subitemBadge {
+  flex: none;
+  font: var(--atrium-meta-font);
+  color: var(--secondary-text-color);
+}
+
+.subitemOpen {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  padding: 0;
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--border-radius-4);
+  background: transparent;
+  color: var(--icon-color);
+  cursor: pointer;
+}
+
+.subitemOpen:hover {
+  color: var(--primary-text-color);
+}
+
+.subitemOpen svg {
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+.crumbLink {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.crumbLink:hover {
+  color: var(--primary-text-color);
+  text-decoration: underline;
+}
+
 .subitemCells {
   display: flex;
   flex-wrap: wrap;
