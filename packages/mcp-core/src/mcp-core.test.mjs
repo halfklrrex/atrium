@@ -795,7 +795,7 @@ test('structure changes give up after a second conflict', async () => {
 test('tool catalogue: unique atrium_ names, every tool described, scoped and annotated', () => {
   const tools = defineTools({});
   const names = tools.map((t) => t.name);
-  assert.equal(tools.length, 25);
+  assert.equal(tools.length, 31);
   assert.equal(new Set(names).size, names.length);
   for (const tool of tools) {
     assert.match(tool.name, /^atrium_[a-z_]+$/);
@@ -1361,4 +1361,371 @@ test('the new tools are in the catalogue with validating schemas', () => {
   }
   const reply = tools.find((t) => t.name === 'atrium_add_reply');
   assert.equal(reply.inputSchema.updateId.safeParse('../x').success, false);
+});
+
+// ---- gap batch 1a: restore, move, reorder, likes, find a person ------------------------------
+
+const itemDoc = (more = {}) => ({
+  name: 'Task',
+  groupId: 'g1',
+  position: 'a0',
+  parentItemId: null,
+  state: 'active',
+  values: {},
+  ...more,
+});
+
+test('restoreItem brings back archived and trashed items with their subitems', async () => {
+  const { service, client } = setup();
+  const boardId = await boardWithStructure(service);
+  const { created } = await service.createItems({ boardId, items: [{ name: 'A' }, { name: 'B' }] });
+  const [a, b] = created.map((c) => c.id);
+  await service.createSubitems({ boardId, itemId: a, subitems: [{ name: 'a1' }] });
+  await service.setItemState({ boardId, itemId: a, state: 'archived' });
+  await service.setItemState({ boardId, itemId: b, state: 'deleted' });
+  const subId = [...client.docs.keys()].find(
+    (k) => k.startsWith(`boards/${boardId}/items/`) && client.docs.get(k).data.parentItemId === a,
+  );
+  assert.equal(client.docs.get(subId).data.state, 'archived');
+
+  const first = await service.restoreItem({ boardId, itemId: a });
+  assert.deepEqual(first, { id: a, restoredFrom: 'archived', group: first.group, subitemsAlso: 1 });
+  assert.equal(client.docs.get(`boards/${boardId}/items/${a}`).data.state, 'active');
+  assert.equal(client.docs.get(subId).data.state, 'active');
+  await service.restoreItem({ boardId, itemId: b });
+  const stored = client.docs.get(`boards/${boardId}/items/${b}`).data;
+  assert.equal(stored.state, 'active');
+  assert.equal(stored.deletedAt, null);
+  assert.equal(stored.updatedBy, ME);
+  await assert.rejects(service.restoreItem({ boardId, itemId: b }), /already active/);
+  await assert.rejects(service.restoreItem({ boardId, itemId: 'nope' }), /not found/);
+});
+
+test('restoreItem: a subitem needs an active parent; a lost group falls back to the first', async () => {
+  const { service, client } = setup({
+    extra: {
+      'boards/b': boardDoc(WS, { [ME]: 'editor' }),
+      'boards/b/items/p': itemDoc({ state: 'archived', groupId: 'gone' }),
+      'boards/b/items/s': itemDoc({ state: 'archived', groupId: 'gone', parentItemId: 'p' }),
+    },
+  });
+  await assert.rejects(service.restoreItem({ boardId: 'b', itemId: 's' }), /Restore the parent/);
+  const result = await service.restoreItem({ boardId: 'b', itemId: 'p' });
+  assert.equal(result.group, 'G');
+  assert.equal(client.docs.get('boards/b/items/p').data.groupId, 'g1');
+  assert.equal(client.docs.get('boards/b/items/s').data.groupId, 'g1');
+  assert.equal(client.docs.get('boards/b/items/s').data.state, 'active');
+});
+
+test('restoreItem needs the editor role', async () => {
+  const { service } = setup({
+    extra: {
+      'boards/b': boardDoc(WS, { [ME]: 'viewer' }),
+      'boards/b/items/p': itemDoc({ state: 'deleted' }),
+    },
+  });
+  await assert.rejects(service.restoreItem({ boardId: 'b', itemId: 'p' }), /only view/);
+});
+
+async function threeItems() {
+  const { service, client } = setup();
+  const boardId = await boardWithStructure(service);
+  const groups = client.docs.get(`boards/${boardId}`).data.groups;
+  const { created } = await service.createItems({
+    boardId,
+    items: [
+      { name: 'A', group: groups[0].id },
+      { name: 'B', group: groups[0].id },
+      { name: 'C', group: groups[0].id },
+      { name: 'X', group: groups[1].id },
+    ],
+  });
+  const [a, b, c, x] = created.map((i) => i.id);
+  const pos = (id) => client.docs.get(`boards/${boardId}/items/${id}`).data.position;
+  const order = async () => {
+    const board = await service.getBoard({ boardId });
+    return board.items.map((i) => i.name);
+  };
+  return { service, client, boardId, groups, a, b, c, x, pos, order };
+}
+
+test('moveItem places an item first, last, before and after, in or across groups', async () => {
+  const { service, boardId, groups, a, b, c, x, pos, order } = await threeItems();
+  assert.deepEqual(await order(), ['A', 'B', 'C', 'X']);
+  await service.moveItem({ boardId, itemId: c, position: 'first' });
+  assert.deepEqual(await order(), ['C', 'A', 'B', 'X']);
+  await service.moveItem({ boardId, itemId: c, position: 'last' });
+  assert.deepEqual(await order(), ['A', 'B', 'C', 'X']);
+  await service.moveItem({ boardId, itemId: c, beforeItemId: b });
+  assert.deepEqual(await order(), ['A', 'C', 'B', 'X']);
+  await service.moveItem({ boardId, itemId: a, afterItemId: b });
+  assert.deepEqual(await order(), ['C', 'B', 'A', 'X']);
+  assert.ok(pos(c) < pos(b) && pos(b) < pos(a));
+  // Across groups: before X in the second group, then to the end of the first by title.
+  const moved = await service.moveItem({
+    boardId,
+    itemId: a,
+    group: groups[1].id,
+    beforeItemId: x,
+  });
+  assert.equal(moved.group, groups[1].title);
+  assert.deepEqual(await order(), ['C', 'B', 'A', 'X']);
+  const board = await service.getBoard({ boardId });
+  assert.deepEqual(
+    board.items.map((i) => i.group),
+    [groups[0].title, groups[0].title, groups[1].title, groups[1].title],
+  );
+  await service.moveItem({ boardId, itemId: a, group: groups[0].id });
+  assert.deepEqual(await order(), ['C', 'B', 'A', 'X']);
+  assert.ok(pos(a) > pos(b));
+});
+
+test('moveItem: subitems follow the parent; a subitem only reorders among siblings', async () => {
+  const { service, client, boardId, groups, a } = await threeItems();
+  const { created } = await service.createSubitems({
+    boardId,
+    itemId: a,
+    subitems: [{ name: 's1' }, { name: 's2' }],
+  });
+  const [s1, s2] = created.map((s) => s.id);
+  await service.moveItem({ boardId, itemId: a, group: groups[1].id });
+  for (const id of [s1, s2]) {
+    assert.equal(client.docs.get(`boards/${boardId}/items/${id}`).data.groupId, groups[1].id);
+  }
+  await service.moveItem({ boardId, itemId: s2, position: 'first' });
+  const pos = (id) => client.docs.get(`boards/${boardId}/items/${id}`).data.position;
+  assert.ok(pos(s2) < pos(s1));
+  await assert.rejects(
+    service.moveItem({ boardId, itemId: s1, group: groups[0].id }),
+    /stays in its parent's group/,
+  );
+  await assert.rejects(
+    service.moveItem({ boardId, itemId: s1, beforeItemId: a }),
+    /not an active sibling subitem/,
+  );
+});
+
+test('moveItem validates its placement and anchors', async () => {
+  const { service, client, boardId, a, b, x } = await threeItems();
+  const before = client.commits.length;
+  await assert.rejects(
+    service.moveItem({ boardId, itemId: a, position: 'first', beforeItemId: b }),
+    /one of position/,
+  );
+  await assert.rejects(
+    service.moveItem({ boardId, itemId: a, position: 'middle' }),
+    /"first" or "last"/,
+  );
+  await assert.rejects(
+    service.moveItem({ boardId, itemId: a, beforeItemId: x }),
+    /not an active item of the target group/,
+  );
+  await assert.rejects(
+    service.moveItem({ boardId, itemId: a, beforeItemId: a }),
+    /not an active item/,
+  );
+  await assert.rejects(service.moveItem({ boardId, itemId: a, group: 'Nope' }), /No group/);
+  assert.equal(client.commits.length, before, 'nothing was written');
+});
+
+test('moveItem is refused to a viewer', async () => {
+  const { service } = setup({
+    extra: {
+      'boards/b': boardDoc(WS, { [ME]: 'viewer' }),
+      'boards/b/items/p': itemDoc(),
+    },
+  });
+  await assert.rejects(
+    service.moveItem({ boardId: 'b', itemId: 'p', position: 'first' }),
+    /only view/,
+  );
+});
+
+test('reorderGroups rewrites positions for the full list and needs the owner role', async () => {
+  const { service, client } = setup();
+  const boardId = await boardWithStructure(service);
+  const { id: third } = await service.addGroup({ boardId, title: 'Third' });
+  const groups = client.docs.get(`boards/${boardId}`).data.groups;
+  const [g1, g2] = groups;
+  const result = await service.reorderGroups({ boardId, groups: ['Third', g2.id, g1.id] });
+  assert.deepEqual(
+    result.groups.map((g) => g.id),
+    [third, g2.id, g1.id],
+  );
+  const stored = client.docs.get(`boards/${boardId}`).data.groups;
+  assert.equal(stored.length, 3);
+  const sorted = [...stored].sort((p, q) => (p.position < q.position ? -1 : 1));
+  assert.deepEqual(
+    sorted.map((g) => g.id),
+    [third, g2.id, g1.id],
+  );
+  assert.equal(stored.find((g) => g.id === g1.id).color, g1.color, 'titles and colors are kept');
+  const board = await service.getBoard({ boardId });
+  assert.deepEqual(
+    board.groups.map((g) => g.id),
+    [third, g2.id, g1.id],
+  );
+  const before = client.commits.length;
+  await assert.rejects(
+    service.reorderGroups({ boardId, groups: [g1.id, g2.id] }),
+    /missing: "Third"/,
+  );
+  await assert.rejects(
+    service.reorderGroups({ boardId, groups: [g1.id, g1.id, g2.id] }),
+    /listed twice/,
+  );
+  await assert.rejects(
+    service.reorderGroups({ boardId, groups: [g1.id, g2.id, 'Zzz'] }),
+    /No group/,
+  );
+  assert.equal(client.commits.length, before);
+  const editor = setup({ extra: { 'boards/e': boardDoc(WS, { [ME]: 'editor' }) } });
+  await assert.rejects(
+    editor.service.reorderGroups({ boardId: 'e', groups: ['g1'] }),
+    /board owner role/,
+  );
+});
+
+test('likes: like and unlike an update or a reply, idempotently', async () => {
+  const { service, client } = setup();
+  const boardId = await boardWithStructure(service);
+  const { created } = await service.createItems({ boardId, items: [{ name: 'A' }] });
+  const itemId = created[0].id;
+  const { id: updateId } = await service.addUpdate({ boardId, itemId, text: 'hello' });
+  const { id: replyId } = await service.addReply({ boardId, itemId, updateId, text: 'hi' });
+  const post = () => client.docs.get(`boards/${boardId}/items/${itemId}/updates/${updateId}`).data;
+  const reply = () =>
+    client.docs.get(`boards/${boardId}/items/${itemId}/updates/${updateId}/replies/${replyId}`)
+      .data;
+  client.docs.get(`boards/${boardId}/items/${itemId}/updates/${updateId}`).data.likes = [OTHER];
+
+  const args = { boardId, itemId, updateId };
+  assert.deepEqual(await service.setUpdateLike({ ...args, liked: true }), {
+    id: updateId,
+    liked: true,
+    likes: 2,
+    changed: true,
+  });
+  assert.deepEqual(post().likes, [OTHER, ME]);
+  assert.equal((await service.setUpdateLike({ ...args, liked: true })).changed, false);
+  assert.deepEqual(post().likes, [OTHER, ME]);
+  assert.deepEqual(await service.setUpdateLike({ ...args, liked: false }), {
+    id: updateId,
+    liked: false,
+    likes: 1,
+    changed: true,
+  });
+  assert.deepEqual(post().likes, [OTHER], 'only my uid left');
+  assert.equal((await service.setUpdateLike({ ...args, liked: false })).changed, false);
+  await service.setUpdateLike({ ...args, replyId, liked: true });
+  assert.deepEqual(reply().likes, [ME]);
+  assert.equal((await service.listUpdates({ boardId, itemId })).updates[0].likes, 1);
+  await assert.rejects(
+    service.setUpdateLike({ ...args, updateId: 'nope', liked: true }),
+    /not found/,
+  );
+  await assert.rejects(service.setUpdateLike({ ...args, replyId: 'nope', liked: true }), /Reply/);
+});
+
+test('likes retry once when the post changed in between, and need the editor role', async () => {
+  const { service, client } = setup({
+    extra: {
+      'boards/b': boardDoc(WS, { [ME]: 'editor' }),
+      'boards/b/items/i': itemDoc(),
+      'boards/b/items/i/updates/u': { authorId: OTHER, content: 'x', likes: [] },
+      'boards/v': boardDoc(WS, { [ME]: 'viewer' }),
+      'boards/v/items/i': itemDoc(),
+      'boards/v/items/i/updates/u': { authorId: OTHER, content: 'x', likes: [] },
+    },
+  });
+  const real = client.commit.bind(client);
+  let raced = false;
+  client.commit = async (writes) => {
+    if (!raced) {
+      raced = true;
+      // Someone else likes it between our read and write.
+      await real([
+        { op: 'update', path: 'boards/b/items/i/updates/u', set: { likes: [OTHER] }, remove: [] },
+      ]);
+    }
+    return real(writes);
+  };
+  const result = await service.setUpdateLike({
+    boardId: 'b',
+    itemId: 'i',
+    updateId: 'u',
+    liked: true,
+  });
+  assert.equal(result.likes, 2);
+  assert.deepEqual(client.docs.get('boards/b/items/i/updates/u').data.likes, [OTHER, ME]);
+  await assert.rejects(
+    service.setUpdateLike({ boardId: 'v', itemId: 'i', updateId: 'u', liked: true }),
+    /only view/,
+  );
+});
+
+test('findMember matches workspace members by email only, never leaking others', async () => {
+  const { service } = setup({
+    extra: {
+      [`users/${ME}`]: { displayName: 'Avery Quinn', email: 'avery@example.com' },
+      [`users/${OTHER}`]: { displayName: 'Jordan Lee', email: 'Jordan.Lee@example.com' },
+      'users/outsider': { displayName: 'Casey Fox', email: 'casey@example.com' },
+    },
+  });
+  const hit = await service.findMember({ email: '  JORDAN.lee@Example.com ' });
+  assert.deepEqual(hit, {
+    workspaceId: WS,
+    found: true,
+    member: {
+      uid: OTHER,
+      name: 'Jordan Lee',
+      email: 'Jordan.Lee@example.com',
+      workspaceRole: 'member',
+      me: false,
+    },
+  });
+  assert.equal((await service.findMember({ email: 'avery@example.com' })).member.me, true);
+  // An account that exists but is not in this workspace answers like an unknown address.
+  const outsider = await service.findMember({ email: 'casey@example.com' });
+  const unknown = await service.findMember({ email: 'nobody@example.com' });
+  assert.deepEqual(outsider, { workspaceId: WS, found: false });
+  assert.deepEqual(unknown, outsider);
+  assert.deepEqual(
+    await service.findMember({ email: 'jordan@example.com' }),
+    outsider,
+    'no partial match',
+  );
+  await assert.rejects(service.findMember({ email: 'jordan' }), /full email/);
+  await assert.rejects(
+    service.findMember({ email: 'a@b.co', workspaceId: 'other-ws' }),
+    /not found among your workspaces/,
+  );
+});
+
+test('tool catalogue: the batch 1a tools reach the service with the right scopes', async () => {
+  const calls = [];
+  const spy = new Proxy({}, { get: (_, key) => async (args) => calls.push([key, args]) });
+  const tools = defineTools(spy);
+  const byName = (n) => tools.find((t) => t.name === n);
+  const scopes = {
+    atrium_restore_item: 'write',
+    atrium_move_item: 'write',
+    atrium_reorder_groups: 'write',
+    atrium_like_update: 'write',
+    atrium_unlike_update: 'write',
+    atrium_find_member: 'read',
+  };
+  for (const [name, scope] of Object.entries(scopes))
+    assert.equal(byName(name)?.scope, scope, name);
+  await byName('atrium_like_update').run({ boardId: 'b', itemId: 'i', updateId: 'u' });
+  await byName('atrium_unlike_update').run({ boardId: 'b', itemId: 'i', updateId: 'u' });
+  assert.deepEqual(
+    calls.map(([key, args]) => [key, args.liked]),
+    [
+      ['setUpdateLike', true],
+      ['setUpdateLike', false],
+    ],
+  );
+  assert.equal(byName('atrium_move_item').inputSchema.position.safeParse('middle').success, false);
+  assert.equal(byName('atrium_find_member').inputSchema.email.safeParse('a').success, false);
 });

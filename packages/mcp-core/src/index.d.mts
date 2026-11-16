@@ -119,6 +119,24 @@ export interface McpService {
     group?: string;
     values?: Record<string, unknown>;
   }): Promise<{ id: string; updated: string[] }>;
+  restoreItem(args: { boardId: string; itemId: string }): Promise<unknown>;
+  moveItem(args: {
+    boardId: string;
+    itemId: string;
+    group?: string;
+    position?: 'first' | 'last';
+    beforeItemId?: string;
+    afterItemId?: string;
+  }): Promise<unknown>;
+  reorderGroups(args: { boardId: string; groups: string[] }): Promise<unknown>;
+  setUpdateLike(args: {
+    boardId: string;
+    itemId: string;
+    updateId: string;
+    replyId?: string;
+    liked: boolean;
+  }): Promise<unknown>;
+  findMember(args: { email: string; workspaceId?: string }): Promise<unknown>;
   getItemDescription(args: { boardId: string; itemId: string }): Promise<unknown>;
   setItemDescription(args: {
     boardId: string;

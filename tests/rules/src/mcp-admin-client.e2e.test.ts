@@ -108,6 +108,34 @@ describe('preconditions', () => {
     expect(await client.getDoc(path('a'))).toEqual({ n: 2, keep: 'yes' });
   });
 
+  it('update with an array field and an updateTime precondition (likes) rejects a stale write with 409', async () => {
+    await client.commit([{ op: 'set', path: path('post'), data: { likes: ['u1'], n: 1 } }]);
+    const meta = await client.getDocMeta(path('post'));
+    await client.commit([
+      {
+        op: 'update',
+        path: path('post'),
+        set: { likes: ['u1', 'u2'] },
+        remove: [],
+        precondition: { updateTime: meta!.updateTime },
+      },
+    ]);
+    expect(await client.getDoc(path('post'))).toEqual({ likes: ['u1', 'u2'], n: 1 });
+    const error = await rejection(
+      client.commit([
+        {
+          op: 'update',
+          path: path('post'),
+          set: { likes: ['u1'] },
+          remove: [],
+          precondition: { updateTime: meta!.updateTime },
+        },
+      ]),
+    );
+    expect(error.status).toBe(409);
+    expect(await client.getDoc(path('post'))).toEqual({ likes: ['u1', 'u2'], n: 1 });
+  });
+
   it('patch and update of a missing document fail with 404; delete with a stale time fails with 409', async () => {
     expect(
       (await rejection(client.commit([{ op: 'patch', path: path('x'), data: { n: 1 } }]))).status,
