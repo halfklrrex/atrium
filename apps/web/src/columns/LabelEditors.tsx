@@ -7,7 +7,7 @@ import {
 } from '@atrium/shared';
 import { Add, Check, Delete } from '@vibe/icons';
 import classNames from 'classnames';
-import { useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import { newSlugId } from '../lib/ids';
 import { LabelSortable, SortableLabelRow, moveAnnouncement } from './LabelSortable';
 import { ColorPicker } from './ColorPicker';
@@ -32,6 +32,7 @@ function LabelPalette({
   onPick: (color: string) => void;
 }) {
   const [picking, setPicking] = useState(false);
+  const wheelRef = useRef<HTMLButtonElement>(null);
   const current = color.toLowerCase();
   const custom = !isPaletteColor(current);
   const swatch = (hex: string, label: string, extra?: string) => (
@@ -60,6 +61,7 @@ function LabelPalette({
       <div className={popups.customRow} role="radiogroup" aria-label="Custom label colors">
         {saved.map((hex) => swatch(hex, `Custom color ${hex}`))}
         <button
+          ref={wheelRef}
           type="button"
           role="radio"
           aria-checked={custom}
@@ -77,7 +79,10 @@ function LabelPalette({
       {picking ? (
         <ColorPicker
           value={current}
-          onCancel={() => setPicking(false)}
+          onCancel={() => {
+            setPicking(false);
+            wheelRef.current?.focus();
+          }}
           onUse={(hex) => {
             setPicking(false);
             onPick(hex);
@@ -167,6 +172,18 @@ export function StatusLabelEditor({
           onDragMove={(id, overId) =>
             setLabels((list) => moveItemOver(list, (l) => l.id, id, overId))
           }
+          renderOverlay={(id) => {
+            const dragged = labels.find((l) => l.id === id);
+            return dragged ? (
+              <>
+                <span
+                  className={popups.dragPreviewSwatch}
+                  style={{ backgroundColor: dragged.color }}
+                />
+                {dragged.label || 'New label'}
+              </>
+            ) : null;
+          }}
         >
           {labels.map((label) => (
             <SortableLabelRow
@@ -287,6 +304,7 @@ export function DropdownLabelEditor({
           onDragMove={(id, overId) =>
             setLabels((list) => moveItemOver(list, (l) => l.id, id, overId))
           }
+          renderOverlay={(id) => labels.find((l) => l.id === id)?.label || 'New label'}
         >
           {labels.map((label) => (
             <SortableLabelRow

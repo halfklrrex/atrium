@@ -67,8 +67,10 @@ const KEY_BAR_HINTS: Record<string, string> = {
   dropdown: 'Choose',
 };
 
-/** Key-bar empty hint per type, or undefined for types the bar never holds. */
-export function keyBarEmptyHint(type: string): string | undefined {
+/** Key-bar empty hint per type (and column title, for Priority), or undefined for types the bar never holds. */
+export function keyBarEmptyHint(type: string, title?: string): string | undefined {
+  // A Priority column is a status column with its own labels, so it says "Set priority".
+  if (type === 'status' && title && /^priority$/i.test(title.trim())) return 'Set priority';
   return KEY_BAR_HINTS[type];
 }
 

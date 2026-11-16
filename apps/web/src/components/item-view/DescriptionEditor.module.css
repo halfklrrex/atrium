@@ -454,6 +454,15 @@
   outline: var(--atrium-focus-ring);
 }
 
+.image:not([data-sized]) {
+  width: fit-content;
+}
+
+.image:not([data-sized]) .imageImg {
+  width: auto;
+  max-width: 100%;
+}
+
 .imageImg {
   display: block;
   width: 100%;

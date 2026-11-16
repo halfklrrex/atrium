@@ -387,7 +387,27 @@
 .sortableDragging {
   position: relative;
   z-index: var(--atrium-z-raised);
-  opacity: 0.8;
+  opacity: 0.4;
+}
+
+/* The dragged preview, drawn in a portal so the label list's scroll box cannot clip it. */
+.dragPreview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--border-radius-small);
+  background: var(--primary-background-color);
+  box-shadow: var(--box-shadow-medium);
+  color: var(--primary-text-color);
+  cursor: grabbing;
+}
+
+.dragPreviewSwatch {
+  flex: none;
+  width: var(--atrium-table-swatch);
+  height: var(--atrium-table-swatch);
+  border-radius: var(--border-radius-small);
 }
 
 .dragHandle {

@@ -384,6 +384,28 @@ describe('description images', () => {
     expect(editorOf().getJSON().content?.[0]?.attrs?.width).toBe(30);
   });
 
+  it('keeps an image with no stored width at its natural size, and sizes one with a width', async () => {
+    mocks.getUrl.mockResolvedValue({
+      url: 'https://files.example.com/a.png',
+      expiresAt: farFuture(),
+    });
+    mount(doc({ type: 'image', attrs: { fileId: 'img1', alt: '', width: null } }));
+    const natural = await screen.findByRole('img', { name: 'Image in the description' });
+    expect(natural.parentElement).not.toHaveAttribute('data-sized');
+    expect(natural.parentElement?.style.width).toBe('');
+  });
+
+  it('sizes an image with a stored width as a percentage of the content', async () => {
+    mocks.getUrl.mockResolvedValue({
+      url: 'https://files.example.com/a.png',
+      expiresAt: farFuture(),
+    });
+    mount(doc({ type: 'image', attrs: { fileId: 'img1', alt: '', width: 40 } }));
+    const img = await screen.findByRole('img', { name: 'Image in the description' });
+    expect(img.parentElement).toHaveAttribute('data-sized', 'true');
+    expect(img.parentElement?.style.width).toBe('40%');
+  });
+
   it('starts an upload when an image file is pasted or picked', async () => {
     const user = userEvent.setup();
     mount();

@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { getReadableTextColor, hexToHsv, hsvToHex, normalizeHex, type Hsv } from './label-color';
 import popups from './popups.module.css';
 
@@ -21,6 +21,15 @@ export function ColorPicker({
   const [hex, setHex] = useState(() => normalizeHex(value) ?? '#000000');
   const [text, setText] = useState(hex);
   const squareRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // The picker opens inside a scrolling label list, often below the visible swatches: bring it
+  // into view (no smooth scroll when the user prefers reduced motion) and move focus into it.
+  useEffect(() => {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    rootRef.current?.scrollIntoView?.({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    squareRef.current?.focus({ preventScroll: true });
+  }, []);
   const invalid = normalizeHex(text) === null;
 
   const setFromHsv = (next: Hsv) => {
@@ -81,7 +90,13 @@ export function ColorPicker({
   };
 
   return (
-    <div className={popups.picker} role="group" aria-label="Custom color" onKeyDown={onKeyDown}>
+    <div
+      ref={rootRef}
+      className={popups.picker}
+      role="group"
+      aria-label="Custom color"
+      onKeyDown={onKeyDown}
+    >
       <div
         ref={squareRef}
         className={popups.pickerSquare}
