@@ -3,7 +3,11 @@ import { orderStatusLabels } from '@atrium/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { ColumnDef } from '@atrium/shared';
 import { DropdownLabelEditor, StatusLabelEditor } from './LabelEditors';
+import { dropTargetId } from './LabelSortable';
+import { moveItemOver } from './reorder';
+import { statusUi } from './status';
 
 const status: StatusSettings = {
   labels: [
@@ -207,5 +211,99 @@ describe('custom label colors', () => {
     ).toBe('true');
     await user.click(screen.getByRole('button', { name: 'Apply' }));
     expect((onSave.mock.calls[0]?.[0] as StatusSettings).labels[0]?.color).toBe('#654321');
+  });
+});
+
+describe('label editor modal', () => {
+  it('opens as a modal dialog with every label listed and an end drop zone', () => {
+    render(<StatusLabelEditor settings={status} onSave={() => {}} onCancel={() => {}} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(within(dialog).getAllByLabelText('Label name')).toHaveLength(3);
+    expect(within(dialog).getByTestId('label-end-zone')).toBeTruthy();
+  });
+
+  it('moves a label to the last position with the keyboard', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(<StatusLabelEditor settings={status} onSave={onSave} onCancel={() => {}} />);
+    await user.click(screen.getByRole('button', { name: 'Reorder Alpha' }));
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}');
+    expect(screen.getByTestId('label-live').textContent).toContain(
+      'Alpha moved to position 3 of 3',
+    );
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    const saved = onSave.mock.calls[0]?.[0] as StatusSettings;
+    expect(saved.labels.filter((l) => l.label).map((l) => l.label)).toEqual([
+      'Beta',
+      'Gamma',
+      'Alpha',
+    ]);
+  });
+
+  it('closes on Escape without applying, and a picker Escape does not close the modal', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const onCancel = vi.fn();
+    render(<DropdownLabelEditor settings={dropdown} onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getAllByLabelText('Label name')[0] as HTMLElement, 'x');
+    await user.keyboard('{Escape}');
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('keeps the modal open when Escape closes the color picker', async () => {
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    render(<StatusLabelEditor settings={status} onSave={() => {}} onCancel={onCancel} />);
+    await user.click(screen.getByRole('button', { name: 'Color of Alpha' }));
+    await user.click(screen.getByRole('radio', { name: 'Pick a custom color' }));
+    screen.getByLabelText('Hex color').focus();
+    await user.keyboard('{Escape}');
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('returns focus to "Edit Labels" after Cancel in the status cell editor', async () => {
+    const user = userEvent.setup();
+    const Editor = statusUi.Editor!;
+    const anchor = document.createElement('div');
+    document.body.appendChild(anchor);
+    render(
+      <Editor
+        value={null}
+        settings={status}
+        column={{ id: 'c', type: 'status', title: 'Status' } as unknown as ColumnDef}
+        ctx={{} as never}
+        onChange={() => {}}
+        onClose={() => {}}
+        anchor={anchor}
+        saveSettings={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /Edit Labels/ }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.queryByRole('listbox')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /Edit Labels/ }));
+  });
+});
+
+describe('drop as last', () => {
+  const ids = ['a', 'b', 'c', 'd'];
+  it('maps the end zone to the last row and leaves row ids alone', () => {
+    expect(dropTargetId(ids, '__label-end-zone__')).toBe('d');
+    expect(dropTargetId(ids, 'b')).toBe('b');
+  });
+
+  it('puts a dragged first row last when dropped on the end zone', () => {
+    const list = ids.map((id) => ({ id }));
+    const target = dropTargetId(ids, '__label-end-zone__') as string;
+    expect(moveItemOver(list, (l) => l.id, 'a', target).map((l) => l.id)).toEqual([
+      'b',
+      'c',
+      'd',
+      'a',
+    ]);
   });
 });

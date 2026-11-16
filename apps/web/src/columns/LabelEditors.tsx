@@ -5,9 +5,10 @@ import {
   type StatusLabel,
   type StatusSettings,
 } from '@atrium/shared';
+import { Modal, ModalBasicLayout, ModalContent, ModalFooter, ModalHeader } from '@vibe/core';
 import { Add, Check, Delete } from '@vibe/icons';
 import classNames from 'classnames';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { newSlugId } from '../lib/ids';
 import { LabelSortable, SortableLabelRow, moveAnnouncement } from './LabelSortable';
 import { ColorPicker } from './ColorPicker';
@@ -17,6 +18,49 @@ import { STATUS_LABEL_COLORS, nextGroupColor } from '../theme/palette';
 import popups from './popups.module.css';
 
 const MAX_LABEL = 60;
+
+/**
+ * The shared frame of both label editors: a centered modal with the whole list in its scrolling
+ * body and Cancel / Apply in the footer. Escape (or the backdrop) cancels without applying.
+ */
+function LabelEditorModal({
+  id,
+  onCancel,
+  onApply,
+  children,
+}: {
+  id: string;
+  onCancel: () => void;
+  onApply: () => void;
+  children: ReactNode;
+}) {
+  const onKeyDown = (event: KeyboardEvent) => {
+    // Keep table hotkeys out; Escape cancels (an open color picker consumes its own Escape first).
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onCancel();
+    } else if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') {
+      event.preventDefault();
+    }
+  };
+  return (
+    <Modal id={id} show size="medium" onClose={onCancel}>
+      <ModalBasicLayout>
+        <ModalHeader title="Edit labels" />
+        <ModalContent>
+          <div className={popups.modalBody} onKeyDown={onKeyDown}>
+            {children}
+          </div>
+        </ModalContent>
+      </ModalBasicLayout>
+      <ModalFooter
+        primaryButton={{ text: 'Apply', onClick: onApply }}
+        secondaryButton={{ text: 'Cancel', onClick: onCancel }}
+      />
+    </Modal>
+  );
+}
 
 /**
  * The color choices for one label: the recommended swatches, the board's saved custom colors and a
@@ -157,15 +201,8 @@ export function StatusLabelEditor({
     onSave(parsed.data);
   };
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    event.stopPropagation();
-    if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') {
-      event.preventDefault();
-    }
-  };
-
   return (
-    <div className={popups.body} onKeyDown={onKeyDown}>
+    <LabelEditorModal id="status-label-editor" onCancel={onCancel} onApply={save}>
       <div className={popups.labelRows}>
         <LabelSortable
           ids={labels.map((l) => l.id)}
@@ -249,15 +286,7 @@ export function StatusLabelEditor({
         <Add aria-hidden="true" /> New label
       </button>
       {error ? <p className={popups.error}>{error}</p> : null}
-      <div className={popups.footer}>
-        <button type="button" className={popups.linkButton} onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className={popups.linkButton} onClick={save}>
-          Apply
-        </button>
-      </div>
-    </div>
+    </LabelEditorModal>
   );
 }
 
@@ -296,7 +325,7 @@ export function DropdownLabelEditor({
   };
 
   return (
-    <div className={popups.body} onKeyDown={(event) => event.stopPropagation()}>
+    <LabelEditorModal id="dropdown-label-editor" onCancel={onCancel} onApply={save}>
       <div className={popups.labelRows}>
         {labels.length === 0 ? <p className={popups.muted}>No labels yet</p> : null}
         <LabelSortable
@@ -347,14 +376,6 @@ export function DropdownLabelEditor({
       <button type="button" className={popups.editLink} onClick={add}>
         <Add aria-hidden="true" /> New label
       </button>
-      <div className={popups.footer}>
-        <button type="button" className={popups.linkButton} onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className={popups.linkButton} onClick={save}>
-          Apply
-        </button>
-      </div>
-    </div>
+    </LabelEditorModal>
   );
 }

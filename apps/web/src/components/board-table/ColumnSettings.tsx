@@ -1181,22 +1181,30 @@ export function ColumnSettingsPopup({
     close();
   };
 
+  // The label editors are centered modals of their own, not part of an anchored popup.
+  if (column.def.type === 'status') {
+    return (
+      <StatusLabelEditor
+        settings={column.settings as StatusSettings}
+        boardColors={customLabelColors((env.allColumns ?? env.columns).map((c) => c.settings))}
+        onSave={save}
+        onCancel={close}
+      />
+    );
+  }
+  if (column.def.type === 'dropdown') {
+    return (
+      <DropdownLabelEditor
+        settings={column.settings as DropdownSettings}
+        onSave={save}
+        onCancel={close}
+      />
+    );
+  }
+
   return (
     <AnchoredPopup anchor={anchor} onClose={close} label={`${column.def.title} settings`} center>
-      {column.def.type === 'status' ? (
-        <StatusLabelEditor
-          settings={column.settings as StatusSettings}
-          boardColors={customLabelColors((env.allColumns ?? env.columns).map((c) => c.settings))}
-          onSave={save}
-          onCancel={close}
-        />
-      ) : column.def.type === 'dropdown' ? (
-        <DropdownLabelEditor
-          settings={column.settings as DropdownSettings}
-          onSave={save}
-          onCancel={close}
-        />
-      ) : column.def.type === 'numbers' ? (
+      {column.def.type === 'numbers' ? (
         <NumbersSettingsEditor
           settings={column.settings as NumbersSettings}
           onSave={save}
