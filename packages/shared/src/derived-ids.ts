@@ -28,6 +28,14 @@ export interface BoardColumnsData {
  */
 export const REQUIRED_COLUMN_RULE_CAP = 10;
 
+/**
+ * How many vote columns (columns and subitem columns together) the Firestore rules check by value
+ * (vote integrity). Like {@link REQUIRED_COLUMN_RULE_CAP}, `firestore.rules` unrolls the check over
+ * the first 10 entries of `voteColumnIds` and refuses writes to a later one (fail closed), so the
+ * web refuses to add an 11th vote column. Keep equal to the unrolled helper in `firestore.rules`.
+ */
+export const VOTE_COLUMN_RULE_CAP = 10;
+
 /** The four server-maintained lists of a board. */
 export interface ColumnIdLists {
   derivedColumnIds: string[];

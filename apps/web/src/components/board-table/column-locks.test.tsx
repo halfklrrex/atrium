@@ -286,4 +286,29 @@ describe('Column locks UI & actions', () => {
     });
     expect(mocks.clearColumn).not.toHaveBeenCalled();
   });
+
+  it('does not clear the values of a deleted vote column (the rules protect other voters)', async () => {
+    const ownerCtx: TableCtx = { boardId: 'b1', uid: 'u1', columns, boardRole: 'owner' };
+    await tableActions.deleteColumn(ownerCtx, columns[2]!, ['i1']);
+    await waitFor(() => expect(mocks.updateBoardStructure).toHaveBeenCalledTimes(1));
+    expect(mocks.clearColumn).not.toHaveBeenCalled();
+  });
+
+  it('refuses adding or duplicating an 11th vote column (the rules check the first 10)', async () => {
+    const votes = Array.from({ length: 10 }, (_, n) => column(`v${n}`, 'vote', `V${n}`, `a${n}`));
+    const ctx: TableCtx = { boardId: 'b1', uid: 'u1', columns: votes, boardRole: 'owner' };
+    await tableActions.addColumn(ctx, 'vote');
+    const updater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => unknown;
+    expect(() => updater({ columns: votes, subitemColumns: [], groups: [] })).toThrow(
+      /at most 10 vote columns/,
+    );
+    // Sub-item vote columns count too; other types are never limited.
+    expect(() =>
+      updater({ columns: votes.slice(0, 5), subitemColumns: votes.slice(5), groups: [] }),
+    ).toThrow();
+    mocks.updateBoardStructure.mockClear();
+    await tableActions.addColumn(ctx, 'text');
+    const textUpdater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => unknown;
+    expect(() => textUpdater({ columns: votes, subitemColumns: [], groups: [] })).not.toThrow();
+  });
 });

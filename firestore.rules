@@ -895,9 +895,14 @@ service cloud.firestore {
                 && requiredCellOk(req, 8, touched, after) && requiredCellOk(req, 9, touched, after));
         }
 
-        // Vote integrity: a vote column's cell is `{ votersIds: [uid, ...] }`. A client write may add
-        // or remove only the writer's own uid and must leave every other voter alone, so nobody can
-        // vote for someone else, clear others' votes or replace the list. The vote columns are
+        // Vote integrity: a vote column's cell is `{ votersIds: [uid, ...] }`. An item write may add
+        // or remove only the writer's own uid and must leave every other voter alone, so a plain
+        // cell write can't vote for someone else, clear others' votes or replace the list.
+        // RESIDUAL RISK: this is not airtight. An editor may still rewrite the board's `columns`
+        // (validBoardUpdate), e.g. change the vote column's type to text so the function drops the id
+        // from `voteColumnIds`, write `values.<id>`, then change the type back. The derived and
+        // server-managed lists share this weakness (an accepted class). A full fix needs a Function
+        // (an item trigger checking votersIds deltas against `updatedBy`). The vote columns are
         // `boards.voteColumnIds` (maintained by onBoardColumnsWritten, subitem vote columns
         // included; boards from before it lack the field, which reads as [] until the backfill
         // migration runs). The Admin SDK (Functions, the MCP connector) bypasses rules.
@@ -910,14 +915,16 @@ service cloud.firestore {
         }
 
         // Update: `old` and `nw` are the cell before and after (null when missing). The new cell is
-        // null/missing or exactly { votersIds: list }; the list has no duplicates, and its set
+        // null/missing or exactly { votersIds: list }; the list has no more duplicate entries than
+        // before (legacy cells with duplicates stay votable; nobody can add one), and its set
         // differs from the old one by at most the writer's uid (added or removed, never both).
         function voteChangeOk(old, nw) {
-          let o = votersOf(old).toSet();
+          let ol = votersOf(old);
+          let o = ol.toSet();
           return nw == null
             ? o.hasOnly([uid()])
             : (nw is map && nw.keys().hasOnly(['votersIds']) && nw.get('votersIds', null) is list
-               && nw.votersIds.size() == nw.votersIds.toSet().size()
+               && nw.votersIds.size() - nw.votersIds.toSet().size() <= ol.size() - o.size()
                && nw.votersIds.toSet().difference(o).hasOnly([uid()])
                && o.difference(nw.votersIds.toSet()).hasOnly([uid()]));
         }
@@ -929,14 +936,17 @@ service cloud.firestore {
 
         // Rules cannot loop, so (like the required columns) the check is unrolled over the first 10
         // entries of the list; a write touching a vote column at position 11 or later is refused
-        // (fail closed). Cost: one set intersection when no vote cell is touched (the usual case).
+        // (fail closed). A write may touch at most ONE vote cell: checking all 10 in one write
+        // measured above the 1000-expression limit (a test proves 10 cells are refused, 1 is fine),
+        // and every real vote write (web toggle, MCP) touches one. Cost: one set intersection when
+        // no vote cell is touched (the usual case).
         function voteCellsOk(board) {
           let ids = voteIds(board);
           let after = request.resource.data.values;
           let before = resource.data.values;
           let touched = after.diff(before).affectedKeys().intersection(ids.toSet());
           return touched.size() == 0
-            || ((ids.size() <= 10 || !touched.hasAny(ids[10:ids.size()].toSet()))
+            || (touched.size() == 1 && (ids.size() <= 10 || !touched.hasAny(ids[10:ids.size()].toSet()))
                 && voteCellOk(ids, 0, touched, before, after) && voteCellOk(ids, 1, touched, before, after)
                 && voteCellOk(ids, 2, touched, before, after) && voteCellOk(ids, 3, touched, before, after)
                 && voteCellOk(ids, 4, touched, before, after) && voteCellOk(ids, 5, touched, before, after)
@@ -944,7 +954,8 @@ service cloud.firestore {
                 && voteCellOk(ids, 8, touched, before, after) && voteCellOk(ids, 9, touched, before, after));
         }
 
-        // Create: a new item's vote cell holds no voters or only the creator.
+        // Create: a new item's vote cell holds no voters or only the creator, and (as on update,
+        // for the same expression budget) at most one vote cell is set per create.
         function voteCreateCellOk(ids, i, values) {
           return ids.size() <= i || !(ids[i] in values)
             || (values[ids[i]] is map && values[ids[i]].keys().hasOnly(['votersIds'])
@@ -956,7 +967,8 @@ service cloud.firestore {
         function voteCreateOk(board, values) {
           let ids = voteIds(board);
           return !values.keys().hasAny(ids)
-            || ((ids.size() <= 10 || !values.keys().hasAny(ids[10:ids.size()]))
+            || (values.keys().toSet().intersection(ids.toSet()).size() == 1
+                && (ids.size() <= 10 || !values.keys().hasAny(ids[10:ids.size()]))
                 && voteCreateCellOk(ids, 0, values) && voteCreateCellOk(ids, 1, values)
                 && voteCreateCellOk(ids, 2, values) && voteCreateCellOk(ids, 3, values)
                 && voteCreateCellOk(ids, 4, values) && voteCreateCellOk(ids, 5, values)

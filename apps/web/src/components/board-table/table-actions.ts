@@ -53,6 +53,7 @@ import {
   wouldExceedRequiredCap,
   type RequiredWriteError,
 } from './required-write';
+import { assertVoteCapAllows } from './vote-cap';
 import { bulkSummary, bulkUndoSummary, planBulkApply, planBulkUndo } from './bulk-edit';
 import { appendPositions, dropPosition, positionsAfter } from './move-math';
 import { clampWidth, withSubitemIds, type ColumnView } from './table-model';
@@ -819,6 +820,7 @@ export const tableActions = {
     const ok = await attempt(
       () =>
         updateBoardStructure(ctx.boardId, (state) => {
+          assertVoteCapAllows(type, state);
           id = freshColumnId(state);
           const columns = columnsOf(ctx, state);
           const sorted = [...columns].sort(comparePositions);
@@ -945,10 +947,13 @@ export const tableActions = {
     // server-managed ones or to locked columns when the caller is not a board owner (their leftover
     // values are harmless and invisible without the column). A required column is skipped too: until
     // the onBoardColumnsWritten function drops it from `requiredColumnIds`, the rules refuse
-    // emptying its cells (REQ-1), and the leftover values are just as harmless.
+    // emptying its cells (REQ-1), and the leftover values are just as harmless. A vote column is
+    // skipped for the same reason: until the function drops it from `voteColumnIds`, the rules
+    // refuse deleting other people's votes, so the cleanup would fail for every item with voters.
     if (
       !isClientReadOnlyType(column.type) &&
       column.required !== true &&
+      column.type !== 'vote' &&
       !(ctx.boardRole !== 'owner' && ctx.board?.columnLocks?.includes(column.id))
     )
       await attempt(
@@ -1061,6 +1066,7 @@ export const tableActions = {
     const ok = await attempt(
       () =>
         updateBoardStructure(ctx.boardId, (state) => {
+          assertVoteCapAllows(source.def.type, state);
           id = freshColumnId(state);
           const columns = columnsOf(ctx, state);
           const sorted = [...columns].sort(comparePositions);
