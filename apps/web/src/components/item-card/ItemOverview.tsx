@@ -136,7 +136,7 @@ export function ItemOverview({
         </section>
       ) : null}
 
-      {subs.total > 0 || canEdit ? (
+      {!item.parentItemId && (subs.total > 0 || canEdit) ? (
         <SubitemsRow
           total={subs.total}
           done={subs.done}

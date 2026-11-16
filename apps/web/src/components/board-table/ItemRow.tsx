@@ -385,8 +385,7 @@ function NameCell({
             className={styles.nameText}
             onClick={() => {
               useTableStore.getState().setActive({ itemId: item.id, columnId: NAME_COLUMN });
-              // TODO(subitems): the item card has no subitem view yet, so a subitem does not open it.
-              if (!overlay && !subitem) openItem(env.boardId, item.id);
+              if (!overlay) openItem(env.boardId, item.id);
             }}
             onDoubleClick={() => {
               if (!env.canEdit || overlay) return;
@@ -407,7 +406,7 @@ function NameCell({
             {subitemCount}
           </button>
         ) : null}
-        {renaming || subitem ? null : (
+        {renaming ? null : (
           <Tooltip content="Open item" position="top">
             <button
               type="button"
@@ -420,31 +419,29 @@ function NameCell({
           </Tooltip>
         )}
       </div>
-      {subitem ? null : (
-        <div className={styles.bubble} role="gridcell">
-          <button
-            type="button"
-            className={styles.bubbleButton}
-            aria-label={
-              updatesCount > 0
-                ? `Updates for ${item.name} (${updatesCount})`
-                : `Updates for ${item.name}`
-            }
-            onClick={() => openItem(env.boardId, item.id, { tab: 'updates' })}
-          >
-            {updatesCount > 0 ? (
-              <span className={styles.bubbleWithCount}>
-                <Update aria-hidden="true" />
-                <span className={styles.bubbleBadge} aria-hidden="true">
-                  {updatesCount > 9 ? '9+' : updatesCount}
-                </span>
+      <div className={styles.bubble} role="gridcell">
+        <button
+          type="button"
+          className={styles.bubbleButton}
+          aria-label={
+            updatesCount > 0
+              ? `Updates for ${item.name} (${updatesCount})`
+              : `Updates for ${item.name}`
+          }
+          onClick={() => openItem(env.boardId, item.id, { tab: 'updates' })}
+        >
+          {updatesCount > 0 ? (
+            <span className={styles.bubbleWithCount}>
+              <Update aria-hidden="true" />
+              <span className={styles.bubbleBadge} aria-hidden="true">
+                {updatesCount > 9 ? '9+' : updatesCount}
               </span>
-            ) : (
-              <AddUpdate aria-hidden="true" />
-            )}
-          </button>
-        </div>
-      )}
+            </span>
+          ) : (
+            <AddUpdate aria-hidden="true" />
+          )}
+        </button>
+      </div>
     </>
   );
 }
@@ -515,13 +512,13 @@ function RowMenu({
         dialogPosition="bottom-start"
       >
         <Menu id={`row-menu-${item.id}`} size="medium">
-          {subitem ? null : (
-            <MenuItem
-              title="Open item"
-              icon={Open}
-              onClick={() => openItem(env.boardId, item.id)}
-            />
-          )}
+          <MenuItem
+            title="Open item"
+            icon={Open}
+            onClick={() =>
+              subitem ? openItemFull(env.boardId, item.id) : openItem(env.boardId, item.id)
+            }
+          />
           <MenuItem
             title="Rename"
             icon={Edit}

@@ -278,6 +278,30 @@ describe('BoardTable', () => {
     useItemCardStore.getState().closeItemCard();
   });
 
+  it('gives subitem rows the bubble, the open icon and the side panel', async () => {
+    mocks.items = [
+      makeItem({ id: 'i1', name: 'Write spec', groupId: 'g1', position: 'a0' }),
+      makeItem({
+        id: 's1',
+        name: 'Draft outline',
+        groupId: 'g1',
+        position: 'a0',
+        parentItemId: 'i1',
+        updatesCount: 2,
+      }),
+    ];
+    renderTable();
+    await userEvent.click(screen.getByRole('button', { name: 'Expand subitems of Write spec' }));
+    const sub = within(screen.getByRole('grid', { name: 'Subitems of Write spec' }));
+    expect(sub.getByRole('button', { name: 'Open Draft outline' })).toBeInTheDocument();
+    await userEvent.click(sub.getByRole('button', { name: 'Updates for Draft outline (2)' }));
+    expect(useItemCardStore.getState()).toMatchObject({ activeItemId: 's1', tab: 'updates' });
+    useItemCardStore.getState().closeItemCard();
+    await userEvent.click(sub.getByRole('button', { name: 'Draft outline' }));
+    expect(useItemCardStore.getState()).toMatchObject({ activeItemId: 's1', tab: 'overview' });
+    useItemCardStore.getState().closeItemCard();
+  });
+
   it('lets viewers read but not edit', async () => {
     mocks.role = 'viewer';
     const viewerBoard = { ...board, access: { u1: 'viewer' as const } };

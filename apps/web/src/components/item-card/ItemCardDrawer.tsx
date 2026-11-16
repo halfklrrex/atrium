@@ -308,7 +308,10 @@ function PanelBody({
   const boardRole = resolveBoardRole(board, uid, workspace?.roles[uid]);
   const canEdit = canEditBoard(boardRole);
   const { ctx } = useItemTableCtx({ board, uid, items, boardRole });
-  const columns = useMemo(() => buildColumnViews(board.columns), [board.columns]);
+  const columns = useMemo(
+    () => buildColumnViews(columnsForItem(board, { parentItemId: item.parentItemId })),
+    [board, item.parentItemId],
+  );
   const subColumns = useMemo(
     () => buildColumnViews(columnsForItem(board, { parentItemId: item.id })),
     [board, item.id],
@@ -317,6 +320,8 @@ function PanelBody({
   const keyBarIds = useMemo(() => new Set(keySlots.map((k) => k.column.def.id)), [keySlots]);
   const group = board.groups.find((g) => g.id === item.groupId) ?? null;
   const tabLabel = PANEL_TABS[tabIndex]?.label ?? '';
+  const parent = item.parentItemId ? items.find((i) => i.id === item.parentItemId) : undefined;
+  const openCard = useItemCardStore((s) => s.open);
 
   return (
     <>
@@ -333,6 +338,19 @@ function PanelBody({
           </>
         ) : null}
         <span className={styles.crumbText}>{board.name}</span>
+        {parent ? (
+          <>
+            <span aria-hidden="true">{' · '}</span>
+            <button
+              type="button"
+              className={styles.crumbLink}
+              aria-label={`Open parent item ${parent.name}`}
+              onClick={() => openCard(board.id, parent.id)}
+            >
+              {parent.name}
+            </button>
+          </>
+        ) : null}
       </p>
 
       <ItemKeyBar item={item} slots={keySlots} ctx={ctx} canEdit={canEdit} />
