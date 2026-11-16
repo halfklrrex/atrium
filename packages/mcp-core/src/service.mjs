@@ -18,6 +18,10 @@ import {
   columnsForSubitems,
   hasLegacySubitemColumns,
   isColumnValueEmpty,
+  BUILT_IN_TEMPLATES,
+  builtInTemplate,
+  templateSampleItemSchema,
+  templateStructureSchema,
 } from '@atrium/shared';
 import {
   addLabelsToSettings,
@@ -295,6 +299,49 @@ export function createService({ client, actor, now = () => new Date() }) {
     }
   }
 
+  /** Item writes for a template's sample items: skips values the column rules would refuse. */
+  function sampleItemWrites(boardId, board, sampleItems) {
+    const columns = new Map(board.columns.map((c) => [c.id, c]));
+    const groupIds = new Set(board.groups.map((g) => g.id));
+    const last = new Map();
+    const writes = [];
+    for (const sample of sampleItems) {
+      if (!groupIds.has(sample.groupId)) continue;
+      const values = {};
+      for (const [columnId, value] of Object.entries(sample.values ?? {})) {
+        const column = columns.get(columnId);
+        if (!column || value === null || value === undefined) continue;
+        // People and vote values name accounts; derived and server-managed ones are not stored by clients.
+        if (['people', 'vote', 'dependency'].includes(column.type)) continue;
+        if (!columnRegistry.has(column.type)) continue;
+        if (columnRegistry.isDerived(column.type) || columnRegistry.isServerManaged(column.type)) {
+          continue;
+        }
+        try {
+          values[columnId] = toValidCell(column, structuredClone(value));
+        } catch {
+          // A value that does not validate is left out; the item itself still goes in.
+        }
+      }
+      const position = positionAfter(last.has(sample.groupId) ? [last.get(sample.groupId)] : []);
+      last.set(sample.groupId, position);
+      writes.push({
+        op: 'set',
+        path: `boards/${boardId}/items/${newDocId()}`,
+        data: buildItemDoc({
+          uid,
+          name: sample.name,
+          groupId: sample.groupId,
+          position,
+          values,
+          now: now(),
+        }),
+        precondition: { exists: false },
+      });
+    }
+    return writes;
+  }
+
   const itemsOf = (boardId, fields) => client.listAllDocs(`boards/${boardId}/items`, { fields });
 
   async function loadItem(boardId, itemId) {
@@ -496,12 +543,82 @@ export function createService({ client, actor, now = () => new Date() }) {
     },
 
     // ---- boards and structure ----------------------------------------------------------------
-    async createBoard({ name, description, workspaceId }) {
+    async listTemplates({ workspaceId } = {}) {
+      const ws = await resolveWorkspace(workspaceId);
+      const saved = await client.listAllDocs(`workspaces/${ws.id}/templates`);
+      const summary = (id, source, name, description, structure, sampleItems) => ({
+        id,
+        source,
+        name,
+        description,
+        columns: sortedByPosition(structure.columns ?? []).map((c) => ({
+          title: c.title,
+          type: c.type,
+        })),
+        groups: sortedByPosition(structure.groups ?? []).map((g) => g.title),
+        sampleItems: sampleItems.length,
+      });
+      return {
+        workspaceId: ws.id,
+        templates: [
+          ...BUILT_IN_TEMPLATES.map((t) =>
+            summary(t.id, 'built-in', t.name, t.description, t.structure, t.sampleItems),
+          ),
+          ...saved
+            .sort((a, b) => String(a.data.name).localeCompare(String(b.data.name)))
+            .map((t) =>
+              summary(
+                t.id,
+                'workspace',
+                t.data.name,
+                t.data.description ?? '',
+                t.data.structure ?? {},
+                t.data.sampleItems ?? [],
+              ),
+            ),
+        ],
+      };
+    },
+
+    async createBoard({ name, description, workspaceId, templateId, includeSampleItems }) {
+      if (templateId === undefined && includeSampleItems !== undefined) {
+        throw new McpUserError('includeSampleItems only applies together with templateId.');
+      }
       const ws = await resolveWorkspace(workspaceId);
       if (!CREATE_BOARD_ROLES.includes(ws.role)) {
         throw new McpUserError(
           `Creating a board needs the member role or higher in workspace "${ws.name}" (you are a ${ws.role}).`,
         );
+      }
+      let template = null;
+      if (templateId !== undefined) {
+        assertId(templateId, 'templateId');
+        const built = builtInTemplate(templateId);
+        if (built) {
+          template = { id: built.id, source: 'built-in', name: built.name, content: built };
+        } else {
+          const saved = await client.getDoc(`workspaces/${ws.id}/templates/${templateId}`);
+          if (!saved) {
+            throw new McpUserError(
+              `Template "${templateId}" was not found. Call atrium_list_templates.`,
+            );
+          }
+          const structure = templateStructureSchema.safeParse(saved.structure);
+          if (!structure.success) {
+            throw new McpUserError(`Template "${templateId}" is damaged and cannot be used.`);
+          }
+          template = {
+            id: templateId,
+            source: 'workspace',
+            name: saved.name,
+            content: {
+              structure: structure.data,
+              sampleItems: (Array.isArray(saved.sampleItems) ? saved.sampleItems : []).filter(
+                (i) => templateSampleItemSchema.safeParse(i).success,
+              ),
+            },
+          };
+        }
       }
       const existing = await client.runQuery('boards', { workspaceId: ws.id });
       const roots = existing.filter((b) => b.data.folderId === null);
@@ -512,18 +629,34 @@ export function createService({ client, actor, now = () => new Date() }) {
         description,
         position: positionAfter(roots.map((b) => b.data.position)),
         now: now(),
+        structure: template?.content.structure,
       });
       const id = newDocId();
       await client.commit([
         { op: 'set', path: `boards/${id}`, data: doc, precondition: { exists: false } },
       ]);
-      return {
+      const result = {
         id,
         workspaceId: ws.id,
         name: doc.name,
         columns: doc.columns.map((c) => ({ id: c.id, title: c.title, type: c.type })),
         groups: doc.groups.map((g) => ({ id: g.id, title: g.title })),
       };
+      if (!template) return result;
+      result.template = { id: template.id, source: template.source, name: template.name };
+      result.sampleItems = 0;
+      if (includeSampleItems === false) return result;
+      // Sample items are a second commit, as in the web: the item rules read the board, so it must
+      // exist first. A failure leaves a good (empty) board, so it is reported rather than thrown.
+      const writes = sampleItemWrites(id, doc, template.content.sampleItems);
+      if (writes.length === 0) return result;
+      try {
+        await client.commit(writes);
+        result.sampleItems = writes.length;
+      } catch {
+        result.warning = 'The board was created, but its sample items could not be added.';
+      }
+      return result;
     },
 
     async addGroup({ boardId, title, color }) {

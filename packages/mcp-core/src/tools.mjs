@@ -89,15 +89,30 @@ export function defineTools(service) {
       },
       run: (args) => service.getBoard(args),
     }),
+    read({
+      name: 'atrium_list_templates',
+      description:
+        'Read-only. Lists the board templates you can create a board from: the built-in ones and the templates saved in the ' +
+        'workspace (id, source, name, description, column titles and types, group titles, number of sample items). Pass an id to ' +
+        'atrium_create_board as templateId. workspaceId may be left out when you are a member of exactly one workspace.',
+      inputSchema: { workspaceId },
+      run: (args) => service.listTemplates(args),
+    }),
     add({
       name: 'atrium_create_board',
       description:
-        'Creates a new board (default Person, Status and Date columns and two groups, no sample items) at the end ' +
-        'of the workspace root, owned by you. Needs the member role or higher in the workspace. Additive.',
+        'Creates a new board at the end of the workspace root, owned by you. Without templateId it has the default Person, ' +
+        'Status and Date columns, two groups and no sample items. With templateId (from atrium_list_templates) it gets the ' +
+        "template's columns and groups and, unless includeSampleItems is false, its sample items. Needs the member role or " +
+        'higher in the workspace. Additive.',
       inputSchema: {
         name: z.string().trim().min(1).max(120),
         description: z.string().max(1000).optional(),
         workspaceId,
+        templateId: id
+          .optional()
+          .describe('A built-in or saved template id; see atrium_list_templates.'),
+        includeSampleItems: z.boolean().optional().describe('Only with templateId. Default true.'),
       },
       run: (args) => service.createBoard(args),
     }),

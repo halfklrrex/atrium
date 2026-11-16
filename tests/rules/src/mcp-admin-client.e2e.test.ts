@@ -403,6 +403,25 @@ describe('@atrium/mcp-core on the Admin SDK client', () => {
     expect((await client.getDoc(`boards/${boardId}`))!.state).toBe('active');
   });
 
+  it('creates a board from a built-in template with its sample items through the Admin SDK client', async () => {
+    const service = createService({ client, actor: { uid: USERS.owner } });
+    const { templates } = await service.listTemplates();
+    const template = templates.find((t) => t.source === 'built-in' && t.sampleItems > 0)!;
+    const created = (await service.createBoard({
+      name: 'From a template',
+      templateId: template.id,
+    })) as { id: string; sampleItems: number };
+    expect(created.sampleItems).toBe(template.sampleItems);
+    const board = (await client.getDoc(`boards/${created.id}`))!;
+    expect(board.derivedColumnIds).toEqual([]);
+    expect(board.serverManagedColumnIds).toEqual([]);
+    expect(board.requiredColumnIds).toEqual([]);
+    const items = await client.listAllDocs(`boards/${created.id}/items`);
+    expect(items).toHaveLength(template.sampleItems);
+    expect(items[0]!.data.createdBy).toBe(USERS.owner);
+    expect(items[0]!.data.createdAt).toBeInstanceOf(Date);
+  });
+
   it('keeps boards outside the memberships invisible', async () => {
     const service = createService({ client, actor: { uid: USERS.outsider } });
     await expect(service.listWorkspaces()).resolves.toEqual({ workspaces: [] });

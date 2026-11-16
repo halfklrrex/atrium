@@ -12,6 +12,7 @@ import {
   itemSchema,
   itemUpdateSchema,
   updateReplySchema,
+  withoutServerColumnFields,
 } from '@atrium/shared';
 import { CREATABLE_COLUMN_TYPES } from './values.mjs';
 import { McpUserError } from './errors.mjs';
@@ -93,8 +94,18 @@ export function buildBoardDoc({
   position,
   now,
   newId = newSlugId,
+  structure: given,
 }) {
-  const structure = defaultBoardStructure(() => newId());
+  // A template's structure keeps its column and group ids (sample items point at them); the server-only
+  // column marks never travel with a copy. Subitems share the board's columns, so the default (empty) subitem columns stay.
+  const structure = given
+    ? {
+        ...defaultBoardStructure(() => newId()),
+        columns: withoutServerColumnFields(structuredClone(given.columns)),
+        groups: structuredClone(given.groups),
+        itemTerminology: given.itemTerminology,
+      }
+    : defaultBoardStructure(() => newId());
   const stamp = ts(now);
   const doc = {
     workspaceId,
