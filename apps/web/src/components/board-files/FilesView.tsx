@@ -71,7 +71,7 @@ export function FilesView({ board }: FilesViewProps) {
     [items, columns, fileColumns, settings],
   );
 
-  const pageKey = `${search}|${cards.length}`;
+  const pageKey = `${search}|${JSON.stringify([filterState, settings])}|${cards.length}`;
   const shown = paging.key === pageKey ? paging.shown : FILES_PAGE_SIZE;
 
   const count = cards.length === 1 ? '1 file' : `${cards.length} files`;
