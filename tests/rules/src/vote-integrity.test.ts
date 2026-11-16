@@ -230,6 +230,64 @@ describe('what is refused', () => {
   });
 });
 
+describe('limits', () => {
+  it('allows one vote cell per write, in any of the 10 positions, and refuses several at once', async () => {
+    const touch = (ids: string[]) => {
+      const data: Record<string, unknown> = {
+        updatedAt: serverTimestamp(),
+        updatedBy: USERS.member,
+      };
+      for (const id of ids) data[`values.${id}`] = { votersIds: [USERS.member] };
+      return updateDoc(itemRef(USERS.member, MANY), data);
+    };
+    const ids = manyColumns.slice(0, 10).map((c) => c.id);
+    await assertSucceeds(touch([ids[0]!]));
+    await assertSucceeds(touch([ids[9]!]));
+    // Several vote cells in one write would blow the 1000-expression budget, so they are refused.
+    await assertFails(touch([ids[1]!, ids[2]!]));
+    await assertFails(touch(ids.slice(1, 9)));
+  });
+
+  it('accepts an item created with its own vote in one cell, and refuses several', async () => {
+    const create = (id: string, cols: string[]) => {
+      const values: Record<string, unknown> = {};
+      for (const c of cols) values[c] = { votersIds: [USERS.member] };
+      return setDoc(itemRef(USERS.member, MANY, id), {
+        ...itemDoc({ values }),
+        createdBy: USERS.member,
+        updatedBy: USERS.member,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    };
+    await assertSucceeds(create('c1', ['v09']));
+    await assertFails(create('c2', ['v00', 'v01']));
+  });
+
+  it('keeps cells with legacy duplicate voters votable, but never adds a duplicate', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), 'boards', BOARD, 'items', 'dup'),
+        itemDoc({ values: { vote: { votersIds: [USERS.owner, USERS.owner] } } }),
+      );
+    });
+    await assertSucceeds(toggle(USERS.member, 'vote', true, BOARD, 'dup'));
+    await assertSucceeds(toggle(USERS.owner, 'vote', false, BOARD, 'dup'));
+    await assertFails(
+      writeCell(
+        USERS.member,
+        'vote',
+        { votersIds: [USERS.owner, USERS.owner, USERS.member, USERS.member] },
+        BOARD,
+        'dup',
+      ),
+    );
+    await assertFails(
+      writeCell(USERS.member, 'vote', { votersIds: [USERS.owner, USERS.owner, 'x'] }, BOARD, 'dup'),
+    );
+  });
+});
+
 describe('everything else is unaffected', () => {
   it('lets an editor change non-vote columns, rename, move and archive', async () => {
     await assertSucceeds(writeCell(USERS.member, 'note', 'new text'));

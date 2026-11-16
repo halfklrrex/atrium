@@ -5,6 +5,7 @@ import {
   computeDerivedColumnIds,
   computeRequiredColumnIds,
   REQUIRED_COLUMN_RULE_CAP,
+  VOTE_COLUMN_RULE_CAP,
   computeServerManagedColumnIds,
   nextColumnIdLists,
   nextDerivedColumnIds,
@@ -289,4 +290,8 @@ describe('requiredColumnIds (REQ-1)', () => {
   it('exports the rules cap', () => {
     expect(REQUIRED_COLUMN_RULE_CAP).toBe(10);
   });
+});
+
+it('the vote cap mirrors the unrolled rules helper', () => {
+  expect(VOTE_COLUMN_RULE_CAP).toBe(10);
 });
