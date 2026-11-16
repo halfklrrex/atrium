@@ -109,10 +109,14 @@ export function ItemView({ board, itemId }: ItemViewProps) {
 
   const routeState = location.state as ItemViewRouteState | null;
   const fromBoard = routeState?.fromBoard === true;
+  // A subitem page is reached through its parent's page, so history steps would loop back to it:
+  // close goes to the board directly.
+  const closeToBoard = routeState?.fromItem !== undefined || routeState?.toBoard === true;
   const close = useCallback(() => {
-    if (fromBoard) navigate(-1);
+    if (closeToBoard) navigate(boardPath(board), { replace: true });
+    else if (fromBoard) navigate(-1);
     else navigate(boardPath(board), { replace: true });
-  }, [fromBoard, navigate, board]);
+  }, [closeToBoard, fromBoard, navigate, board]);
 
   // Opened from the side panel's subitems row: bring the Subitems section up, once per open.
   const scrolledSection = useRef(false);
@@ -132,7 +136,13 @@ export function ItemView({ board, itemId }: ItemViewProps) {
     // Stepping keeps how the page was opened (a subitem stays "from" its parent).
     navigate(itemViewPath(board, id), {
       replace: true,
-      state: subitem ? (routeState ?? FROM_BOARD_STATE) : FROM_BOARD_STATE,
+      // Only how the page was opened carries over, never a notification's update or section.
+      state: subitem
+        ? {
+            ...(routeState?.fromBoard ? FROM_BOARD_STATE : {}),
+            ...(routeState?.fromItem ? { fromItem: routeState.fromItem } : {}),
+          }
+        : FROM_BOARD_STATE,
     });
   };
   const openSubitem = (subId: string) =>
@@ -172,7 +182,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
     if (item.parentItemId)
       navigate(itemViewPath(board, item.parentItemId), {
         replace: true,
-        state: routeState?.fromBoard ? FROM_BOARD_STATE : undefined,
+        state: { ...(routeState?.fromBoard ? FROM_BOARD_STATE : {}), toBoard: true },
       });
     else close();
   };
@@ -278,17 +288,18 @@ export function ItemView({ board, itemId }: ItemViewProps) {
                   </span>
                 </>
               ) : null}
-              {subitem && item?.parentItemId ? (
+              {subitem && item?.parentItemId && parent ? (
                 <>
                   <span aria-hidden="true">{'›'}</span>
                   <Link
                     className={`${styles.crumb} ${styles.crumbLink}`}
                     to={itemViewPath(board, item.parentItemId)}
-                    state={routeState?.fromBoard ? FROM_BOARD_STATE : undefined}
-                    aria-label={`Back to ${parent?.name ?? 'parent item'}`}
+                    replace
+                    state={{ ...(routeState?.fromBoard ? FROM_BOARD_STATE : {}), toBoard: true }}
+                    aria-label={`Back to ${parent.name}`}
                     data-testid="parent-crumb"
                   >
-                    {parent?.name ?? '…'}
+                    {parent.name}
                   </Link>
                 </>
               ) : null}
