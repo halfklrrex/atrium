@@ -68,7 +68,7 @@ export function defineTools(service) {
     read({
       name: 'atrium_list_boards',
       description:
-        'Read-only. Lists the boards you can see in a workspace (id, name, kind, state); state picks active (default), ' +
+        'Read-only. Lists the boards you can see in a workspace (id, name, kind, state); state picks active (the default), ' +
         'archived or deleted (the trash). workspaceId may be left out when you are a member of exactly one workspace.',
       inputSchema: {
         workspaceId,
