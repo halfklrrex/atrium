@@ -219,7 +219,7 @@ export interface ToolDefinition {
   run(args: Record<string, unknown>): Promise<unknown>;
 }
 
-/** The tool catalogue bound to a service (25 tools). */
+/** The tool catalogue bound to a service (37 tools). */
 export declare function defineTools(service: McpService): ToolDefinition[];
 
 // ---- lower-level helpers (used by tests and the hosted server's own checks) ----------------------

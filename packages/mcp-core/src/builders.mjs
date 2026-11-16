@@ -280,6 +280,9 @@ export function positionRightAfter(positions, current) {
 
 /** A fractional position between `before` and `after` (either may be `null` for the open end). */
 export function positionBetween(before, after) {
+  if (before != null && after != null && before >= after) {
+    throw new McpUserError('Two items share a position; reorder the group first.');
+  }
   return generateKeyBetween(before ?? null, after ?? null);
 }
 

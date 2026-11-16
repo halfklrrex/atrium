@@ -795,7 +795,7 @@ test('structure changes give up after a second conflict', async () => {
 test('tool catalogue: unique atrium_ names, every tool described, scoped and annotated', () => {
   const tools = defineTools({});
   const names = tools.map((t) => t.name);
-  assert.equal(tools.length, 31);
+  assert.equal(tools.length, 37);
   assert.equal(new Set(names).size, names.length);
   for (const tool of tools) {
     assert.match(tool.name, /^atrium_[a-z_]+$/);
@@ -1728,4 +1728,256 @@ test('tool catalogue: the batch 1a tools reach the service with the right scopes
   );
   assert.equal(byName('atrium_move_item').inputSchema.position.safeParse('middle').success, false);
   assert.equal(byName('atrium_find_member').inputSchema.email.safeParse('a').success, false);
+});
+
+// ---- gap batch 1b: column management and item search ------------------------------------------
+
+const colBoard = (access, more = {}) =>
+  boardDoc(WS, access, {
+    columns: [
+      { id: 'c1', type: 'text', title: 'Note', position: 'a0', settings: {} },
+      { id: 'c2', type: 'text', title: 'Extra', position: 'a1', settings: {} },
+    ],
+    ...more,
+  });
+
+const withRole = (role, more = {}, items = {}) =>
+  setup({ extra: { 'boards/b': colBoard({ [ME]: role }, more), ...items } });
+
+const columnTools = [
+  ['renameColumn', { column: 'c1', title: 'Renamed' }],
+  ['deleteColumn', { column: 'c1' }],
+  ['reorderColumns', { columns: ['c2', 'c1'] }],
+  ['setColumnLock', { column: 'c1', locked: true }],
+  ['setColumnLock', { column: 'c1', locked: false }],
+];
+
+test('column tools: editors and viewers are refused, a stranger sees not found', async () => {
+  for (const role of ['editor', 'viewer']) {
+    const { service } = withRole(role);
+    for (const [name, args] of columnTools) {
+      await assert.rejects(service[name]({ boardId: 'b', ...args }), /board owner role/, name);
+    }
+  }
+  const { service } = setup({ extra: { 'boards/b': colBoard({ [OTHER]: 'owner' }) } });
+  for (const [name, args] of columnTools) {
+    await assert.rejects(service[name]({ boardId: 'b', ...args }), /not found/, name);
+  }
+});
+
+test('column tools: an unknown column is not found', async () => {
+  const { service } = withRole('owner');
+  await assert.rejects(service.renameColumn({ boardId: 'b', column: 'zz', title: 'X' }), /zz/);
+  await assert.rejects(service.deleteColumn({ boardId: 'b', column: 'zz' }), /zz/);
+  await assert.rejects(service.setColumnLock({ boardId: 'b', column: 'zz', locked: true }), /zz/);
+  await assert.rejects(service.reorderColumns({ boardId: 'b', columns: ['c1', 'zz'] }), /zz/);
+});
+
+test('renameColumn renames, and refuses a title another column has', async () => {
+  const { service, client } = withRole('owner');
+  const result = await service.renameColumn({ boardId: 'b', column: 'Note', title: ' Remarks ' });
+  assert.deepEqual(result, { id: 'c1', title: 'Remarks', was: 'Note' });
+  assert.equal(client.docs.get('boards/b').data.columns[0].title, 'Remarks');
+  await assert.rejects(
+    service.renameColumn({ boardId: 'b', column: 'c1', title: 'extra' }),
+    /already exists/,
+  );
+});
+
+test('deleteColumn removes the column, its lock and its cell values', async () => {
+  const { service, client } = withRole(
+    'owner',
+    { columnLocks: ['c1', 'c2'] },
+    {
+      'boards/b/items/i1': itemDoc({ values: { c1: { text: 'x' }, c2: { text: 'y' } } }),
+      'boards/b/items/i2': itemDoc({ values: { c2: { text: 'z' } } }),
+    },
+  );
+  const result = await service.deleteColumn({ boardId: 'b', column: 'Note' });
+  assert.deepEqual(result, { deleted: 'c1', title: 'Note', valuesCleared: 1 });
+  const board = client.docs.get('boards/b').data;
+  assert.deepEqual(
+    board.columns.map((c) => c.id),
+    ['c2'],
+  );
+  assert.deepEqual(board.columnLocks, ['c2']);
+  assert.deepEqual(client.docs.get('boards/b/items/i1').data.values, { c2: { text: 'y' } });
+});
+
+test('deleteColumn leaves the cells of a required column alone', async () => {
+  const { service, client } = withRole(
+    'owner',
+    { requiredColumnIds: ['c1'] },
+    { 'boards/b/items/i1': itemDoc({ values: { c1: { text: 'x' } } }) },
+  );
+  const result = await service.deleteColumn({ boardId: 'b', column: 'c1' });
+  assert.equal(result.valuesCleared, 0);
+  assert.ok(client.docs.get('boards/b/items/i1').data.values.c1);
+});
+
+test('reorderColumns rewrites positions and checks the list', async () => {
+  const { service, client } = withRole('owner');
+  const result = await service.reorderColumns({ boardId: 'b', columns: ['Extra', 'c1'] });
+  assert.deepEqual(
+    result.columns.map((c) => c.id),
+    ['c2', 'c1'],
+  );
+  const cols = client.docs.get('boards/b').data.columns;
+  assert.ok(cols.find((c) => c.id === 'c2').position < cols.find((c) => c.id === 'c1').position);
+  await assert.rejects(service.reorderColumns({ boardId: 'b', columns: ['c1'] }), /missing/);
+  await assert.rejects(
+    service.reorderColumns({ boardId: 'b', columns: ['c1', 'c1'] }),
+    /listed twice/,
+  );
+});
+
+test('setColumnLock locks and unlocks, idempotently', async () => {
+  const { service, client } = withRole('owner');
+  const lock = (locked) => service.setColumnLock({ boardId: 'b', column: 'Note', locked });
+  assert.deepEqual(await lock(true), { id: 'c1', title: 'Note', locked: true, changed: true });
+  assert.equal((await lock(true)).changed, false);
+  assert.deepEqual(client.docs.get('boards/b').data.columnLocks, ['c1']);
+  assert.equal((await lock(false)).changed, true);
+  assert.deepEqual(client.docs.get('boards/b').data.columnLocks, []);
+  assert.equal((await lock(false)).changed, false);
+});
+
+const findFixture = () =>
+  withRole(
+    'viewer',
+    {
+      groups: [
+        { id: 'g1', title: 'G', color: '#579bfc', position: 'a0' },
+        { id: 'g2', title: 'H', color: '#579bfc', position: 'a1' },
+      ],
+    },
+    {
+      'boards/b/items/i1': itemDoc({
+        name: 'Fix login',
+        position: 'a0',
+        values: { c1: 'urgent' },
+      }),
+      'boards/b/items/i2': itemDoc({ name: 'Login page', position: 'a1', groupId: 'g2' }),
+      'boards/b/items/i3': itemDoc({ name: 'Other', position: 'a2' }),
+      'boards/b/items/i4': itemDoc({ name: 'login gone', position: 'a3', state: 'deleted' }),
+      'boards/b/items/s1': itemDoc({ name: 'login sub', parentItemId: 'i1' }),
+    },
+  );
+
+test('findItems filters by name, group and column value, and pages', async () => {
+  const { service } = findFixture(); // a viewer may read
+  const byName = await service.findItems({ boardId: 'b', name: 'LOGIN' });
+  assert.deepEqual(
+    byName.items.map((i) => i.id),
+    ['i1', 'i2'],
+  );
+  assert.equal(byName.total, 2);
+  const inGroup = await service.findItems({ boardId: 'b', name: 'login', group: 'H' });
+  assert.deepEqual(
+    inGroup.items.map((i) => i.id),
+    ['i2'],
+  );
+  const byValue = await service.findItems({
+    boardId: 'b',
+    where: [{ column: 'Note', equals: 'URGENT' }],
+  });
+  assert.deepEqual(
+    byValue.items.map((i) => i.id),
+    ['i1'],
+  );
+  assert.deepEqual(byValue.items[0].values, { Note: 'urgent' });
+  const empty = await service.findItems({
+    boardId: 'b',
+    where: [{ column: 'Note', equals: null }],
+  });
+  assert.deepEqual(
+    empty.items.map((i) => i.id),
+    ['i3', 'i2'],
+  );
+  const first = await service.findItems({ boardId: 'b', limit: 2 });
+  assert.equal(first.shown, 2);
+  assert.equal(first.nextOffset, 2);
+  const next = await service.findItems({ boardId: 'b', limit: 2, offset: first.nextOffset });
+  assert.deepEqual(
+    next.items.map((i) => i.id),
+    ['i2'],
+  );
+  assert.equal(next.nextOffset, undefined);
+});
+
+test('findItems: a stranger sees not found, an unknown column or group is refused', async () => {
+  const stranger = setup({ extra: { 'boards/b': colBoard({ [OTHER]: 'owner' }) } }).service;
+  await assert.rejects(stranger.findItems({ boardId: 'b' }), /not found/);
+  const { service } = findFixture();
+  await assert.rejects(service.findItems({ boardId: 'b', group: 'nope' }), /nope/);
+  await assert.rejects(
+    service.findItems({ boardId: 'b', where: [{ column: 'nope', equals: 'x' }] }),
+    /nope/,
+  );
+});
+
+test('positionBetween raises a user error when two siblings share a position', async () => {
+  const { positionBetween } = await import('./builders.mjs');
+  assert.throws(
+    () => positionBetween('a0', 'a0'),
+    (e) => e.name === 'McpUserError' || e.constructor.name === 'McpUserError',
+  );
+  assert.throws(
+    () => positionBetween('a0', 'a0'),
+    /Two items share a position; reorder the group first\./,
+  );
+  assert.equal(typeof positionBetween('a0', 'a1'), 'string');
+});
+
+test('restoreItem leaves a subitem trashed earlier on its own in the trash', async () => {
+  const { service, client } = setup({
+    extra: {
+      'boards/b': boardDoc(WS, { [ME]: 'editor' }),
+      'boards/b/items/p': itemDoc({
+        state: 'deleted',
+        deletedAt: new Date('2026-11-01T10:00:00Z'),
+      }),
+      'boards/b/items/early': itemDoc({
+        state: 'deleted',
+        parentItemId: 'p',
+        deletedAt: new Date('2026-10-01T10:00:00Z'),
+      }),
+      'boards/b/items/with': itemDoc({
+        state: 'deleted',
+        parentItemId: 'p',
+        deletedAt: new Date('2026-11-01T10:00:00Z'),
+      }),
+    },
+  });
+  const result = await service.restoreItem({ boardId: 'b', itemId: 'p' });
+  assert.equal(result.subitemsAlso, 1);
+  assert.equal(client.docs.get('boards/b/items/with').data.state, 'active');
+  assert.equal(client.docs.get('boards/b/items/early').data.state, 'deleted');
+});
+
+test('tool catalogue: the batch 1b tools reach the service with the right scopes', async () => {
+  const calls = [];
+  const spy = new Proxy({}, { get: (_, key) => async (args) => calls.push([key, args]) });
+  const tools = defineTools(spy);
+  const byName = (n) => tools.find((t) => t.name === n);
+  const scopes = {
+    atrium_rename_column: 'write',
+    atrium_delete_column: 'write',
+    atrium_reorder_columns: 'write',
+    atrium_lock_column: 'write',
+    atrium_unlock_column: 'write',
+    atrium_find_items: 'read',
+  };
+  for (const [name, scope] of Object.entries(scopes))
+    assert.equal(byName(name)?.scope, scope, name);
+  await byName('atrium_lock_column').run({ boardId: 'b', column: 'c' });
+  await byName('atrium_unlock_column').run({ boardId: 'b', column: 'c' });
+  assert.deepEqual(
+    calls.map(([key, args]) => [key, args.locked]),
+    [
+      ['setColumnLock', true],
+      ['setColumnLock', false],
+    ],
+  );
+  assert.equal(tools.length, 37);
 });

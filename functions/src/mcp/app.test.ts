@@ -319,7 +319,7 @@ describe('POST /mcp authentication', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { result: { tools: { name: string }[] } };
     const names = json.result.tools.map((tool) => tool.name);
-    expect(names).toHaveLength(31);
+    expect(names).toHaveLength(37);
     expect(names).toContain('atrium_list_workspaces');
   });
 
