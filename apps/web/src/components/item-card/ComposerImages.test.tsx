@@ -140,48 +140,101 @@ describe('RichText image', () => {
 });
 
 describe('composer image paste speed', () => {
-  it('shows a local preview while uploading and skips getUrl after finalize', async () => {
-    const createObjectURL = vi.fn(() => 'blob:local-1');
-    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
-    mocks.requestUpload.mockResolvedValue({ uploadUrl: 'https://u', headers: {}, fileId: 'f1' });
-    let release: () => void = () => {};
-    mocks.finalize.mockReturnValue(new Promise((r) => (release = () => r({ fileId: 'f1' }))));
-    vi.stubGlobal('XMLHttpRequest', FakeXhr);
-    const { container } = render(<Harness />);
+  const stubObjectUrls = () => {
+    let n = 0;
+    const original = { c: URL.createObjectURL, r: URL.revokeObjectURL };
+    URL.createObjectURL = vi.fn(() => `blob:local-${++n}`);
+    URL.revokeObjectURL = vi.fn();
+    return () => {
+      URL.createObjectURL = original.c;
+      URL.revokeObjectURL = original.r;
+    };
+  };
 
-    paste(new File(['x'], 'a.png', { type: 'image/png' }));
-    await waitFor(() => expect(container.querySelector('img[src="blob:local-1"]')).not.toBeNull());
-    release();
-    await waitFor(() =>
-      expect(holder.editor.getJSON().content).toContainEqual(
-        expect.objectContaining({ type: 'image' }),
-      ),
-    );
-    await waitFor(() => expect(container.querySelector('img[src="blob:local-1"]')).not.toBeNull());
-    expect(mocks.getUrl).not.toHaveBeenCalled();
+  it('shows the local preview before the upload is even requested, and skips getUrl after', async () => {
+    const restore = stubObjectUrls();
+    try {
+      let grant: (v: unknown) => void = () => {};
+      mocks.requestUpload.mockReturnValue(new Promise((r) => (grant = r)));
+      mocks.finalize.mockResolvedValue({ fileId: 'f1' });
+      vi.stubGlobal('XMLHttpRequest', FakeXhr);
+      const { container } = render(<Harness />);
+
+      paste(new File(['x'], 'a.png', { type: 'image/png' }));
+      // requestUpload is still pending: only the local preview can be on screen.
+      await waitFor(() =>
+        expect(container.querySelector('img[src="blob:local-1"]')).not.toBeNull(),
+      );
+      expect(mocks.finalize).not.toHaveBeenCalled();
+      grant({ uploadUrl: 'https://u', headers: {}, fileId: 'f1' });
+      await waitFor(() =>
+        expect(holder.editor.getJSON().content).toContainEqual(
+          expect.objectContaining({ type: 'image' }),
+        ),
+      );
+      expect(container.querySelector('img[src="blob:local-1"]')).not.toBeNull();
+      expect(mocks.getUrl).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
   });
 
-  it('uploads several pasted images in parallel, keeping their order', async () => {
+  const pasteMany = (files: File[]) => {
+    const { editor } = holder;
+    editor.view.someProp('handlePaste', (f) =>
+      f(editor.view, { clipboardData: { files }, preventDefault: vi.fn() } as never, null as never),
+    );
+  };
+  const imageIds = () =>
+    (holder.editor.getJSON().content ?? [])
+      .filter((n) => n.type === 'image')
+      .map((n) => n.attrs?.fileId);
+
+  it('starts the second upload before the first finishes and keeps the order', async () => {
     let started = 0;
-    mocks.requestUpload.mockImplementation(async () => {
-      started += 1;
-      return { uploadUrl: 'https://u', headers: {}, fileId: `f${started}` };
-    });
+    mocks.requestUpload.mockImplementation(async () => ({
+      uploadUrl: 'https://u',
+      headers: {},
+      fileId: `f${++started}`,
+    }));
+    let releaseFirst: () => void = () => {};
+    mocks.finalize.mockImplementation((r: { fileId: string }) =>
+      r.fileId === 'f1'
+        ? new Promise((res) => (releaseFirst = () => res({ fileId: 'f1' })))
+        : Promise.resolve({ fileId: r.fileId }),
+    );
+    mocks.getUrl.mockResolvedValue({ url: 'https://img/x', expiresAt: Date.now() + 3_600_000 });
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    render(<Harness />);
+    pasteMany(['a', 'b'].map((n) => new File(['x'], `${n}.png`, { type: 'image/png' })));
+
+    await waitFor(() => expect(imageIds()).toEqual(['f2']));
+    releaseFirst();
+    await waitFor(() => expect(imageIds()).toEqual(['f1', 'f2']));
+  });
+
+  it('keeps the pick order for several dropped images', async () => {
+    let started = 0;
+    mocks.requestUpload.mockImplementation(async () => ({
+      uploadUrl: 'https://u',
+      headers: {},
+      fileId: `f${++started}`,
+    }));
     mocks.finalize.mockImplementation(async (r: { fileId: string }) => ({ fileId: r.fileId }));
     mocks.getUrl.mockResolvedValue({ url: 'https://img/x', expiresAt: Date.now() + 3_600_000 });
     vi.stubGlobal('XMLHttpRequest', FakeXhr);
     render(<Harness />);
     const { editor } = holder;
-    const files = ['a', 'b'].map((n) => new File(['x'], `${n}.png`, { type: 'image/png' }));
-    editor.view.someProp('handlePaste', (f) =>
-      f(editor.view, { clipboardData: { files }, preventDefault: vi.fn() } as never, null as never),
+    vi.spyOn(editor.view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
+    const files = ['a', 'b', 'c'].map((n) => new File(['x'], `${n}.png`, { type: 'image/png' }));
+    editor.view.someProp('handleDrop', (f) =>
+      f(
+        editor.view,
+        { dataTransfer: { files }, preventDefault: vi.fn(), clientX: 0, clientY: 0 } as never,
+        null as never,
+        false,
+      ),
     );
-    await waitFor(() => expect(mocks.requestUpload).toHaveBeenCalledTimes(2));
-    await waitFor(() => {
-      const ids = (holder.editor.getJSON().content ?? [])
-        .filter((n) => n.type === 'image')
-        .map((n) => n.attrs?.fileId);
-      expect(ids).toHaveLength(2);
-    });
+    await waitFor(() => expect(imageIds()).toEqual(['f1', 'f2', 'f3']));
   });
 });

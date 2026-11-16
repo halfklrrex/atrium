@@ -119,6 +119,8 @@ export async function uploadDescriptionImage(
   file: File,
   ctx: ImageContext,
   position?: number,
+  /** Called right after the placeholder is in, with the position just after it. */
+  onInserted?: (end: number) => void,
 ): Promise<void> {
   const problem = imageFileProblem(file);
   if (problem) {
@@ -127,13 +129,16 @@ export async function uploadDescriptionImage(
   }
   const uploadId = newUploadId();
   const placeholder = { type: 'imageUpload', attrs: { uploadId } };
+  // The preview must be in place before the placeholder's node view mounts (it reads it once).
+  const previewUrl = makePreview(file);
+  if (previewUrl) previews.set(uploadId, previewUrl);
   // Insert after the selection's end: a placeholder just added is selected, and replacing it
   // would drop the earlier image of a multi-image paste.
   if (position === undefined)
     editor.chain().focus().insertContentAt(editor.state.selection.to, placeholder).run();
   else editor.chain().focus().insertContentAt(position, placeholder).run();
-  const previewUrl = makePreview(file);
-  if (previewUrl) previews.set(uploadId, previewUrl);
+  const inserted = findUpload(editor, uploadId);
+  if (inserted) onInserted?.(inserted.pos + inserted.size);
   setProgress(uploadId, 0);
   let keepPreview = false;
 
@@ -205,5 +210,12 @@ export async function uploadDescriptionImages(
   ctx: ImageContext,
   position?: number,
 ): Promise<void> {
-  await Promise.all(files.map((file) => uploadDescriptionImage(editor, file, ctx, position)));
+  let at = position;
+  await Promise.all(
+    files.map((file) =>
+      uploadDescriptionImage(editor, file, ctx, at, (end) => {
+        if (at !== undefined) at = end;
+      }),
+    ),
+  );
 }
