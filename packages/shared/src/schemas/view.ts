@@ -52,6 +52,7 @@ export const viewTypeSchema = z.enum([
   'gantt',
   'workload',
   'chart',
+  'files',
   'form',
 ]);
 export type ViewType = z.infer<typeof viewTypeSchema>;
@@ -244,6 +245,36 @@ export function defaultChartSettings(): ChartSettings {
   };
 }
 
+/** Kinds of file the Files view can filter by. */
+export const FILES_VIEW_KINDS = [
+  'image',
+  'pdf',
+  'document',
+  'spreadsheet',
+  'presentation',
+  'video',
+  'audio',
+  'archive',
+  'other',
+] as const;
+export type FilesViewKind = (typeof FILES_VIEW_KINDS)[number];
+
+/** Settings of a Files view (`views/{id}.settings.files`). */
+export const filesViewSettingsSchema = z.object({
+  /** Files columns shown; null = every files column. */
+  columnIds: z.array(columnIdSchema).max(60).nullable(),
+  /** File kinds shown; empty = all. */
+  kinds: z.array(z.enum(FILES_VIEW_KINDS)).max(FILES_VIEW_KINDS.length),
+  sort: z.enum(['newest', 'oldest', 'name', 'item']),
+  /** Show update and reply files (ignored until the update files ship). */
+  includeUpdates: z.boolean(),
+});
+export type FilesViewSettings = z.infer<typeof filesViewSettingsSchema>;
+
+export function defaultFilesViewSettings(): FilesViewSettings {
+  return { columnIds: null, kinds: [], sort: 'newest', includeUpdates: true };
+}
+
 export const viewSettingsSchema = z.object({
   filter: viewFilterSettingsSchema,
   hiddenColumnIds: z.array(z.string().min(1).max(128)).max(VIEW_LIMITS.hiddenColumns),
@@ -259,6 +290,8 @@ export const viewSettingsSchema = z.object({
   workload: workloadSettingsSchema.optional(),
   /** Only Chart views have these. */
   chart: chartSettingsSchema.optional(),
+  /** Only Files views have these. */
+  files: filesViewSettingsSchema.optional(),
   /** Only Form views have these. */
   form: formSettingsSchema.optional(),
 });

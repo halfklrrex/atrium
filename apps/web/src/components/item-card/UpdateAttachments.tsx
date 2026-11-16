@@ -2,8 +2,9 @@ import { formatFileSize, type FileAttachment } from '@atrium/shared';
 import { Icon, IconButton } from '@vibe/core';
 import { Close } from '@vibe/icons';
 import classNames from 'classnames';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { describeCallableError, updateAttachmentCalls } from '../../lib/callables';
+import { LazyThumbnail } from '../files/LazyThumbnail';
 import { showToast } from '../toast-store';
 import { attachmentIcon, isImageType, type AttachmentTarget } from './update-attachments';
 import styles from './UpdateAttachments.module.css';
@@ -17,7 +18,7 @@ interface UpdateAttachmentsProps {
   compact?: boolean;
 }
 
-/** A thumbnail, fetched through the callable only once the chip scrolls into view. */
+/** A chip thumbnail: fetched through the callable only once it scrolls into view. */
 function Thumbnail({
   target,
   attachment,
@@ -25,46 +26,14 @@ function Thumbnail({
   target: AttachmentTarget;
   attachment: FileAttachment;
 }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [visible, setVisible] = useState(typeof IntersectionObserver === 'undefined');
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (visible || !node) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) {
-        setVisible(true);
-        observer.disconnect();
-      }
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [visible]);
-
-  useEffect(() => {
-    if (!visible) return;
-    let cancelled = false;
-    updateAttachmentCalls
-      .getUrl({ ...target, fileId: attachment.id })
-      .then((res) => {
-        if (!cancelled) setUrl(res.downloadUrl);
-      })
-      .catch(() => undefined); // the type icon stays
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one fetch per file
-  }, [visible, attachment.id]);
-
   return (
-    <span ref={ref} className={styles.thumb}>
-      {url ? (
-        <img className={styles.thumbImage} src={url} alt="" />
-      ) : (
-        <Icon icon={attachmentIcon(attachment.mimeType)} size={16} aria-hidden />
-      )}
-    </span>
+    <LazyThumbnail
+      cacheKey={`update/${target.boardId}/${target.itemId}/${target.updateId}/${target.replyId ?? ''}/${attachment.id}`}
+      mimeType={attachment.mimeType}
+      fetchUrl={() => updateAttachmentCalls.getUrl({ ...target, fileId: attachment.id })}
+      className={styles.thumb}
+      imageClassName={styles.thumbImage}
+    />
   );
 }
 

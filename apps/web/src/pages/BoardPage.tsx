@@ -10,6 +10,7 @@ import { BoardHeader } from '../components/boards/BoardHeader';
 import { CalendarView } from '../components/board-calendar/CalendarView';
 import { FormBuilder } from '../components/board-form/FormBuilder';
 import { ChartView } from '../components/board-chart/ChartView';
+import { FilesView } from '../components/board-files/FilesView';
 import { GanttView } from '../components/board-gantt/GanttView';
 import { WorkloadView } from '../components/board-workload/WorkloadView';
 import { TimelineView } from '../components/board-timeline/TimelineView';
@@ -159,6 +160,8 @@ function ViewBody({ board }: { board: BoardDoc }) {
       return <WorkloadView board={board} />;
     case 'chart':
       return <ChartView board={board} />;
+    case 'files':
+      return <FilesView board={board} />;
     case 'form':
       return <FormBuilder board={board} />;
     default: {

@@ -152,6 +152,7 @@ describe('view tabs', () => {
         'Gantt',
         'Workload',
         'Chart',
+        'Files gallery',
         'Map',
       ]),
     );
@@ -163,6 +164,8 @@ describe('view tabs', () => {
     expect(timeline?.className).not.toMatch(/disabled/);
     const chart = items.find((item) => item.textContent === 'Chart');
     expect(chart?.className).not.toMatch(/disabled/);
+    const files = items.find((item) => item.textContent === 'Files gallery');
+    expect(files?.className).not.toMatch(/disabled/);
     const gantt = items.find((item) => item.textContent === 'Gantt');
     expect(gantt?.className).not.toMatch(/disabled/);
     const map = items.find((item) => item.textContent === 'Map');

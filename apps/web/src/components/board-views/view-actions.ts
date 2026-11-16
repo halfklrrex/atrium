@@ -1,6 +1,7 @@
 import {
   defaultCalendarSettings,
   defaultChartSettings,
+  defaultFilesViewSettings,
   defaultFormSettings,
   defaultGanttSettings,
   defaultWorkloadSettings,
@@ -41,6 +42,7 @@ const LABELS: Record<ViewType, string> = {
   gantt: 'Gantt',
   workload: 'Workload',
   chart: 'Chart',
+  files: 'Files',
   form: 'Form',
 };
 
@@ -64,6 +66,8 @@ function newViewSettings(type: ViewType, firstGroupId?: string): ViewSettings {
       return { ...base, workload: defaultWorkloadSettings() };
     case 'chart':
       return { ...base, chart: defaultChartSettings() };
+    case 'files':
+      return { ...base, files: defaultFilesViewSettings() };
     default: {
       const never: never = type;
       return never;

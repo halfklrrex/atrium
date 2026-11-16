@@ -153,6 +153,13 @@ export async function chartReady(page: Page, title: string, marks: number): Prom
   await expect(page.locator('svg [class*="mark"]')).toHaveCount(marks);
 }
 
+/** The seeded Files board as a Files view: the grid with its cards (thumbnails fall back to icons). */
+export async function filesViewReady(page: Page, cards: number): Promise<void> {
+  await appReady(page);
+  await expect(page.getByRole('list', { name: 'Files' }).getByRole('listitem')).toHaveCount(cards);
+  await expect(page.getByText(`${cards} files`)).toBeVisible();
+}
+
 /** The seeded roadmap as a Form view: the share panel, the editor sections and the live preview. */
 export async function formBuilderReady(page: Page): Promise<void> {
   await appReady(page);

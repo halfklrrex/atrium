@@ -5,6 +5,7 @@ import {
   createDefaultFilterState,
   defaultCalendarSettings,
   defaultChartSettings,
+  defaultFilesViewSettings,
   defaultGanttSettings,
   defaultKanbanSettings,
   defaultTimelineViewSettings,
@@ -14,6 +15,7 @@ import {
   type ColumnDef,
   type CalendarSettings,
   type ChartSettings,
+  type FilesViewSettings,
   type GanttSettings,
   type KanbanSettings,
   type TimelineViewSettings,
@@ -38,6 +40,7 @@ export interface TypeSettingsMap {
   gantt: GanttSettings;
   workload: WorkloadSettings;
   chart: ChartSettings;
+  files: FilesViewSettings;
 }
 export type SettingsViewType = keyof TypeSettingsMap;
 
@@ -48,6 +51,7 @@ const TYPE_KEYS: readonly SettingsViewType[] = [
   'gantt',
   'workload',
   'chart',
+  'files',
 ];
 const TYPE_DEFAULTS: { [K in SettingsViewType]: () => TypeSettingsMap[K] } = {
   kanban: defaultKanbanSettings,
@@ -56,6 +60,7 @@ const TYPE_DEFAULTS: { [K in SettingsViewType]: () => TypeSettingsMap[K] } = {
   gantt: defaultGanttSettings,
   workload: defaultWorkloadSettings,
   chart: defaultChartSettings,
+  files: defaultFilesViewSettings,
 };
 
 /** What a view remembers and what the toolbar can change without saving: filters plus Hide. */
@@ -74,6 +79,8 @@ export interface ViewState {
   workload: WorkloadSettings | null;
   /** Chart settings; `null` for a view that has none. */
   chart: ChartSettings | null;
+  /** Files settings; `null` for a view that has none. */
+  files: FilesViewSettings | null;
 }
 
 /** `saved` mirrors the stored view; `current` is what the user sees (and may have changed). */
@@ -105,6 +112,7 @@ export function stateFromSettings(settings: ViewSettings | null | undefined): Vi
     gantt: s.gantt ? structuredClone(s.gantt) : null,
     workload: s.workload ? structuredClone(s.workload) : null,
     chart: s.chart ? structuredClone(s.chart) : null,
+    files: s.files ? structuredClone(s.files) : null,
   };
 }
 
@@ -117,6 +125,7 @@ export function settingsFromState(state: ViewState, base?: ViewSettings): ViewSe
     gantt: _g,
     workload: _w,
     chart: _ch,
+    files: _f,
     ...rest
   } = base ?? defaultViewSettings();
   return {
@@ -127,6 +136,7 @@ export function settingsFromState(state: ViewState, base?: ViewSettings): ViewSe
     ...(state.gantt ? { gantt: state.gantt } : {}),
     ...(state.workload ? { workload: state.workload } : {}),
     ...(state.chart ? { chart: state.chart } : {}),
+    ...(state.files ? { files: state.files } : {}),
     filter: {
       personIds: state.filter.personIds,
       filterGroup: state.filter.filterGroup,
@@ -160,6 +170,7 @@ const emptyState = (): ViewState => ({
   gantt: null,
   workload: null,
   chart: null,
+  files: null,
 });
 
 interface FilterStoreState {

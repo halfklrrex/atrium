@@ -14,6 +14,7 @@ import './theme/gantt-tokens.css';
 import './theme/workload-tokens.css';
 import './theme/automation-tokens.css';
 import './theme/chart-tokens.css';
+import './theme/files-view-tokens.css';
 import './theme/form-tokens.css';
 import './theme/dashboard-tokens.css';
 import './theme/scrollbar-tokens.css';

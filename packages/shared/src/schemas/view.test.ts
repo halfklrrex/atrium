@@ -10,6 +10,8 @@ import {
   CHART_LIMITS,
   chartSettingsSchema,
   defaultChartSettings,
+  defaultFilesViewSettings,
+  filesViewSettingsSchema,
   viewTypeSchema,
   TIMELINE_LIMITS,
   defaultCalendarSettings,
@@ -231,6 +233,31 @@ describe('chart view settings', () => {
     expect(viewSettingsSchema.safeParse(ch({ xColumnId: '' })).success).toBe(false);
     expect(viewSettingsSchema.safeParse(ch({ showLegend: 'yes' })).success).toBe(false);
     expect(viewTypeSchema.safeParse('chart').success).toBe(true);
+  });
+});
+
+describe('files view settings', () => {
+  it('has the documented defaults', () => {
+    expect(defaultFilesViewSettings()).toEqual({
+      columnIds: null,
+      kinds: [],
+      sort: 'newest',
+      includeUpdates: true,
+    });
+    expect(filesViewSettingsSchema.safeParse(defaultFilesViewSettings()).success).toBe(true);
+    expect(viewTypeSchema.safeParse('files').success).toBe(true);
+  });
+
+  it('accepts files settings inside the view settings and refuses bad ones', () => {
+    const base = defaultViewSettings();
+    const f = (patch: object) => ({ ...base, files: { ...defaultFilesViewSettings(), ...patch } });
+    expect(viewSettingsSchema.safeParse(f({ columnIds: ['docs'], kinds: ['pdf'] })).success).toBe(
+      true,
+    );
+    expect(viewSettingsSchema.safeParse(f({ sort: 'size' })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(f({ kinds: ['gif'] })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(f({ columnIds: [''] })).success).toBe(false);
+    expect(viewSettingsSchema.safeParse(f({ includeUpdates: 'yes' })).success).toBe(false);
   });
 });
 

@@ -15,6 +15,7 @@ import {
   Board,
   Calendar,
   Chart,
+  Gallery,
   Delete,
   Duplicate,
   Edit,
@@ -57,6 +58,7 @@ const VIEW_ICONS = {
   gantt: Gantt,
   workload: Team,
   chart: Chart,
+  files: Gallery,
   form: Form,
 } as const;
 
@@ -342,6 +344,11 @@ export function ViewTabs() {
             title="Chart"
             icon={Chart}
             onClick={() => void viewActions.add(actions, 'chart')}
+          />
+          <MenuItem
+            title="Files gallery"
+            icon={Gallery}
+            onClick={() => void viewActions.add(actions, 'files')}
           />
           {actions.canEdit ? (
             <MenuItem

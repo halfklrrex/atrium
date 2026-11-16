@@ -1,0 +1,19 @@
+/*
+ * Files gallery view tokens. monday's Files view has not been captured yet, so these follow the
+ * other view token files and Vibe. Light, dark and black themes inherit through the Vibe
+ * variables used here.
+ */
+
+:root {
+  --atrium-files-card-min: 180px; /* narrowest a card gets before the grid drops a column */
+  --atrium-files-grid-gap: var(--space-16);
+  --atrium-files-thumb-ratio: 4 / 3;
+  --atrium-files-thumb-bg: var(--ui-background-color);
+  --atrium-files-thumb-radius: var(--border-radius-small);
+  --atrium-files-thumb-border: var(--ui-border-color);
+  --atrium-files-thumb-icon: var(--secondary-text-color);
+  --atrium-files-ext-font: var(--font-text3-bold);
+  --atrium-files-name-font: var(--font-text2-normal);
+  --atrium-files-meta-font: var(--font-text3-normal);
+  --atrium-files-card-shadow: var(--box-shadow-xs);
+}
