@@ -1283,7 +1283,11 @@ export function createService({ client, actor, now = () => new Date() }) {
             {
               op: 'update',
               path,
-              set: { [`values.${target.id}`]: { votersIds: next } },
+              set: {
+                [`values.${target.id}`]: { votersIds: next },
+                updatedAt: ts(now()),
+                updatedBy: uid,
+              },
               remove: [],
               precondition: { updateTime: meta.updateTime },
             },

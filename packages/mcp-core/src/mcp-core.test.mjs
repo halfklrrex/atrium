@@ -2085,7 +2085,8 @@ test('vote: adds the caller uid with a field-path write, repeats are no-ops, unv
   assert.deepEqual(first, { itemId: 'i', column: 'Votes', votes: 2, voted: true, changed: true });
   assert.deepEqual(client.docs.get('boards/b/items/i').data.values.v1.votersIds, [OTHER, ME]);
   const last = client.commits.at(-1);
-  assert.deepEqual(Object.keys(last[0].set), ['values.v1']);
+  assert.deepEqual(Object.keys(last[0].set).sort(), ['updatedAt', 'updatedBy', 'values.v1']);
+  assert.equal(last[0].set.updatedBy, ME);
   const again = await service.setVote({ boardId: 'b', itemId: 'i', voted: true });
   assert.equal(again.changed, false);
   assert.equal(again.votes, 2);
