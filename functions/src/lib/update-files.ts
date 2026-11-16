@@ -30,6 +30,11 @@ export interface UpdateFilesStore {
   listPosts(boardId: string, limit: number): Promise<{ rows: PostFilesRow[]; truncated: boolean }>;
 }
 
+/** Whether an item's update files are listed: active and top-level (like the Files view). */
+export function isListableItem(item: { state?: unknown; parentItemId?: unknown }): boolean {
+  return item.state === 'active' && (item.parentItemId ?? null) === null;
+}
+
 /**
  * Metadata of every file attached to the board's updates and replies. Any board role may read it
  * (viewers included); callers without one get `not-found`, so board ids can't be probed. No
@@ -50,6 +55,8 @@ export async function listBoardUpdateFiles(
   const { rows, truncated: docsCapped } = await store.listPosts(request.boardId, maxDocs);
   const entries: UpdateFileEntry[] = [];
   for (const row of rows) {
+    // A post without an author can't be returned (the schema requires one); skip it, don't fail.
+    if (!row.authorId) continue;
     const parsed = updateAttachmentsSchema.safeParse(row.attachments ?? []);
     if (!parsed.success) continue;
     for (const file of parsed.data) {

@@ -16,7 +16,7 @@ import type { BootstrapTx } from './bootstrap';
 import type { FileStorageBucket, FileStorageTx, StorageFileMetadata } from './file-storage';
 import type { DescriptionImageTx } from './description-images';
 import type { UpdateAttachmentTx } from './update-attachments';
-import type { PostFilesRow, UpdateFilesStore } from './update-files';
+import { isListableItem, type PostFilesRow, type UpdateFilesStore } from './update-files';
 import type { ColumnActionsTx } from './column-actions';
 import {
   DELETE_VALUE,
@@ -598,7 +598,11 @@ export function adminUpdateFilesStore(firestore: Firestore): UpdateFilesStore {
     },
     async listPosts(boardId, limit) {
       const itemsRef = firestore.collection('boards').doc(boardId).collection('items');
-      const itemIds = (await itemsRef.select().get()).docs.map((d) => d.id);
+      const itemIds = (await itemsRef.select('state', 'parentItemId').get()).docs
+        .filter((d) =>
+          isListableItem({ state: d.get('state'), parentItemId: d.get('parentItemId') }),
+        )
+        .map((d) => d.id);
       const rows: PostFilesRow[] = [];
       let truncated = false;
 

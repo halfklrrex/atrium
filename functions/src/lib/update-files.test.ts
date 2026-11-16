@@ -1,6 +1,11 @@
 import type { Board, FileAttachment, Workspace, WorkspaceRole } from '@atrium/shared';
 import { describe, expect, it } from 'vitest';
-import { listBoardUpdateFiles, type PostFilesRow, type UpdateFilesStore } from './update-files';
+import {
+  isListableItem,
+  listBoardUpdateFiles,
+  type PostFilesRow,
+  type UpdateFilesStore,
+} from './update-files';
 
 const OWNER = 'usr_owner';
 const VIEWER = 'usr_viewer';
@@ -90,5 +95,24 @@ describe('listBoardUpdateFiles', () => {
     const res = await listBoardUpdateFiles(store(rows), { boardId: 'b_1' }, OWNER, 5000, 2);
     expect(res.files.map((e) => e.file.id)).toEqual(['f3', 'f2']);
     expect(res.truncated).toBe(true);
+  });
+});
+
+describe('listing edge cases', () => {
+  it('skips a post without an author instead of failing the listing', async () => {
+    const res = await listBoardUpdateFiles(
+      store([row({ authorId: '' }), row({ attachments: [file('ok')] })]),
+      { boardId: 'b_1' },
+      OWNER,
+    );
+    expect(res.files.map((e) => e.file.id)).toEqual(['ok']);
+  });
+
+  it('lists only active top-level items', () => {
+    expect(isListableItem({ state: 'active', parentItemId: null })).toBe(true);
+    expect(isListableItem({ state: 'active' })).toBe(true);
+    expect(isListableItem({ state: 'deleted', parentItemId: null })).toBe(false);
+    expect(isListableItem({ state: 'archived' })).toBe(false);
+    expect(isListableItem({ state: 'active', parentItemId: 'i_9' })).toBe(false);
   });
 });
