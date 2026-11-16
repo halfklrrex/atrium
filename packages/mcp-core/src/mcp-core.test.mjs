@@ -1981,3 +1981,83 @@ test('tool catalogue: the batch 1b tools reach the service with the right scopes
   );
   assert.equal(tools.length, 37);
 });
+
+test('findItems pages through equal positions and unknown groups without gaps or repeats', async () => {
+  const items = {};
+  for (const id of ['d', 'b', 'a', 'c', 'e']) {
+    items[`boards/b/items/${id}`] = itemDoc({ name: `N ${id}`, position: 'a0' });
+  }
+  items['boards/b/items/z1'] = itemDoc({ name: 'N z1', groupId: 'gone', position: 'a0' });
+  const { service } = withRole('viewer', {}, items);
+  const seen = [];
+  let offset = 0;
+  for (;;) {
+    const page = await service.findItems({ boardId: 'b', name: 'N', limit: 2, offset });
+    seen.push(...page.items.map((i) => i.id));
+    if (page.nextOffset === undefined) break;
+    offset = page.nextOffset;
+  }
+  assert.deepEqual(seen, ['a', 'b', 'c', 'd', 'e', 'z1']);
+});
+
+test('findItems refuses to filter on a calculated column', async () => {
+  const { service } = withRole('viewer', {
+    columns: [{ id: 'f1', type: 'formula', title: 'Calc', position: 'a0', settings: {} }],
+  });
+  await assert.rejects(
+    service.findItems({ boardId: 'b', where: [{ column: 'Calc', equals: 1 }] }),
+    /calculated or managed column, cannot filter/,
+  );
+});
+
+test('deleteColumn refuses a column that is changing type', async () => {
+  const { service } = withRole('owner', {
+    columns: [
+      { id: 'c1', type: 'text', title: 'Note', position: 'a0', settings: {}, migrating: true },
+    ],
+  });
+  await assert.rejects(service.deleteColumn({ boardId: 'b', column: 'c1' }), /changing type/);
+});
+
+test('deleteColumn reports a warning when the value cleanup fails after the board commit', async () => {
+  const { service, client } = withRole(
+    'owner',
+    {},
+    { 'boards/b/items/i1': itemDoc({ values: { c1: 'x' } }) },
+  );
+  const commit = client.commit.bind(client);
+  client.commit = async (writes) => {
+    if (writes.some((w) => w.path.includes('/items/'))) throw new Error('boom');
+    return commit(writes);
+  };
+  const result = await service.deleteColumn({ boardId: 'b', column: 'c1' });
+  assert.equal(result.valuesCleared, 0);
+  assert.match(result.warning, /stopped after 0 of 1/);
+  assert.deepEqual(
+    client.docs.get('boards/b').data.columns.map((c) => c.id),
+    ['c2'],
+  );
+});
+
+test('restoreItem compares Timestamp-like deletedAt values', async () => {
+  const stamp = (iso) => ({ toMillis: () => new Date(iso).getTime() });
+  const { service, client } = setup({
+    extra: {
+      'boards/b': boardDoc(WS, { [ME]: 'editor' }),
+      'boards/b/items/p': itemDoc({ state: 'deleted', deletedAt: stamp('2026-11-01T10:00:00Z') }),
+      'boards/b/items/early': itemDoc({
+        state: 'deleted',
+        parentItemId: 'p',
+        deletedAt: stamp('2026-10-01T10:00:00Z'),
+      }),
+      'boards/b/items/with': itemDoc({
+        state: 'deleted',
+        parentItemId: 'p',
+        deletedAt: stamp('2026-11-01T10:00:00Z'),
+      }),
+    },
+  });
+  await service.restoreItem({ boardId: 'b', itemId: 'p' });
+  assert.equal(client.docs.get('boards/b/items/with').data.state, 'active');
+  assert.equal(client.docs.get('boards/b/items/early').data.state, 'deleted');
+});

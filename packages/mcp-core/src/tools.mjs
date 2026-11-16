@@ -152,7 +152,7 @@ export function defineTools(service) {
       name: 'atrium_delete_column',
       description:
         'Deletes a column and clears its values from every item. Cannot be undone. Calculated, managed and required columns ' +
-        'keep their stored leftovers (invisible without the column). Needs the board owner role.',
+        'keep their stored leftovers (invisible without the column). If cleaning up values fails after the column is gone, the answer carries a warning and the count cleared. Needs the board owner role.',
       inputSchema: { boardId: id, column: ref },
       run: (args) => service.deleteColumn(args),
     }),
