@@ -2,7 +2,7 @@
 // of the actor model, against an in-memory Firestore. Nothing here touches the emulator or production.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { boardSchema, columnRegistry, itemSchema } from '@atrium/shared';
+import { boardSchema, builtInTemplate, columnRegistry, itemSchema } from '@atrium/shared';
 import { createFakeClient } from './fake-client.mjs';
 import { buildColumnSettings, ts } from './builders.mjs';
 import { PICK_WORKSPACE_MESSAGE, createService } from './service.mjs';
@@ -2614,10 +2614,52 @@ test('createBoard with templateId: unknown id, bad id, stray includeSampleItems,
   assert.equal([...bad.client.docs.keys()].filter((p) => p.startsWith('boards/')).length, 0);
   // A failing second commit keeps the board and says so.
   const flaky = withTemplate();
+  const realError = console.error;
+  console.error = () => {};
   const commit = flaky.client.commit.bind(flaky.client);
   let n = 0;
   flaky.client.commit = async (w) => (++n === 2 ? Promise.reject(new Error('boom')) : commit(w));
   const created = await flaky.service.createBoard({ name: 'Flaky', templateId: 't1' });
   assert.equal(created.sampleItems, 0);
+  console.error = realError;
   assert.match(created.warning, /sample items could not be added/);
+});
+
+test('listTemplates skips a damaged saved template instead of failing', async () => {
+  const { service } = setup({
+    extra: {
+      [`workspaces/${WS}/templates/bad`]: { name: 'Bad', structure: { columns: 5, groups: 1 } },
+      [`workspaces/${WS}/templates/t1`]: savedTemplate(),
+    },
+  });
+  const { templates } = await service.listTemplates();
+  assert.equal(
+    templates.some((t) => t.id === 'bad'),
+    false,
+  );
+  assert.equal(templates.at(-1).id, 't1');
+});
+
+test('built-in templates keep their storable sample values', async () => {
+  const { templates } = await setup().service.listTemplates();
+  const skipped = new Set(['people', 'vote', 'dependency']);
+  for (const t of templates.filter((x) => x.source === 'built-in' && x.sampleItems > 0)) {
+    const { client, service } = setup();
+    const created = await service.createBoard({ name: t.name, templateId: t.id });
+    const built = builtInTemplate(t.id);
+    const types = new Map(built.structure.columns.map((c) => [c.id, c.type]));
+    let expected = 0;
+    for (const item of built.sampleItems) {
+      for (const [col, v] of Object.entries(item.values)) {
+        const type = types.get(col);
+        if (v == null || !type || skipped.has(type)) continue;
+        if (columnRegistry.isDerived(type) || columnRegistry.isServerManaged(type)) continue;
+        expected += 1;
+      }
+    }
+    let stored = 0;
+    for (const [p, v] of client.docs)
+      if (p.startsWith(`boards/${created.id}/items/`)) stored += Object.keys(v.data.values).length;
+    assert.equal(stored, expected, `${t.id} dropped sample values`);
+  }
 });
