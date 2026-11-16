@@ -10,7 +10,7 @@ const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() 
  * Vibe's BaseMenuItem only runs `onClick` when the item is the menu's active item or its
  * `mouseenter` state is true. Both are React state set from a native `mouseenter` listener,
  * and the click handler reads them from the render it closed over, so a click that lands
- * before that re-render commits is ignored. So: hover, wait until Vibe marks the item active
+ * before that re-render commits is ignored. So: hover (retrying), wait until Vibe marks the item active
  * (`aria-selected="true"`), click a freshly queried element, then wait the two animation
  * frames Vibe defers `onClick` by. Callers still assert their effect with `waitFor`.
  *
@@ -25,9 +25,16 @@ export async function chooseMenuItem(
 ): Promise<void> {
   const { timeout = 5000 } = options;
   const find = () => screen.findByRole('menuitem', { name }, { timeout });
-  await user.hover(await find());
+  // Hover inside the retry loop: a `mouseenter` that fires before Vibe attaches its native
+  // listener (under load) is lost and nothing re-fires it, so each attempt re-queries the item
+  // and unhovers then hovers it again until Vibe marks it active.
   await waitFor(
     async () => {
+      const item = await find();
+      if (item.getAttribute('aria-selected') !== 'true') {
+        await user.unhover(item);
+        await user.hover(item);
+      }
       expect((await find()).getAttribute('aria-selected')).toBe('true');
     },
     { timeout },

@@ -28,3 +28,7 @@ Under load, `apps/web/src/components/AppShell/UserMenu.test.tsx` > "opens the Ab
 
 - `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
 - From `apps/web`, run `npx vitest run src/components/AppShell src/components/membership src/components/board-views` 10 times. Then run it 5 times under CPU pressure: `npx vitest run … --pool=threads --poolOptions.threads.maxThreads=1` while a second full `pnpm --filter web test` runs in parallel, or a similar way to load the machine. Report any failure with its test name and error. Run everything in the foreground.
+
+## Revision 2026-11-16: hover retries (`claude/fix-menu-hover-flake`)
+
+Deploy failed once on `MembersDialog > shows the server explanation when a call is refused` at `menu.ts`: `aria-selected` never became `"true"`. Cause: `chooseMenuItem` hovered the item once, then only polled. Vibe sets the active state from a native `mouseenter` listener; if the event fires before that listener attaches (under load), it is lost and nothing re-fires it, so the 5 s `waitFor` just polls. Fix: the hover now lives inside the `waitFor` loop. Each attempt re-queries the item and, while it isn't `aria-selected="true"`, unhovers then hovers it again. The click and the two-frame wait are unchanged, as are all assertions and the 20 s `testTimeout`.
