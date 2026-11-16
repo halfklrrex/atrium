@@ -10,6 +10,7 @@ import {
   ganttReady,
   workloadReady,
   chartReady,
+  filesViewReady,
   formBuilderReady,
   formPageReady,
   dashboardReady,
@@ -32,6 +33,7 @@ import {
   WORKLOAD_VIEW,
   GANTT_BARS,
   CHART_VIEW,
+  FILES_VIEW,
   FORM_VIEW,
   DASHBOARD_ID,
   addCalendarView,
@@ -43,6 +45,7 @@ import {
   addGanttView,
   addWorkloadView,
   addChartView,
+  addFilesBoard,
   addFormView,
   addDashboard,
   addView,
@@ -66,6 +69,7 @@ import {
   removeGanttView,
   removeWorkloadView,
   removeChartView,
+  removeFilesBoard,
   removeFormView,
   removeDashboard,
   removeView,
@@ -384,6 +388,18 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `board-chart-donut-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeChartView();
+      }
+    });
+
+    test('board: Files view', async ({ page }) => {
+      await addFilesBoard();
+      try {
+        await page.goto(`/boards/${IDS.files}/views/${FILES_VIEW}`);
+        // Six items and eight files (one item has none, one has none either).
+        await filesViewReady(page, 8);
+        await shoot(page, `files-view-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeFilesBoard();
       }
     });
 

@@ -1,0 +1,151 @@
+.root {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-16) var(--atrium-board-gutter);
+  overflow-y: auto;
+}
+
+.state {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-32);
+  color: var(--secondary-text-color);
+  font: var(--font-text1-normal);
+}
+
+.count {
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+  white-space: nowrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--atrium-files-card-min), 1fr));
+  gap: var(--atrium-files-grid-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-16);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  border-radius: var(--atrium-files-thumb-radius);
+}
+
+.thumbButton {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.thumbButton:focus-visible {
+  outline: var(--atrium-focus-ring);
+  border-radius: var(--atrium-files-thumb-radius);
+}
+
+.thumb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  aspect-ratio: var(--atrium-files-thumb-ratio);
+  overflow: hidden;
+  border: var(--border-width) var(--border-style) var(--atrium-files-thumb-border);
+  border-radius: var(--atrium-files-thumb-radius);
+  background: var(--atrium-files-thumb-bg);
+  color: var(--atrium-files-thumb-icon);
+}
+
+.card:hover .thumb,
+.thumbButton:focus-visible .thumb {
+  box-shadow: var(--atrium-files-card-shadow);
+}
+
+.card:hover .name {
+  text-decoration: underline;
+}
+
+.imageWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ext {
+  font: var(--atrium-files-ext-font);
+}
+
+.name,
+.item,
+.meta {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--primary-text-color);
+  font: var(--atrium-files-name-font);
+}
+
+.item {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--secondary-text-color);
+  font: var(--atrium-files-meta-font);
+  text-align: start;
+  cursor: pointer;
+}
+
+.item:hover {
+  color: var(--primary-text-color);
+  text-decoration: underline;
+}
+
+.item:focus-visible {
+  outline: var(--atrium-focus-ring);
+  border-radius: var(--border-radius-small);
+}
+
+.meta {
+  color: var(--secondary-text-color);
+  font: var(--atrium-files-meta-font);
+}

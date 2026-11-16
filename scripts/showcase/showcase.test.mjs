@@ -688,6 +688,14 @@ test('the showcase dashboard has one widget of each type over the showcase board
   assert.deepEqual(doc.data.boardIds, [SHOWCASE_MAIN_ID, SHOWCASE_LINKED_ID]);
 });
 
+test('the main board has a shared Files gallery view over its Files columns', () => {
+  const { docs } = build();
+  const view = docs.find((d) => d.path === 'boards/showcasemain/views/showcase-files-gallery').data;
+  assert.equal(view.type, 'files');
+  assert.equal(view.ownerId, null);
+  assert.equal(view.settings.files.sort, 'newest');
+});
+
 test('a dry run writes nothing', async () => {
   const client = fakeFirestore(baseWorld());
   const before = snapshot(client);
@@ -755,8 +763,8 @@ test('re-running keeps the item numbers the function assigned', async () => {
 test('the main board has a shared "Due this week" view: date filter, date sort, two hidden columns', () => {
   const { docs, summary } = build();
   const views = docs.filter((d) => /^boards\/showcasemain\/views\/[^/]+$/.test(d.path));
-  assert.equal(summary.views, 8);
-  assert.equal(views.length, 8);
+  assert.equal(summary.views, 9);
+  assert.equal(views.length, 9);
   const view = views.find((v) => v.data.name === 'Due this week').data;
   assert.equal(view.name, 'Due this week');
   assert.equal(view.type, 'table');

@@ -53,6 +53,8 @@ export const IDS = {
   sprint: 'boardSprint',
   notes: 'boardNotes',
   trip: 'boardTrip',
+  /** Created on demand by `addFilesBoard`, for the Files view screens only. */
+  files: 'boardFiles',
 } as const;
 
 const NOW = new Date(FROZEN_TIME).getTime();
@@ -78,7 +80,7 @@ async function clearSeededData(firestore: Firestore): Promise<void> {
   batch.delete(firestore.collection('users').doc(AVERY.uid));
   await batch.commit();
   // Boards own their items, so they go recursively.
-  for (const id of [IDS.roadmap, IDS.sprint, IDS.notes, IDS.trip]) {
+  for (const id of [IDS.roadmap, IDS.sprint, IDS.notes, IDS.trip, IDS.files]) {
     await firestore.recursiveDelete(firestore.collection('boards').doc(id));
   }
   await resetUserState(firestore, { keepUser: false });
@@ -2037,4 +2039,159 @@ export async function removeOverlapFixture(): Promise<void> {
   const batch = firestore.batch();
   for (const doc of snapshot.docs) if (!keep.has(doc.id)) batch.delete(doc.ref);
   await batch.commit();
+}
+
+// ---------------------------------------------------------------------------------------------
+// The Files view fixture: a separate small board, added only while the Files screens run, so no
+// other screenshot (sidebar lists, workspace boards) changes. There is no Storage emulator, so the
+// thumbnails of the images fall back to their type icon, the same on every run.
+// ---------------------------------------------------------------------------------------------
+
+/** Id of the shared Files view on the Files board. */
+export const FILES_VIEW = 'view-files-gallery';
+
+/** One seeded file: name, MIME type, size in bytes and days before "now". */
+type SeedFile = [name: string, mimeType: string, size: number, daysAgo: number];
+
+const FILES_BOARD_ITEMS: { name: string; docs?: SeedFile[]; pictures?: SeedFile[] }[] = [
+  {
+    name: 'Kickoff deck',
+    docs: [
+      ['kickoff-brief.pdf', 'application/pdf', 140_000, 1],
+      [
+        'budget-q4.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        52_000,
+        2,
+      ],
+    ],
+  },
+  {
+    name: 'Landing page',
+    pictures: [
+      ['hero@2x.jpg', 'image/jpeg', 2_400_000, 3],
+      ['site-plan.png', 'image/png', 880_000, 4],
+    ],
+  },
+  {
+    name: 'Legal review',
+    docs: [
+      [
+        'master-services-agreement-final-signed-by-both-parties-version-2026-11-04.docx',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        96_000,
+        5,
+      ],
+    ],
+  },
+  {
+    name: 'Release assets',
+    docs: [['release-1.4.zip', 'application/zip', 18_400_000, 6]],
+    pictures: [['screenshot.png', 'image/png', 410_000, 7]],
+  },
+  {
+    name: 'Interview notes',
+    docs: [
+      [
+        'interview-summary.pptx',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        1_200_000,
+        8,
+      ],
+    ],
+  },
+  { name: 'Retro' },
+];
+
+function filesBoardStructure(): BoardStructure {
+  return {
+    columns: [
+      column('docs', 'files', 'Documents', 'a0', { maxFileSizeMb: 50 }),
+      column('pictures', 'files', 'Pictures', 'a1', { maxFileSizeMb: 50 }),
+    ],
+    subitemColumns: [],
+    groups: [{ id: 'files-g1', title: 'Deliverables', color: '#579bfc', position: 'a0' }],
+    itemTerminology: 'item',
+  };
+}
+
+/** Adds the "Files board" with a shared Files view; remove it again with `removeFilesBoard`. */
+export async function addFilesBoard(): Promise<void> {
+  const firestore = adminDb();
+  const board_ = firestore.collection('boards').doc(IDS.files);
+  const structure = filesBoardStructure();
+  const batch = firestore.batch();
+  batch.set(
+    board_,
+    board(IDS.files, IDS.personalWorkspace, null, 'Files board', 'a9', 6 * HOUR, structure),
+  );
+  let fileSeq = 0;
+  const toValue = (files: SeedFile[]) => ({
+    files: files.map(([name, mimeType, size, daysAgo]) => {
+      fileSeq += 1;
+      return {
+        id: `file${fileSeq}`,
+        name,
+        storagePath: `boards/${IDS.files}/items/files-item-${fileSeq}/files/file${fileSeq}`,
+        size,
+        mimeType,
+        uploadedAt: new Date(NOW - daysAgo * DAY).toISOString(),
+        uploadedBy: AVERY.uid,
+      };
+    }),
+  });
+  FILES_BOARD_ITEMS.forEach((entry, index) => {
+    const values: Record<string, unknown> = {};
+    if (entry.docs) values.docs = toValue(entry.docs);
+    if (entry.pictures) values.pictures = toValue(entry.pictures);
+    const item: ItemWrite = {
+      name: entry.name,
+      groupId: 'files-g1',
+      position: `a${index}`,
+      parentItemId: null,
+      values,
+      state: 'active',
+      deletedAt: null,
+      createdAt: ago(10 * DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    };
+    batch.set(board_.collection('items').doc(`files-item-${index + 1}`), {
+      ...item,
+      ...itemIndexFields({ columns: structure.columns }, item),
+      seq: index + 1,
+      boardSeq: index + 1,
+    });
+  });
+  batch.set(board_.collection('counters').doc('items'), {
+    nextItem: FILES_BOARD_ITEMS.length,
+    nextSubitem: 0,
+  });
+  batch.set(board_.collection('views').doc(FILES_VIEW), {
+    name: 'Files',
+    type: 'files',
+    position: 'a1',
+    ownerId: null,
+    settings: {
+      filter: {
+        personIds: [],
+        filterGroup: { conjunction: 'and', conditions: [] },
+        sortConditions: [],
+        groupByColumnId: null,
+      },
+      hiddenColumnIds: [],
+      files: { columnIds: null, kinds: [], sort: 'newest', includeUpdates: true },
+    },
+    createdAt: ago(DAY),
+    createdBy: AVERY.uid,
+    updatedAt: ago(DAY),
+    updatedBy: AVERY.uid,
+  });
+  await batch.commit();
+}
+
+export async function removeFilesBoard(): Promise<void> {
+  const firestore = adminDb();
+  await firestore.recursiveDelete(firestore.collection('boards').doc(IDS.files));
 }

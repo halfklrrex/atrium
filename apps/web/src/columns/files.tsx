@@ -13,6 +13,7 @@ import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
 import { putWithProgress } from '../components/item-view/description-image-upload';
 import { showToast } from '../components/toast-store';
 import { describeCallableError, fileCalls } from '../lib/callables';
+import { openColumnFile } from '../lib/file-open';
 import styles from './cells.module.css';
 import { formatDay } from './format';
 import popups from './popups.module.css';
@@ -72,19 +73,12 @@ function FilesCell({ value, settings, column, ctx }: CellProps<FilesValue, Files
 
   const handleDownload = async (file: FileAttachment) => {
     if (!ctx.boardId || !ctx.itemId) return;
-    try {
-      const res = await fileCalls.getDownloadUrl({
-        boardId: ctx.boardId,
-        itemId: ctx.itemId,
-        columnId: column.id,
-        fileId: file.id,
-      });
-      window.open(res.downloadUrl, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      showToast(describeCallableError(error, 'Could not download file. Try again.'), {
-        type: 'negative',
-      });
-    }
+    await openColumnFile({
+      boardId: ctx.boardId,
+      itemId: ctx.itemId,
+      columnId: column.id,
+      fileId: file.id,
+    });
   };
 
   const handleDelete = async (file: FileAttachment) => {

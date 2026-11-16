@@ -26,9 +26,9 @@ export interface BoardToolbarProps {
   /**
    * `'kanban'` leaves out New item, Hide and Group by (monday's Kanban toolbar has none of them).
    * `'calendar'` has a plain New item button, and no Hide or Group by.
-   * `'chart'` has only Search, Person and Filter.
+   * `'chart'` and `'files'` have only Search, Person and Filter.
    */
-  variant?: 'table' | 'kanban' | 'calendar' | 'timeline' | 'gantt' | 'workload' | 'chart';
+  variant?: 'table' | 'kanban' | 'calendar' | 'timeline' | 'gantt' | 'workload' | 'chart' | 'files';
   /** Whether "New item" is enabled in the calendar variant (the table reads its own environment). */
   canAddItem?: boolean;
   /** Extra controls after the board tools (the calendar's period navigation). */
@@ -137,7 +137,7 @@ export function BoardToolbar({
       </span>
 
       {/* Sort Menu */}
-      {variant === 'chart' ? null : (
+      {variant === 'chart' || variant === 'files' ? null : (
         <span className={styles.toolWrap}>
           <SortMenuPopover board={board} />
         </span>

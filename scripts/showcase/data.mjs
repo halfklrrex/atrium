@@ -1773,6 +1773,32 @@ export function buildShowcase({
   });
   summary.views += 1;
 
+  // ---- A shared Files gallery "Files": every file in the board's Files columns, newest first ----
+  docs.push({
+    path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-files-gallery`,
+    data: boardViewSchema.parse({
+      name: 'Files',
+      type: 'files',
+      position: 'a9',
+      ownerId: null,
+      settings: {
+        filter: {
+          personIds: [],
+          filterGroup: { conjunction: 'and', conditions: [] },
+          sortConditions: [],
+          groupByColumnId: null,
+        },
+        hiddenColumnIds: [],
+        files: { columnIds: null, kinds: [], sort: 'newest', includeUpdates: true },
+      },
+      createdAt: ago(3 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(1 * DAY),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.views += 1;
+
   // ---- A shared Form "Request intake": a few questions, switched off so the link stays closed ----
   docs.push({
     path: `boards/${SHOWCASE_MAIN_ID}/views/showcase-request-form`,
