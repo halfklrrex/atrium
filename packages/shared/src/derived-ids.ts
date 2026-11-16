@@ -17,6 +17,7 @@ export interface BoardColumnsData {
   derivedColumnIds?: unknown;
   serverManagedColumnIds?: unknown;
   requiredColumnIds?: unknown;
+  voteColumnIds?: unknown;
 }
 
 /**
@@ -27,11 +28,13 @@ export interface BoardColumnsData {
  */
 export const REQUIRED_COLUMN_RULE_CAP = 10;
 
-/** The three server-maintained lists of a board. */
+/** The four server-maintained lists of a board. */
 export interface ColumnIdLists {
   derivedColumnIds: string[];
   serverManagedColumnIds: string[];
   requiredColumnIds: string[];
+  /** Vote columns (SEC vote integrity): rules let a write change only the writer's own uid in them. */
+  voteColumnIds: string[];
 }
 
 /** Column defs from a stored list; malformed entries (no string `id` and `type`) are skipped. */
@@ -68,12 +71,18 @@ export function computeRequiredColumnIds(data: BoardColumnsData): string[] {
   return uniqueSorted(columnRegistry.requiredColumnIds(allColumnDefs(data)));
 }
 
-/** All three lists a board should carry. */
+/** Ids of every vote column and sub-item vote column (vote integrity in the rules), sorted. */
+export function computeVoteColumnIds(data: BoardColumnsData): string[] {
+  return uniqueSorted(columnRegistry.voteColumnIds(allColumnDefs(data)));
+}
+
+/** All four lists a board should carry. */
 export function computeColumnIdLists(data: BoardColumnsData): ColumnIdLists {
   return {
     derivedColumnIds: computeDerivedColumnIds(data),
     serverManagedColumnIds: computeServerManagedColumnIds(data),
     requiredColumnIds: computeRequiredColumnIds(data),
+    voteColumnIds: computeVoteColumnIds(data),
   };
 }
 
@@ -115,8 +124,14 @@ export function nextRequiredColumnIds(data: BoardColumnsData): string[] | null {
   return isRight(data.requiredColumnIds, wanted) ? null : wanted;
 }
 
+/** Like {@link nextDerivedColumnIds}, for `voteColumnIds`. */
+export function nextVoteColumnIds(data: BoardColumnsData): string[] | null {
+  const wanted = computeVoteColumnIds(data);
+  return isRight(data.voteColumnIds, wanted) ? null : wanted;
+}
+
 /**
- * What the `onBoardColumnsWritten` Function should write: all three lists, or `null` when each is
+ * What the `onBoardColumnsWritten` Function should write: all four lists, or `null` when each is
  * already right (no write, so its own write stops re-triggering it). All are written together
  * whenever any one is wrong, in one update.
  */
@@ -124,7 +139,8 @@ export function nextColumnIdLists(data: BoardColumnsData): ColumnIdLists | null 
   const wanted = computeColumnIdLists(data);
   return isRight(data.derivedColumnIds, wanted.derivedColumnIds) &&
     isRight(data.serverManagedColumnIds, wanted.serverManagedColumnIds) &&
-    isRight(data.requiredColumnIds, wanted.requiredColumnIds)
+    isRight(data.requiredColumnIds, wanted.requiredColumnIds) &&
+    isRight(data.voteColumnIds, wanted.voteColumnIds)
     ? null
     : wanted;
 }

@@ -14,6 +14,9 @@
 //     Production:  pnpm exec tsx scripts/migrations/2026-10-backfill-derived-column-ids.mjs --project atrium-board
 //   Apply:         add --apply (to either)
 //
+// voteColumnIds (vote integrity) is handled by the same run: after deploying the rules and the function, run it
+// once so existing boards with vote columns get the list (until then their vote cells are unprotected).
+//
 // It authenticates like scripts/showcase: the emulator's bypass token, or `gcloud auth print-access-token`
 // for production. It changes only the id-list fields (REQ-1 added requiredColumnIds, so the lists are
 // now three), on boards where any is missing or wrong (all are written together, like the function does), and never creates a document. It uses the same computation as the Cloud Function, so the two always agree.
@@ -31,6 +34,7 @@ const FIELDS = [
   'derivedColumnIds',
   'serverManagedColumnIds',
   'requiredColumnIds',
+  'voteColumnIds',
 ];
 
 const HELP = `Backfill boards.derivedColumnIds (FW1) and boards.serverManagedColumnIds (FW2). Dry run unless --apply is given.
@@ -94,6 +98,7 @@ export function planBackfill(boards) {
         ...next,
         had: data.derivedColumnIds,
         hadServerManaged: data.serverManagedColumnIds,
+        hadVote: data.voteColumnIds,
       });
     }
   }
@@ -113,7 +118,8 @@ export async function runBackfill({ client, apply = false, log = console.log }) 
     const show = (v) => (v === undefined ? 'missing' : JSON.stringify(v));
     log(
       `  boards/${change.id}  derived ${show(change.had)} -> ${JSON.stringify(change.derivedColumnIds)}` +
-        `, serverManaged ${show(change.hadServerManaged)} -> ${JSON.stringify(change.serverManagedColumnIds)}`,
+        `, serverManaged ${show(change.hadServerManaged)} -> ${JSON.stringify(change.serverManagedColumnIds)}` +
+        `, vote ${show(change.hadVote)} -> ${JSON.stringify(change.voteColumnIds)}`,
     );
   }
 
@@ -128,6 +134,7 @@ export async function runBackfill({ client, apply = false, log = console.log }) 
             derivedColumnIds: c.derivedColumnIds,
             serverManagedColumnIds: c.serverManagedColumnIds,
             requiredColumnIds: c.requiredColumnIds,
+            voteColumnIds: c.voteColumnIds,
           },
         })),
       );

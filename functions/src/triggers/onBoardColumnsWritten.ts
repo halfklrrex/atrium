@@ -19,6 +19,7 @@ export function adminColumnIdListsStore(): ColumnIdListsStore {
           derivedColumnIds: next.derivedColumnIds,
           serverManagedColumnIds: next.serverManagedColumnIds,
           requiredColumnIds: next.requiredColumnIds,
+          voteColumnIds: next.voteColumnIds,
         });
         return next;
       }),
@@ -27,7 +28,7 @@ export function adminColumnIdListsStore(): ColumnIdListsStore {
 
 /**
  * Keeps `boards/{id}.derivedColumnIds`, `boards/{id}.serverManagedColumnIds` and
- * `boards/{id}.requiredColumnIds` (REQ-1) equal to the board's derived, server-managed and required
+ * `boards/{id}.requiredColumnIds` (REQ-1) and `boards/{id}.voteColumnIds` equal to the board's derived, server-managed, required and vote
  * columns. It is the only writer of those fields (Firestore rules refuse
  * clients) and it writes, in one transaction, only when either value changes, so its own write
  * re-triggers it once and then stops. Idempotent: it also backfills older boards.

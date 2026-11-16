@@ -117,6 +117,11 @@ export class ColumnTypeRegistry {
     return columns.filter((c) => c.required === true).map((c) => c.id);
   }
 
+  /** Ids of the vote columns (order kept), ready for `boards/{id}.voteColumnIds`. */
+  voteColumnIds(columns: readonly ColumnDef[]): string[] {
+    return columns.filter((c) => c.type === 'vote').map((c) => c.id);
+  }
+
   has(type: string): boolean {
     return this.types.has(type);
   }

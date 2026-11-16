@@ -24,6 +24,7 @@ export function makeBoard(overrides: Partial<BoardDoc> & { id: string }): BoardD
     derivedColumnIds: [],
     serverManagedColumnIds: [],
     requiredColumnIds: [],
+    voteColumnIds: [],
     columnLocks: [],
     groups: [],
     itemTerminology: 'item',

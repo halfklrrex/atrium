@@ -223,8 +223,7 @@ describe('Column locks UI & actions', () => {
     }[];
     expect(editorInputs[0]!.values).toEqual({
       status: { index: 0 },
-      vote: { votersIds: [] },
-    });
+    }); // vote cells are never copied: a duplicate starts with no votes
 
     mocks.createMany.mockClear();
     const ownerCtx: TableCtx = {
@@ -238,7 +237,6 @@ describe('Column locks UI & actions', () => {
     expect(ownerInputs[0]!.values).toEqual({
       status: { index: 0 },
       budget: 1200,
-      vote: { votersIds: [] },
     });
   });
 
