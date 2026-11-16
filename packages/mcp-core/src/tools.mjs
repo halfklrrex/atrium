@@ -141,6 +141,42 @@ export function defineTools(service) {
       },
       run: (args) => service.updateColumnSettings(args),
     }),
+    change({
+      name: 'atrium_rename_column',
+      description:
+        'Renames a column (found by id or title). The new title must not be used by another column. Needs the board owner role.',
+      inputSchema: { boardId: id, column: ref, title: z.string().trim().min(1).max(120) },
+      run: (args) => service.renameColumn(args),
+    }),
+    change({
+      name: 'atrium_delete_column',
+      description:
+        'Deletes a column and clears its values from every item. Cannot be undone. Calculated, managed and required columns ' +
+        'keep their stored leftovers (invisible without the column). Needs the board owner role.',
+      inputSchema: { boardId: id, column: ref },
+      run: (args) => service.deleteColumn(args),
+    }),
+    change({
+      name: 'atrium_reorder_columns',
+      description:
+        'Sets the order of the columns of a board. List every column (id or title) exactly once, in the wanted order. Needs the board owner role.',
+      inputSchema: { boardId: id, columns: z.array(ref).min(1).max(200) },
+      run: (args) => service.reorderColumns(args),
+    }),
+    change({
+      name: 'atrium_lock_column',
+      description:
+        'Locks a column so only board owners can change its cells. Locking twice changes nothing. Needs the board owner role.',
+      inputSchema: { boardId: id, column: ref },
+      run: (args) => service.setColumnLock({ ...args, locked: true }),
+    }),
+    change({
+      name: 'atrium_unlock_column',
+      description:
+        'Unlocks a column so editors can change its cells again. Needs the board owner role.',
+      inputSchema: { boardId: id, column: ref },
+      run: (args) => service.setColumnLock({ ...args, locked: false }),
+    }),
     add({
       name: 'atrium_create_items',
       description:
@@ -322,6 +358,31 @@ export function defineTools(service) {
         limit: z.number().int().min(1).max(200).optional().describe('Default 30.'),
       },
       run: (args) => service.getActivity(args),
+    }),
+    read({
+      name: 'atrium_find_items',
+      description:
+        'Read-only. Finds active top-level items of a board: name contains text (case-insensitive), optionally in one group, ' +
+        'and/or where columns equal a value (where: [{column, equals}]; equals is the readable cell text, a status label, a person uid, ' +
+        'true/false, a number, or null for empty). All filters must match. Paged: pass nextOffset as offset for the next page.' +
+        UNTRUSTED,
+      inputSchema: {
+        boardId: id,
+        name: z.string().trim().min(1).max(200).optional(),
+        group: ref.optional(),
+        where: z
+          .array(
+            z.object({
+              column: ref,
+              equals: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+            }),
+          )
+          .max(10)
+          .optional(),
+        limit: z.number().int().min(1).max(100).optional().describe('Default 25.'),
+        offset: z.number().int().min(0).optional(),
+      },
+      run: (args) => service.findItems(args),
     }),
     change({
       name: 'atrium_restore_item',

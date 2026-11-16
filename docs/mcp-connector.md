@@ -1,6 +1,6 @@
 # Atrium MCP connector
 
-Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions and updates in the live Atrium, as the person who signed in. It comes in two modes with the same 31 tools:
+Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions and updates in the live Atrium, as the person who signed in. It comes in two modes with the same 37 tools:
 
 - **Hosted (OPS4, recommended):** one public URL, `https://atrium-workboards.web.app/mcp`. You add it once as a connector in claude.ai and in Claude Code, sign in with your Atrium (Google) account, and it works in every project and on every device. Spec: `docs/specs/OPS4-hosted-mcp-connector.md`.
 - **Local stdio (OPS3):** a server that Claude Code starts on your own machine with admin credentials. Spec: `docs/specs/OPS3-atrium-mcp-connector.md`. Use it for development and tests, or when the hosted connector is switched off.
@@ -98,7 +98,7 @@ claude mcp add atrium --scope local ^
 
 **Picking up new tools (no reinstall).** The server is not installed anywhere: Claude Code starts it from the checkout named in the `claude mcp add` command (`pnpm exec tsx scripts/mcp/atrium-mcp.mjs`) every time a session starts, so there is no build step and no re-registration. To get a new tool: (1) update that checkout to a commit that has it (`git pull` on `main` after the PR merges), then (2) restart Claude Code, or run `/mcp` and reconnect `atrium`. A running session keeps the old tool list until you do (2). Only if the registration points at an old or different folder do you need `claude mcp remove atrium` and add it again with the right path.
 
-To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 31 tools.
+To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 37 tools.
 
 ### Environment variables
 
@@ -137,6 +137,11 @@ Columns are addressed by id or title (case-insensitive, must be unambiguous); so
 | `atrium_restore_item`                                              | Brings an archived or deleted item (or subitem) back to active, with the subitems that went with it. A subitem needs an active parent; a lost group falls back to the first. Editor role.           |
 | `atrium_move_item`                                                 | Moves an item to a group (id or title) and a place: `position` `first` or `last`, or `beforeItemId` / `afterItemId`. Subitems follow; a subitem is only reordered among its siblings. Editor role.  |
 | `atrium_reorder_groups`                                            | Sets the group order: list every group once (id or title). Board owner role.                                                                                                                        |
+| `atrium_rename_column`                                             | Renames a column; refuses a title another column uses. Board owner role.                                                                                                                            |
+| `atrium_delete_column`                                             | Removes the column, its lock and its cell values (chunked). Derived, managed and required columns keep invisible leftovers. Board owner role.                                                       |
+| `atrium_reorder_columns`                                           | Sets the column order: list every column once. Board owner role.                                                                                                                                    |
+| `atrium_lock_column` / `atrium_unlock_column`                      | Adds or removes the column in `columnLocks` (locked columns are owner-only to edit). Idempotent. Board owner role.                                                                                  |
+| `atrium_find_items`                                                | Read-only search: name contains, optional group, `where: [{column, equals}]`, paged with `limit` and `offset` (`nextOffset` in the answer).                                                         |
 | `atrium_like_update` / `atrium_unlike_update`                      | Adds or removes the user's like on an update, or on a reply with `replyId`. Idempotent. Editor role.                                                                                                |
 | `atrium_find_member`                                               | Read-only. Finds a workspace member by exact email (case-insensitive): uid, name, email, role, or `found: false`. Only members are searched, so an outsider and an unknown address answer the same. |
 | `atrium_list_updates`                                              | Read-only. An item's updates (comments), newest first, with replies, authors, likes, mentions and attachment metadata (name, size, type; no download).                                              |
@@ -171,7 +176,7 @@ The rules below apply to both modes.
 
 ## Code and tests
 
-- `packages/mcp-core` (`@atrium/mcp-core`, plain ESM `.mjs` with hand-written `index.d.mts`): `service.mjs` (`createService({ client, actor, now })`, `actor = { uid, workspaceFilter }`), `tools.mjs` (`defineTools(service)`, 31 tools with `scope` and `annotations`), refs, value conversion, builders, descriptions, updates, and `fake-client.mjs`, an in-memory Firestore for tests. The hosted connector builds the same service on an Admin SDK adapter.
+- `packages/mcp-core` (`@atrium/mcp-core`, plain ESM `.mjs` with hand-written `index.d.mts`): `service.mjs` (`createService({ client, actor, now })`, `actor = { uid, workspaceFilter }`), `tools.mjs` (`defineTools(service)`, 37 tools with `scope` and `annotations`), refs, value conversion, builders, descriptions, updates, and `fake-client.mjs`, an in-memory Firestore for tests. The hosted connector builds the same service on an Admin SDK adapter.
 - `scripts/mcp/atrium-mcp.mjs`: thin stdio wiring; `scripts/mcp/lib/config.mjs` (environment) and `lib/client.mjs` (REST + gcloud token).
 - `scripts/showcase/firestore-rest.mjs` gained `runQuery` (equality and `arrayContains` filters) and an `update` commit op (field paths, deletes, increments).
 - `pnpm test` runs `packages/mcp-core/src/*.test.mjs` and `scripts/mcp/*.test.mjs` (fakes only, no emulator and no production access; one test spawns the server over stdio and calls `tools/list`). `pnpm mcp` starts the server by hand.

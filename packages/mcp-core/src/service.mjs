@@ -52,6 +52,14 @@ import {
 export const MAX_ITEMS_PER_CALL = 50;
 
 /** How long a workspace membership lookup is reused (bounds how long a removal takes to bite). */
+/** Milliseconds of a stored timestamp (Date, Firestore timestamp or ISO string). */
+const millis = (value) =>
+  value instanceof Date
+    ? value.getTime()
+    : typeof value?.toMillis === 'function'
+      ? value.toMillis()
+      : new Date(value).getTime();
+
 const MEMBERSHIP_TTL_MS = 60_000;
 
 const EDIT_ROLES = ['owner', 'editor'];
@@ -614,6 +622,158 @@ export function createService({ client, actor, now = () => new Date() }) {
       });
     },
 
+    async renameColumn({ boardId, column, title }) {
+      return mutateBoard(boardId, (board) => {
+        const target = findColumn(board, column);
+        const next = title.trim();
+        if (next === '') throw new McpUserError('The column title cannot be empty.');
+        const clash = board.columns.find(
+          (c) => c.id !== target.id && c.title.trim().toLowerCase() === next.toLowerCase(),
+        );
+        if (clash) throw new McpUserError(`A column called "${clash.title}" already exists.`);
+        const columns = board.columns.map((c) => (c.id === target.id ? { ...c, title: next } : c));
+        return { patch: { columns }, result: { id: target.id, title: next, was: target.title } };
+      });
+    },
+
+    async deleteColumn({ boardId, column }) {
+      const outcome = await mutateBoard(boardId, (board) => {
+        const target = findColumn(board, column);
+        const patch = { columns: board.columns.filter((c) => c.id !== target.id) };
+        // The lock goes with the column (as the web does), so no stale id stays in `columnLocks`.
+        if ((board.columnLocks ?? []).includes(target.id)) {
+          patch.columnLocks = board.columnLocks.filter((id) => id !== target.id);
+        }
+        const keepValues =
+          columnRegistry.isDerived(target.type) ||
+          columnRegistry.isServerManaged(target.type) ||
+          target.required === true ||
+          (board.requiredColumnIds ?? []).includes(target.id);
+        return {
+          patch,
+          result: { id: target.id, title: target.title, type: target.type, keepValues },
+        };
+      });
+      // Clear the stored cells, in chunks. Derived and server-managed columns store nothing the
+      // client may write, and a required column's cells cannot be emptied until the server drops
+      // its required flag (rules REQ-1); their leftovers are invisible without the column.
+      let cleared = 0;
+      if (!outcome.keepValues) {
+        const withValue = (await itemsOf(boardId)).filter(
+          (d) => d.data.values?.[outcome.id] !== undefined,
+        );
+        for (let at = 0; at < withValue.length; at += 200) {
+          await client.commit(
+            withValue.slice(at, at + 200).map((d) => ({
+              op: 'update',
+              path: `boards/${boardId}/items/${d.id}`,
+              set: { updatedAt: now(), updatedBy: uid },
+              remove: [`values.${outcome.id}`],
+            })),
+          );
+        }
+        cleared = withValue.length;
+      }
+      return { deleted: outcome.id, title: outcome.title, valuesCleared: cleared };
+    },
+
+    async reorderColumns({ boardId, columns }) {
+      return mutateBoard(boardId, (board) => {
+        const ids = columns.map((ref) => findColumn(board, ref).id);
+        if (new Set(ids).size !== ids.length) {
+          throw new McpUserError('A column is listed twice; list every column exactly once.');
+        }
+        if (ids.length !== board.columns.length) {
+          const missing = board.columns
+            .filter((c) => !ids.includes(c.id))
+            .map((c) => `"${c.title}"`);
+          throw new McpUserError(`List every column of the board; missing: ${missing.join(', ')}.`);
+        }
+        const positions = evenPositions(ids.length);
+        const byId = new Map(board.columns.map((c) => [c.id, c]));
+        const reordered = ids.map((id, i) => ({ ...byId.get(id), position: positions[i] }));
+        return {
+          patch: { columns: reordered },
+          result: { columns: reordered.map((c) => ({ id: c.id, title: c.title })) },
+        };
+      });
+    },
+
+    async setColumnLock({ boardId, column, locked }) {
+      return mutateBoard(boardId, (board) => {
+        const target = findColumn(board, column);
+        const current = board.columnLocks ?? [];
+        const isLocked = current.includes(target.id);
+        const next = locked
+          ? isLocked
+            ? current
+            : [...current, target.id]
+          : current.filter((id) => id !== target.id);
+        if (next.length > 200) throw new McpUserError('A board can lock at most 200 columns.');
+        return {
+          patch: { columnLocks: next },
+          result: { id: target.id, title: target.title, locked, changed: isLocked !== locked },
+        };
+      });
+    },
+
+    async findItems({ boardId, name, group, where = [], limit = 25, offset = 0 }) {
+      const { board } = await loadBoard(boardId, 'read');
+      const groupId = group !== undefined ? findGroup(board, group).id : null;
+      const filters = where.map((w) => ({ column: findColumn(board, w.column), equals: w.equals }));
+      const needle = name === undefined ? '' : name.trim().toLowerCase();
+      const norm = (v) => String(v).trim().toLowerCase();
+      const cellMatches = (column, stored, wanted) => {
+        const cell = readableCell(column, stored);
+        if (cell === null) return wanted === null;
+        if (wanted === null) return false;
+        const options = Array.isArray(cell)
+          ? cell
+          : typeof cell === 'string'
+            ? [cell, ...cell.split(',')]
+            : [cell];
+        return options.some((o) => norm(o) === norm(wanted));
+      };
+      const groupTitle = new Map(board.groups.map((g) => [g.id, g.title]));
+      const groupOrder = new Map(sortedByPosition(board.groups).map((g, i) => [g.id, i]));
+      const found = (await itemsOf(boardId))
+        .filter(
+          (d) =>
+            d.data.state === 'active' &&
+            !d.data.parentItemId &&
+            (groupId === null || d.data.groupId === groupId) &&
+            (needle === '' ||
+              String(d.data.name ?? '')
+                .toLowerCase()
+                .includes(needle)) &&
+            filters.every((f) => cellMatches(f.column, d.data.values?.[f.column.id], f.equals)),
+        )
+        .sort(
+          (a, b) =>
+            (groupOrder.get(a.data.groupId) ?? 0) - (groupOrder.get(b.data.groupId) ?? 0) ||
+            (a.data.position < b.data.position ? -1 : 1),
+        );
+      const page = found.slice(offset, offset + limit).map((d) => ({
+        id: d.id,
+        seq: d.data.seq ?? null,
+        name: d.data.name,
+        group: groupTitle.get(d.data.groupId) ?? d.data.groupId,
+        values: Object.fromEntries(
+          board.columns.flatMap((c) => {
+            const cell = readableCell(c, d.data.values?.[c.id]);
+            return cell === null ? [] : [[c.title, cell]];
+          }),
+        ),
+      }));
+      return {
+        total: found.length,
+        offset,
+        shown: page.length,
+        items: page,
+        ...(offset + page.length < found.length ? { nextOffset: offset + page.length } : {}),
+      };
+    },
+
     // ---- items -------------------------------------------------------------------------------
     async createItems({ boardId, items }) {
       if (items.length === 0 || items.length > MAX_ITEMS_PER_CALL) {
@@ -741,7 +901,12 @@ export function createService({ client, actor, now = () => new Date() }) {
       if (!item.parentItemId) {
         // Subitems that went away with the parent (same state) come back with it.
         for (const sub of await subitemDocs(boardId, itemId, { active: false })) {
-          if (sub.data.state === item.state) writes.push(restore(sub.id, { groupId }));
+          if (sub.data.state !== item.state) continue;
+          // A subitem trashed on its own, before the parent, stays in the trash.
+          if (item.state === 'deleted' && sub.data.deletedAt && item.deletedAt) {
+            if (millis(sub.data.deletedAt) < millis(item.deletedAt)) continue;
+          }
+          writes.push(restore(sub.id, { groupId }));
         }
       }
       await client.commit(writes);

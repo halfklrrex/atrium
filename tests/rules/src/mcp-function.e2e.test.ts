@@ -163,7 +163,7 @@ describe('the mcp function against the emulator', () => {
     await client.connect(transport);
     try {
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(31);
+      expect(tools).toHaveLength(37);
       expect(tools.map((tool) => tool.name)).toContain('atrium_list_workspaces');
 
       const result = await client.callTool({ name: 'atrium_list_workspaces', arguments: {} });
