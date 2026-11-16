@@ -8,7 +8,6 @@ import {
   WORKSPACE_ICON_GROUPS,
   WORKSPACE_ICONS,
 } from './icons';
-import { REGULAR_PATHS } from './icons-regular.generated';
 import { LEGACY_MATERIAL_ICONS } from './legacy-material';
 
 /** The 161 keys of the first (Material Symbols) icon set, as shipped on 2026-11-09. */
@@ -18,16 +17,15 @@ const LEGACY_KEYS =
   );
 
 describe('workspace icon set', () => {
-  it('has unique, well-formed keys, known groups and both weights of path data', () => {
+  it('has unique, well-formed keys, known groups and regular path data', () => {
     const keys = WORKSPACE_ICONS.map((i) => i.key);
     expect(new Set(keys).size).toBe(keys.length);
     const groups = new Set(WORKSPACE_ICON_GROUPS.map((g) => g.id));
     for (const icon of WORKSPACE_ICONS) {
       expect(icon.key).toMatch(WORKSPACE_ICON_KEY_PATTERN);
       expect(groups.has(icon.group)).toBe(true);
-      expect(REGULAR_PATHS[icon.key]?.length).toBeGreaterThan(10);
-      expect(REGULAR_PATHS[icon.key]).not.toBe(icon.fill);
-      expect(icon.fill.length).toBeGreaterThan(10);
+      expect(icon.regular.length).toBeGreaterThan(10);
+      expect(icon).not.toHaveProperty('fill');
     }
     for (const group of WORKSPACE_ICON_GROUPS) {
       expect(WORKSPACE_ICONS.some((i) => i.group === group.id)).toBe(true);

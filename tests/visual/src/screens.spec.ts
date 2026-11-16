@@ -866,8 +866,6 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(
         dialog.getByRole('button', { name: 'users three', exact: true }),
       ).toHaveAttribute('aria-pressed', 'true');
-      // The regular-weight paths load lazily with the picker: the grid flags when they are in.
-      await expect(dialog.locator('[data-weights-loaded="true"]')).toBeVisible();
       await shoot(page, `add-workspace-icons-${theme}`);
     });
 
@@ -886,7 +884,6 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(
         dialog.getByRole('button', { name: 'airplane tilt', exact: true }),
       ).toHaveAttribute('aria-pressed', 'true');
-      await expect(dialog.locator('[data-weights-loaded="true"]')).toBeVisible();
       await shoot(page, `new-folder-icons-${theme}`);
     });
 
@@ -1119,7 +1116,6 @@ for (const theme of ['light', 'dark'] as const) {
         const dialog = page.getByRole('dialog', { name: 'Add workspace' });
         await dialog.getByRole('tab', { name: 'Icons' }).click();
         await expect(dialog.getByRole('button', { name: 'house', exact: true })).toBeVisible();
-        await expect(dialog.locator('[data-weights-loaded="true"]')).toBeVisible();
         await shoot(page, `mobile-add-workspace-icons-${theme}`);
       });
 

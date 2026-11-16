@@ -14,12 +14,14 @@
   width: var(--atrium-avatar-xs);
   height: var(--atrium-avatar-xs);
   font-size: calc(var(--font-size-10) * 0.85);
+  --atrium-tile-glyph: var(--atrium-tile-glyph-xs);
 }
 
 .sm {
   width: var(--atrium-avatar-sm);
   height: var(--atrium-avatar-sm);
   font-size: var(--font-size-10);
+  --atrium-tile-glyph: var(--atrium-tile-glyph-sm);
 }
 
 .md {
@@ -27,6 +29,7 @@
   height: var(--atrium-avatar-md);
   border-radius: var(--border-radius-medium);
   font-size: var(--font-size-40);
+  --atrium-tile-glyph: var(--atrium-tile-glyph-md);
 }
 
 .lg {
@@ -34,6 +37,7 @@
   height: var(--atrium-avatar-lg);
   border-radius: var(--border-radius-medium);
   font-size: var(--font-size-50);
+  --atrium-tile-glyph: var(--atrium-tile-glyph-lg);
 }
 
 .xl {
@@ -41,9 +45,11 @@
   height: var(--atrium-avatar-xl);
   border-radius: var(--border-radius-medium);
   font-size: calc(var(--font-size-60) * 1.3);
+  --atrium-tile-glyph: var(--atrium-tile-glyph-xl);
 }
 
 .glyph {
-  width: 62%;
-  height: 62%;
+  /* Whole pixels (see icon-picker-tokens.css): Phosphor's regular stroke is only crisp at integer sizes. */
+  width: var(--atrium-tile-glyph);
+  height: var(--atrium-tile-glyph);
 }

@@ -16,4 +16,3 @@ THIRD_PARTY_NOTICES.md
 LICENSE
 apps/web/src/theme/fonts
 apps/web/src/components/workspace-icons/icons.generated.ts
-apps/web/src/components/workspace-icons/icons-regular.generated.ts

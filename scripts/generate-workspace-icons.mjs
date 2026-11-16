@@ -1,6 +1,5 @@
-// Generates apps/web/src/components/workspace-icons/icons.generated.ts (fill paths, eager) and
-// icons-regular.generated.ts (regular paths, lazy): a curated set of Phosphor
-// icons (regular and fill weights) as SVG path data for workspace and folder icons
+// Generates apps/web/src/components/workspace-icons/icons.generated.ts: a curated set of Phosphor
+// icons (regular weight only) as SVG path data for workspace and folder icons
 // (docs/specs/ICONS-phosphor-icon-picker.md).
 //
 //   pnpm icons:generate          rewrite the module
@@ -17,11 +16,6 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const OUTPUT_FILE = join(root, 'apps/web/src/components/workspace-icons/icons.generated.ts');
-/** The regular-weight paths live in their own module so the picker can load them lazily. */
-export const REGULAR_OUTPUT_FILE = join(
-  root,
-  'apps/web/src/components/workspace-icons/icons-regular.generated.ts',
-);
 
 /** [key, extra search keywords]. The label is the key with spaces. */
 export const GROUPS = [
@@ -327,7 +321,6 @@ function collect() {
         group: group.id,
         label: key.replace(/-/g, ' '),
         regular: pathData(join(pkgDir, 'assets/regular', `${key}.svg`), key, 'regular'),
-        fill: pathData(join(pkgDir, 'assets/fill', `${key}-fill.svg`), key, 'fill'),
       });
     }
   }
@@ -342,12 +335,12 @@ const banner = (
 // Modified for Atrium (AGPL-3.0-only), 2026-11-09: only the path data of a curated subset.
 `;
 
-/** icons.generated.ts: keys, labels, keywords, groups and the fill paths (loaded eagerly). */
+/** icons.generated.ts: keys, labels, keywords, groups and the regular-weight paths. */
 export function render() {
   const { version, icons } = collect();
   const rows = icons.map(
     (i) =>
-      `  { key: ${JSON.stringify(i.key)}, label: ${JSON.stringify(i.label)}, group: ${JSON.stringify(i.group)}, keywords: ${JSON.stringify(i.keywords)}, fill: ${JSON.stringify(i.fill)} },`,
+      `  { key: ${JSON.stringify(i.key)}, label: ${JSON.stringify(i.label)}, group: ${JSON.stringify(i.group)}, keywords: ${JSON.stringify(i.keywords)}, regular: ${JSON.stringify(i.regular)} },`,
   );
   const groups = GROUPS.map(
     (g) => `  { id: ${JSON.stringify(g.id)}, label: ${JSON.stringify(g.label)} },`,
@@ -358,8 +351,8 @@ export interface WorkspaceIconDef {
   readonly label: string;
   readonly group: string;
   readonly keywords: string;
-  /** Path data of the fill weight for \`viewBox="0 0 256 256"\`. */
-  readonly fill: string;
+  /** Path data of the regular weight for \`viewBox="0 0 256 256"\`. */
+  readonly regular: string;
 }
 
 export const WORKSPACE_ICON_GROUPS: readonly { readonly id: string; readonly label: string }[] = [
@@ -372,23 +365,8 @@ ${rows.join('\n')}
 `;
 }
 
-/** icons-regular.generated.ts: the regular paths by key (loaded with the picker). */
-export function renderRegular() {
-  const { version, icons } = collect();
-  const rows = icons.map((i) => `  ${JSON.stringify(i.key)}: ${JSON.stringify(i.regular)},`);
-  return `${banner(version)}
-/** Regular-weight path data for \`viewBox="0 0 256 256"\`, by icon key. */
-export const REGULAR_PATHS: Readonly<Record<string, string>> = {
-${rows.join('\n')}
-};
-`;
-}
-
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const outputs = [
-    [OUTPUT_FILE, render()],
-    [REGULAR_OUTPUT_FILE, renderRegular()],
-  ];
+  const outputs = [[OUTPUT_FILE, render()]];
   const check = process.argv.includes('--check');
   let stale = false;
   for (const [file, next] of outputs) {

@@ -13,15 +13,13 @@
 
 ### Source and licence
 
-Phosphor SVGs come from **`@phosphor-icons/core`** (MIT, the raw assets package, not the React one), as a devDependency. The generator reads `assets/regular/<name>.svg` and `assets/fill/<name>-fill.svg` (check the installed layout), extracts the path data (viewBox `0 0 256 256`), and writes the generated module. Nothing from the package ships at runtime except the path strings of the curated icons, so the bundle cost is ~200 x 2 short strings and there is **no** `@phosphor-icons/react` dependency. Register the copy in `docs/PROVENANCE.md`, run `pnpm licenses:notices` and commit `THIRD_PARTY_NOTICES.md`; remove `@material-symbols/svg-400` from devDependencies and from the notices/provenance (update the lockfile).
+Phosphor SVGs come from **`@phosphor-icons/core`** (MIT, the raw assets package, not the React one), as a devDependency. The generator reads `assets/regular/<name>.svg` (check the installed layout), extracts the path data (viewBox `0 0 256 256`), and writes the generated module. Nothing from the package ships at runtime except the path strings of the curated icons, so the bundle cost is ~200 x 2 short strings and there is **no** `@phosphor-icons/react` dependency. Register the copy in `docs/PROVENANCE.md`, run `pnpm licenses:notices` and commit `THIRD_PARTY_NOTICES.md`; remove `@material-symbols/svg-400` from devDependencies and from the notices/provenance (update the lockfile).
 
-### Regular and fill
+### Regular weight only
 
-Each generated entry is `{ key, label, keywords, regular, fill }`. Rules for which weight shows where:
+Updated 2026-11-16 (see `docs/specs/BUG-workspace-icons-blurry.md`): the fill weight was dropped. Each generated entry is `{ key, label, keywords, regular }`, all in `icons.generated.ts` (no lazy split). Everywhere an icon shows (tile in the sidebar, switcher, Home and headers; picker grid, including the selected cell) it is the **regular** weight. The selected cell is marked by its background only. The weight is not stored.
 
-- the **tile** (sidebar, switcher, Home, workspace and folder headers) renders **fill** (reads as a solid glyph on the colour);
-- the **picker grid** shows **regular**, and the selected cell shows **fill**;
-- no other weights; the weight is not stored.
+Tile glyphs are drawn at whole-pixel sizes from `--atrium-tile-glyph-*` in `theme/icon-picker-tokens.css` (14, 16, 24, 32, 40 px for the xs to xl tiles), never as a percentage of the tile, because Phosphor's 16-unit stroke on a 256 grid is only sharp at integer sizes on the pixel grid.
 
 ### Stored value
 
