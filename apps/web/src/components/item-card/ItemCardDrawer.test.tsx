@@ -457,6 +457,30 @@ describe('ItemCardDrawer', () => {
     expect(screen.queryByRole('button', { name: 'Remove spec.pdf' })).not.toBeInTheDocument();
   });
 
+  it('shows the remove button to a viewer who wrote the update, even for a file another person uploaded', async () => {
+    mockRole = 'viewer';
+    mockUpdateList = [
+      {
+        ...mockUpdates[0]!,
+        authorId: 'u1',
+        attachments: [
+          {
+            id: 'f1',
+            name: 'spec.pdf',
+            mimeType: 'application/pdf',
+            size: 2048,
+            uploadedBy: 'u2',
+            storagePath: 'boards/b1/items/i1/updates/up1/f1',
+            uploadedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+    ];
+    useItemCardStore.getState().openItemCard('b1', 'i1', [], 'files');
+    render(<ItemCardDrawer />);
+    expect(screen.getByRole('button', { name: 'Remove spec.pdf' })).toBeInTheDocument();
+  });
+
   it('shows the empty state in the Activity Log tab', async () => {
     useItemCardStore.getState().openItemCard('b1', 'i1');
     render(<ItemCardDrawer />);

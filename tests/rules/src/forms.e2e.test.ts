@@ -125,14 +125,21 @@ beforeEach(async () => {
   await seedForm(formSettings());
 });
 
+// Pinned mid-hour (22:13:20 UTC) so the hourly buckets never roll over during a run.
+const NOW_MS = 1_700_000_000_000;
+
 const submit = (uid: string, answers: Record<string, unknown>) => {
   const firestore = admin.db();
   return firestore.runTransaction((tx) =>
-    forms.submitFormInTransaction(adapters.adminFormsTx(firestore, tx), uid, {
-      boardId: BOARD,
-      viewId: VIEW,
-      answers,
-    }),
+    forms.submitFormInTransaction(
+      { ...adapters.adminFormsTx(firestore, tx), nowMs: () => NOW_MS },
+      uid,
+      {
+        boardId: BOARD,
+        viewId: VIEW,
+        answers,
+      },
+    ),
   );
 };
 const items = async () =>
@@ -238,19 +245,19 @@ describe('submitForm against the emulator', () => {
     const byId = new Map(docs.map((d) => [d.id, d.data()]));
     const formCounter = [...byId.entries()].find(([id]) => /^form_formView_\d+$/.test(id))!;
     expect(formCounter[1].count).toBe(11);
-    expect(formCounter[1].expiresAt.toMillis()).toBeGreaterThan(Date.now());
+    expect(formCounter[1].expiresAt.toMillis()).toBeGreaterThan(NOW_MS);
     expect(docs).toHaveLength(3);
   });
 
   it('stops the 201st submission of a form in an hour', async () => {
     const firestore = admin.db();
-    const hour = forms.hourOf(Date.now());
+    const hour = forms.hourOf(NOW_MS);
     await firestore
       .collection('boards')
       .doc(BOARD)
       .collection('counters')
       .doc(`form_${VIEW}_${hour}`)
-      .set({ count: 200, expiresAt: new Date(Date.now() + 86_400_000) });
+      .set({ count: 200, expiresAt: new Date(NOW_MS + 86_400_000) });
     await expect(submit(SUBMITTER, { name: 'A' })).rejects.toMatchObject({
       code: 'resource-exhausted',
     });

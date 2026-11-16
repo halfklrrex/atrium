@@ -313,9 +313,14 @@ describe('MembersDialog', () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     const confirm = await pickMenuAction(user, 'Sam Rivera', 'Remove from workspace');
     await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
-    expect(
-      await screen.findByText(/do not have permission to remove/i, {}, SLOW_UI),
-    ).toBeInTheDocument();
+    // Wait for the call first, then for the alert it leads to, so a slow render fails on the
+    // step that is actually slow.
+    await waitFor(() => expect(mocks.calls.removeMember).toHaveBeenCalledTimes(1), SLOW_UI);
+    const alert = await screen.findByRole('alert', {}, SLOW_UI);
+    await waitFor(
+      () => expect(alert).toHaveTextContent(/do not have permission to remove/i),
+      SLOW_UI,
+    );
   });
 });
 
