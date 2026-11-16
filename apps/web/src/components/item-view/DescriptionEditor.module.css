@@ -508,6 +508,15 @@
   font: var(--font-text2-normal);
 }
 
+.imageUploadPreview {
+  display: block;
+  max-width: 100%;
+  max-height: var(--atrium-image-max-height);
+  object-fit: contain;
+  border-radius: var(--border-radius-4);
+  opacity: 0.6;
+}
+
 .imageUploadTrack {
   height: var(--space-4);
   border-radius: var(--border-radius-4);

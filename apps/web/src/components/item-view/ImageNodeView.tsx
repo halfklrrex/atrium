@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
-import { uploadProgress } from './description-image-upload';
+import { uploadPreview, uploadProgress } from './description-image-upload';
 import { useDescriptionImageUrl } from './description-image-url';
 import styles from './DescriptionEditor.module.css';
 
@@ -121,8 +121,12 @@ export function ImageUploadNodeView({ node }: NodeViewProps) {
   const percent = useSyncExternalStore(uploadProgress.subscribe, () =>
     uploadProgress.get(uploadId),
   );
+  const preview = uploadPreview.get(uploadId);
   return (
     <NodeViewWrapper className={styles.imageUpload} contentEditable={false}>
+      {preview ? (
+        <img className={styles.imageUploadPreview} src={preview} alt="" draggable={false} />
+      ) : null}
       <span>Uploading image...</span>
       <div
         className={styles.imageUploadTrack}
