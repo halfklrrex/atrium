@@ -43,7 +43,7 @@ export interface UpdateFileTarget {
   fileId: string;
 }
 
-/** The cache key of an update or reply file's signed URL (same as the item panel's). */
+/** The cache key of an update or reply file's signed URL (the Files view's own; the item panel doesn't cache). */
 export const updateFileKey = (t: UpdateFileTarget): string =>
   `update/${t.boardId}/${t.itemId}/${t.updateId}/${t.replyId ?? ''}/${t.fileId}`;
 

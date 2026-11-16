@@ -263,6 +263,21 @@ describe('FilesView', () => {
       expect(screen.getByText('2 files')).toBeInTheDocument();
     });
 
+    it("does not show another board's files while a new board loads", async () => {
+      vi.mocked(updateAttachmentCalls.listForBoard).mockResolvedValueOnce({
+        files: [entry()],
+        truncated: false,
+      });
+      const view = open();
+      expect(await screen.findByText('site-visit.pdf')).toBeInTheDocument();
+      vi.mocked(updateAttachmentCalls.listForBoard).mockReturnValue(new Promise(() => {}));
+      mocks.items = [makeItem({ id: 'i2', name: 'Empty', values: {} })];
+      view.rerender(<FilesView board={{ ...withFiles, id: 'b2' }} />);
+      expect(screen.queryByText('site-visit.pdf')).not.toBeInTheDocument();
+      expect(screen.queryByText('No files yet')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toBeInTheDocument();
+    });
+
     it('says so when the update files could not be loaded', async () => {
       vi.mocked(updateAttachmentCalls.listForBoard).mockRejectedValue(new Error('boom'));
       open();

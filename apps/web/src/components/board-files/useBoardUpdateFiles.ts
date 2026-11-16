@@ -12,6 +12,13 @@ const IDLE: Omit<BoardUpdateFiles, 'refresh'> = {
   error: false,
 };
 
+const LOADING: Omit<BoardUpdateFiles, 'refresh'> = {
+  files: [],
+  truncated: false,
+  loading: true,
+  error: false,
+};
+
 export interface BoardUpdateFiles {
   files: UpdateFileEntry[];
   /** The server stopped reading or returning files; some are missing. */
@@ -26,7 +33,8 @@ export interface BoardUpdateFiles {
  * when the view opens, on window focus and on `refresh()`. Does nothing while `enabled` is false.
  */
 export function useBoardUpdateFiles(boardId: string, enabled: boolean): BoardUpdateFiles {
-  const [state, setState] = useState<Omit<BoardUpdateFiles, 'refresh'>>({
+  const [state, setState] = useState<Omit<BoardUpdateFiles, 'refresh'> & { boardId: string }>({
+    boardId,
     files: [],
     truncated: false,
     loading: enabled,
@@ -43,11 +51,18 @@ export function useBoardUpdateFiles(boardId: string, enabled: boolean): BoardUpd
       .listForBoard({ boardId })
       .then((res) => {
         if (id === latest.current) {
-          setState({ files: res.files, truncated: res.truncated, loading: false, error: false });
+          setState({
+            boardId,
+            files: res.files,
+            truncated: res.truncated,
+            loading: false,
+            error: false,
+          });
         }
       })
       .catch(() => {
-        if (id === latest.current) setState((s) => ({ ...s, loading: false, error: true }));
+        if (id === latest.current)
+          setState((s) => ({ ...s, boardId, loading: false, error: true }));
       });
   }, [boardId]);
 
@@ -71,5 +86,13 @@ export function useBoardUpdateFiles(boardId: string, enabled: boolean): BoardUpd
   }, [enabled, fetchNow]);
 
   if (!enabled) return { ...IDLE, refresh };
-  return { ...state, refresh };
+  // Another board's snapshot is never shown: until this board's first answer, it is loading.
+  if (state.boardId !== boardId) return { ...LOADING, refresh };
+  return {
+    files: state.files,
+    truncated: state.truncated,
+    loading: state.loading,
+    error: state.error,
+    refresh,
+  };
 }
