@@ -32,7 +32,7 @@ export function ItemKeyBar({ item, slots, ctx, canEdit }: ItemKeyBarProps) {
               ctx={ctx}
               canEdit={canEdit}
               className={styles.keyCell}
-              emptyHint={keyBarEmptyHint(column.def.type)}
+              emptyHint={keyBarEmptyHint(column.def.type, column.def.title)}
             />
           </dd>
         </div>

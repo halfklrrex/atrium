@@ -160,6 +160,26 @@ describe('custom label colors', () => {
     expect(screen.queryByRole('group', { name: 'Custom color' })).toBeNull();
   });
 
+  it('scrolls the picker into view, focuses it, and returns focus to the swatch on Escape', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      await open(user);
+      const wheel = screen.getByRole('radio', { name: 'Pick a custom color' });
+      await user.click(wheel);
+      expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: 'nearest' }));
+      const square = screen.getByRole('slider', { name: 'Saturation and brightness' });
+      expect(document.activeElement).toBe(square);
+      await user.keyboard('{Escape}');
+      expect(screen.queryByRole('group', { name: 'Custom color' })).toBeNull();
+      expect(document.activeElement).toBe(wheel);
+    } finally {
+      // @ts-expect-error restoring the jsdom default (no scrollIntoView)
+      delete Element.prototype.scrollIntoView;
+    }
+  });
+
   it('moves the saturation/brightness handle with the arrow keys', async () => {
     const user = userEvent.setup();
     const onSave = await open(user);

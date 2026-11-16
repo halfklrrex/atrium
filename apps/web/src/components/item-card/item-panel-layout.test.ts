@@ -159,6 +159,8 @@ describe('field helpers', () => {
 
   it('has an empty hint per key-bar type', () => {
     expect(keyBarEmptyHint('status')).toBe('Set status');
+    expect(keyBarEmptyHint('status', 'Priority')).toBe('Set priority');
+    expect(keyBarEmptyHint('status', 'Stage')).toBe('Set status');
     expect(keyBarEmptyHint('people')).toBe('Assign');
     expect(keyBarEmptyHint('date')).toBe('Set date');
     expect(keyBarEmptyHint('timeline')).toBe('Set dates');

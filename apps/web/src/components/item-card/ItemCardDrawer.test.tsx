@@ -259,7 +259,8 @@ describe('ItemCardDrawer', () => {
     for (const title of ['Status', 'Owner', 'Deadline', 'Priority']) {
       expect(within(bar).getByText(title)).toBeInTheDocument();
     }
-    expect(within(bar).getAllByText('Set status')).toHaveLength(2);
+    expect(within(bar).getAllByText('Set status')).toHaveLength(1);
+    expect(within(bar).getByText('Set priority')).toBeInTheDocument();
     expect(within(bar).getByText('Assign')).toBeInTheDocument();
     expect(within(bar).getByText('Set date')).toBeInTheDocument();
 

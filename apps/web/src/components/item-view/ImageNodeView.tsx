@@ -38,6 +38,8 @@ export function ImageNodeView({
 
   const stored = typeof node.attrs.width === 'number' ? clampWidth(node.attrs.width) : MAX_WIDTH;
   const shown = liveWidth ?? stored;
+  // No stored width: show the image at its natural size (never stretched past it).
+  const sized = liveWidth !== null || typeof node.attrs.width === 'number';
   const alt = String(node.attrs.alt || 'Image in the description');
 
   const startResize = (event: PointerEvent<HTMLElement>) => {
@@ -77,7 +79,8 @@ export function ImageNodeView({
       ref={wrapRef}
       className={styles.image}
       data-selected={(selected && editable) || undefined}
-      style={{ width: `${shown}%` }}
+      data-sized={sized || undefined}
+      style={sized ? { width: `${shown}%` } : undefined}
       contentEditable={false}
     >
       {image.status === 'ready' ? (

@@ -1,40 +1,67 @@
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Drag } from '@vibe/icons';
 import classNames from 'classnames';
-import type { KeyboardEvent, ReactNode } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import popups from './popups.module.css';
 
 /**
  * Drag-to-reorder wrapper for the label editors. Pointer drag uses dnd-kit; the handle also takes
  * ArrowUp / ArrowDown as the keyboard path, and the editor announces moves through a live region.
+ * The dragged preview is drawn in a portal on `document.body`, so the editor's scrolling list
+ * (which clips its rows) never cuts it off.
  */
 export function LabelSortable({
   ids,
   onDragMove,
+  renderOverlay,
   children,
 }: {
   ids: readonly (string | number)[];
   onDragMove: (id: string | number, overId: string | number) => void;
+  /** The dragged row's preview (its swatch and name). */
+  renderOverlay?: (id: string | number) => ReactNode;
   children: ReactNode;
 }) {
+  const [activeId, setActiveId] = useState<string | number | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const onDragStart = ({ active }: DragStartEvent) => setActiveId(active.id);
   const onDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
     if (over && active.id !== over.id) onDragMove(active.id, over.id);
   };
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActiveId(null)}
+    >
       <SortableContext items={[...ids]} strategy={verticalListSortingStrategy}>
         {children}
       </SortableContext>
+      {renderOverlay
+        ? createPortal(
+            <DragOverlay>
+              {activeId !== null ? (
+                <div className={popups.dragPreview}>{renderOverlay(activeId)}</div>
+              ) : null}
+            </DragOverlay>,
+            document.body,
+          )
+        : null}
     </DndContext>
   );
 }
