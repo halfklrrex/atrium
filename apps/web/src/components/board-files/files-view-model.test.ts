@@ -148,9 +148,14 @@ describe('collectFiles with update files', () => {
     expect(new Set(cards.map((c) => c.key)).size).toBe(cards.length);
   });
 
-  it('leaves them out when includeUpdates is off or specific columns are chosen', () => {
+  it('leaves them out when includeUpdates is off; a column choice only narrows column files', () => {
     expect(run2({ includeUpdates: false }).every((c) => c.source === 'column')).toBe(true);
-    expect(run2({ columnIds: [columns[0]!.id] }).every((c) => c.source === 'column')).toBe(true);
+    const some = run2({ columnIds: [columns[0]!.id] });
+    expect(
+      some.filter((c) => c.source === 'column').every((c) => c.columnId === columns[0]!.id),
+    ).toBe(true);
+    expect(some.some((c) => c.source !== 'column')).toBe(true);
+    expect(run2({ columnIds: [] }).every((c) => c.source !== 'column')).toBe(true);
   });
 
   it('applies the search and kind filters to them', () => {

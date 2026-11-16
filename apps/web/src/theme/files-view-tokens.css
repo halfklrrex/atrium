@@ -15,5 +15,6 @@
   --atrium-files-ext-font: var(--font-text3-bold);
   --atrium-files-name-font: var(--font-text2-normal);
   --atrium-files-meta-font: var(--font-text3-normal);
+  --atrium-files-picker-min: 220px; /* narrowest a picker panel gets */
   --atrium-files-card-shadow: var(--box-shadow-xs);
 }

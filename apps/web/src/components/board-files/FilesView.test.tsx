@@ -11,6 +11,7 @@ import type { ItemDoc } from '../../data';
 import { fileCalls, updateAttachmentCalls } from '../../lib/callables';
 import { makeBoard, makeItem } from '../../test/fixtures';
 import { useFilterStore } from '../board-filters';
+import { isViewDirty, viewKey } from '../board-filters/filter-store';
 import { useTableStore } from '../board-table/table-store';
 import { useItemCardStore } from '../item-card/item-card-store';
 import { clearUrlCache } from '../files/file-url-cache';
@@ -283,6 +284,41 @@ describe('FilesView', () => {
       open();
       expect(await screen.findByText(/Could not load update files/)).toBeInTheDocument();
       expect(screen.getByText('2 files')).toBeInTheDocument();
+    });
+  });
+  describe('pickers', () => {
+    const dirty = () => isViewDirty(useFilterStore.getState().views[viewKey('b1', 'fv')]);
+    const settingsNow = () => useFilterStore.getState().views[viewKey('b1', 'fv')]?.current.files;
+
+    it('filters by file type, marks the view dirty and shows "No files match"', async () => {
+      open();
+      expect(dirty()).toBe(false);
+      fireEvent.click(screen.getByRole('button', { name: /^File type: All types/ }));
+      fireEvent.click(await screen.findByRole('checkbox', { name: 'Spreadsheets' }));
+      expect(settingsNow()?.kinds).toEqual(['spreadsheet']);
+      expect(dirty()).toBe(true);
+      expect(await screen.findByText('1 file')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Spreadsheets' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Video' }));
+      expect(await screen.findByText('No files match')).toBeInTheDocument();
+    });
+
+    it('sorts by name and switches the source', async () => {
+      open();
+      fireEvent.click(screen.getByRole('button', { name: /^Sort: Newest/ }));
+      fireEvent.click(await screen.findByRole('radio', { name: 'Name (A to Z)' }));
+      expect(settingsNow()?.sort).toBe('name');
+      expect(
+        screen.getByText('brief.pdf').compareDocumentPosition(screen.getByText('budget.xlsx')),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      fireEvent.click(screen.getByRole('button', { name: /^Source: Columns and updates/ }));
+      fireEvent.click(await screen.findByRole('radio', { name: 'Columns only' }));
+      expect(settingsNow()?.includeUpdates).toBe(false);
+    });
+
+    it('hides the column picker for a single files column', () => {
+      open();
+      expect(screen.queryByRole('button', { name: /^Files columns/ })).toBeNull();
     });
   });
 });

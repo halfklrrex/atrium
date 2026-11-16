@@ -182,7 +182,7 @@ export function collectFiles({
     }
   });
 
-  if (settings.includeUpdates && !chosen && updateFiles.length > 0) {
+  if (settings.includeUpdates && updateFiles.length > 0) {
     const itemIndexes = new Map<string, number>();
     items.forEach((item, index) => {
       if (item.parentItemId === null || item.parentItemId === undefined) {

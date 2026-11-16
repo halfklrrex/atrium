@@ -403,6 +403,25 @@ for (const theme of ['light', 'dark'] as const) {
       }
     });
 
+    test('board: Files view, filtered by type', async ({ page }) => {
+      await addFilesBoard();
+      try {
+        await page.goto(`/boards/${IDS.files}/views/${FILES_VIEW}`);
+        await filesViewReady(page, 10);
+        await page.getByRole('button', { name: /^File type:/ }).click();
+        await page.getByText('PDFs', { exact: true }).click();
+        await expect(
+          page.getByRole('list', { name: 'Files' }).getByRole('listitem').first(),
+        ).toBeVisible();
+        await shoot(page, `files-view-picker-${theme}`, PARK_IN_HEADER);
+        await page.keyboard.press('Escape');
+        await expect(page.getByRole('checkbox', { name: 'PDFs' })).toBeHidden();
+        await shoot(page, `files-view-filtered-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeFilesBoard();
+      }
+    });
+
     test('board: Form view (builder)', async ({ page }) => {
       await addFormView(false);
       try {
