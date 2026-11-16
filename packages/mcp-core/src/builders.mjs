@@ -2,7 +2,7 @@
 // (`apps/web/src/data/firestore.ts` createBoard, `item-writes.ts`, `updates.ts`) and validate with the
 // zod schemas in @atrium/shared before anything is sent.
 import { randomBytes } from 'node:crypto';
-import { generateKeyBetween } from 'fractional-indexing';
+import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing';
 import {
   boardSchema,
   columnDefSchema,
@@ -276,6 +276,16 @@ export function buildItemPatch({ uid, now, name, groupId, position, cells }) {
 export function positionRightAfter(positions, current) {
   const next = [...positions].sort().find((p) => p > current) ?? null;
   return generateKeyBetween(current, next);
+}
+
+/** A fractional position between `before` and `after` (either may be `null` for the open end). */
+export function positionBetween(before, after) {
+  return generateKeyBetween(before ?? null, after ?? null);
+}
+
+/** `count` increasing positions, for rewriting the order of a whole list. */
+export function evenPositions(count) {
+  return generateNKeysBetween(null, null, count);
 }
 
 export function buildUpdateDoc({

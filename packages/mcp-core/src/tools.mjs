@@ -323,6 +323,60 @@ export function defineTools(service) {
       },
       run: (args) => service.getActivity(args),
     }),
+    change({
+      name: 'atrium_restore_item',
+      description:
+        'Restores an archived or deleted (trashed) item or subitem to active, with the subitems that went away with it. ' +
+        'A subitem needs an active parent. If its group was deleted meanwhile the item lands in the first group. Needs the editor role.',
+      inputSchema: { boardId: id, itemId: id },
+      run: (args) => service.restoreItem(args),
+    }),
+    change({
+      name: 'atrium_move_item',
+      description:
+        'Moves an item to a group (id or title; default its own group) and a place in it: position "first" or "last" ' +
+        '(default last), or right before or after another item of that group (beforeItemId / afterItemId; give one placement). ' +
+        'Subitems follow their parent. A subitem cannot change group, only its place among its siblings. Needs the editor role.',
+      inputSchema: {
+        boardId: id,
+        itemId: id,
+        group: ref.optional(),
+        position: z.enum(['first', 'last']).optional(),
+        beforeItemId: id.optional(),
+        afterItemId: id.optional(),
+      },
+      run: (args) => service.moveItem(args),
+    }),
+    change({
+      name: 'atrium_reorder_groups',
+      description:
+        'Sets the order of the groups of a board. List every group (id or title) exactly once, in the wanted order. Needs the board owner role.',
+      inputSchema: { boardId: id, groups: z.array(ref).min(1).max(200) },
+      run: (args) => service.reorderGroups(args),
+    }),
+    add({
+      name: 'atrium_like_update',
+      description:
+        'Likes an update (comment), or a reply when replyId is given, as you. Liking twice changes nothing. Needs the editor role.',
+      inputSchema: { boardId: id, itemId: id, updateId: id, replyId: id.optional() },
+      run: (args) => service.setUpdateLike({ ...args, liked: true }),
+    }),
+    change({
+      name: 'atrium_unlike_update',
+      description:
+        'Removes your like from an update, or from a reply when replyId is given. Needs the editor role.',
+      inputSchema: { boardId: id, itemId: id, updateId: id, replyId: id.optional() },
+      run: (args) => service.setUpdateLike({ ...args, liked: false }),
+    }),
+    read({
+      name: 'atrium_find_member',
+      description:
+        'Read-only. Finds a member of a workspace by email address (exact match, case-insensitive): uid, name, email and role, ' +
+        'or found: false. Only workspace members are searched; a person outside the workspace and an unknown address look the same. ' +
+        'workspaceId may be left out when you are a member of exactly one workspace.',
+      inputSchema: { email: z.string().trim().min(3).max(320), workspaceId },
+      run: (args) => service.findMember(args),
+    }),
     read({
       name: 'atrium_list_members',
       description:

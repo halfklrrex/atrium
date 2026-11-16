@@ -20,6 +20,8 @@ export {
   newDocId,
   newSlugId,
   positionAfter,
+  positionBetween,
+  evenPositions,
   positionRightAfter,
   resolveColor,
   ts,

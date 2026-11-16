@@ -29,6 +29,8 @@ import {
   buildReplyDoc,
   buildUpdateDoc,
   positionRightAfter,
+  positionBetween,
+  evenPositions,
   ts,
   newDocId,
   positionAfter,
@@ -542,6 +544,28 @@ export function createService({ client, actor, now = () => new Date() }) {
       }));
     },
 
+    async reorderGroups({ boardId, groups }) {
+      return mutateBoard(boardId, (board) => {
+        const ids = groups.map((ref) => findGroup(board, ref).id);
+        if (new Set(ids).size !== ids.length) {
+          throw new McpUserError('A group is listed twice; list every group exactly once.');
+        }
+        if (ids.length !== board.groups.length) {
+          const missing = board.groups
+            .filter((g) => !ids.includes(g.id))
+            .map((g) => `"${g.title}"`);
+          throw new McpUserError(`List every group of the board; missing: ${missing.join(', ')}.`);
+        }
+        const positions = evenPositions(ids.length);
+        const byId = new Map(board.groups.map((g) => [g.id, g]));
+        const reordered = ids.map((id, i) => ({ ...byId.get(id), position: positions[i] }));
+        return {
+          patch: { groups: reordered },
+          result: { groups: reordered.map((g) => ({ id: g.id, title: g.title })) },
+        };
+      });
+    },
+
     async addColumn({ boardId, title, type, settings }) {
       return mutateBoard(boardId, (board) => {
         const column = buildColumn({ title, type, settings, existingColumns: board.columns });
@@ -686,6 +710,124 @@ export function createService({ client, actor, now = () => new Date() }) {
         id: itemId,
         updated: [...Object.keys(set), ...remove].filter((k) => !k.startsWith('updated')),
       };
+    },
+
+    async restoreItem({ boardId, itemId }) {
+      const loaded = await loadBoard(boardId, 'edit');
+      assertId(itemId, 'itemId');
+      const item = await client.getDoc(`boards/${boardId}/items/${itemId}`);
+      if (!item) throw new McpUserError(`Item "${itemId}" was not found on this board.`);
+      if (item.state === 'active') throw new McpUserError(`Item "${itemId}" is already active.`);
+      if (!['archived', 'deleted'].includes(item.state)) {
+        throw new McpUserError(`Item "${itemId}" is ${item.state} and cannot be restored.`);
+      }
+      const groups = sortedByPosition(loaded.board.groups);
+      let groupId = item.groupId;
+      if (item.parentItemId) {
+        const parent = await client.getDoc(`boards/${boardId}/items/${item.parentItemId}`);
+        if (!parent || parent.state !== 'active') {
+          throw new McpUserError('Restore the parent item first; a subitem comes back under it.');
+        }
+        groupId = parent.groupId;
+      } else if (!groups.some((g) => g.id === groupId)) {
+        groupId = groups[0].id; // the group was deleted meanwhile
+      }
+      const restore = (id, extra = {}) => ({
+        op: 'update',
+        path: `boards/${boardId}/items/${id}`,
+        set: { state: 'active', deletedAt: null, updatedAt: now(), updatedBy: uid, ...extra },
+      });
+      const writes = [restore(itemId, groupId !== item.groupId ? { groupId } : {})];
+      if (!item.parentItemId) {
+        // Subitems that went away with the parent (same state) come back with it.
+        for (const sub of await subitemDocs(boardId, itemId, { active: false })) {
+          if (sub.data.state === item.state) writes.push(restore(sub.id, { groupId }));
+        }
+      }
+      await client.commit(writes);
+      return {
+        id: itemId,
+        restoredFrom: item.state,
+        group: groups.find((g) => g.id === groupId)?.title ?? groupId,
+        subitemsAlso: writes.length - 1,
+      };
+    },
+
+    async moveItem({ boardId, itemId, group, position, beforeItemId, afterItemId }) {
+      const loaded = await loadBoard(boardId, 'edit');
+      const item = await loadItem(boardId, itemId);
+      const placements = [position, beforeItemId, afterItemId].filter((p) => p !== undefined);
+      if (placements.length > 1) {
+        throw new McpUserError('Give one of position, beforeItemId or afterItemId, not several.');
+      }
+      if (position !== undefined && position !== 'first' && position !== 'last') {
+        throw new McpUserError('position is "first" or "last".');
+      }
+      const isSub = Boolean(item.parentItemId);
+      if (isSub && group !== undefined) {
+        throw new McpUserError("A subitem stays in its parent's group; move the parent instead.");
+      }
+      const targetGroupId =
+        group !== undefined && !isSub ? findGroup(loaded.board, group).id : item.groupId;
+      const docs = await itemsOf(boardId, ['groupId', 'position', 'parentItemId', 'state']);
+      const siblings = docs
+        .filter(
+          (d) =>
+            d.id !== itemId &&
+            d.data.state === 'active' &&
+            (isSub
+              ? d.data.parentItemId === item.parentItemId
+              : !d.data.parentItemId && d.data.groupId === targetGroupId),
+        )
+        .sort((a, b) => (a.data.position < b.data.position ? -1 : 1));
+      const anchorId = beforeItemId ?? afterItemId;
+      let before = null;
+      let after = null;
+      if (anchorId !== undefined) {
+        assertId(anchorId, beforeItemId !== undefined ? 'beforeItemId' : 'afterItemId');
+        const at = siblings.findIndex((d) => d.id === anchorId);
+        if (at < 0) {
+          throw new McpUserError(
+            `Item "${anchorId}" is not an active ${isSub ? 'sibling subitem' : 'item of the target group'}.`,
+          );
+        }
+        const edge = beforeItemId !== undefined ? at : at + 1; // index of the first item after the gap
+        before = siblings[edge - 1]?.data.position ?? null;
+        after = siblings[edge]?.data.position ?? null;
+      } else if (position === 'first') {
+        after = siblings[0]?.data.position ?? null;
+      } else {
+        before = siblings.at(-1)?.data.position ?? null;
+      }
+      const newPosition = positionBetween(before, after);
+      const groupChanged = targetGroupId !== item.groupId;
+      const writes = [
+        {
+          op: 'update',
+          path: `boards/${boardId}/items/${itemId}`,
+          set: {
+            ...(groupChanged ? { groupId: targetGroupId } : {}),
+            position: newPosition,
+            updatedAt: ts(now()),
+            updatedBy: uid,
+          },
+          remove: [],
+        },
+      ];
+      if (groupChanged) {
+        // Subitems follow their parent into the group (rules: same group).
+        for (const sub of await subitemDocs(boardId, itemId, { active: false })) {
+          writes.push({
+            op: 'update',
+            path: `boards/${boardId}/items/${sub.id}`,
+            set: { groupId: targetGroupId, updatedAt: ts(now()), updatedBy: uid },
+            remove: [],
+          });
+        }
+      }
+      await client.commit(writes);
+      const title = loaded.board.groups.find((g) => g.id === targetGroupId)?.title ?? targetGroupId;
+      return { id: itemId, group: title, position: newPosition, subitemsAlso: writes.length - 1 };
     },
 
     async getItemDescription({ boardId, itemId }) {
@@ -891,6 +1033,46 @@ export function createService({ client, actor, now = () => new Date() }) {
       return { deleted: replyId ?? updateId };
     },
 
+    async setUpdateLike({ boardId, itemId, updateId, replyId, liked }) {
+      await loadBoard(boardId, 'edit');
+      await loadItem(boardId, itemId);
+      assertId(updateId, 'updateId');
+      if (replyId !== undefined) assertId(replyId, 'replyId');
+      const base = `boards/${boardId}/items/${itemId}/updates/${updateId}`;
+      const path = replyId === undefined ? base : `${base}/replies/${replyId}`;
+      for (let attempt = 0; ; attempt += 1) {
+        const meta = await client.getDocMeta(path);
+        if (!meta) {
+          throw new McpUserError(
+            replyId === undefined
+              ? `Update "${updateId}" was not found on this item.`
+              : `Reply "${replyId}" was not found on this update.`,
+          );
+        }
+        const current = Array.isArray(meta.data.likes) ? meta.data.likes : [];
+        const has = current.includes(uid);
+        if (has === liked) {
+          return { id: replyId ?? updateId, liked, likes: current.length, changed: false };
+        }
+        const next = liked ? [...current, uid] : current.filter((u) => u !== uid);
+        try {
+          await client.commit([
+            {
+              op: 'update',
+              path,
+              set: { likes: next },
+              remove: [],
+              precondition: { updateTime: meta.updateTime },
+            },
+          ]);
+          return { id: replyId ?? updateId, liked, likes: next.length, changed: true };
+        } catch (error) {
+          const raced = error?.status === 409 || error?.status === 400;
+          if (!raced || attempt >= 1) throw error;
+        }
+      }
+    },
+
     // ---- subitems -------------------------------------------------------------------------------
     async listSubitems({ boardId, itemId }) {
       const { board } = await loadBoard(boardId, 'view');
@@ -1075,6 +1257,31 @@ export function createService({ client, actor, now = () => new Date() }) {
         });
       }
       return { workspaceId: ws.id, members };
+    },
+
+    async findMember({ email, workspaceId }) {
+      const wanted = String(email).trim().toLowerCase();
+      if (!wanted.includes('@')) throw new McpUserError('Give a full email address.');
+      const ws = await resolveWorkspace(workspaceId);
+      // Only this workspace's members are ever looked at, so a person elsewhere in Atrium is
+      // indistinguishable from an address that has no account.
+      for (const memberUid of ws.memberUids) {
+        const profile = await profileOf(memberUid);
+        if (typeof profile.email === 'string' && profile.email.trim().toLowerCase() === wanted) {
+          return {
+            workspaceId: ws.id,
+            found: true,
+            member: {
+              uid: memberUid,
+              name: profile.displayName || profile.email || memberUid,
+              email: profile.email,
+              workspaceRole: ws.roles[memberUid] ?? null,
+              me: memberUid === uid,
+            },
+          };
+        }
+      }
+      return { workspaceId: ws.id, found: false };
     },
 
     /**

@@ -25,16 +25,22 @@ const EXPECTED = [
   'atrium_delete_update',
   'atrium_duplicate_item',
   'atrium_edit_update',
+  'atrium_find_member',
   'atrium_get_activity',
   'atrium_get_board',
   'atrium_get_item_description',
+  'atrium_like_update',
   'atrium_list_boards',
   'atrium_list_members',
   'atrium_list_subitems',
   'atrium_list_updates',
   'atrium_list_workspaces',
+  'atrium_move_item',
   'atrium_rename_group',
+  'atrium_reorder_groups',
+  'atrium_restore_item',
   'atrium_set_item_description',
+  'atrium_unlike_update',
   'atrium_update_column_settings',
   'atrium_update_item',
 ];
@@ -55,7 +61,7 @@ test('the server lists its tools over stdio', async () => {
   await client.connect(transport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 25);
+    assert.equal(tools.length, 31);
     assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
     const createItems = tools.find((t) => t.name === 'atrium_create_items');
     assert.deepEqual(createItems.inputSchema.required.sort(), ['boardId', 'items']);
