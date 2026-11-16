@@ -55,7 +55,8 @@ export function resolveUrl(key: string, fetchUrl: () => Promise<SignedUrl>): Pro
   if (pending) return pending.then((r) => r.downloadUrl);
   const promise = new Promise<SignedUrl>((resolve, reject) => {
     queue.push(() => {
-      fetchUrl().then(resolve, reject);
+      // A fetcher that throws synchronously must reject, not stall the queue.
+      Promise.resolve().then(fetchUrl).then(resolve, reject);
     });
     pump();
   });

@@ -99,6 +99,8 @@ describe('resolveUrl queue', () => {
         });
       });
     const all = Array.from({ length: 10 }, (_, n) => resolveUrl(`q${n}`, fetcher(n)));
+    await Promise.resolve();
+    await Promise.resolve();
     expect(active).toBe(MAX_CONCURRENT_FETCHES);
     while (releases.length > 0) {
       releases.shift()?.();
@@ -108,5 +110,18 @@ describe('resolveUrl queue', () => {
     }
     await Promise.all(all);
     expect(peak).toBe(MAX_CONCURRENT_FETCHES);
+  });
+});
+
+describe('resolveUrl errors', () => {
+  it('rejects a fetcher that throws synchronously and keeps the queue moving', async () => {
+    const throwing = () => {
+      throw new Error('sync');
+    };
+    const all = Array.from({ length: 5 }, (_, n) => resolveUrl(`t${n}`, throwing));
+    for (const p of all) await expect(p).rejects.toThrow('sync');
+    await expect(
+      resolveUrl('after', () => Promise.resolve(signed('https://example.com/ok.png'))),
+    ).resolves.toBe('https://example.com/ok.png');
   });
 });
