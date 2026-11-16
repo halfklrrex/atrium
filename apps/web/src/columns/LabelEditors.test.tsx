@@ -241,7 +241,7 @@ describe('label editor modal', () => {
     ]);
   });
 
-  it('closes on Escape without applying, and a picker Escape does not close the modal', async () => {
+  it('cancels on Escape without applying', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
     const onCancel = vi.fn();
@@ -250,6 +250,21 @@ describe('label editor modal', () => {
     await user.keyboard('{Escape}');
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('does not let Escape or other keys reach a parent, even from the footer buttons', async () => {
+    const user = userEvent.setup();
+    const parentKey = vi.fn();
+    render(
+      <div onKeyDown={parentKey}>
+        <StatusLabelEditor settings={status} onSave={() => {}} onCancel={() => {}} />
+      </div>,
+    );
+    screen.getByRole('button', { name: 'Apply' }).focus();
+    await user.keyboard('{Escape}');
+    screen.getByRole('button', { name: 'Cancel' }).focus();
+    await user.keyboard('{Escape}a');
+    expect(parentKey).not.toHaveBeenCalled();
   });
 
   it('keeps the modal open when Escape closes the color picker', async () => {

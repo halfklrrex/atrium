@@ -45,20 +45,24 @@ function LabelEditorModal({
     }
   };
   return (
-    <Modal id={id} show size="medium" onClose={onCancel}>
-      <ModalBasicLayout>
-        <ModalHeader title="Edit labels" />
-        <ModalContent>
-          <div className={popups.modalBody} onKeyDown={onKeyDown}>
-            {children}
-          </div>
-        </ModalContent>
-      </ModalBasicLayout>
-      <ModalFooter
-        primaryButton={{ text: 'Apply', onClick: onApply }}
-        secondaryButton={{ text: 'Cancel', onClick: onCancel }}
-      />
-    </Modal>
+    // React events bubble out of the modal's portal to parent components (e.g. a parent Modal that
+    // closes on Escape): stop every key here, header and footer included.
+    <div onKeyDown={(event) => event.stopPropagation()}>
+      <Modal id={id} show size="medium" onClose={onCancel}>
+        <ModalBasicLayout>
+          <ModalHeader title="Edit labels" />
+          <ModalContent>
+            <div className={popups.modalBody} onKeyDown={onKeyDown}>
+              {children}
+            </div>
+          </ModalContent>
+        </ModalBasicLayout>
+        <ModalFooter
+          primaryButton={{ text: 'Apply', onClick: onApply }}
+          secondaryButton={{ text: 'Cancel', onClick: onCancel }}
+        />
+      </Modal>
+    </div>
   );
 }
 

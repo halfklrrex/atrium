@@ -61,17 +61,24 @@ export function LabelSortable({
 }) {
   const [activeId, setActiveId] = useState<string | number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // The list's box when the drag began: dnd-kit's transform is relative to that moment (it already
+  // folds in any scrolling since), so the bounds must not move with the scrolling body.
+  const startRect = useRef<DOMRect | null>(null);
   const keepInList: Modifier = ({ transform, draggingNodeRect }) => {
-    const list = listRef.current?.getBoundingClientRect();
+    const list = startRect.current ?? listRef.current?.getBoundingClientRect();
     if (!list || !draggingNodeRect) return { ...transform, x: 0 };
     const min = list.top - draggingNodeRect.top;
     const max = list.bottom - draggingNodeRect.bottom;
     return { ...transform, x: 0, y: Math.max(min, Math.min(max, transform.y)) };
   };
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-  const onDragStart = ({ active }: DragStartEvent) => setActiveId(active.id);
+  const onDragStart = ({ active }: DragStartEvent) => {
+    startRect.current = listRef.current?.getBoundingClientRect() ?? null;
+    setActiveId(active.id);
+  };
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveId(null);
+    startRect.current = null;
     if (!over) return;
     const target = dropTargetId(ids, over.id);
     if (target !== undefined && active.id !== target) onDragMove(active.id, target);
@@ -83,7 +90,10 @@ export function LabelSortable({
       modifiers={[keepInList]}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onDragCancel={() => setActiveId(null)}
+      onDragCancel={() => {
+        startRect.current = null;
+        setActiveId(null);
+      }}
     >
       <SortableContext items={[...ids]} strategy={verticalListSortingStrategy}>
         <div ref={listRef} className={popups.sortableList}>

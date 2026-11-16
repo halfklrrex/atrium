@@ -1162,6 +1162,14 @@ export function ColumnSettingsPopup({
 }) {
   const env = useTableEnv();
   const close = () => useTableStore.getState().setSettingsFor(null);
+  const isLabelModal = column.def.type === 'status' || column.def.type === 'dropdown';
+  // The label editors are modals: when one closes, focus goes back to the column header.
+  useEffect(() => {
+    if (!isLabelModal || panel === 'details') return;
+    return () => {
+      anchor?.querySelector<HTMLElement>('button')?.focus();
+    };
+  }, [anchor, isLabelModal, panel]);
   if (panel === 'details') {
     return (
       <AnchoredPopup
