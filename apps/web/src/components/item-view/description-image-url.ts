@@ -42,6 +42,21 @@ export function resolveDescriptionImageUrl(
   return request;
 }
 
+/**
+ * Shows a just-uploaded image from its local preview URL until the signed one is fetched: the node
+ * view finds a fresh entry and skips the getUrl round trip. The hook swaps to the signed URL when
+ * this entry nears its expiry.
+ */
+export function seedDescriptionImageUrl(
+  boardId: string,
+  itemId: string,
+  fileId: string,
+  url: string,
+  lifetimeMs: number,
+): void {
+  cache.set(keyOf(boardId, itemId, fileId), { url, expiresAt: Date.now() + lifetimeMs });
+}
+
 /** Test helper: forget every cached URL. */
 export function clearDescriptionImageUrlCache(): void {
   cache.clear();

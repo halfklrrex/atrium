@@ -5,6 +5,7 @@ import {
 } from '@atrium/shared';
 import type { Editor } from '@tiptap/react';
 import { descriptionImageCalls, describeCallableError } from '../../lib/callables';
+import { seedDescriptionImageUrl, URL_REFRESH_MARGIN_MS } from './description-image-url';
 import { showToast } from '../toast-store';
 
 export interface ImageContext {
@@ -62,6 +63,27 @@ export function putWithProgress(
   });
 }
 
+// ---- Local previews: the picked file is shown at once, before and while it uploads ----
+
+const previews = new Map<string, string>();
+
+export const uploadPreview = {
+  /** The object URL of the file being uploaded under this placeholder id, if any. */
+  get: (uploadId: string) => previews.get(uploadId),
+};
+
+/** How long a just-uploaded image keeps showing its local copy before the signed URL replaces it. */
+const LOCAL_URL_LIFETIME_MS = URL_REFRESH_MARGIN_MS + 5 * 60 * 1000;
+const LOCAL_URL_REVOKE_MS = LOCAL_URL_LIFETIME_MS + 5 * 60 * 1000;
+
+function makePreview(file: File): string | null {
+  try {
+    return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null;
+  } catch {
+    return null;
+  }
+}
+
 let counter = 0;
 const newUploadId = () => `up_${Date.now().toString(36)}_${(counter++).toString(36)}`;
 
@@ -107,7 +129,10 @@ export async function uploadDescriptionImage(
   const placeholder = { type: 'imageUpload', attrs: { uploadId } };
   if (position === undefined) editor.chain().focus().insertContent(placeholder).run();
   else editor.chain().focus().insertContentAt(position, placeholder).run();
+  const previewUrl = makePreview(file);
+  if (previewUrl) previews.set(uploadId, previewUrl);
   setProgress(uploadId, 0);
+  let keepPreview = false;
 
   const fileName = (file.name || 'image').slice(0, 255);
   try {
@@ -125,6 +150,18 @@ export async function uploadDescriptionImage(
       fileId: target.fileId,
       fileName,
     });
+    if (previewUrl) {
+      // The image node shows the local copy straight away instead of asking for a signed URL.
+      seedDescriptionImageUrl(
+        ctx.boardId,
+        ctx.itemId,
+        done.fileId,
+        previewUrl,
+        LOCAL_URL_LIFETIME_MS,
+      );
+      keepPreview = true;
+      setTimeout(() => URL.revokeObjectURL(previewUrl), LOCAL_URL_REVOKE_MS);
+    }
     if (editor.isDestroyed) return;
     const at = findUpload(editor, uploadId);
     if (at) {
@@ -149,18 +186,21 @@ export async function uploadDescriptionImage(
       type: 'negative',
     });
   } finally {
+    previews.delete(uploadId);
+    if (previewUrl && !keepPreview) URL.revokeObjectURL(previewUrl);
     setProgress(uploadId, null);
   }
 }
 
-/** Adds several images, one after the other, so they land in the order they were picked. */
+/**
+ * Adds several images. Every placeholder goes in at once, in the order the files were picked
+ * (each call inserts its placeholder synchronously), and the uploads then run in parallel.
+ */
 export async function uploadDescriptionImages(
   editor: Editor,
   files: File[],
   ctx: ImageContext,
   position?: number,
 ): Promise<void> {
-  for (const file of files) {
-    await uploadDescriptionImage(editor, file, ctx, position);
-  }
+  await Promise.all(files.map((file) => uploadDescriptionImage(editor, file, ctx, position)));
 }
