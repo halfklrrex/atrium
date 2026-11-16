@@ -54,6 +54,10 @@ const ALLOWED = new Map([
     'apps/web/src/components/board-table/table-actions.ts',
     'legacy column scope (until the migration ran)',
   ],
+  [
+    'apps/web/src/components/board-table/vote-cap.ts',
+    'counts vote columns across both lists of the board structure state (matches voteColumnIds)',
+  ],
   ['apps/web/src/data/firestore.ts', 'new and duplicated boards are created with []'],
   ['apps/web/src/data/structure-writes.ts', 'legacy column scope (until the migration ran)'],
   [
