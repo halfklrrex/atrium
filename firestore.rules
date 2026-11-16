@@ -915,18 +915,18 @@ service cloud.firestore {
         }
 
         // Update: `old` and `nw` are the cell before and after (null when missing). The new cell is
-        // null/missing or exactly { votersIds: list }; the list has no more duplicate entries than
-        // before (legacy cells with duplicates stay votable; nobody can add one), and its set
-        // differs from the old one by at most the writer's uid (added or removed, never both).
+        // null/missing or exactly { votersIds: list }, and the list is exactly what arrayUnion(uid)
+        // (the uid appended when absent) or arrayRemove(uid) (every copy of the uid removed) would
+        // produce, or unchanged. The vote count is votersIds.length, so an exact match (not just a
+        // set comparison) keeps legacy duplicates of other voters from being dropped or inflated.
         function voteChangeOk(old, nw) {
           let ol = votersOf(old);
-          let o = ol.toSet();
           return nw == null
-            ? o.hasOnly([uid()])
+            ? ol.toSet().hasOnly([uid()])
             : (nw is map && nw.keys().hasOnly(['votersIds']) && nw.get('votersIds', null) is list
-               && nw.votersIds.size() - nw.votersIds.toSet().size() <= ol.size() - o.size()
-               && nw.votersIds.toSet().difference(o).hasOnly([uid()])
-               && o.difference(nw.votersIds.toSet()).hasOnly([uid()]));
+               && (nw.votersIds == ol
+                   || (!(uid() in ol) && nw.votersIds == ol.concat([uid()]))
+                   || nw.votersIds == ol.removeAll([uid()])));
         }
 
         function voteCellOk(ids, i, touched, before, after) {

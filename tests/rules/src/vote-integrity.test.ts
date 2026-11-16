@@ -206,14 +206,14 @@ describe('what is refused', () => {
     await assertFails(toggle(USERS.member, 'v10', true, MANY));
   });
 
-  it('refuses a vote change bundled with an ordinary cell edit', async () => {
+  it('allows an own vote bundled with an ordinary cell edit, refuses a foreign vote bundled', async () => {
     await assertFails(
       updateDoc(
         itemRef(USERS.member),
         new FieldPath('values', 'note'),
         'edited',
-        new FieldPath('values', 'vote'),
-        { votersIds: [] },
+        new FieldPath('values', 'vote', 'votersIds'),
+        arrayUnion(USERS.member, 'someoneElse'),
         ...audit(USERS.member),
       ),
     );
@@ -285,6 +285,38 @@ describe('limits', () => {
     await assertFails(
       writeCell(USERS.member, 'vote', { votersIds: [USERS.owner, USERS.owner, 'x'] }, BOARD, 'dup'),
     );
+  });
+
+  it('refuses changing the vote count of legacy duplicates (count is votersIds.length)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(
+        doc(db, 'boards', BOARD, 'items', 'dupB'),
+        itemDoc({ values: { vote: { votersIds: [USERS.owner, USERS.owner, USERS.admin] } } }),
+      );
+      await setDoc(
+        doc(db, 'boards', BOARD, 'items', 'dupA'),
+        itemDoc({ values: { vote: { votersIds: [USERS.owner, USERS.owner] } } }),
+      );
+    });
+    // From [A, A, B], C drops one of A's counted votes.
+    await assertFails(
+      writeCell(USERS.member, 'vote', { votersIds: [USERS.owner, USERS.admin] }, BOARD, 'dupB'),
+    );
+    // From [A, A], C counts twice and A drops to one.
+    await assertFails(
+      writeCell(
+        USERS.member,
+        'vote',
+        { votersIds: [USERS.owner, USERS.member, USERS.member] },
+        BOARD,
+        'dupA',
+      ),
+    );
+    // Own add and remove (arrayUnion appends, arrayRemove removes every copy) still work.
+    await assertSucceeds(toggle(USERS.member, 'vote', true, BOARD, 'dupB'));
+    await assertSucceeds(toggle(USERS.admin, 'vote', false, BOARD, 'dupB'));
+    await assertSucceeds(toggle(USERS.owner, 'vote', false, BOARD, 'dupA'));
   });
 });
 
