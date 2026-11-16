@@ -1,6 +1,6 @@
 import { resolveUrlNow } from '../components/files/file-url-cache';
 import { showToast } from '../components/toast-store';
-import { describeCallableError, fileCalls } from './callables';
+import { describeCallableError, fileCalls, updateAttachmentCalls } from './callables';
 
 export interface ColumnFileTarget {
   boardId: string;
@@ -29,6 +29,41 @@ export async function openColumnFile(
 ): Promise<void> {
   try {
     const url = await resolveUrlNow(columnFileKey(target), () => fetchColumnFileUrl(target));
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } catch (error) {
+    showToast(describeCallableError(error, failureMessage), { type: 'negative' });
+  }
+}
+
+export interface UpdateFileTarget {
+  boardId: string;
+  itemId: string;
+  updateId: string;
+  replyId: string | null;
+  fileId: string;
+}
+
+/** The cache key of an update or reply file's signed URL (same as the item panel's). */
+export const updateFileKey = (t: UpdateFileTarget): string =>
+  `update/${t.boardId}/${t.itemId}/${t.updateId}/${t.replyId ?? ''}/${t.fileId}`;
+
+/** Fetch the signed URL of an update or reply file (not cached). */
+export const fetchUpdateFileUrl = (t: UpdateFileTarget) =>
+  updateAttachmentCalls.getUrl({
+    boardId: t.boardId,
+    itemId: t.itemId,
+    updateId: t.updateId,
+    ...(t.replyId ? { replyId: t.replyId } : {}),
+    fileId: t.fileId,
+  });
+
+/** Open an update or reply file in a new tab through its signed URL. */
+export async function openUpdateFile(
+  target: UpdateFileTarget,
+  failureMessage = 'Could not download file. Try again.',
+): Promise<void> {
+  try {
+    const url = await resolveUrlNow(updateFileKey(target), () => fetchUpdateFileUrl(target));
     window.open(url, '_blank', 'noopener,noreferrer');
   } catch (error) {
     showToast(describeCallableError(error, failureMessage), { type: 'negative' });

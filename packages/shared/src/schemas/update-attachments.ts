@@ -19,6 +19,12 @@ export const REQUEST_UPDATE_ATTACHMENT_UPLOAD_CALLABLE = 'requestUpdateAttachmen
 export const FINALIZE_UPDATE_ATTACHMENT_CALLABLE = 'finalizeUpdateAttachment';
 export const GET_UPDATE_ATTACHMENT_URL_CALLABLE = 'getUpdateAttachmentUrl';
 export const DELETE_UPDATE_ATTACHMENT_CALLABLE = 'deleteUpdateAttachment';
+export const LIST_BOARD_UPDATE_FILES_CALLABLE = 'listBoardUpdateFiles';
+
+/** Most update and reply documents one `listBoardUpdateFiles` call reads; more sets `truncated`. */
+export const LIST_BOARD_UPDATE_FILES_MAX_DOCS = 5000;
+/** Most entries one `listBoardUpdateFiles` call returns. */
+export const LIST_BOARD_UPDATE_FILES_MAX_ENTRIES = 2000;
 
 export const updateAttachmentsSchema = z
   .array(fileAttachmentSchema)
@@ -89,3 +95,29 @@ export const deleteUpdateAttachmentResultSchema = z
   .object({ success: z.literal(true), attachments: updateAttachmentsSchema })
   .strict();
 export type DeleteUpdateAttachmentResult = z.infer<typeof deleteUpdateAttachmentResultSchema>;
+
+/** Every file on a board's updates and replies, for the Files view (metadata only, no URLs). */
+export const listBoardUpdateFilesRequestSchema = z.object({ boardId: safeIdSchema }).strict();
+export type ListBoardUpdateFilesRequest = z.infer<typeof listBoardUpdateFilesRequestSchema>;
+
+export const updateFileEntrySchema = z
+  .object({
+    itemId: safeIdSchema,
+    updateId: safeIdSchema,
+    replyId: safeIdSchema.nullable(),
+    authorId: z.string().min(1),
+    /** When the update or reply was posted, in epoch milliseconds. */
+    createdAt: z.number().int().nonnegative(),
+    file: fileAttachmentSchema,
+  })
+  .strict();
+export type UpdateFileEntry = z.infer<typeof updateFileEntrySchema>;
+
+export const listBoardUpdateFilesResultSchema = z
+  .object({
+    files: z.array(updateFileEntrySchema).max(LIST_BOARD_UPDATE_FILES_MAX_ENTRIES),
+    /** True when the board has more update files than one call returns or reads. */
+    truncated: z.boolean(),
+  })
+  .strict();
+export type ListBoardUpdateFilesResult = z.infer<typeof listBoardUpdateFilesResultSchema>;

@@ -115,3 +115,46 @@ describe('collectFiles', () => {
     expect(run({}, 'nothing')).toEqual([]);
   });
 });
+
+describe('collectFiles with update files', () => {
+  const entry = (itemId: string, id: string, replyId: string | null = null) => ({
+    itemId,
+    updateId: 'u1',
+    replyId,
+    authorId: 'usr_1',
+    createdAt: 1000,
+    file: file(id, `${id}.png`, 'image/png', '2026-12-01T00:00:00.000Z'),
+  });
+  const run2 = (patch: Partial<FilesViewSettings> = {}, search = '') =>
+    collectFiles({
+      items,
+      columns,
+      settings: { ...defaultFilesViewSettings(), ...patch },
+      search,
+      updateFiles: [
+        entry(items[0]!.id, 'upd1'),
+        entry(items[0]!.id, 'rep1', 'r1'),
+        entry('other', 'x'),
+      ],
+    });
+
+  it('adds update and reply files of shown items only, labeled by source', () => {
+    const cards = run2();
+    const added = cards.filter((c) => c.source !== 'column');
+    expect(added.map((c) => [c.file.id, c.source]).sort()).toEqual([
+      ['rep1', 'reply'],
+      ['upd1', 'update'],
+    ]);
+    expect(new Set(cards.map((c) => c.key)).size).toBe(cards.length);
+  });
+
+  it('leaves them out when includeUpdates is off or specific columns are chosen', () => {
+    expect(run2({ includeUpdates: false }).every((c) => c.source === 'column')).toBe(true);
+    expect(run2({ columnIds: [columns[0]!.id] }).every((c) => c.source === 'column')).toBe(true);
+  });
+
+  it('applies the search and kind filters to them', () => {
+    expect(run2({}, 'upd1').map((c) => c.file.id)).toEqual(['upd1']);
+    expect(run2({ kinds: ['pdf'] }).some((c) => c.source !== 'column')).toBe(false);
+  });
+});

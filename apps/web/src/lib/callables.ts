@@ -37,6 +37,11 @@ import {
   type SetAccountStatusResult,
   ACCEPT_INVITE_CALLABLE,
   DELETE_UPDATE_ATTACHMENT_CALLABLE,
+  LIST_BOARD_UPDATE_FILES_CALLABLE,
+  listBoardUpdateFilesRequestSchema,
+  listBoardUpdateFilesResultSchema,
+  type ListBoardUpdateFilesRequest,
+  type ListBoardUpdateFilesResult,
   FINALIZE_UPDATE_ATTACHMENT_CALLABLE,
   GET_UPDATE_ATTACHMENT_URL_CALLABLE,
   REQUEST_UPDATE_ATTACHMENT_UPLOAD_CALLABLE,
@@ -393,6 +398,12 @@ export const updateAttachmentCalls = {
     DELETE_UPDATE_ATTACHMENT_CALLABLE,
     (r) => deleteUpdateAttachmentRequestSchema.parse(r),
     (d) => deleteUpdateAttachmentResultSchema.parse(d),
+  ),
+  /** File details of every update and reply on a board (Files view); no download links. */
+  listForBoard: validatedCallable<ListBoardUpdateFilesRequest, ListBoardUpdateFilesResult>(
+    LIST_BOARD_UPDATE_FILES_CALLABLE,
+    (r) => listBoardUpdateFilesRequestSchema.parse(r),
+    (d) => listBoardUpdateFilesResultSchema.parse(d),
   ),
 };
 

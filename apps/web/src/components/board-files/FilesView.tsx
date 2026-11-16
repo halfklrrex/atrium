@@ -1,4 +1,5 @@
 import { Button, Loader } from '@vibe/core';
+import { Retry } from '@vibe/icons';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useItems, useUserLookup, type BoardDoc } from '../../data';
 import { useBoardFilter, useViewTypeSettings } from '../board-filters';
@@ -10,6 +11,7 @@ import { useTableStore } from '../board-table/table-store';
 import { useDeepStable } from '../board-table/useDeepStable';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { FileCard } from './FileCard';
+import { useBoardUpdateFiles } from './useBoardUpdateFiles';
 import { collectFiles } from './files-view-model';
 import styles from './files-view.module.css';
 
@@ -50,6 +52,7 @@ export function FilesView({ board }: FilesViewProps) {
   const settings = useViewTypeSettings(boardId, 'files');
   const { filterState } = useBoardFilter(boardId);
   const search = useDeferredValue(useTableStore((s) => s.search)).trim();
+  const updates = useBoardUpdateFiles(boardId, settings.includeUpdates);
 
   // The search is applied per file (item name or file name), so the item step gets none.
   const filteredItems = useMemo(
@@ -57,8 +60,15 @@ export function FilesView({ board }: FilesViewProps) {
     [items, columns, filterState],
   );
   const cards = useMemo(
-    () => collectFiles({ items: filteredItems, columns: fileColumns, settings, search }),
-    [filteredItems, fileColumns, settings, search],
+    () =>
+      collectFiles({
+        items: filteredItems,
+        columns: fileColumns,
+        settings,
+        search,
+        updateFiles: updates.files,
+      }),
+    [filteredItems, fileColumns, settings, search, updates.files],
   );
   const anyFiles = useMemo(
     () =>
@@ -67,8 +77,9 @@ export function FilesView({ board }: FilesViewProps) {
         columns: fileColumns,
         settings: { ...settings, columnIds: null, kinds: [] },
         search: '',
+        updateFiles: updates.files,
       }).length > 0,
-    [items, columns, fileColumns, settings],
+    [items, columns, fileColumns, settings, updates.files],
   );
 
   const pageKey = `${search}|${JSON.stringify([filterState, settings])}|${cards.length}`;
@@ -76,13 +87,27 @@ export function FilesView({ board }: FilesViewProps) {
 
   const count = cards.length === 1 ? '1 file' : `${cards.length} files`;
   const trailing = (
-    <span className={styles.count} aria-live="polite">
-      {loading || error || !anyFiles ? '' : count}
-    </span>
+    <>
+      <span className={styles.count} aria-live="polite">
+        {loading || error || !anyFiles ? '' : count}
+      </span>
+      {settings.includeUpdates ? (
+        <Button
+          kind="tertiary"
+          size="small"
+          leftIcon={Retry}
+          disabled={updates.loading}
+          onClick={updates.refresh}
+          aria-label="Refresh files"
+        >
+          Refresh
+        </Button>
+      ) : null}
+    </>
   );
 
   let body;
-  if (loading) {
+  if (loading || (updates.loading && !anyFiles)) {
     body = (
       <div className={styles.state} role="status">
         <Loader size="medium" />
@@ -94,7 +119,7 @@ export function FilesView({ board }: FilesViewProps) {
         Could not load the items. Check your connection and try again.
       </p>
     );
-  } else if (fileColumns.length === 0) {
+  } else if (fileColumns.length === 0 && !anyFiles) {
     body = (
       <EmptyState
         size="page"
@@ -107,7 +132,7 @@ export function FilesView({ board }: FilesViewProps) {
       <EmptyState
         size="page"
         title="No files yet"
-        body="Files added to this board's Files columns show up here."
+        body="Files added to this board's Files columns or updates show up here."
       />
     );
   } else if (cards.length === 0) {
@@ -127,6 +152,7 @@ export function FilesView({ board }: FilesViewProps) {
               key={card.key}
               boardId={boardId}
               card={card}
+              userName={userName}
               onOpenItem={(itemId) => openItem(boardId, itemId, { tab: 'files' })}
             />
           ))}
@@ -155,7 +181,19 @@ export function FilesView({ board }: FilesViewProps) {
         variant="files"
         trailing={trailing}
       />
-      <div className={styles.scroll}>{body}</div>
+      <div className={styles.scroll}>
+        {updates.error ? (
+          <p className={styles.note} role="alert">
+            Could not load update files. Press Refresh to try again.
+          </p>
+        ) : null}
+        {updates.truncated ? (
+          <p className={styles.note} role="status">
+            Some update files aren&apos;t shown.
+          </p>
+        ) : null}
+        {body}
+      </div>
     </div>
   );
 }

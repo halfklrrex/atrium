@@ -16,6 +16,7 @@ import type { BootstrapTx } from './bootstrap';
 import type { FileStorageBucket, FileStorageTx, StorageFileMetadata } from './file-storage';
 import type { DescriptionImageTx } from './description-images';
 import type { UpdateAttachmentTx } from './update-attachments';
+import type { PostFilesRow, UpdateFilesStore } from './update-files';
 import type { ColumnActionsTx } from './column-actions';
 import {
   DELETE_VALUE,
@@ -571,6 +572,100 @@ export function adminBoardSharingTx(firestore: Firestore, tx: Transaction): Boar
       for (const doc of docs) {
         appendActivityTx(firestore, tx, boardId, newActivityId(firestore, boardId), doc);
       }
+    },
+  };
+}
+
+/** How many items (and then updates with replies) are read in parallel by the Files view listing. */
+const UPDATE_FILES_PARALLEL = 10;
+
+const millisOf = (value: unknown): number => (value instanceof Timestamp ? value.toMillis() : 0);
+
+/**
+ * Reads a board's updates and replies without a collection-group index: one `updates` query per
+ * item, then one `replies` query per update that has replies. Stops at `limit` documents.
+ */
+export function adminUpdateFilesStore(firestore: Firestore): UpdateFilesStore {
+  const FIELDS = ['attachments', 'authorId', 'createdAt'] as const;
+  return {
+    async getBoard(boardId) {
+      const snap = await firestore.collection('boards').doc(boardId).get();
+      return snap.exists ? (snap.data() as Board) : null;
+    },
+    async getWorkspace(workspaceId) {
+      const snap = await firestore.collection('workspaces').doc(workspaceId).get();
+      return snap.exists ? (snap.data() as Workspace) : null;
+    },
+    async listPosts(boardId, limit) {
+      const itemsRef = firestore.collection('boards').doc(boardId).collection('items');
+      const itemIds = (await itemsRef.select().get()).docs.map((d) => d.id);
+      const rows: PostFilesRow[] = [];
+      let truncated = false;
+
+      const rowOf = (
+        doc: FirebaseFirestore.QueryDocumentSnapshot,
+        itemId: string,
+        updateId: string,
+        replyId: string | null,
+      ): PostFilesRow => ({
+        itemId,
+        updateId,
+        replyId,
+        authorId: typeof doc.get('authorId') === 'string' ? (doc.get('authorId') as string) : '',
+        createdAt: millisOf(doc.get('createdAt')),
+        attachments: doc.get('attachments'),
+      });
+
+      for (let i = 0; i < itemIds.length && !truncated; i += UPDATE_FILES_PARALLEL) {
+        const chunk = itemIds.slice(i, i + UPDATE_FILES_PARALLEL);
+        const updateSnaps = await Promise.all(
+          chunk.map((itemId) =>
+            itemsRef
+              .doc(itemId)
+              .collection('updates')
+              .select(...FIELDS, 'repliesCount')
+              .limit(limit + 1)
+              .get(),
+          ),
+        );
+        for (let c = 0; c < chunk.length && !truncated; c += 1) {
+          const itemId = chunk[c]!;
+          const withReplies: string[] = [];
+          for (const doc of updateSnaps[c]!.docs) {
+            if (rows.length >= limit) {
+              truncated = true;
+              break;
+            }
+            rows.push(rowOf(doc, itemId, doc.id, null));
+            if (Number(doc.get('repliesCount') ?? 0) > 0) withReplies.push(doc.id);
+          }
+          for (let r = 0; r < withReplies.length && !truncated; r += UPDATE_FILES_PARALLEL) {
+            const group = withReplies.slice(r, r + UPDATE_FILES_PARALLEL);
+            const replySnaps = await Promise.all(
+              group.map((updateId) =>
+                itemsRef
+                  .doc(itemId)
+                  .collection('updates')
+                  .doc(updateId)
+                  .collection('replies')
+                  .select(...FIELDS)
+                  .limit(limit + 1)
+                  .get(),
+              ),
+            );
+            for (let g = 0; g < group.length && !truncated; g += 1) {
+              for (const doc of replySnaps[g]!.docs) {
+                if (rows.length >= limit) {
+                  truncated = true;
+                  break;
+                }
+                rows.push(rowOf(doc, itemId, group[g]!, doc.id));
+              }
+            }
+          }
+        }
+      }
+      return { rows, truncated };
     },
   };
 }
