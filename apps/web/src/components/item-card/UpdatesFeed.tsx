@@ -12,6 +12,7 @@ import { LazyUpdateComposer } from './LazyUpdateComposer';
 import { RichText } from './RichText';
 import type { UpdateBody } from './update-doc';
 import { UpdateAttachments } from './UpdateAttachments';
+import { canRemoveAttachment } from './update-attachments';
 import { UpdateReplies } from './UpdateReplies';
 import styles from './UpdatesFeed.module.css';
 
@@ -171,7 +172,12 @@ export function UpdatesFeed({
                   target={{ boardId, itemId, updateId: update.id }}
                   attachments={update.attachments}
                   canRemove={(file) =>
-                    !!uid && (canManage || file.uploadedBy === uid || update.authorId === uid)
+                    canRemoveAttachment({
+                      uid,
+                      canManage,
+                      uploadedBy: file.uploadedBy,
+                      authorId: update.authorId,
+                    })
                   }
                 />
 
