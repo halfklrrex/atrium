@@ -47,7 +47,7 @@ export function ItemFilesTab({
         <div className={styles.emptyIconWrap}>
           <Icon icon={FileIcon} size={28} aria-hidden />
         </div>
-        <h3 className={styles.emptyTitle}>No files yet</h3>
+        <h2 className={styles.emptyTitle}>No files yet</h2>
         <p className={styles.emptyBody}>
           Files added to this item&apos;s file columns or to its updates show up here.
         </p>
@@ -59,9 +59,9 @@ export function ItemFilesTab({
     <div className={styles.files}>
       {fileColumns.length > 0 && (
         <section className={styles.section} aria-labelledby="item-files-columns">
-          <h3 id="item-files-columns" className={styles.sectionTitle}>
+          <h2 id="item-files-columns" className={styles.sectionTitle}>
             In columns
-          </h3>
+          </h2>
           {fileColumns.map((column) => (
             <div key={column.def.id} className={styles.columnBlock}>
               <span className={styles.columnLabel} title={column.def.title}>
@@ -75,9 +75,9 @@ export function ItemFilesTab({
 
       {withAttachments.length > 0 && (
         <section className={styles.section} aria-labelledby="item-files-updates">
-          <h3 id="item-files-updates" className={styles.sectionTitle}>
+          <h2 id="item-files-updates" className={styles.sectionTitle}>
             In updates
-          </h3>
+          </h2>
           {withAttachments.map((update) => (
             <div key={update.id} className={styles.updateBlock}>
               <p className={styles.updateMeta}>
