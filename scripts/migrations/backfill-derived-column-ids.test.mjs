@@ -115,7 +115,7 @@ test('the plan only lists boards whose field is missing or wrong', () => {
       voteColumnIds: [],
       had: undefined,
       hadServerManaged: undefined,
-      hadVote: [],
+      hadVote: undefined,
     },
     {
       id: 'stale',
