@@ -31,11 +31,16 @@ import { SummaryCell, SummaryRow } from './SummaryRow';
 import { usePrinting } from '../../lib/use-printing';
 import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
-import { VIRTUALIZE_AFTER, groupItemCountLabel, groupKey, type GroupModel } from './table-model';
+import {
+  VIRTUALIZE_AFTER,
+  estimateEntryHeight,
+  groupItemCountLabel,
+  groupKey,
+  type GroupModel,
+} from './table-model';
 import { useTablePrefs, useTableStore } from './table-store';
 import styles from './table.module.css';
 
-const ROW_HEIGHT_ESTIMATE = 36;
 const OVERSCAN = 12;
 
 interface GroupBlockProps {
@@ -288,6 +293,7 @@ function VirtualRows({
   autoExpanded: GroupModel['autoExpanded'];
 }) {
   const env = useTableEnv();
+  const expanded = useTableStore((s) => s.expanded);
   const listRef = useRef<HTMLDivElement>(null);
   const [margin, setMargin] = useState(0);
   const scrollElement = env.scrollElement;
@@ -314,18 +320,23 @@ function VirtualRows({
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollElement,
-    // A row is 36px; an open parent adds its header, its subitems and "+ Add subitem". The real
-    // height is measured once the row is mounted (`measureElement` below).
+    // The real height is measured once the row is mounted (`measureElement` below).
     estimateSize: (index) => {
       const item = items[index]!;
-      const open = autoExpanded.has(item.id) || useTableStore.getState().expanded.has(item.id);
-      const subs = subitemsByParent.get(item.id)?.length ?? 0;
-      return ROW_HEIGHT_ESTIMATE * (open ? 3 + subs : 1);
+      const open = autoExpanded.has(item.id) || expanded.has(item.id);
+      return estimateEntryHeight(open, subitemsByParent.get(item.id)?.length ?? 0);
     },
     overscan: OVERSCAN,
     scrollMargin: margin,
     getItemKey: (index) => items[index]!.id,
   });
+
+  // Opening or closing a block, or a subitem arriving, changes a row's height: drop the cached
+  // sizes so the estimates above are re-read and mounted rows are measured again, and the rows
+  // below are pushed down at once instead of waiting for each row's own resize callback.
+  useLayoutEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, expanded, autoExpanded, subitemsByParent]);
 
   return (
     <div
