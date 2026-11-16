@@ -138,3 +138,50 @@ describe('RichText image', () => {
     expect(screen.getByRole('img', { name: 'Image unavailable' })).toBeInTheDocument();
   });
 });
+
+describe('composer image paste speed', () => {
+  it('shows a local preview while uploading and skips getUrl after finalize', async () => {
+    const createObjectURL = vi.fn(() => 'blob:local-1');
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+    mocks.requestUpload.mockResolvedValue({ uploadUrl: 'https://u', headers: {}, fileId: 'f1' });
+    let release: () => void = () => {};
+    mocks.finalize.mockReturnValue(new Promise((r) => (release = () => r({ fileId: 'f1' }))));
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    const { container } = render(<Harness />);
+
+    paste(new File(['x'], 'a.png', { type: 'image/png' }));
+    await waitFor(() => expect(container.querySelector('img[src="blob:local-1"]')).not.toBeNull());
+    release();
+    await waitFor(() =>
+      expect(holder.editor.getJSON().content).toContainEqual(
+        expect.objectContaining({ type: 'image' }),
+      ),
+    );
+    await waitFor(() => expect(container.querySelector('img[src="blob:local-1"]')).not.toBeNull());
+    expect(mocks.getUrl).not.toHaveBeenCalled();
+  });
+
+  it('uploads several pasted images in parallel, keeping their order', async () => {
+    let started = 0;
+    mocks.requestUpload.mockImplementation(async () => {
+      started += 1;
+      return { uploadUrl: 'https://u', headers: {}, fileId: `f${started}` };
+    });
+    mocks.finalize.mockImplementation(async (r: { fileId: string }) => ({ fileId: r.fileId }));
+    mocks.getUrl.mockResolvedValue({ url: 'https://img/x', expiresAt: Date.now() + 3_600_000 });
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    render(<Harness />);
+    const { editor } = holder;
+    const files = ['a', 'b'].map((n) => new File(['x'], `${n}.png`, { type: 'image/png' }));
+    editor.view.someProp('handlePaste', (f) =>
+      f(editor.view, { clipboardData: { files }, preventDefault: vi.fn() } as never, null as never),
+    );
+    await waitFor(() => expect(mocks.requestUpload).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      const ids = (holder.editor.getJSON().content ?? [])
+        .filter((n) => n.type === 'image')
+        .map((n) => n.attrs?.fileId);
+      expect(ids).toHaveLength(2);
+    });
+  });
+});
