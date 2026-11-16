@@ -82,7 +82,7 @@ export function useDescriptionImageUrl(boardId: string, itemId: string, fileId: 
 
   const load = useCallback(
     (force: boolean) => {
-      const attempt = (forced: boolean): void => {
+      const attempt = (forced: boolean, quiet = false): void => {
         resolveDescriptionImageUrl(boardId, itemId, fileId, forced).then(
           (entry) => {
             if (!alive.current) return;
@@ -92,10 +92,11 @@ export function useDescriptionImageUrl(boardId: string, itemId: string, fileId: 
               Math.max(entry.expiresAt - Date.now() - URL_REFRESH_MARGIN_MS, 1000),
               MAX_TIMER_MS,
             );
-            timer.current = setTimeout(() => attempt(true), wait);
+            timer.current = setTimeout(() => attempt(true, true), wait);
           },
           () => {
-            if (alive.current) setState({ status: 'unavailable' });
+            // A failed background refresh keeps the current URL; its onError decides later.
+            if (alive.current && !quiet) setState({ status: 'unavailable' });
           },
         );
       };
