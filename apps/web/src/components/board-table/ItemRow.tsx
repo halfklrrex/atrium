@@ -212,7 +212,7 @@ interface ItemRowBodyProps {
   renaming: boolean;
   /** Presentational copy used for the drag overlay: no menus, no store, no interaction. */
   overlay?: boolean;
-  /** A subitem row: its own columns, no updates bubble and no item card. */
+  /** A subitem row: its own columns; same bubble, Open icon and side panel as an item. */
   subitem?: boolean;
   subitemCount?: number;
   expanded?: boolean;
