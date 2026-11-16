@@ -795,7 +795,7 @@ test('structure changes give up after a second conflict', async () => {
 test('tool catalogue: unique atrium_ names, every tool described, scoped and annotated', () => {
   const tools = defineTools({});
   const names = tools.map((t) => t.name);
-  assert.equal(tools.length, 37);
+  assert.equal(tools.length, 43);
   assert.equal(new Set(names).size, names.length);
   for (const tool of tools) {
     assert.match(tool.name, /^atrium_[a-z_]+$/);
@@ -1979,7 +1979,7 @@ test('tool catalogue: the batch 1b tools reach the service with the right scopes
       ['setColumnLock', false],
     ],
   );
-  assert.equal(tools.length, 37);
+  assert.equal(tools.length, 43);
 });
 
 test('findItems pages through equal positions and unknown groups without gaps or repeats', async () => {
@@ -2060,4 +2060,354 @@ test('restoreItem compares Timestamp-like deletedAt values', async () => {
   await service.restoreItem({ boardId: 'b', itemId: 'p' });
   assert.equal(client.docs.get('boards/b/items/with').data.state, 'active');
   assert.equal(client.docs.get('boards/b/items/early').data.state, 'deleted');
+});
+
+// ---- batch 1c, PR 1: votes, board lifecycle, people by email ---------------------------------------
+
+const voteCol = (id = 'v1', title = 'Votes') => ({
+  id,
+  type: 'vote',
+  title,
+  position: 'a1',
+  settings: {},
+});
+const voteBoard = (role = 'editor', more = {}) =>
+  boardDoc(WS, { [ME]: role }, { columns: [voteCol()], ...more });
+
+test('vote: adds the caller uid with a field-path write, repeats are no-ops, unvote removes it', async () => {
+  const { service, client } = setup({
+    extra: {
+      'boards/b': voteBoard(),
+      'boards/b/items/i': itemDoc({ values: { v1: { votersIds: [OTHER] } } }),
+    },
+  });
+  const first = await service.setVote({ boardId: 'b', itemId: 'i', voted: true });
+  assert.deepEqual(first, { itemId: 'i', column: 'Votes', votes: 2, voted: true, changed: true });
+  assert.deepEqual(client.docs.get('boards/b/items/i').data.values.v1.votersIds, [OTHER, ME]);
+  const last = client.commits.at(-1);
+  assert.deepEqual(Object.keys(last[0].set), ['values.v1']);
+  const again = await service.setVote({ boardId: 'b', itemId: 'i', voted: true });
+  assert.equal(again.changed, false);
+  assert.equal(again.votes, 2);
+  const removed = await service.setVote({ boardId: 'b', itemId: 'i', voted: false });
+  assert.deepEqual(removed, {
+    itemId: 'i',
+    column: 'Votes',
+    votes: 1,
+    voted: false,
+    changed: true,
+  });
+  const noop = await service.setVote({ boardId: 'b', itemId: 'i', voted: false });
+  assert.equal(noop.changed, false);
+  assert.deepEqual(client.docs.get('boards/b/items/i').data.values.v1.votersIds, [OTHER]);
+});
+
+test('vote: forbidden for a viewer, not found outside the memberships, missing item', async () => {
+  const viewer = setup({
+    extra: { 'boards/b': voteBoard('viewer'), 'boards/b/items/i': itemDoc() },
+  });
+  await assert.rejects(
+    viewer.service.setVote({ boardId: 'b', itemId: 'i', voted: true }),
+    /only view/,
+  );
+  const stranger = setup({
+    extra: {
+      'boards/b': boardDoc('other-ws', { [OTHER]: 'owner' }, { columns: [voteCol()] }),
+      'boards/b/items/i': itemDoc(),
+    },
+  });
+  await assert.rejects(
+    stranger.service.setVote({ boardId: 'b', itemId: 'i', voted: true }),
+    /not found in your workspaces/,
+  );
+  const { service } = setup({ extra: { 'boards/b': voteBoard() } });
+  await assert.rejects(
+    service.setVote({ boardId: 'b', itemId: 'nope', voted: true }),
+    /not found on this board/,
+  );
+});
+
+test('vote: infers the only vote column, asks when there are none or several, works on subitems', async () => {
+  const none = setup({
+    extra: { 'boards/b': boardDoc(WS, { [ME]: 'editor' }), 'boards/b/items/i': itemDoc() },
+  });
+  await assert.rejects(
+    none.service.setVote({ boardId: 'b', itemId: 'i', voted: true }),
+    /no vote column/,
+  );
+  const two = setup({
+    extra: {
+      'boards/b': boardDoc(
+        WS,
+        { [ME]: 'editor' },
+        { columns: [voteCol('v1', 'Votes'), voteCol('v2', 'Priority votes')] },
+      ),
+      'boards/b/items/i': itemDoc(),
+    },
+  });
+  await assert.rejects(
+    two.service.setVote({ boardId: 'b', itemId: 'i', voted: true }),
+    /several vote columns/,
+  );
+  const picked = await two.service.setVote({
+    boardId: 'b',
+    itemId: 'i',
+    column: 'priority votes',
+    voted: true,
+  });
+  assert.equal(picked.column, 'Priority votes');
+  assert.deepEqual(two.client.docs.get('boards/b/items/i').data.values.v2, { votersIds: [ME] });
+  await assert.rejects(
+    two.service.setVote({ boardId: 'b', itemId: 'i', column: 'Note', voted: true }),
+    /No column/,
+  );
+  const sub = setup({
+    extra: {
+      'boards/b': voteBoard(),
+      'boards/b/items/p': itemDoc(),
+      'boards/b/items/s': itemDoc({ parentItemId: 'p' }),
+    },
+  });
+  const result = await sub.service.setVote({ boardId: 'b', itemId: 's', voted: true });
+  assert.equal(result.votes, 1);
+});
+
+test('vote: a locked column refuses a non-owner and an owner may vote', async () => {
+  const locked = setup({
+    extra: {
+      'boards/b': voteBoard('editor', { columnLocks: ['v1'] }),
+      'boards/b/items/i': itemDoc(),
+    },
+  });
+  await assert.rejects(
+    locked.service.setVote({ boardId: 'b', itemId: 'i', voted: true }),
+    /locked to board owners/,
+  );
+  const owner = setup({
+    extra: {
+      'boards/b': voteBoard('owner', { columnLocks: ['v1'] }),
+      'boards/b/items/i': itemDoc(),
+    },
+  });
+  assert.equal((await owner.service.setVote({ boardId: 'b', itemId: 'i', voted: true })).votes, 1);
+});
+
+test('vote: a raced write is retried once and then fails', async () => {
+  const { service, client } = setup({
+    extra: { 'boards/b': voteBoard(), 'boards/b/items/i': itemDoc() },
+  });
+  const real = client.commit.bind(client);
+  let races = 1;
+  client.commit = async (writes) => {
+    if (races-- > 0) {
+      await real([{ op: 'patch', path: 'boards/b/items/i', data: { name: 'Changed' } }]);
+    }
+    return real(writes);
+  };
+  assert.equal((await service.setVote({ boardId: 'b', itemId: 'i', voted: true })).votes, 1);
+  races = 2;
+  await assert.rejects(
+    service
+      .setVote({ boardId: 'b', itemId: 'i', voted: false })
+      .then(() => service.setVote({ boardId: 'b', itemId: 'i', voted: true })),
+    (e) => e.status === 409,
+  );
+});
+
+test('update_item and create_items refuse raw vote values; the board shows the count', async () => {
+  const { service } = setup({
+    extra: {
+      'boards/b': voteBoard(),
+      'boards/b/items/i': itemDoc({ values: { v1: { votersIds: [OTHER, ME] } } }),
+    },
+  });
+  const message = /Use atrium_vote_item or atrium_unvote_item for vote columns\./;
+  await assert.rejects(
+    service.updateItem({ boardId: 'b', itemId: 'i', values: { Votes: { votersIds: [ME] } } }),
+    message,
+  );
+  await assert.rejects(
+    service.updateItem({ boardId: 'b', itemId: 'i', values: { Votes: null } }),
+    message,
+  );
+  await assert.rejects(
+    service.createItems({ boardId: 'b', items: [{ name: 'X', values: { Votes: 3 } }] }),
+    message,
+  );
+  const board = await service.getBoard({ boardId: 'b' });
+  assert.equal(board.items[0].values.Votes, '2');
+});
+
+test('people cells take a member email, case-insensitively; others look like unknown uids', async () => {
+  const { service, client } = setup({
+    extra: {
+      'boards/b': boardDoc(
+        WS,
+        { [ME]: 'editor' },
+        { columns: [{ id: 'p1', type: 'people', title: 'Owner', position: 'a0', settings: {} }] },
+      ),
+      'boards/b/items/i': itemDoc(),
+      [`users/${OTHER}`]: { displayName: 'Jordan Lee', email: 'Jordan@Example.com' },
+      'users/user-outsider': { displayName: 'Sam', email: 'sam@example.com' },
+    },
+  });
+  await service.updateItem({
+    boardId: 'b',
+    itemId: 'i',
+    values: { Owner: ['  jordan@example.COM ', 'me'] },
+  });
+  assert.deepEqual(client.docs.get('boards/b/items/i').data.values.p1, {
+    personsAndTeams: [
+      { id: OTHER, kind: 'person' },
+      { id: ME, kind: 'person' },
+    ],
+  });
+  const errors = [];
+  for (const input of ['sam@example.com', 'nobody@example.com', 'user-unknown']) {
+    await service
+      .updateItem({ boardId: 'b', itemId: 'i', values: { Owner: input } })
+      .catch((e) => errors.push(e.message));
+  }
+  assert.equal(errors.length, 3);
+  assert.equal(new Set(errors).size, 1);
+  assert.match(errors[0], /uids, the email of a workspace member/);
+});
+
+const lifecycle = (state = 'active', role = 'owner', more = {}) =>
+  boardDoc(WS, { [ME]: role }, { state, name: 'Plans', ...more });
+
+test('renameBoard changes name and description as an editor and reports the previous values', async () => {
+  const { service, client } = setup({ extra: { 'boards/b': lifecycle('active', 'editor') } });
+  const result = await service.renameBoard({ boardId: 'b', name: '  Roadmap  ' });
+  assert.deepEqual(result, {
+    id: 'b',
+    name: 'Roadmap',
+    description: '',
+    was: { name: 'Plans', description: '' },
+  });
+  await service.renameBoard({ boardId: 'b', description: 'Q4' });
+  const stored = client.docs.get('boards/b').data;
+  assert.equal(stored.name, 'Roadmap');
+  assert.equal(stored.description, 'Q4');
+  assert.equal(stored.updatedBy, ME);
+  await assert.rejects(service.renameBoard({ boardId: 'b' }), /name or a description/);
+  await assert.rejects(service.renameBoard({ boardId: 'b', name: '   ' }), /1 to 120/);
+  await assert.rejects(service.renameBoard({ boardId: 'b', name: 'x'.repeat(121) }), /1 to 120/);
+});
+
+test('renameBoard: viewer forbidden, outsider and inactive boards refused', async () => {
+  const viewer = setup({ extra: { 'boards/b': lifecycle('active', 'viewer') } });
+  await assert.rejects(viewer.service.renameBoard({ boardId: 'b', name: 'X' }), /only view/);
+  const out = setup({
+    extra: { 'boards/b': boardDoc('other-ws', { [OTHER]: 'owner' }) },
+  });
+  await assert.rejects(out.service.renameBoard({ boardId: 'b', name: 'X' }), /not found/);
+  const archived = setup({ extra: { 'boards/b': lifecycle('archived') } });
+  await assert.rejects(archived.service.renameBoard({ boardId: 'b', name: 'X' }), /archived/);
+});
+
+test('archive, trash and restore a board move state and deletedAt like the web app', async () => {
+  const { service, client } = setup({ extra: { 'boards/b': lifecycle() } });
+  const state = () => client.docs.get('boards/b').data;
+  assert.deepEqual(await service.setBoardState({ boardId: 'b', to: 'archived' }), {
+    id: 'b',
+    name: 'Plans',
+    state: 'archived',
+    was: 'active',
+  });
+  assert.equal(state().deletedAt, null);
+  await assert.rejects(service.setBoardState({ boardId: 'b', to: 'archived' }), /already archived/);
+  const trashed = await service.setBoardState({ boardId: 'b', to: 'deleted' });
+  assert.equal(trashed.was, 'archived');
+  assert.equal(state().state, 'deleted');
+  assert.equal(+state().deletedAt, +NOW);
+  assert.equal(state().updatedBy, ME);
+  await assert.rejects(service.setBoardState({ boardId: 'b', to: 'deleted' }), /already deleted/);
+  await assert.rejects(service.setBoardState({ boardId: 'b', to: 'archived' }), /only a board/);
+  const back = await service.setBoardState({ boardId: 'b', to: 'active' });
+  assert.equal(back.was, 'deleted');
+  assert.equal(state().state, 'active');
+  assert.equal(state().deletedAt, null);
+  await assert.rejects(service.setBoardState({ boardId: 'b', to: 'active' }), /already active/);
+});
+
+test('board lifecycle needs the owner role; outsiders get not found', async () => {
+  for (const to of ['archived', 'deleted']) {
+    const editor = setup({ extra: { 'boards/b': lifecycle('active', 'editor') } });
+    await assert.rejects(editor.service.setBoardState({ boardId: 'b', to }), /board owner role/);
+  }
+  const trashed = setup({ extra: { 'boards/b': lifecycle('deleted', 'editor') } });
+  await assert.rejects(trashed.service.setBoardState({ boardId: 'b', to: 'active' }), /owner role/);
+  const out = setup({ extra: { 'boards/b': boardDoc('other-ws', { [OTHER]: 'owner' }) } });
+  await assert.rejects(out.service.setBoardState({ boardId: 'b', to: 'deleted' }), /not found/);
+  const none = setup();
+  await assert.rejects(none.service.setBoardState({ boardId: 'zz', to: 'deleted' }), /not found/);
+});
+
+test('restoring a board clears a folder that no longer exists and keeps one that does', async () => {
+  const { service, client } = setup({
+    extra: {
+      'boards/gone': lifecycle('archived', 'owner', { folderId: 'f-gone' }),
+      'boards/kept': lifecycle('deleted', 'owner', { folderId: 'f1' }),
+      [`workspaces/${WS}/folders/f1`]: { name: 'Work' },
+    },
+  });
+  await service.setBoardState({ boardId: 'gone', to: 'active' });
+  await service.setBoardState({ boardId: 'kept', to: 'active' });
+  assert.equal(client.docs.get('boards/gone').data.folderId, null);
+  assert.equal(client.docs.get('boards/kept').data.folderId, 'f1');
+});
+
+test('inactive boards stay closed to the other tools; listBoards filters by state', async () => {
+  const { service } = setup({
+    extra: {
+      'boards/a': lifecycle('active', 'owner', { name: 'Live', position: 'a0' }),
+      'boards/r': lifecycle('archived', 'owner', { name: 'Old', position: 'a1' }),
+      'boards/d': lifecycle('deleted', 'owner', { name: 'Gone', position: 'a2' }),
+      'boards/x': boardDoc('other-ws', { [OTHER]: 'owner' }, { state: 'archived' }),
+    },
+  });
+  const names = async (state) => (await service.listBoards({ state })).boards.map((b) => b.name);
+  assert.deepEqual(await names(undefined), ['Live']);
+  assert.deepEqual(await names('archived'), ['Old']);
+  assert.deepEqual(await names('deleted'), ['Gone']);
+  await assert.rejects(service.addGroup({ boardId: 'r', title: 'X' }), /archived, not active/);
+  await assert.rejects(service.getBoard({ boardId: 'd' }), /deleted, not active/);
+});
+
+test('tool catalogue: batch 1c PR 1 tools, scopes, annotations and schemas', async () => {
+  const calls = [];
+  const spy = new Proxy({}, { get: (_, key) => async (args) => calls.push([key, args]) });
+  const tools = defineTools(spy);
+  const byName = (n) => tools.find((t) => t.name === n);
+  const scopes = {
+    atrium_vote_item: 'write',
+    atrium_unvote_item: 'write',
+    atrium_rename_board: 'write',
+    atrium_archive_board: 'write',
+    atrium_delete_board: 'write',
+    atrium_restore_board: 'write',
+  };
+  for (const [name, scope] of Object.entries(scopes))
+    assert.equal(byName(name)?.scope, scope, name);
+  assert.equal(byName('atrium_delete_board').annotations.destructiveHint, true);
+  assert.equal(byName('atrium_archive_board').annotations.destructiveHint, false);
+  await byName('atrium_vote_item').run({ boardId: 'b', itemId: 'i' });
+  await byName('atrium_unvote_item').run({ boardId: 'b', itemId: 'i' });
+  await byName('atrium_archive_board').run({ boardId: 'b' });
+  await byName('atrium_delete_board').run({ boardId: 'b' });
+  await byName('atrium_restore_board').run({ boardId: 'b' });
+  assert.deepEqual(
+    calls.map(([key, args]) => [key, args.voted ?? args.to]),
+    [
+      ['setVote', true],
+      ['setVote', false],
+      ['setBoardState', 'archived'],
+      ['setBoardState', 'deleted'],
+      ['setBoardState', 'active'],
+    ],
+  );
+  assert.equal(byName('atrium_list_boards').inputSchema.state.safeParse('trash').success, false);
+  assert.equal(byName('atrium_rename_board').inputSchema.name.safeParse('').success, false);
+  assert.equal(tools.length, 43);
 });

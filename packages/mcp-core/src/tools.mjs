@@ -19,7 +19,7 @@ const cellValues = z
   .describe(
     'Cell values keyed by column title or id. status: label text; dropdown/tags: label text or an array of texts; ' +
       'date: "YYYY-MM-DD"; timeline: ["YYYY-MM-DD","YYYY-MM-DD"]; checkbox: true/false; rating: number; ' +
-      'link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid, "me" or an array of those. ' +
+      'link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid or email, "me" or an array of those; vote columns are written with atrium_vote_item. ' +
       'null clears a cell (refused on a required column). Calculated columns cannot be set.',
   );
 const labelEntry = z.union([
@@ -62,9 +62,12 @@ export function defineTools(service) {
     read({
       name: 'atrium_list_boards',
       description:
-        'Read-only. Lists the active boards you can see in a workspace (id, name, kind). workspaceId may be left ' +
-        'out when you are a member of exactly one workspace.',
-      inputSchema: { workspaceId },
+        'Read-only. Lists the boards you can see in a workspace (id, name, kind, state); state picks active (default), ' +
+        'archived or deleted (the trash). workspaceId may be left out when you are a member of exactly one workspace.',
+      inputSchema: {
+        workspaceId,
+        state: z.enum(['active', 'archived', 'deleted']).optional().describe('Default active.'),
+      },
       run: (args) => service.listBoards(args),
     }),
     read({
@@ -428,6 +431,55 @@ export function defineTools(service) {
         'Removes your like from an update, or from a reply when replyId is given. Needs the editor role.',
       inputSchema: { boardId: id, itemId: id, updateId: id, replyId: id.optional() },
       run: (args) => service.setUpdateLike({ ...args, liked: false }),
+    }),
+    add({
+      name: 'atrium_vote_item',
+      description:
+        'Adds your vote to an item (or subitem) in a vote column. column (id or title) may be left out when the item has exactly one ' +
+        'vote column. Voting twice changes nothing. Returns the vote count. Needs the editor role.',
+      inputSchema: { boardId: id, itemId: id, column: ref.optional() },
+      run: (args) => service.setVote({ ...args, voted: true }),
+    }),
+    add({
+      name: 'atrium_unvote_item',
+      description:
+        'Removes your vote from an item (or subitem) in a vote column; column may be left out when there is exactly one. ' +
+        'Removing without a vote changes nothing. Needs the editor role.',
+      inputSchema: { boardId: id, itemId: id, column: ref.optional() },
+      run: (args) => service.setVote({ ...args, voted: false }),
+    }),
+    add({
+      name: 'atrium_rename_board',
+      description:
+        "Changes a board's name and/or description (give at least one). Returns the new and previous values. Needs the editor role.",
+      inputSchema: {
+        boardId: id,
+        name: z.string().trim().min(1).max(120).optional(),
+        description: z.string().max(1000).optional(),
+      },
+      run: (args) => service.renameBoard(args),
+    }),
+    add({
+      name: 'atrium_archive_board',
+      description:
+        'Archives an active board (hidden from the sidebar, restorable with atrium_restore_board). Needs the board owner role.',
+      inputSchema: { boardId: id },
+      run: (args) => service.setBoardState({ ...args, to: 'archived' }),
+    }),
+    change({
+      name: 'atrium_delete_board',
+      description:
+        'Moves a board to the trash; it is purged after 30 days, and atrium_restore_board brings it back until then. ' +
+        'Needs the board owner role.',
+      inputSchema: { boardId: id },
+      run: (args) => service.setBoardState({ ...args, to: 'deleted' }),
+    }),
+    add({
+      name: 'atrium_restore_board',
+      description:
+        'Restores an archived or trashed board to active. Its items keep their own states. Needs the board owner role.',
+      inputSchema: { boardId: id },
+      run: (args) => service.setBoardState({ ...args, to: 'active' }),
     }),
     read({
       name: 'atrium_find_member',

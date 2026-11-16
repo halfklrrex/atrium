@@ -76,15 +76,30 @@ function tags(column, input) {
   return { tag_ids: ids };
 }
 
+/** True when a people input names someone by email (so the caller must load the profiles). */
+export function peopleInputHasEmail(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    return (Array.isArray(input) ? input : [input]).some(
+      (entry) => typeof entry === 'string' && entry.includes('@'),
+    );
+  }
+  return false;
+}
+
 function people(input, ctx) {
-  const list = (Array.isArray(input) ? input : [input]).map((entry) =>
-    entry === 'me' ? ctx.uid : entry,
-  );
+  const list = (Array.isArray(input) ? input : [input]).map((entry) => {
+    if (entry === 'me') return ctx.uid;
+    // An email is matched against the workspace members only; a non-member and an unknown address
+    // fail with the same message as an unknown uid, so this cannot probe accounts.
+    if (typeof entry === 'string' && entry.includes('@')) {
+      return ctx.emailToUid?.get(entry.trim().toLowerCase()) ?? entry;
+    }
+    return entry;
+  });
   for (const uid of list) {
     if (typeof uid !== 'string' || !ctx.memberUids.includes(uid)) {
       throw new McpUserError(
-        'People cells take workspace member uids (or "me" for yourself). ' +
-          'Emails are not supported yet.',
+        'People cells take workspace member uids, the email of a workspace member, or "me" for yourself.',
       );
     }
   }
@@ -96,6 +111,11 @@ function people(input, ctx) {
  * type's native JSON shape pass through. The result is NOT yet validated: see {@link toValidCell}.
  */
 export function convertCellValue(column, input, ctx) {
+  // Even null: clearing the cell would erase everyone's votes, and a raw value could add or remove
+  // someone else's. Only the vote tools write these cells, and only the caller's own uid.
+  if (column.type === 'vote') {
+    throw new McpUserError('Use atrium_vote_item or atrium_unvote_item for vote columns.');
+  }
   if (input === null || input === undefined) return null;
   switch (column.type) {
     case 'status':

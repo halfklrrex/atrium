@@ -38,7 +38,7 @@ import {
 } from './builders.mjs';
 import { McpUserError, assertId } from './errors.mjs';
 import { findColumn, findGroup, sortedByPosition } from './refs.mjs';
-import { readableCell, toValidCell } from './values.mjs';
+import { peopleInputHasEmail, readableCell, toValidCell } from './values.mjs';
 import { buildRichBody, memberResolver } from './updates.mjs';
 import {
   MAX_MARKDOWN_CHARS,
@@ -184,7 +184,7 @@ export function createService({ client, actor, now = () => new Date() }) {
   }
 
   /** Loads a board and applies the safety checks. `need` is 'read', 'edit' or 'owner'. */
-  async function loadBoard(boardId, need = 'edit') {
+  async function loadBoard(boardId, need = 'edit', { states = ['active'], ownerMessage } = {}) {
     assertId(boardId, 'boardId');
     const meta = await client.getDocMeta(`boards/${boardId}`);
     // Same message for "missing" and "not yours": never reveal boards outside the memberships.
@@ -192,11 +192,13 @@ export function createService({ client, actor, now = () => new Date() }) {
     if (!meta) throw notFound;
     const role = await roleOn(meta.data);
     if (!role) throw notFound;
-    if (meta.data.state !== 'active') {
+    if (!states.includes(meta.data.state)) {
       throw new McpUserError(`Board "${boardId}" is ${meta.data.state}, not active.`);
     }
     if (need === 'owner' && role !== 'owner') {
-      throw new McpUserError("Changing a board's structure needs the board owner role.");
+      throw new McpUserError(
+        ownerMessage ?? "Changing a board's structure needs the board owner role.",
+      );
     }
     if (need === 'edit' && !EDIT_ROLES.includes(role)) {
       throw new McpUserError('You can only view this board.');
@@ -211,9 +213,9 @@ export function createService({ client, actor, now = () => new Date() }) {
   }
 
   /** Read-modify-write of the board doc with an `updateTime` precondition; retried once. */
-  async function mutateBoard(boardId, change) {
+  async function mutateBoard(boardId, change, { need = 'owner', ...options } = {}) {
     for (let attempt = 0; ; attempt += 1) {
-      const loaded = await loadBoard(boardId, 'owner');
+      const loaded = await loadBoard(boardId, need, options);
       const { patch, result } = await change(loaded.board);
       try {
         await client.commit([
@@ -249,6 +251,19 @@ export function createService({ client, actor, now = () => new Date() }) {
   /** `{ "<column title or id>": input }` -> `{ <columnId>: storedValue }`, fully validated. */
   async function convertValues(loaded, values = {}, columns = loaded.board.columns) {
     const ctx = await cellContext(loaded);
+    const needsEmails = Object.entries(values).some(([ref, input]) => {
+      const column = columns.find(
+        (c) => c.id === ref || c.title.toLowerCase() === String(ref).trim().toLowerCase(),
+      );
+      return column?.type === 'people' && peopleInputHasEmail(input);
+    });
+    if (needsEmails) {
+      ctx.emailToUid = new Map();
+      for (const memberUid of ctx.memberUids) {
+        const email = (await profileOf(memberUid)).email;
+        if (typeof email === 'string') ctx.emailToUid.set(email.trim().toLowerCase(), memberUid);
+      }
+    }
     const out = {};
     for (const [ref, input] of Object.entries(values)) {
       const column = findColumn({ columns }, ref);
@@ -385,11 +400,11 @@ export function createService({ client, actor, now = () => new Date() }) {
       return { workspaces: await listWorkspaces() };
     },
 
-    async listBoards({ workspaceId } = {}) {
+    async listBoards({ workspaceId, state = 'active' } = {}) {
       const ws = await resolveWorkspace(workspaceId);
       const boards = await client.runQuery('boards', { workspaceId: ws.id });
       const visible = boards.filter((b) => {
-        if (b.data.state !== 'active') return false;
+        if (b.data.state !== state) return false;
         if (b.data.access?.[uid]) return true;
         return b.data.kind === 'main' && boardRoleFromWorkspaceRole(ws.role) !== null;
       });
@@ -1223,6 +1238,129 @@ export function createService({ client, actor, now = () => new Date() }) {
       }
       await client.commit(writes);
       return { deleted: replyId ?? updateId };
+    },
+
+    // ---- votes ----------------------------------------------------------------------------------
+    async setVote({ boardId, itemId, column, voted }) {
+      const loaded = await loadBoard(boardId, 'edit');
+      const item = await loadItem(boardId, itemId);
+      const voteColumns = columnsForItem(loaded.board, item).filter((c) => c.type === 'vote');
+      let target;
+      if (column === undefined) {
+        if (voteColumns.length !== 1) {
+          const known = voteColumns.map((c) => `"${c.title}"`).join(', ') || 'none';
+          throw new McpUserError(
+            voteColumns.length === 0
+              ? 'This item has no vote column.'
+              : `Give column: this item has several vote columns (${known}).`,
+          );
+        }
+        target = voteColumns[0];
+      } else {
+        target = findColumn({ columns: voteColumns }, column);
+      }
+      assertWritableColumn(loaded, target);
+      const path = `boards/${boardId}/items/${itemId}`;
+      for (let attempt = 0; ; attempt += 1) {
+        const meta = await client.getDocMeta(path);
+        if (!meta || meta.data.state !== 'active') {
+          throw new McpUserError(`Item "${itemId}" was not found on this board.`);
+        }
+        const raw = meta.data.values?.[target.id]?.votersIds;
+        const current = Array.isArray(raw) ? raw : [];
+        const has = current.includes(uid);
+        const result = (votes, changed) => ({
+          itemId,
+          column: target.title,
+          votes,
+          voted,
+          changed,
+        });
+        if (has === voted) return result(current.length, false);
+        const next = voted ? [...current, uid] : current.filter((u) => u !== uid);
+        try {
+          await client.commit([
+            {
+              op: 'update',
+              path,
+              set: { [`values.${target.id}`]: { votersIds: next } },
+              remove: [],
+              precondition: { updateTime: meta.updateTime },
+            },
+          ]);
+          return result(next.length, true);
+        } catch (error) {
+          const raced = error?.status === 409 || error?.status === 400;
+          if (!raced || attempt >= 1) throw error;
+        }
+      }
+    },
+
+    // ---- board lifecycle ------------------------------------------------------------------------
+    async renameBoard({ boardId, name, description }) {
+      if (name === undefined && description === undefined) {
+        throw new McpUserError('Give a name or a description to change.');
+      }
+      const patch = {};
+      if (name !== undefined) {
+        const trimmed = String(name).trim();
+        if (trimmed.length < 1 || trimmed.length > 120) {
+          throw new McpUserError('A board name has 1 to 120 characters.');
+        }
+        patch.name = trimmed;
+      }
+      if (description !== undefined) {
+        if (String(description).length > 1000) {
+          throw new McpUserError('A board description has at most 1000 characters.');
+        }
+        patch.description = String(description);
+      }
+      return mutateBoard(
+        boardId,
+        (board) => ({
+          patch,
+          result: {
+            id: boardId,
+            name: patch.name ?? board.name,
+            description: patch.description ?? board.description ?? '',
+            was: { name: board.name, description: board.description ?? '' },
+          },
+        }),
+        { need: 'edit' },
+      );
+    },
+
+    async setBoardState({ boardId, to }) {
+      const from = {
+        archived: ['active'],
+        deleted: ['active', 'archived'],
+        active: ['archived', 'deleted'],
+      }[to];
+      return mutateBoard(
+        boardId,
+        async (board) => {
+          if (!from.includes(board.state)) {
+            throw new McpUserError(
+              board.state === to
+                ? `Board "${boardId}" is already ${to}.`
+                : `Board "${boardId}" is ${board.state}; only a board that is ${from.join(' or ')} can become ${to}.`,
+            );
+          }
+          const patch = { state: to, deletedAt: to === 'deleted' ? now() : null };
+          if (to === 'active' && board.folderId) {
+            const folder = await client.getDoc(
+              `workspaces/${board.workspaceId}/folders/${board.folderId}`,
+            );
+            if (!folder) patch.folderId = null;
+          }
+          return { patch, result: { id: boardId, name: board.name, state: to, was: board.state } };
+        },
+        {
+          need: 'owner',
+          states: ['active', 'archived', 'deleted'],
+          ownerMessage: 'Archiving, trashing or restoring a board needs the board owner role.',
+        },
+      );
     },
 
     async setUpdateLike({ boardId, itemId, updateId, replyId, liked }) {

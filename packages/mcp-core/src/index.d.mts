@@ -80,7 +80,7 @@ export interface MemberSummary {
 /** The tool logic. Every method takes plain JSON and returns plain JSON or rejects with `McpUserError`. */
 export interface McpService {
   listWorkspaces(): Promise<{ workspaces: WorkspaceSummary[] }>;
-  listBoards(args?: { workspaceId?: string }): Promise<{
+  listBoards(args?: { workspaceId?: string; state?: 'active' | 'archived' | 'deleted' }): Promise<{
     workspaceId: string;
     boards: { id: string; name: string; kind: string; state: string }[];
   }>;
@@ -136,6 +136,14 @@ export interface McpService {
     replyId?: string;
     liked: boolean;
   }): Promise<unknown>;
+  setVote(args: {
+    boardId: string;
+    itemId: string;
+    column?: string;
+    voted: boolean;
+  }): Promise<unknown>;
+  renameBoard(args: { boardId: string; name?: string; description?: string }): Promise<unknown>;
+  setBoardState(args: { boardId: string; to: 'active' | 'archived' | 'deleted' }): Promise<unknown>;
   findMember(args: { email: string; workspaceId?: string }): Promise<unknown>;
   getItemDescription(args: { boardId: string; itemId: string }): Promise<unknown>;
   setItemDescription(args: {
@@ -219,7 +227,7 @@ export interface ToolDefinition {
   run(args: Record<string, unknown>): Promise<unknown>;
 }
 
-/** The tool catalogue bound to a service (37 tools). */
+/** The tool catalogue bound to a service (43 tools). */
 export declare function defineTools(service: McpService): ToolDefinition[];
 
 // ---- lower-level helpers (used by tests and the hosted server's own checks) ----------------------
