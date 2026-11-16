@@ -316,6 +316,37 @@ describe('FilesView', () => {
       expect(settingsNow()?.includeUpdates).toBe(false);
     });
 
+    it('keeps source, type and sort for update files on a board without a Files column', async () => {
+      mocks.items = [makeItem({ id: 'i1', name: 'Kickoff deck', values: {} })];
+      vi.mocked(updateAttachmentCalls.listForBoard).mockResolvedValue({
+        files: [
+          {
+            itemId: 'i1',
+            updateId: 'u1',
+            replyId: null,
+            authorId: 'u1',
+            createdAt: 1,
+            file: file('up1', 'notes.pdf', 'application/pdf', '2026-11-02T10:00:00.000Z'),
+          },
+        ],
+        truncated: false,
+      } as never);
+      open(withoutFiles);
+      expect(await screen.findByText('notes.pdf')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Source:/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^File type:/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Sort:/ })).toBeInTheDocument();
+    });
+
+    it('ignores a deleted column id in the saved settings', () => {
+      useFilterStore.getState().syncView('b1', 'fv', {
+        ...defaultViewSettings(),
+        files: { ...defaultFilesViewSettings(), columnIds: ['gone'] },
+      });
+      render(<FilesView board={withFiles} />);
+      expect(screen.getByText('2 files')).toBeInTheDocument();
+    });
+
     it('hides the column picker for a single files column', () => {
       open();
       expect(screen.queryByRole('button', { name: /^Files columns/ })).toBeNull();

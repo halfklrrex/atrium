@@ -77,7 +77,8 @@ monday has a Files view: one place that shows every file on a board as a grid of
 
 Saved in `settings.files` and dirty-tracked like the other views ("Save to this view"):
 
-- **Source picker:** "All files", or a checked list of the board's files columns plus "Updates" (update and reply files). Hidden when there is only one source.
+- **Source picker (built):** two radios, "Columns only" or "Columns and updates" (`includeUpdates`); update and reply files are added whenever it is on, whatever the column choice.
+- **Files columns picker (built):** a checked list of the board's Files columns, shown only with two or more; it narrows column files only. Ids of deleted columns are ignored and an empty choice means all columns (the last checked column can't be unchecked). The controls show whenever the board has a Files column or updates are on.
 - **Type chips** in a menu: Images, PDFs, Documents, Spreadsheets, Presentations, Video, Audio, Archives, Other. None checked means all. The kind comes from a pure `fileKind(mimeType, name)` (mime first, extension as fallback).
 - **Sort:** Newest, Oldest, Name (A to Z), Item (board order).
 

@@ -89,7 +89,7 @@ export function FilesView({ board }: FilesViewProps) {
   const count = cards.length === 1 ? '1 file' : `${cards.length} files`;
   const trailing = (
     <>
-      {fileColumns.length > 0 ? (
+      {fileColumns.length > 0 || settings.includeUpdates ? (
         <FilesViewControls boardId={boardId} settings={settings} fileColumns={fileColumns} />
       ) : null}
       <span className={styles.count} aria-live="polite">

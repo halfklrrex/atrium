@@ -130,7 +130,7 @@ export interface CollectFilesInput {
 }
 
 const byName = (a: FileCard, b: FileCard) =>
-  a.file.name.localeCompare(b.file.name, undefined, { sensitivity: 'base' });
+  a.file.name.localeCompare(b.file.name, undefined, { sensitivity: 'base', numeric: true });
 const uploadedAt = (c: FileCard): number => Date.parse(c.file.uploadedAt) || 0;
 const byItem = (a: FileCard, b: FileCard) => a.itemIndex - b.itemIndex;
 
@@ -142,8 +142,11 @@ export function collectFiles({
   search,
   updateFiles = [],
 }: CollectFilesInput): FileCard[] {
-  const chosen = settings.columnIds ? new Set(settings.columnIds) : null;
-  const shownColumns = columns.filter((c) => !chosen || chosen.has(c.id));
+  // Ids of deleted columns are ignored; none left means every column.
+  const existing = settings.columnIds
+    ? columns.filter((c) => settings.columnIds!.includes(c.id))
+    : [];
+  const shownColumns = existing.length > 0 ? existing : columns;
   const kinds = settings.kinds.length > 0 ? new Set<FilesViewKind>(settings.kinds) : null;
   const needle = search.trim().toLowerCase();
   const cards: FileCard[] = [];
