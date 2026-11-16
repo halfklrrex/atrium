@@ -17,7 +17,7 @@ import {
   NavigationChevronRight,
 } from '@vibe/icons';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, type CSSProperties } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { itemWrites, useItems, useWorkspace, type BoardDoc } from '../../data';
 import { countMissingRequired } from '../board-table/required';
@@ -34,22 +34,15 @@ import {
   boardPath,
   itemViewPath,
   neighbours,
+  subitemNeighbours,
+  subitemOpenState,
   useItemViewStore,
+  type ItemViewRouteState,
 } from './item-view-store';
 import { useItemTableCtx } from './use-item-ctx';
 import styles from './ItemView.module.css';
 
 const DescriptionEditor = lazy(() => import('./DescriptionEditor'));
-
-/** Router state the window understands: set by the board (back button) and by notifications. */
-interface ItemViewState {
-  fromBoard?: boolean;
-  /** Open the thread of this update and scroll it into view. */
-  updateId?: string | null;
-  replyId?: string | null;
-  /** Scroll this part of the window into view once the item has loaded. */
-  section?: 'subitems';
-}
 
 export interface ItemViewProps {
   board: BoardDoc;
@@ -105,9 +98,16 @@ export function ItemView({ board, itemId }: ItemViewProps) {
     return () => useItemViewStore.getState().setOpenBoard(null);
   }, [boardId]);
   const visible = useItemViewStore((s) => s.visible[boardId]);
-  const { prev, next, index, total } = neighbours(visible, itemId);
+  const subitem = item ? isSubitem(item) : false;
+  const parent = item?.parentItemId
+    ? (items.find((i) => i.id === item.parentItemId) ?? null)
+    : null;
+  const { prev, next, index, total } = subitem
+    ? subitemNeighbours(items, item!)
+    : neighbours(visible, itemId);
+  const what = subitem ? 'subitem' : 'item';
 
-  const routeState = location.state as ItemViewState | null;
+  const routeState = location.state as ItemViewRouteState | null;
   const fromBoard = routeState?.fromBoard === true;
   const close = useCallback(() => {
     if (fromBoard) navigate(-1);
@@ -128,8 +128,15 @@ export function ItemView({ board, itemId }: ItemViewProps) {
   }, [wantsSubitems, hasItem]);
 
   const goTo = (id: string | null) => {
-    if (id) navigate(itemViewPath(board, id), { replace: true, state: FROM_BOARD_STATE });
+    if (!id) return;
+    // Stepping keeps how the page was opened (a subitem stays "from" its parent).
+    navigate(itemViewPath(board, id), {
+      replace: true,
+      state: subitem ? (routeState ?? FROM_BOARD_STATE) : FROM_BOARD_STATE,
+    });
   };
+  const openSubitem = (subId: string) =>
+    navigate(itemViewPath(board, subId), { state: subitemOpenState(routeState, itemId) });
 
   // Escape closes unless something inside owns it (an open menu, an editor, a popover).
   useEffect(() => {
@@ -160,7 +167,14 @@ export function ItemView({ board, itemId }: ItemViewProps) {
   const copyLink = () => copyItemLink(board, itemId);
   const retire = async (state: 'archived' | 'deleted') => {
     if (!item) return;
-    if (await tableActions.retireItems(ctx, [item.id], state)) close();
+    if (!(await tableActions.retireItems(ctx, [item.id], state))) return;
+    // A subitem goes back to its parent's page; an item back to the board.
+    if (item.parentItemId)
+      navigate(itemViewPath(board, item.parentItemId), {
+        replace: true,
+        state: routeState?.fromBoard ? FROM_BOARD_STATE : undefined,
+      });
+    else close();
   };
   const duplicate = () => {
     if (!item) return;
@@ -196,14 +210,17 @@ export function ItemView({ board, itemId }: ItemViewProps) {
             />
           </Suspense>
         </section>
-        <ItemSubitems
-          parent={item}
-          items={items}
-          subColumns={subColumns}
-          subCtx={subCtx}
-          ctx={ctx}
-          canEdit={canEdit}
-        />
+        {subitem ? null : (
+          <ItemSubitems
+            parent={item}
+            items={items}
+            subColumns={subColumns}
+            subCtx={subCtx}
+            ctx={ctx}
+            canEdit={canEdit}
+            onOpen={openSubitem}
+          />
+        )}
         <section className={styles.section} aria-label="Updates">
           <h3 className={styles.sectionTitle}>Updates</h3>
           <div className={styles.updates}>
@@ -219,12 +236,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
       </div>
       <aside className={styles.side} aria-label="Fields panel" data-print="reset">
         <h3 className={styles.sectionTitle}>Fields</h3>
-        <FieldsPanel
-          item={item}
-          columns={columns}
-          ctx={isSubitem(item) ? subCtx : ctx}
-          canEdit={canEdit}
-        />
+        <FieldsPanel item={item} columns={columns} ctx={subitem ? subCtx : ctx} canEdit={canEdit} />
       </aside>
     </div>
   );
@@ -244,7 +256,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
         data-print="item-window"
         role="dialog"
         aria-modal="true"
-        aria-label={item ? `Item ${item.name}` : 'Item'}
+        aria-label={item ? `${subitem ? 'Subitem' : 'Item'} ${item.name}` : 'Item'}
         tabIndex={-1}
       >
         <header className={styles.header}>
@@ -266,26 +278,40 @@ export function ItemView({ board, itemId }: ItemViewProps) {
                   </span>
                 </>
               ) : null}
+              {subitem && item?.parentItemId ? (
+                <>
+                  <span aria-hidden="true">{'›'}</span>
+                  <Link
+                    className={`${styles.crumb} ${styles.crumbLink}`}
+                    to={itemViewPath(board, item.parentItemId)}
+                    state={routeState?.fromBoard ? FROM_BOARD_STATE : undefined}
+                    aria-label={`Back to ${parent?.name ?? 'parent item'}`}
+                    data-testid="parent-crumb"
+                  >
+                    {parent?.name ?? '…'}
+                  </Link>
+                </>
+              ) : null}
             </nav>
             <div className={styles.actions} data-print="hide">
               {total > 1 ? (
                 <>
-                  <Tooltip content="Previous item">
+                  <Tooltip content={`Previous ${what}`}>
                     <IconButton
                       icon={NavigationChevronLeft}
                       size="small"
                       kind="tertiary"
-                      aria-label="Previous item"
+                      aria-label={`Previous ${what}`}
                       disabled={!prev}
                       onClick={() => goTo(prev)}
                     />
                   </Tooltip>
-                  <Tooltip content="Next item">
+                  <Tooltip content={`Next ${what}`}>
                     <IconButton
                       icon={NavigationChevronRight}
                       size="small"
                       kind="tertiary"
-                      aria-label="Next item"
+                      aria-label={`Next ${what}`}
                       disabled={!next}
                       onClick={() => goTo(next)}
                     />
@@ -295,22 +321,26 @@ export function ItemView({ board, itemId }: ItemViewProps) {
                   </span>
                 </>
               ) : null}
-              <MenuButton size="small" aria-label="Item actions" closeMenuOnItemClick>
+              <MenuButton
+                size="small"
+                aria-label={`${subitem ? 'Subitem' : 'Item'} actions`}
+                closeMenuOnItemClick
+              >
                 <Menu id="item-view-menu" size="medium">
                   <MenuItem title="Copy link" icon={LinkIcon} onClick={copyLink} />
                   {canEdit ? (
-                    <MenuItem title="Duplicate item" icon={Duplicate} onClick={duplicate} />
+                    <MenuItem title={`Duplicate ${what}`} icon={Duplicate} onClick={duplicate} />
                   ) : null}
                   {canEdit ? (
                     <MenuItem
-                      title="Archive item"
+                      title={`Archive ${what}`}
                       icon={Archive}
                       onClick={() => void retire('archived')}
                     />
                   ) : null}
                   {canEdit ? (
                     <MenuItem
-                      title="Delete item"
+                      title={`Delete ${what}`}
                       icon={Delete}
                       onClick={() => void retire('deleted')}
                     />
@@ -332,7 +362,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
             <InlineEdit
               value={item.name}
               readOnly={!canEdit}
-              ariaLabel="Item name"
+              ariaLabel={subitem ? 'Subitem name' : 'Item name'}
               className={styles.title}
               maxLength={500}
               onCommit={(name) => void tableActions.renameItem(ctx, item.id, name)}

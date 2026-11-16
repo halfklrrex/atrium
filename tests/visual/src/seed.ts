@@ -381,6 +381,8 @@ function roadmapItems(): { id: string; item: ItemWrite }[] {
 
 /** The item the full item view screens open: a description, three subitems and an update. */
 export const FULL_VIEW_ITEM = 'roadmap-item-17';
+/** The first seeded subitem of that item: the `item view: subitem` screens open its own page. */
+export const FULL_VIEW_SUBITEM = `${FULL_VIEW_ITEM}-sub-1`;
 
 const para = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 const FULL_VIEW_DESCRIPTION = {
