@@ -1,0 +1,78 @@
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  padding: var(--space-16);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.sectionTitle {
+  margin: 0;
+  font: var(--font-text2-bold);
+  color: var(--secondary-text-color);
+}
+
+.columnBlock,
+.updateBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.columnLabel {
+  font: var(--font-text2-normal);
+  color: var(--secondary-text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.updateMeta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  margin: 0;
+  font: var(--font-text2-normal);
+}
+
+.author {
+  font: var(--font-text2-bold);
+  color: var(--primary-text-color);
+}
+
+.time {
+  color: var(--secondary-text-color);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-8);
+  padding: var(--space-32) var(--space-16);
+}
+
+.emptyIconWrap {
+  color: var(--secondary-text-color);
+}
+
+.emptyTitle {
+  margin: 0;
+  font: var(--font-text1-bold);
+  color: var(--primary-text-color);
+}
+
+.emptyBody {
+  margin: 0;
+  font: var(--font-text2-normal);
+  color: var(--secondary-text-color);
+  max-width: 320px;
+}

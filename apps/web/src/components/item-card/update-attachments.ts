@@ -64,3 +64,17 @@ export function attachmentIcon(mimeType: string) {
   if (mimeType.toLowerCase() === 'application/pdf') return PdfIcon;
   return FileIcon;
 }
+
+/**
+ * Whether the signed-in user may remove an attachment: a board owner, the file's uploader or the
+ * post's author. Shared by the updates feed and the item panel's Files tab.
+ */
+export function canRemoveAttachment(args: {
+  uid: string;
+  canManage: boolean;
+  uploadedBy: string;
+  authorId: string;
+}): boolean {
+  const { uid, canManage, uploadedBy, authorId } = args;
+  return !!uid && (canManage || uploadedBy === uid || authorId === uid);
+}

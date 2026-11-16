@@ -43,15 +43,17 @@ import { showComingSoon } from '../toast-store';
 import { UserAvatar } from '../UserAvatar';
 import { useItemCardStore, type ItemPanelTab } from './item-card-store';
 import styles from './ItemCardDrawer.module.css';
+import { ItemFilesTab } from './ItemFilesTab';
 import { ItemKeyBar } from './ItemKeyBar';
 import { ItemOverview } from './ItemOverview';
 import { selectKeyBarColumns } from './item-panel-layout';
 import { UpdatesFeed } from './UpdatesFeed';
 
-/** The tabs in order. Files joins this list when its tab is built. */
+/** The tabs in order. */
 const PANEL_TABS: readonly { id: ItemPanelTab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'updates', label: 'Updates' },
+  { id: 'files', label: 'Files' },
   { id: 'activity', label: 'Activity Log' },
 ];
 
@@ -345,6 +347,7 @@ function PanelBody({
           <Tab icon={Update} className={styles.updatesTab}>
             {updates.length > 0 ? `Updates / ${updates.length}` : 'Updates'}
           </Tab>
+          <Tab>Files</Tab>
           <Tab>
             <span>
               Activity <span className={styles.tabLabelTail}>Log</span>
@@ -378,6 +381,20 @@ function PanelBody({
             canManage={boardRole === 'owner'}
             focusUpdateId={oneShot?.focusUpdateId}
             autoFocusComposer={oneShot?.composer === true}
+          />
+        )}
+
+        {activeTab === 'files' && (
+          <ItemFilesTab
+            key={item.id}
+            board={board}
+            item={item}
+            uid={uid}
+            columns={columns}
+            ctx={ctx}
+            canEdit={canEdit}
+            canManage={boardRole === 'owner'}
+            updates={updates}
           />
         )}
 

@@ -228,7 +228,7 @@ describe('ItemCardDrawer', () => {
     useItemCardStore.getState().openItemCard('b1', 'i1');
     render(<ItemCardDrawer />);
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent?.trim());
-    expect(tabs).toEqual(['Overview', 'Updates / 1', 'Activity Log']);
+    expect(tabs).toEqual(['Overview', 'Updates / 1', 'Files', 'Activity Log']);
     expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel', { name: 'Overview' })).toBeInTheDocument();
   });
@@ -387,6 +387,74 @@ describe('ItemCardDrawer', () => {
     expect(within(list).getByText('Created')).toBeInTheDocument();
     // Updates stay in the Updates tab.
     expect(screen.queryByText(/Initial specs completed!/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the empty state in the Files tab when there are no files and no file columns', async () => {
+    useItemCardStore.getState().openItemCard('b1', 'i1');
+    render(<ItemCardDrawer />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Files' }));
+    expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeInTheDocument();
+    expect(screen.getByText('No files yet')).toBeInTheDocument();
+    expect(
+      screen.getByText("Files added to this item's file columns or to its updates show up here."),
+    ).toBeInTheDocument();
+  });
+
+  it('lists files columns and update attachments in the Files tab', async () => {
+    mockColumns = [...KEY_COLUMNS, column('docs', 'files', 'Contracts', 'a4')];
+    mockUpdateList = [
+      {
+        ...mockUpdates[0]!,
+        attachments: [
+          {
+            id: 'f1',
+            name: 'spec.pdf',
+            mimeType: 'application/pdf',
+            size: 2048,
+            uploadedBy: 'u1',
+            storagePath: 'boards/b1/items/i1/updates/up1/f1',
+            uploadedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+      { ...mockUpdates[0]!, id: 'up2', attachments: [] },
+    ];
+    useItemCardStore.getState().openItemCard('b1', 'i1');
+    render(<ItemCardDrawer />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Files' }));
+
+    expect(screen.getByRole('heading', { name: 'In columns' })).toBeInTheDocument();
+    expect(screen.getByText('Contracts')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'In updates' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download spec.pdf' })).toBeInTheDocument();
+    // The author may remove their own attachment.
+    expect(screen.getByRole('button', { name: 'Remove spec.pdf' })).toBeInTheDocument();
+    expect(screen.queryByText('No files yet')).not.toBeInTheDocument();
+  });
+
+  it('shows no remove button on an update attachment the viewer did not post', async () => {
+    mockRole = 'viewer';
+    mockUpdateList = [
+      {
+        ...mockUpdates[0]!,
+        authorId: 'u2',
+        attachments: [
+          {
+            id: 'f1',
+            name: 'spec.pdf',
+            mimeType: 'application/pdf',
+            size: 2048,
+            uploadedBy: 'u2',
+            storagePath: 'boards/b1/items/i1/updates/up1/f1',
+            uploadedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+    ];
+    useItemCardStore.getState().openItemCard('b1', 'i1', [], 'files');
+    render(<ItemCardDrawer />);
+    expect(screen.getByRole('button', { name: 'Download spec.pdf' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove spec.pdf' })).not.toBeInTheDocument();
   });
 
   it('shows the empty state in the Activity Log tab', async () => {
