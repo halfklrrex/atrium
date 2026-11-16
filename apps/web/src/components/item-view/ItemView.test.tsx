@@ -153,6 +153,73 @@ describe('ItemView', () => {
     expect(screen.getByTestId('where').textContent).toBe('/boards/b1');
   });
 
+  it('opens a subitem page from the parent, with fromItem, and Back returns', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(screen.getByRole('button', { name: 'Child task' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/s1'),
+    );
+  });
+
+  it('opens a subitem with its Open icon', async () => {
+    renderView();
+    await userEvent.click(screen.getByRole('button', { name: 'Open Child task' }));
+    expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/s1');
+  });
+
+  it('renames a subitem on double click', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.dblClick(screen.getByRole('button', { name: 'Child task' }));
+    expect(screen.getByRole('textbox', { name: 'Subitem name Child task' })).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 400));
+    expect(screen.getByTestId('where').textContent).toBe('/boards/b1/items/i2');
+  });
+
+  describe('a subitem page', () => {
+    beforeEach(() => {
+      mocks.items.push(
+        makeItem({ id: 's2', name: 'Second child', position: 'a1', parentItemId: 'i2' }),
+      );
+    });
+
+    it('shows the parent crumb, no Subitems section and subitem wording', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      renderView('s1', board, { fromBoard: true, fromItem: 'i2' });
+      expect(screen.getByRole('dialog', { name: 'Subitem Child task' })).toBeTruthy();
+      const crumb = screen.getByRole('link', { name: 'Back to Second' });
+      expect(crumb.getAttribute('href')).toBe('/boards/roadmap-b1/items/i2');
+      expect(screen.queryByRole('region', { name: 'Subitems' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Add subitem' })).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Subitem actions' }));
+      expect(await screen.findByRole('menuitem', { name: 'Duplicate subitem' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Archive subitem' })).toBeTruthy();
+      expect(screen.getByRole('menuitem', { name: 'Delete subitem' })).toBeTruthy();
+    });
+
+    it('the parent crumb opens the parent', async () => {
+      renderView('s1', board, { fromBoard: true, fromItem: 'i2' });
+      await userEvent.click(screen.getByRole('link', { name: 'Back to Second' }));
+      expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/i2');
+    });
+
+    it('steps through the siblings', async () => {
+      renderView('s1', board, { fromBoard: true, fromItem: 'i2' });
+      expect(screen.getByText('1 / 2')).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Previous subitem' }).getAttribute('aria-disabled'),
+      ).toBe('true');
+      await userEvent.click(screen.getByRole('button', { name: 'Next subitem' }));
+      expect(screen.getByTestId('where').textContent).toBe('/boards/roadmap-b1/items/s2');
+    });
+
+    it('opens directly from a link with no router state', () => {
+      renderView('s1', board, {});
+      expect(screen.getByRole('link', { name: 'Back to Second' })).toBeTruthy();
+    });
+  });
+
   it('shows the required marker, hint, summary line and column description', () => {
     const marked = {
       ...board,

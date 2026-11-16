@@ -61,6 +61,23 @@ export const itemViewPath = (board: BoardRef | string, itemId: string): string =
 /** Router state set when the window was opened from the board, so closing can go back. */
 export const FROM_BOARD_STATE = { fromBoard: true } as const;
 
+/** Router state of the full view; `fromItem` is the parent's id when a subitem was opened from it. */
+export interface ItemViewRouteState {
+  fromBoard?: boolean;
+  fromItem?: string;
+  /** Open the thread of this update and scroll it into view. */
+  updateId?: string | null;
+  replyId?: string | null;
+  /** Scroll this part of the window into view once the item has loaded. */
+  section?: 'subitems';
+}
+
+/** The state for opening a subitem's page from `current` (its parent's page): keeps `fromBoard`. */
+export const subitemOpenState = (
+  current: ItemViewRouteState | null | undefined,
+  parentId: string,
+): ItemViewRouteState => ({ ...(current?.fromBoard ? FROM_BOARD_STATE : {}), fromItem: parentId });
+
 /** Previous and next row ids inside the item's group, as the table shows it. */
 export function neighbours(
   groups: readonly VisibleGroup[] | undefined,
@@ -75,4 +92,18 @@ export function neighbours(
     index,
     total: ids.length,
   };
+}
+
+/** Previous and next sibling among the parent's active subitems, in position order. */
+export function subitemNeighbours(
+  items: readonly { id: string; parentItemId?: string | null; position: string }[],
+  subitem: { id: string; parentItemId?: string | null },
+): { prev: string | null; next: string | null; index: number; total: number } {
+  const ids = subitem.parentItemId
+    ? items
+        .filter((i) => i.parentItemId === subitem.parentItemId)
+        .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0))
+        .map((i) => i.id)
+    : [];
+  return neighbours([{ groupId: '', ids }], subitem.id);
 }

@@ -22,6 +22,7 @@ import { WEB_URL } from './env';
 import { signInWithPassword } from './sign-in';
 import {
   FULL_VIEW_ITEM,
+  FULL_VIEW_SUBITEM,
   IDS,
   INBOX_THREADS,
   CALENDAR_VIEW,
@@ -411,6 +412,16 @@ for (const theme of ['light', 'dark'] as const) {
     test('board: full item view', async ({ page }) => {
       await fullViewReady(page);
       await shoot(page, `item-full-view-${theme}`);
+    });
+
+    test('item view: subitem', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}/items/${FULL_VIEW_SUBITEM}`);
+      const view = page.getByRole('dialog', { name: /^Subitem / });
+      await expect(view).toBeVisible();
+      await expect(view.getByRole('link', { name: 'Back to Ship the pipeline' })).toBeVisible();
+      await expect(view.getByRole('heading', { name: 'Subitems' })).toHaveCount(0);
+      await expect(page.getByText('Loading…')).toHaveCount(0);
+      await shoot(page, `item-view-subitem-${theme}`);
     });
 
     test('board: description slash menu open', async ({ page }) => {
