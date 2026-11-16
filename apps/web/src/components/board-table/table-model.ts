@@ -38,6 +38,19 @@ export const SETTINGS_TYPES: ReadonlySet<string> = new Set([
 /** Groups with more rows than this render only the rows near the viewport. */
 export const VIRTUALIZE_AFTER = 50;
 
+/** Estimated heights (px) of virtualised rows, used until a mounted row is measured. */
+export const ITEM_ROW_ESTIMATE = 36;
+export const SUBITEM_ROW_ESTIMATE = 32;
+
+/**
+ * Estimated height of an item's entry in a virtualised group: the row, and when its subitem block
+ * is open also the block's header, one row per subitem and "+ Add subitem". A row's real height
+ * is measured once mounted; a good estimate keeps the rows below it from jumping.
+ */
+export function estimateEntryHeight(open: boolean, subitemCount: number): number {
+  return ITEM_ROW_ESTIMATE + (open ? SUBITEM_ROW_ESTIMATE * (2 + subitemCount) : 0);
+}
+
 /** Stable dnd id of a group (item ids are plain Firestore ids). */
 export const groupKey = (groupId: string): string => `group:${groupId}`;
 

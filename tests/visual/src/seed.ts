@@ -1958,3 +1958,83 @@ export async function clearInbox(): Promise<void> {
     await firestore.collection('inboxNotes').doc(id).delete();
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// The subitem-overlap fixture (SUBITEMS PR 5): the geometry test needs parents with subitems in
+// the middle of a small group, and in a group long enough to be virtualised.
+// ---------------------------------------------------------------------------------------------
+
+/** A middle item of the small first group; it gets four subitems. */
+export const OVERLAP_SMALL_PARENT = 'roadmap-item-01';
+/** The next item in that group, the one that must be pushed down. */
+export const OVERLAP_SMALL_NEXT = 'roadmap-item-02';
+/** The group that grows past the virtualisation threshold (50 rows). */
+export const OVERLAP_BIG_GROUP = 'roadmap-vf';
+export const OVERLAP_BIG_PARENT = 'overlap-big-30';
+export const OVERLAP_BIG_NEXT = 'overlap-big-31';
+const OVERLAP_BIG_COUNT = 60;
+
+function overlapItem(
+  name: string,
+  groupId: string,
+  position: string,
+  parentItemId: string | null,
+): ItemWrite {
+  return {
+    name,
+    groupId,
+    position,
+    parentItemId,
+    values: { status: { index: 0 } },
+    state: 'active',
+    deletedAt: null,
+    createdAt: ago(10 * DAY),
+    createdBy: AVERY.uid,
+    updatedAt: ago(DAY),
+    updatedBy: AVERY.uid,
+  };
+}
+
+/** Four subitems on a middle item of a small group, and 60 more items (one with four subitems) in another. */
+export async function addOverlapFixture(): Promise<void> {
+  const firestore = adminDb();
+  const items = firestore.collection('boards').doc(IDS.roadmap).collection('items');
+  const indexBoard = { columns: roadmapStructure().columns };
+  const batch = firestore.batch();
+  let seq = 1000;
+  const put = (id: string, item: ItemWrite) => {
+    seq += 1;
+    batch.set(items.doc(id), { ...item, ...itemIndexFields(indexBoard, item), seq, boardSeq: seq });
+  };
+  for (let i = 0; i < 4; i += 1) {
+    put(
+      `${OVERLAP_SMALL_PARENT}-ov-${i}`,
+      overlapItem(`Overlap subitem ${i + 1}`, 'roadmap-p0', `a${i}`, OVERLAP_SMALL_PARENT),
+    );
+  }
+  for (let i = 0; i < OVERLAP_BIG_COUNT; i += 1) {
+    const n = String(i).padStart(2, '0');
+    put(`overlap-big-${n}`, overlapItem(`Overlap filler ${n}`, OVERLAP_BIG_GROUP, `b${n}`, null));
+  }
+  for (let i = 0; i < 4; i += 1) {
+    put(
+      `${OVERLAP_BIG_PARENT}-ov-${i}`,
+      overlapItem(`Overlap big subitem ${i + 1}`, OVERLAP_BIG_GROUP, `a${i}`, OVERLAP_BIG_PARENT),
+    );
+  }
+  await batch.commit();
+}
+
+/** Removes everything `addOverlapFixture` added, and the subitems a test added through the UI. */
+export async function removeOverlapFixture(): Promise<void> {
+  const firestore = adminDb();
+  const items = firestore.collection('boards').doc(IDS.roadmap).collection('items');
+  const keep = new Set([
+    ...roadmapItems().map((i) => i.id),
+    ...[1, 2, 3].map((n) => `${FULL_VIEW_ITEM}-sub-${n}`),
+  ]);
+  const snapshot = await items.get();
+  const batch = firestore.batch();
+  for (const doc of snapshot.docs) if (!keep.has(doc.id)) batch.delete(doc.ref);
+  await batch.commit();
+}
