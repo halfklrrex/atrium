@@ -79,8 +79,12 @@ export function FilesViewControls({ boardId, settings, fileColumns }: FilesViewC
     useFilterStore.getState().setTypeSettings(boardId, 'files', patch);
 
   const allIds = fileColumns.map((c) => c.id);
-  const chosen = settings.columnIds ?? allIds;
+  // Ids of deleted columns are ignored; none left means every column.
+  const valid = (settings.columnIds ?? []).filter((id) => allIds.includes(id));
+  const columnIds = valid.length > 0 && valid.length < allIds.length ? valid : null;
+  const chosen = columnIds ?? allIds;
   const toggleColumn = (id: string) => {
+    if (chosen.includes(id) && chosen.length === 1) return;
     const next = chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id];
     const ordered = allIds.filter((x) => next.includes(x));
     set({ columnIds: ordered.length === allIds.length ? null : ordered });
@@ -93,11 +97,11 @@ export function FilesViewControls({ boardId, settings, fileColumns }: FilesViewC
   };
 
   const columnSummary =
-    settings.columnIds === null
+    columnIds === null
       ? 'All columns'
-      : settings.columnIds.length === 1
-        ? (fileColumns.find((c) => c.id === settings.columnIds![0])?.title ?? '1 column')
-        : `${settings.columnIds.length} columns`;
+      : columnIds.length === 1
+        ? (fileColumns.find((c) => c.id === columnIds[0])?.title ?? '1 column')
+        : `${columnIds.length} columns`;
   const kindSummary =
     settings.kinds.length === 0
       ? 'All types'
@@ -134,6 +138,7 @@ export function FilesViewControls({ boardId, settings, fileColumns }: FilesViewC
                 <Checkbox
                   label={c.title}
                   checked={chosen.includes(c.id)}
+                  disabled={chosen.length === 1 && chosen[0] === c.id}
                   onChange={() => toggleColumn(c.id)}
                 />
               </li>

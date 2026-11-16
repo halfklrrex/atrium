@@ -54,6 +54,41 @@ const items = [
 const run = (patch: Partial<FilesViewSettings> = {}, search = '') =>
   collectFiles({ items, columns, settings: { ...defaultFilesViewSettings(), ...patch }, search });
 
+describe('collectFiles edge cases', () => {
+  it('sorts numbers inside names numerically', () => {
+    const many = [
+      makeItem({
+        id: 'n1',
+        name: 'N',
+        values: {
+          docs: {
+            files: [
+              file('a', 'file10.pdf', 'application/pdf', '2026-11-01T10:00:00.000Z'),
+              file('b', 'file2.pdf', 'application/pdf', '2026-11-01T10:00:00.000Z'),
+            ],
+          },
+        },
+      }),
+    ];
+    const cards = collectFiles({
+      items: many,
+      columns,
+      settings: { ...defaultFilesViewSettings(), sort: 'name' },
+      search: '',
+    });
+    expect(cards.map((c) => c.file.name)).toEqual(['file2.pdf', 'file10.pdf']);
+  });
+
+  it('ignores deleted column ids and shows everything when none are left', () => {
+    expect(
+      run({ columnIds: ['gone'] })
+        .map((c) => c.file.id)
+        .sort(),
+    ).toEqual(['f1', 'f2', 'f3']);
+    expect(run({ columnIds: ['pics', 'gone'] }).map((c) => c.file.id)).toEqual(['f3']);
+  });
+});
+
 describe('fileKind', () => {
   it('uses the MIME type first and the extension as a fallback', () => {
     expect(fileKind('image/heic', 'x')).toBe('image');
@@ -155,7 +190,7 @@ describe('collectFiles with update files', () => {
       some.filter((c) => c.source === 'column').every((c) => c.columnId === columns[0]!.id),
     ).toBe(true);
     expect(some.some((c) => c.source !== 'column')).toBe(true);
-    expect(run2({ columnIds: [] }).every((c) => c.source !== 'column')).toBe(true);
+    expect(run2({ columnIds: ['gone'] }).some((c) => c.source === 'column')).toBe(true);
   });
 
   it('applies the search and kind filters to them', () => {
