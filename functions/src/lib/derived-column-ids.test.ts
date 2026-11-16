@@ -64,10 +64,12 @@ const lists = (
   derivedColumnIds: string[],
   serverManagedColumnIds: string[],
   requiredColumnIds: string[] = [],
+  voteColumnIds: string[] = [],
 ): ColumnIdLists => ({
   derivedColumnIds,
   serverManagedColumnIds,
   requiredColumnIds,
+  voteColumnIds,
 });
 
 describe('syncColumnIdLists', () => {
@@ -77,6 +79,7 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     const mem = memoryStore(board);
 
@@ -103,6 +106,7 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: ['d'],
       serverManagedColumnIds: ['b'],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     expect(await syncColumnIdLists(store, 'b1', board)).toEqual({ written: null });
     expect(calls).toBe(0);
@@ -114,6 +118,7 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: ['d'],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     const mem = memoryStore(board);
     expect(await syncColumnIdLists(mem.store, 'b1', board)).toEqual({
@@ -144,6 +149,7 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     const mem = memoryStore(board);
     expect(await syncColumnIdLists(mem.store, 'b1', board)).toEqual({ written: null });
@@ -156,6 +162,7 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: ['t'],
       serverManagedColumnIds: ['t'],
       requiredColumnIds: [],
+      voteColumnIds: [],
     });
     await syncColumnIdLists(mem.store, 'b1', mem.data!);
     expect(mem.data?.derivedColumnIds).toEqual([]);
@@ -176,6 +183,7 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     const mem = memoryStore(board);
     expect((await syncColumnIdLists(mem.store, 'b1', board)).written).toEqual(
@@ -190,6 +198,7 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     const mem = memoryStore(board);
     expect((await syncColumnIdLists(mem.store, 'b1', board)).written).toEqual(lists([], ['sb']));
@@ -203,12 +212,14 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     const mem = memoryStore({
       columns: [col('t', 'text')],
       derivedColumnIds: ['d'],
       serverManagedColumnIds: ['b'],
       requiredColumnIds: [],
+      voteColumnIds: [],
     });
     const result = await syncColumnIdLists(mem.store, 'b1', stale);
     expect(result.written).toEqual(lists([], []));
@@ -222,6 +233,7 @@ describe('syncColumnIdLists', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     const mem = memoryStore(board);
     expect(await syncColumnIdLists(mem.store, 'b1', board)).toEqual({

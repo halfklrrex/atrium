@@ -150,6 +150,7 @@ function board(
     derivedColumnIds: [],
     serverManagedColumnIds: [],
     requiredColumnIds: [],
+    voteColumnIds: [],
     columnLocks: [],
     state: 'active',
     deletedAt: null,

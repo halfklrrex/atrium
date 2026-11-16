@@ -124,7 +124,7 @@ export function validateCellWrite(
 /**
  * `values` without the ids of derived and server-managed columns (and locked columns when the
  * caller is not a board owner): new items must never carry them (rules refuse such a create), so a
- * duplicated item starts with those cells empty.
+ * duplicated item starts with those cells empty (vote cells too: nobody votes for someone else).
  */
 export function withoutUnwritableValues(
   values: Record<string, unknown>,
@@ -134,6 +134,9 @@ export function withoutUnwritableValues(
   const unwritable = new Set([
     ...columnRegistry.derivedColumnIds(columns),
     ...columnRegistry.serverManagedColumnIds(columns),
+    // Vote cells: the rules let a new item carry no voters or only its creator, so a copy must not
+    // bring the original's voters along (it starts with no votes).
+    ...columnRegistry.voteColumnIds(columns),
   ]);
   if (options && options.boardRole !== 'owner') {
     for (const id of Object.keys(values)) {

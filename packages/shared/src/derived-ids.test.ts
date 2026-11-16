@@ -116,6 +116,7 @@ describe('computeServerManagedColumnIds (FW2)', () => {
       derivedColumnIds: ['d'],
       serverManagedColumnIds: ['m'],
       requiredColumnIds: [],
+      voteColumnIds: [],
     });
   });
 
@@ -147,8 +148,18 @@ describe('nextServerManagedColumnIds', () => {
 
 describe('nextColumnIdLists', () => {
   const columns = [col('d', 'test_derived'), col('m', 'test_managed')];
-  const both = { derivedColumnIds: ['d'], serverManagedColumnIds: ['m'], requiredColumnIds: [] };
-  const right = { derivedColumnIds: ['d'], serverManagedColumnIds: ['m'], requiredColumnIds: [] };
+  const both = {
+    derivedColumnIds: ['d'],
+    serverManagedColumnIds: ['m'],
+    requiredColumnIds: [],
+    voteColumnIds: [],
+  };
+  const right = {
+    derivedColumnIds: ['d'],
+    serverManagedColumnIds: ['m'],
+    requiredColumnIds: [],
+    voteColumnIds: [],
+  };
 
   it('returns null only when all lists are right', () => {
     expect(nextColumnIdLists({ columns, ...right })).toBeNull();
@@ -168,6 +179,7 @@ describe('nextColumnIdLists', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     });
   });
 });
@@ -180,6 +192,7 @@ describe('type change marks', () => {
       derivedColumnIds: ['d'],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     expect(nextColumnIdLists(base)).toBeNull();
     const migrating = {
@@ -210,11 +223,13 @@ describe('type change marks', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     };
     expect(nextColumnIdLists(board)).toEqual({
       derivedColumnIds: ['t'],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
     });
   });
 });
@@ -258,6 +273,7 @@ describe('requiredColumnIds (REQ-1)', () => {
         derivedColumnIds: [],
         serverManagedColumnIds: [],
         requiredColumnIds: [],
+        voteColumnIds: [],
       })?.requiredColumnIds,
     ).toEqual(['t']);
     expect(

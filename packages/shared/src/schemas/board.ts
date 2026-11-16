@@ -119,6 +119,14 @@ export const boardSchema = z.object({
    */
   requiredColumnIds: z.array(slugIdSchema).default([]),
   /**
+   * Ids of the vote columns (and subitem vote columns). Same rules as `derivedColumnIds`:
+   * maintained only by the `onBoardColumnsWritten` Cloud Function, never written by clients (a
+   * client may create a board with `[]` or omit it), and absent on older boards (reads as `[]`).
+   * Firestore rules use it so an item write can only add or remove the writer's own uid in
+   * `values.<id>.votersIds`.
+   */
+  voteColumnIds: z.array(slugIdSchema).default([]),
+  /**
    * Ids of columns (and subitemColumns) locked so only board owners can edit their values.
    * Older boards may lack this field (reads as `[]`).
    */

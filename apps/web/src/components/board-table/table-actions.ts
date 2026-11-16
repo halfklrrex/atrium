@@ -1084,15 +1084,17 @@ export const tableActions = {
     );
     if (!ok) return null;
     // A derived column stores nothing, and the rules refuse client writes to server-managed cells,
-    // so there is nothing to copy.
-    const cells = isClientReadOnlyType(source.def.type)
-      ? []
-      : items.flatMap((item) => {
-          const value = item.values[source.def.id];
-          return value === undefined || value === null
-            ? []
-            : [{ id: item.id, value: clean(value) }];
-        });
+    // so there is nothing to copy. Votes are not copied either: the rules only let a writer add or
+    // remove their own uid, so the copy starts with no votes.
+    const cells =
+      isClientReadOnlyType(source.def.type) || source.def.type === 'vote'
+        ? []
+        : items.flatMap((item) => {
+            const value = item.values[source.def.id];
+            return value === undefined || value === null
+              ? []
+              : [{ id: item.id, value: clean(value) }];
+          });
     if (cells.length > 0) {
       showToast(`Copying ${cells.length} values…`);
       const copied = await attempt(

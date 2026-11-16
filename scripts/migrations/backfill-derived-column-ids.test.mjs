@@ -46,6 +46,7 @@ function fakeClient(boards) {
         'derivedColumnIds',
         'serverManagedColumnIds',
         'requiredColumnIds',
+        'voteColumnIds',
       ]);
       return [...store].map(([id, data]) => ({ id, data: structuredClone(data) }));
     },
@@ -70,6 +71,7 @@ const ready = {
     derivedColumnIds: [],
     serverManagedColumnIds: [],
     requiredColumnIds: [],
+    voteColumnIds: [],
   },
 };
 const stale = {
@@ -79,6 +81,7 @@ const stale = {
     derivedColumnIds: [],
     serverManagedColumnIds: [],
     requiredColumnIds: [],
+    voteColumnIds: [],
   },
 };
 // FW2: `button` is server-managed. This board already has the FW1 field but not the FW2 one.
@@ -88,6 +91,7 @@ const needsManaged = {
     columns: [col('b', 'button'), col('t', 'text')],
     derivedColumnIds: [],
     requiredColumnIds: [],
+    voteColumnIds: [],
   },
 };
 const forged = {
@@ -97,6 +101,7 @@ const forged = {
     derivedColumnIds: ['t'],
     serverManagedColumnIds: ['t'],
     requiredColumnIds: [],
+    voteColumnIds: [],
   },
 };
 
@@ -107,32 +112,40 @@ test('the plan only lists boards whose field is missing or wrong', () => {
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
       had: undefined,
       hadServerManaged: undefined,
+      hadVote: [],
     },
     {
       id: 'stale',
       derivedColumnIds: ['d'],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
       had: [],
       hadServerManaged: [],
+      hadVote: [],
     },
     {
       id: 'forged',
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
+      voteColumnIds: [],
       had: ['t'],
       hadServerManaged: ['t'],
+      hadVote: [],
     },
     {
       id: 'needsManaged',
       derivedColumnIds: [],
       serverManagedColumnIds: ['b'],
       requiredColumnIds: [],
+      voteColumnIds: [],
       had: [],
       hadServerManaged: undefined,
+      hadVote: [],
     },
   ]);
   assert.deepEqual(planBackfill([]), []);
