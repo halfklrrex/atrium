@@ -4,13 +4,40 @@ import {
   isDescriptionImageType,
 } from '@atrium/shared';
 import type { Editor } from '@tiptap/react';
-import { descriptionImageCalls, describeCallableError } from '../../lib/callables';
-import { seedDescriptionImageUrl, URL_REFRESH_MARGIN_MS } from './description-image-url';
+import { descriptionImageCalls, describeCallableError, docImageCalls } from '../../lib/callables';
+import {
+  isDocImageContext,
+  seedImageUrl,
+  URL_REFRESH_MARGIN_MS,
+  type ImageContext,
+} from './description-image-url';
 import { showToast } from '../toast-store';
 
-export interface ImageContext {
-  boardId: string;
-  itemId: string;
+export type { ImageContext } from './description-image-url';
+
+interface UploadCalls {
+  requestUpload(file: { fileName: string; contentType: string; size: number }): Promise<{
+    uploadUrl: string;
+    headers: Record<string, string>;
+    fileId: string;
+  }>;
+  finalize(file: { fileId: string; fileName: string }): Promise<{ fileId: string }>;
+}
+
+/** The upload callables of a scope: an item's description images or a doc's images. */
+function callsFor(ctx: ImageContext): UploadCalls {
+  if (isDocImageContext(ctx)) {
+    const { docId } = ctx;
+    return {
+      requestUpload: (file) => docImageCalls.requestUpload({ docId, ...file }),
+      finalize: (file) => docImageCalls.finalize({ docId, ...file }),
+    };
+  }
+  const { boardId, itemId } = ctx;
+  return {
+    requestUpload: (file) => descriptionImageCalls.requestUpload({ boardId, itemId, ...file }),
+    finalize: (file) => descriptionImageCalls.finalize({ boardId, itemId, ...file }),
+  };
 }
 
 /** The `accept` value for the file picker. */
@@ -144,8 +171,8 @@ export async function uploadDescriptionImage(
 
   const fileName = (file.name || 'image').slice(0, 255);
   try {
-    const target = await descriptionImageCalls.requestUpload({
-      ...ctx,
+    const calls = callsFor(ctx);
+    const target = await calls.requestUpload({
       fileName,
       contentType: file.type,
       size: file.size,
@@ -153,20 +180,10 @@ export async function uploadDescriptionImage(
     await putWithProgress(target.uploadUrl, target.headers, file, (percent) =>
       setProgress(uploadId, percent),
     );
-    const done = await descriptionImageCalls.finalize({
-      ...ctx,
-      fileId: target.fileId,
-      fileName,
-    });
+    const done = await calls.finalize({ fileId: target.fileId, fileName });
     if (previewUrl) {
       // The image node shows the local copy straight away instead of asking for a signed URL.
-      seedDescriptionImageUrl(
-        ctx.boardId,
-        ctx.itemId,
-        done.fileId,
-        previewUrl,
-        LOCAL_URL_LIFETIME_MS,
-      );
+      seedImageUrl(ctx, done.fileId, previewUrl, LOCAL_URL_LIFETIME_MS);
       keepPreview = true;
       setTimeout(() => URL.revokeObjectURL(previewUrl), LOCAL_URL_REVOKE_MS);
     }

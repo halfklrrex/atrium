@@ -69,6 +69,11 @@ export interface OrphanFileCandidate {
 export interface OrphanSweeperStore {
   listUploadFiles(): Promise<OrphanFileCandidate[]>;
   isStoragePathReferenced(boardId: string, itemId: string, storagePath: string): Promise<boolean>;
+  /**
+   * Whether `docs/{docId}/content/images` lists the file. Absent means doc images are never
+   * swept (a store that predates them).
+   */
+  isDocImageReferenced?(docId: string, fileId: string): Promise<boolean>;
   deleteFile(storagePath: string): Promise<void>;
 }
 
@@ -76,7 +81,8 @@ export interface OrphanSweeperStore {
  * Sweeps orphan storage objects older than cutoffMs (e.g. 1 hour old)
  * that have no corresponding reference in their item: a files cell for `.../files/{id}`, the
  * `descriptionImages` map for `.../description/{id}`, the update's or reply's `attachments` for
- * `.../updates/{u}/{id}` and `.../updates/{u}/replies/{r}/{id}`.
+ * `.../updates/{u}/{id}` and `.../updates/{u}/replies/{r}/{id}`; for `docs/{d}/images/{id}`, the
+ * doc's `content/images` map.
  */
 export async function sweepOrphanUploads(
   store: OrphanSweeperStore,
@@ -85,6 +91,15 @@ export async function sweepOrphanUploads(
   const files = await store.listUploadFiles();
   let deleted = 0;
   for (const f of files) {
+    const docImage = /^docs\/([^/]+)\/images\/([^/]+)$/.exec(f.name);
+    if (docImage) {
+      if (!store.isDocImageReferenced || new Date(f.timeCreated).getTime() > cutoffMs) continue;
+      if (!(await store.isDocImageReferenced(docImage[1]!, docImage[2]!))) {
+        await store.deleteFile(f.name);
+        deleted++;
+      }
+      continue;
+    }
     const match =
       /^boards\/([^/]+)\/items\/([^/]+)\/(?:files|description|updates\/[^/]+(?:\/replies\/[^/]+)?)\/([^/]+)$/.exec(
         f.name,

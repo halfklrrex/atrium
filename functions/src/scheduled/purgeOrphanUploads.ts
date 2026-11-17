@@ -11,9 +11,22 @@ export function adminOrphanSweeperStore(): OrphanSweeperStore {
   return {
     async listUploadFiles() {
       if (bucket.listUploadFiles) {
-        return await bucket.listUploadFiles('boards/');
+        return [
+          ...(await bucket.listUploadFiles('boards/')),
+          ...(await bucket.listUploadFiles('docs/')),
+        ];
       }
       return [];
+    },
+    async isDocImageReferenced(docId: string, fileId: string) {
+      const snap = await firestore
+        .collection('docs')
+        .doc(docId)
+        .collection('content')
+        .doc('images')
+        .get();
+      const images = snap.data();
+      return Boolean(images && Object.prototype.hasOwnProperty.call(images, fileId));
     },
     async isStoragePathReferenced(boardId: string, itemId: string, storagePath: string) {
       // Update and reply attachments (.../updates/{u}/{id}, .../updates/{u}/replies/{r}/{id}).

@@ -1,6 +1,7 @@
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { Alert } from '@vibe/icons';
 import {
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -8,7 +9,7 @@ import {
   type PointerEvent,
 } from 'react';
 import { uploadPreview, uploadProgress } from './description-image-upload';
-import { useDescriptionImageUrl } from './description-image-url';
+import { imageContextOf, useImageUrl } from './description-image-url';
 import styles from './DescriptionEditor.module.css';
 
 const MIN_WIDTH = 25;
@@ -29,9 +30,14 @@ export function ImageNodeView({
   updateAttributes,
   extension,
 }: NodeViewProps) {
-  const { boardId, itemId } = extension.options as { boardId: string; itemId: string };
+  const { boardId, itemId, docId } = extension.options as {
+    boardId?: string;
+    itemId?: string;
+    docId?: string;
+  };
+  const scope = useMemo(() => imageContextOf({ boardId, itemId, docId }), [boardId, itemId, docId]);
   const fileId = String(node.attrs.fileId ?? '');
-  const image = useDescriptionImageUrl(boardId, itemId, fileId);
+  const image = useImageUrl(scope, fileId);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [liveWidth, setLiveWidth] = useState<number | null>(null);
   const editable = editor.isEditable;

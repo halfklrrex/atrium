@@ -22,6 +22,7 @@ export * from './schemas/form';
 export * from './schemas/view';
 export * from './schemas/files-upload';
 export * from './schemas/description-images';
+export * from './schemas/doc-images';
 export * from './schemas/column-actions';
 export * from './schemas/column-type-change';
 export * from './schemas/membership';

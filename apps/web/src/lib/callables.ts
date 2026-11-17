@@ -67,9 +67,11 @@ import {
   CREATE_INVITE_CALLABLE,
   DECLINE_INVITE_CALLABLE,
   FINALIZE_DESCRIPTION_IMAGE_CALLABLE,
+  FINALIZE_DOC_IMAGE_CALLABLE,
   GET_FORM_CALLABLE,
   SUBMIT_FORM_CALLABLE,
   GET_DESCRIPTION_IMAGE_URL_CALLABLE,
+  GET_DOC_IMAGE_URL_CALLABLE,
   GET_INVITE_STATUS_CALLABLE,
   LEAVE_BOARD_CALLABLE,
   LEAVE_WORKSPACE_CALLABLE,
@@ -77,6 +79,7 @@ import {
   REMOVE_MEMBER_CALLABLE,
   REVERT_COLUMN_TYPE_CALLABLE,
   REQUEST_DESCRIPTION_IMAGE_UPLOAD_CALLABLE,
+  REQUEST_DOC_IMAGE_UPLOAD_CALLABLE,
   REVOKE_INVITE_CALLABLE,
   SET_BOARD_ACCESS_CALLABLE,
   SET_BOARD_KIND_CALLABLE,
@@ -95,9 +98,11 @@ import {
   deleteFileAttachmentRequestSchema,
   deleteFileAttachmentResultSchema,
   finalizeDescriptionImageResultSchema,
+  finalizeDocImageResultSchema,
   finalizeFileUploadRequestSchema,
   finalizeFileUploadResultSchema,
   getDescriptionImageUrlResultSchema,
+  getDocImageUrlResultSchema,
   getFormRequestSchema,
   getFormResultSchema,
   submitFormRequestSchema,
@@ -109,6 +114,7 @@ import {
   listMyInvitesResultSchema,
   okResultSchema,
   requestDescriptionImageUploadResultSchema,
+  requestDocImageUploadResultSchema,
   requestFileUploadRequestSchema,
   requestFileUploadResultSchema,
   revertColumnTypeRequestSchema,
@@ -136,10 +142,14 @@ import {
   type DeleteFileAttachmentResult,
   type FinalizeDescriptionImageRequest,
   type FinalizeDescriptionImageResult,
+  type FinalizeDocImageRequest,
+  type FinalizeDocImageResult,
   type FinalizeFileUploadRequest,
   type FinalizeFileUploadResult,
   type GetDescriptionImageUrlRequest,
   type GetDescriptionImageUrlResult,
+  type GetDocImageUrlRequest,
+  type GetDocImageUrlResult,
   type GetFormRequest,
   type GetFormResult,
   type SubmitFormRequest,
@@ -156,6 +166,8 @@ import {
   type RemoveMemberRequest,
   type RequestDescriptionImageUploadRequest,
   type RequestDescriptionImageUploadResult,
+  type RequestDocImageUploadRequest,
+  type RequestDocImageUploadResult,
   type RequestFileUploadRequest,
   type RequestFileUploadResult,
   type RevertColumnTypeRequest,
@@ -279,6 +291,21 @@ export const descriptionImageCalls = {
   getUrl: callable<GetDescriptionImageUrlRequest, GetDescriptionImageUrlResult>(
     GET_DESCRIPTION_IMAGE_URL_CALLABLE,
     (d) => getDescriptionImageUrlResultSchema.parse(d),
+  ),
+};
+
+/** Doc images (P7 PR 5): the same three callables, scoped to a doc. */
+export const docImageCalls = {
+  requestUpload: callable<RequestDocImageUploadRequest, RequestDocImageUploadResult>(
+    REQUEST_DOC_IMAGE_UPLOAD_CALLABLE,
+    (d) => requestDocImageUploadResultSchema.parse(d),
+  ),
+  finalize: callable<FinalizeDocImageRequest, FinalizeDocImageResult>(
+    FINALIZE_DOC_IMAGE_CALLABLE,
+    (d) => finalizeDocImageResultSchema.parse(d),
+  ),
+  getUrl: callable<GetDocImageUrlRequest, GetDocImageUrlResult>(GET_DOC_IMAGE_URL_CALLABLE, (d) =>
+    getDocImageUrlResultSchema.parse(d),
   ),
 };
 
