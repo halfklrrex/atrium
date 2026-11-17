@@ -399,6 +399,30 @@ test('columns: only simple types; derived and server-managed types are refused',
   assert.equal(status.labels[1].color, '#579bfc');
 });
 
+test('columns: a board never gets more vote columns than the rules protect', async () => {
+  const { service, client } = setup();
+  const { id } = await service.createBoard({ name: 'B' });
+  const path = `boards/${id}`;
+  const board = client.docs.get(path);
+  const votes = Array.from({ length: 10 }, (_, n) => ({
+    id: `v${n}`,
+    type: 'vote',
+    title: `Vote ${n}`,
+    position: `a${n}`,
+    settings: {},
+  }));
+  client.docs.set(path, {
+    ...board,
+    data: { ...board.data, columns: [...board.data.columns, ...votes] },
+  });
+  await assert.rejects(
+    service.addColumn({ boardId: id, title: 'One more', type: 'vote' }),
+    /A board can have at most 10 vote columns\./,
+  );
+  // Other types are not limited by the cap.
+  await service.addColumn({ boardId: id, title: 'Notes', type: 'text' });
+});
+
 test('columns: status labels get fresh indexes and adding is idempotent', async () => {
   const { service, client } = setup();
   const { id } = await service.createBoard({ name: 'B' });

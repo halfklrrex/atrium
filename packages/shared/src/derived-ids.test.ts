@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ColumnDef } from './schemas/board';
 import { columnRegistry, defineColumnType, textColumn } from './columns';
 import {
   computeColumnIdLists,
@@ -6,6 +7,8 @@ import {
   computeRequiredColumnIds,
   REQUIRED_COLUMN_RULE_CAP,
   VOTE_COLUMN_RULE_CAP,
+  VOTE_COLUMN_CAP_MESSAGE,
+  voteCapExceeded,
   computeServerManagedColumnIds,
   nextColumnIdLists,
   nextDerivedColumnIds,
@@ -294,4 +297,21 @@ describe('requiredColumnIds (REQ-1)', () => {
 
 it('the vote cap mirrors the unrolled rules helper', () => {
   expect(VOTE_COLUMN_RULE_CAP).toBe(10);
+});
+
+describe('voteCapExceeded', () => {
+  const vote = (id: string) => ({ id, title: id, type: 'vote' }) as ColumnDef;
+  const nine = Array.from({ length: 9 }, (_, n) => vote(`v${n}`));
+  it('allows up to the cap and refuses one more, counting sub-item columns', () => {
+    expect(voteCapExceeded('vote', { columns: nine })).toBe(false);
+    expect(voteCapExceeded('vote', { columns: [...nine, vote('v9')] })).toBe(true);
+    expect(
+      voteCapExceeded('vote', { columns: nine.slice(0, 5), subitemColumns: nine.slice(5) }),
+    ).toBe(false);
+    expect(voteCapExceeded('vote', { columns: nine, subitemColumns: [vote('s1')] })).toBe(true);
+  });
+  it('never limits other types and has a clear message', () => {
+    expect(voteCapExceeded('text', { columns: [...nine, vote('v9')] })).toBe(false);
+    expect(VOTE_COLUMN_CAP_MESSAGE).toBe('A board can have at most 10 vote columns.');
+  });
 });

@@ -36,6 +36,23 @@ export const REQUIRED_COLUMN_RULE_CAP = 10;
  */
 export const VOTE_COLUMN_RULE_CAP = 10;
 
+/** The user-facing refusal when a board would get more vote columns than the rules can protect. */
+export const VOTE_COLUMN_CAP_MESSAGE = `A board can have at most ${VOTE_COLUMN_RULE_CAP} vote columns.`;
+
+/**
+ * True when turning one more column into a vote column (a new column or a type change to `vote`)
+ * would push the board past {@link VOTE_COLUMN_RULE_CAP}. Columns and sub-item columns count
+ * together. Other types are never limited.
+ */
+export function voteCapExceeded(
+  toType: string,
+  board: { columns?: readonly ColumnDef[] | null; subitemColumns?: readonly ColumnDef[] | null },
+): boolean {
+  if (toType !== 'vote') return false;
+  const all = [...(board.columns ?? []), ...(board.subitemColumns ?? [])];
+  return all.filter((c) => c.type === 'vote').length >= VOTE_COLUMN_RULE_CAP;
+}
+
 /** The four server-maintained lists of a board. */
 export interface ColumnIdLists {
   derivedColumnIds: string[];

@@ -14,12 +14,14 @@ import {
   COLUMN_MIGRATION_STALE_MS,
   COLUMN_SNAPSHOT_CHUNK_MAX_CHARS,
   COLUMN_SNAPSHOT_TTL_MS,
+  VOTE_COLUMN_CAP_MESSAGE,
   canEditBoard,
   canEditColumn,
   columnRegistry,
   columnTypeChangeSupport,
   planColumnConversion,
   resolveBoardRole,
+  voteCapExceeded,
 } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
 import type { ActivityFields } from './activity';
@@ -311,6 +313,10 @@ export async function changeColumnTypeLogic(
   const requestedSettings = existing?.toSettings ?? req.toSettings;
 
   if (!existing) {
+    // The rules protect only the first 10 vote columns of a board, so a conversion to an 11th is refused.
+    if (column.type !== 'vote' && voteCapExceeded(toType, board)) {
+      throw new HttpsError('failed-precondition', VOTE_COLUMN_CAP_MESSAGE);
+    }
     const support = columnTypeChangeSupport(column.type, toType);
     if (!support.allowed) {
       throw new HttpsError(
