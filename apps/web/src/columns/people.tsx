@@ -4,7 +4,9 @@ import classNames from 'classnames';
 import { useState } from 'react';
 import { useAuth } from '../auth/auth-context';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
+import { DELETED_TEAM_NAME, useTeamLookup, useWorkspaceTeams } from '../data/teams';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../data/members-store';
+import { TeamAvatar } from '../components/teams/TeamAvatar';
 import { initialsOf } from '../lib/format';
 import styles from './cells.module.css';
 import popups from './popups.module.css';
@@ -42,6 +44,23 @@ function Avatar({ uid }: { uid: string }) {
   );
 }
 
+/** A team entry in the avatar stack: the team color and initials, or a gray "Deleted team". */
+function TeamEntryAvatar({ id }: { id: string }) {
+  const team = useTeamLookup()(id);
+  const name = team?.name ?? DELETED_TEAM_NAME;
+  return (
+    <span
+      className={classNames(styles.avatar, styles.avatarTeam, !team && styles.avatarOther)}
+      role="img"
+      aria-label={name}
+      title={name}
+      style={team ? { backgroundColor: team.color } : undefined}
+    >
+      {team ? initialsOf(name) : <Person aria-hidden="true" />}
+    </span>
+  );
+}
+
 function PeopleCell({ value }: CellProps<PeopleValue, PeopleSettings>) {
   const people = value?.personsAndTeams ?? [];
   if (people.length === 0) {
@@ -58,9 +77,13 @@ function PeopleCell({ value }: CellProps<PeopleValue, PeopleSettings>) {
   return (
     <div className={styles.root}>
       <span className={styles.avatars}>
-        {shown.map((p) => (
-          <Avatar key={p.id} uid={p.id} />
-        ))}
+        {shown.map((p) =>
+          p.kind === 'team' ? (
+            <TeamEntryAvatar key={`team:${p.id}`} id={p.id} />
+          ) : (
+            <Avatar key={p.id} uid={p.id} />
+          ),
+        )}
         {extra > 0 ? (
           <span className={classNames(styles.avatar, styles.avatarMore)}>+{extra}</span>
         ) : null}
@@ -94,6 +117,32 @@ export function PersonRow({
   );
 }
 
+/** One selectable team row (team avatar and name), in the picker's "Teams" section. */
+function TeamRow({
+  id,
+  selected,
+  onToggle,
+}: {
+  id: string;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const team = useTeamLookup()(id);
+  const name = team?.name ?? DELETED_TEAM_NAME;
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={selected}
+      className={classNames(popups.listRow, selected && popups.listRowOn)}
+      onClick={onToggle}
+    >
+      <TeamAvatar name={name} color={team?.color ?? null} size="sm" />
+      <span>{name}</span>
+    </button>
+  );
+}
+
 function PeopleEditor({
   value,
   settings,
@@ -107,7 +156,9 @@ function PeopleEditor({
   const { members } = useWorkspaceMembers();
   const [query, setQuery] = useState('');
   const current = value?.personsAndTeams ?? [];
-  const selectedIds = new Set(current.map((p) => p.id));
+  const selectedPeople = new Set(current.filter((p) => p.kind === 'person').map((p) => p.id));
+  const selectedTeams = new Set(current.filter((p) => p.kind === 'team').map((p) => p.id));
+  const { teams } = useWorkspaceTeams();
 
   // The picker lists the workspace's members, plus anyone already on the cell who has since left.
   const memberIds = members.map((m) => m.id);
@@ -117,7 +168,10 @@ function PeopleEditor({
     memberIds.unshift(user.uid);
     known.add(user.uid);
   }
-  const candidates = [...memberIds, ...current.map((p) => p.id).filter((id) => !known.has(id))];
+  const candidates = [
+    ...memberIds,
+    ...current.filter((p) => p.kind === 'person' && !known.has(p.id)).map((p) => p.id),
+  ];
   const needle = query.trim().toLowerCase();
   const visible = candidates.filter((id) => {
     if (!needle) return true;
@@ -126,17 +180,29 @@ function PeopleEditor({
     return haystack.includes(needle);
   });
 
+  // Teams of the workspace (a deleted team stays listed while it is still on the cell, to remove it).
+  const teamIds = [
+    ...teams.map((t) => t.id),
+    ...[...selectedTeams].filter((id) => !teams.some((t) => t.id === id)),
+  ];
+  const visibleTeams = teamIds.filter((id) => {
+    if (!needle) return true;
+    const team = teams.find((t) => t.id === id);
+    return (team?.name ?? DELETED_TEAM_NAME).toLowerCase().includes(needle);
+  });
+
   const write = (next: PersonOrTeam[]) =>
     onChange(next.length > 0 ? { personsAndTeams: next } : null);
 
-  const toggle = (id: string) => {
-    if (selectedIds.has(id)) {
-      write(current.filter((p) => p.id !== id));
+  const toggle = (id: string, kind: PersonOrTeam['kind'] = 'person') => {
+    const selected = kind === 'team' ? selectedTeams.has(id) : selectedPeople.has(id);
+    if (selected) {
+      write(current.filter((p) => !(p.id === id && p.kind === kind)));
     } else if (settings.singlePerson) {
-      write([{ id, kind: 'person' }]);
+      write([{ id, kind }]);
       onClose();
     } else {
-      write([...current, { id, kind: 'person' }]);
+      write([...current, { id, kind }]);
     }
   };
 
@@ -152,18 +218,31 @@ function PeopleEditor({
           onChange={(event) => setQuery(event.target.value)}
         />
         <div className={popups.list} role="listbox" aria-label="People" aria-multiselectable>
-          {visible.length === 0 ? (
+          {visible.length === 0 && visibleTeams.length === 0 ? (
             <p className={popups.muted}>No one found</p>
           ) : (
             visible.map((id) => (
               <PersonRow
                 key={id}
                 uid={id}
-                selected={selectedIds.has(id)}
+                selected={selectedPeople.has(id)}
                 onToggle={() => toggle(id)}
               />
             ))
           )}
+          {visibleTeams.length > 0 ? (
+            <div role="group" aria-label="Teams">
+              <p className={popups.sectionLabel}>Teams</p>
+              {visibleTeams.map((id) => (
+                <TeamRow
+                  key={`team:${id}`}
+                  id={id}
+                  selected={selectedTeams.has(id)}
+                  onToggle={() => toggle(id, 'team')}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className={popups.footer}>
           <button

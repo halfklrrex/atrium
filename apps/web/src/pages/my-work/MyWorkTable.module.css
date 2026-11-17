@@ -129,6 +129,19 @@
   border-radius: var(--border-radius-small);
 }
 
+.viaTag {
+  flex: none;
+  max-width: 40%;
+  padding: 0 var(--space-8);
+  overflow: hidden;
+  border-radius: var(--border-radius-small);
+  background: var(--ui-background-color);
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .subitemIcon,
 .boardIcon {
   flex: none;

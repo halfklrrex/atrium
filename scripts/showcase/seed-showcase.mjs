@@ -26,6 +26,7 @@ import {
   SHOWCASE_DASHBOARD_IDS,
   SHOWCASE_DOC_IDS,
   SHOWCASE_MEMBER_UIDS,
+  SHOWCASE_TEAM_IDS,
   SHOWCASE_NOTIFICATION_PREFIX,
   anchorOf,
 } from './data.mjs';
@@ -375,8 +376,12 @@ export async function runSeed({
     const path = `users/${ownerUid}/notifications/${id}`;
     if (id.startsWith(SHOWCASE_NOTIFICATION_PREFIX) && !desired.has(path)) deletes.add(path);
   }
-  // A reset also recreates the fake members' profile docs from scratch.
+  // A reset also recreates the fake members' profile docs and the showcase team from scratch.
   if (reset) {
+    for (const id of SHOWCASE_TEAM_IDS) {
+      const path = `workspaces/${workspaceId}/teams/${id}`;
+      if (await client.getDoc(path)) deletes.add(path);
+    }
     for (const uid of SHOWCASE_MEMBER_UIDS) {
       const path = `workspaces/${workspaceId}/members/${uid}`;
       if (await client.getDoc(path)) deletes.add(path);
@@ -406,7 +411,7 @@ export async function runSeed({
   log(
     `  content    ${summary.items} active items (+${summary.subitems} subitems), ${summary.archived} archived, ${summary.trashed} trashed, ` +
       `${summary.updates} updates, ${summary.replies} replies, ${summary.notifications} notifications, ${SHOWCASE_BOARD_IDS.length} boards, ` +
-      `${summary.members} fake member profiles, ${summary.dashboards} dashboard, ${summary.docs} doc`,
+      `${summary.members} fake member profiles, ${summary.teams} team, ${summary.dashboards} dashboard, ${summary.docs} doc`,
   );
   log(`  documents  ${writeCount} to write, ${deleteCount} to delete`);
   for (const boardId of SHOWCASE_BOARD_IDS) log(`  board      boards/${boardId}`);

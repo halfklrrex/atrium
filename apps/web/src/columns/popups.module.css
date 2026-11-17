@@ -443,6 +443,13 @@
   cursor: pointer;
 }
 
+.sectionLabel {
+  margin: 0;
+  padding: var(--space-8) var(--space-8) var(--space-4);
+  color: var(--secondary-text-color);
+  font: var(--font-text3-medium);
+}
+
 .muted {
   margin: 0;
   color: var(--secondary-text-color);

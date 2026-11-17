@@ -74,6 +74,36 @@ const anon = () => env.unauthenticatedContext().firestore();
 const noteRef = (actor: string, owner: string = USERS.member, id = 'n1') =>
   doc(as(actor), 'users', owner, 'notifications', id);
 
+describe('users/{uid}/notifications via a team (TEAMS PR 3)', () => {
+  const viaTeam = { viaTeamId: 'team1', viaTeamName: 'Kids' };
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', USERS.member, 'notifications', 'n2'), {
+        ...notificationData(),
+        kind: 'assigned',
+        ...viaTeam,
+      });
+    });
+  });
+
+  it('still lets the recipient read it and mark it read (only readAt changes)', async () => {
+    await assertSucceeds(getDoc(noteRef(USERS.member, USERS.member, 'n2')));
+    await assertSucceeds(
+      updateDoc(noteRef(USERS.member, USERS.member, 'n2'), { readAt: serverTimestamp() }),
+    );
+  });
+
+  it('refuses changing viaTeamName and creating one with the fields', async () => {
+    await assertFails(
+      updateDoc(noteRef(USERS.member, USERS.member, 'n2'), { viaTeamName: 'Parents' }),
+    );
+    await assertFails(
+      setDoc(noteRef(USERS.member, USERS.member, 'n3'), { ...notificationData(), ...viaTeam }),
+    );
+  });
+});
+
 describe('users/{uid}/notifications', () => {
   it('lets the recipient read and list their own notifications', async () => {
     await assertSucceeds(getDoc(noteRef(USERS.member)));

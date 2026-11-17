@@ -36,7 +36,8 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { useAuth } from '../../auth/auth-context';
-import { useItems, useUserLookup, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
+import { useItems, useWorkspace, type BoardDoc, type ItemDoc } from '../../data';
+import { usePersonOrTeamName } from '../../data/person-or-team-name';
 import { comparePositions, positionBeforeAll, positionBetween } from '../../lib/positions';
 import { BatchBar } from './BatchBar';
 import { BoardToolbar } from './BoardToolbar';
@@ -108,7 +109,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
   const canEdit = canEditBoard(boardRole);
   const canManage = canManageBoard(boardRole);
   const { data: items, loading, error } = useItems(board.id);
-  const memberLookup = useUserLookup(board.workspaceId);
+  const memberLookup = usePersonOrTeamName(board.workspaceId);
 
   const lookup = useCallback(
     (targetUid: string): string | undefined => {
@@ -116,7 +117,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
         const custom = userLookupProp(targetUid);
         if (custom) return custom;
       }
-      return memberLookup(targetUid)?.name;
+      return memberLookup(targetUid);
     },
     [userLookupProp, memberLookup],
   );

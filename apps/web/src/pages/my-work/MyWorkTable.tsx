@@ -84,6 +84,11 @@ function Row({ row, highlight }: { row: MyWorkRow; highlight: string }) {
         <Link to={path} className={styles.nameLink} title={row.item.name}>
           {row.item.name}
         </Link>
+        {row.viaTeamName ? (
+          <span className={styles.viaTag} title={`Assigned to the team ${row.viaTeamName}`}>
+            via {row.viaTeamName}
+          </span>
+        ) : null}
       </div>
       <div role="gridcell" className={styles.boardCell}>
         <BoardKindIcon kind={row.board.kind} />

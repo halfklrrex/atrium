@@ -6,6 +6,7 @@ import type { ColumnDef, FilterCondition, FilterOperator } from '@atrium/shared'
 import { useAuth } from '../../auth/auth-context';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
 import type { BoardDoc } from '../../data/model';
+import { useTeamLookup, useWorkspaceTeams } from '../../data/teams';
 import { Popover } from '../Popover';
 import styles from './board-filters.module.css';
 import { isOrderable, useBoardFilter } from './filter-store';
@@ -75,11 +76,14 @@ export function AdvancedFilterPopover({ board, userLookup }: AdvancedFilterPopov
   const conditionCount = conditions.length;
 
   const { members } = useWorkspaceMembers(board?.workspaceId);
+  const { teams } = useWorkspaceTeams(board?.workspaceId);
+  // People first, then the workspace's teams (a team id is a valid `people` condition value).
   const availablePeople = useMemo(() => {
     const set = new Set<string>(members.map((m) => m.id));
     if (user?.uid) set.add(user.uid);
+    for (const team of teams) set.add(team.id);
     return Array.from(set);
-  }, [members, user]);
+  }, [members, user, teams]);
 
   const handleAddRule = () => {
     const defaultColId = board?.columns[0]?.id ?? 'name';
@@ -281,6 +285,7 @@ function ConditionValueInput({
   onChange: (val: unknown) => void;
 }) {
   const memberLookup = useUserLookup();
+  const teamLookup = useTeamLookup();
 
   if (colType === 'status') {
     const labels = (column?.settings?.labels as { id: string; label: string }[]) || [];
@@ -351,7 +356,11 @@ function ConditionValueInput({
   if (colType === 'people') {
     const peopleOptions = (availablePeople || []).map((uid) => ({
       value: uid,
-      label: userLookup?.(uid) ?? memberLookup(uid)?.name ?? UNKNOWN_PERSON_NAME,
+      label:
+        userLookup?.(uid) ??
+        memberLookup(uid)?.name ??
+        teamLookup(uid)?.name ??
+        UNKNOWN_PERSON_NAME,
     }));
     return (
       <div className={styles.ruleDropdown}>

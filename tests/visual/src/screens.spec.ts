@@ -588,6 +588,17 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `board-status-picker-${theme}`, PARK_IN_HEADER);
     });
 
+    // TEAMS-3: the People picker lists the workspace's two seeded teams after the people.
+    test('board: People picker with teams', async ({ page }) => {
+      await page.goto(`/boards/${IDS.roadmap}`);
+      await boardReady(page);
+      await page.locator('[data-cell="roadmap-item-01:person"]').click();
+      const teams = page.getByRole('group', { name: 'Teams' });
+      await expect(teams.getByRole('option', { name: /Garden crew/ })).toBeVisible();
+      await expect(teams.getByRole('option', { name: /Parents/ })).toBeVisible();
+      await shoot(page, `board-people-team-picker-${theme}`, PARK_IN_HEADER);
+    });
+
     test('board: collapsed group', async ({ page }) => {
       await page.goto(`/boards/${IDS.roadmap}`);
       await boardReady(page);

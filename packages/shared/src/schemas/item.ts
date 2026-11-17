@@ -38,6 +38,8 @@ export const itemSchema = z.object({
   boardSeq: z.number().int().min(1).optional(),
   /** Uids assigned in a People column; server-maintained index (`onItemPeopleAssigned`), never client-written. */
   assigneeUids: z.array(uidSchema).optional(),
+  /** Ids of the teams assigned in a People column (TEAMS PR 3); server-maintained index, never client-written. */
+  assigneeTeamIds: z.array(idSchema).optional(),
   /** `"<columnId>:<YYYY-MM-DD>"` per date cell with a date (P5d); server-maintained index, never client-written. */
   dateKeys: z.array(z.string()).optional(),
   /** Search tokens of `name`; server-maintained index, never client-written. */
@@ -65,6 +67,7 @@ export type ItemWrite = Omit<
   | 'boardSeq'
   | 'descriptionImages'
   | 'assigneeUids'
+  | 'assigneeTeamIds'
   | 'nameTokens'
   | 'dateKeys'
   | 'updatedVia'

@@ -17,6 +17,7 @@ export function adminItemIndexWriter(firestore: Firestore): Pick<ItemIndexStore,
         await ref.update(
           {
             assigneeUids: fields.assigneeUids,
+            assigneeTeamIds: fields.assigneeTeamIds,
             nameTokens: fields.nameTokens,
             dateKeys: fields.dateKeys,
           },

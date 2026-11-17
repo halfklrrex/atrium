@@ -22,6 +22,8 @@ export const MY_WORK_BUCKETS: readonly { id: MyWorkBucket; title: string }[] = [
 export interface AssignedEntry {
   board: BoardDoc;
   item: ItemDoc;
+  /** Set when the item reached the person only through a team they belong to (TEAMS PR 3). */
+  viaTeam?: { id: string; name: string };
 }
 
 /** One table row of My Work: an assigned item with everything its cells need. */
@@ -30,6 +32,8 @@ export interface MyWorkRow {
   board: BoardDoc;
   workspaceName: string;
   item: ItemDoc;
+  /** The team behind the assignment ("via Kids"); undefined for a direct assignment. */
+  viaTeamName: string | undefined;
   group: GroupDef | undefined;
   /** The columns that apply to this item (a subitem uses the board's subitem columns). */
   columns: ColumnView[];
@@ -77,7 +81,7 @@ export function buildRows(
     }
     return views;
   };
-  return entries.map(({ board, item }) => {
+  return entries.map(({ board, item, viaTeam }) => {
     const columns = viewsOf(board, item.parentItemId != null);
     const { column, date } = dateOf(item, columns);
     return {
@@ -85,6 +89,7 @@ export function buildRows(
       board,
       workspaceName: workspaceNames.get(board.workspaceId) ?? '',
       item,
+      viaTeamName: viaTeam?.name,
       group: board.groups.find((g) => g.id === item.groupId),
       columns,
       peopleColumn: columns.find((c) => c.def.type === 'people'),

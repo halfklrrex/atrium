@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ITEM_INDEX_LIMITS,
+  assigneeTeamIdsOf,
   assigneeUidsOf,
   itemIndexFields,
   nameTokensOf,
@@ -117,6 +118,29 @@ describe('assigneeUidsOf', () => {
   });
 });
 
+describe('assigneeTeamIdsOf', () => {
+  it('collects teams across People columns, sorted and unique, and skips persons', () => {
+    const values = {
+      owner: {
+        personsAndTeams: [
+          { id: 't2', kind: 'team' },
+          { id: 'u1', kind: 'person' },
+        ],
+      },
+      reviewer: {
+        personsAndTeams: [
+          { id: 't1', kind: 'team' },
+          { id: 't2', kind: 'team' },
+        ],
+      },
+      status: { personsAndTeams: [{ id: 't9', kind: 'team' }] },
+    };
+    expect(assigneeTeamIdsOf(board.columns, values)).toEqual(['t1', 't2']);
+    expect(assigneeTeamIdsOf(board.columns, { owner: { personsAndTeams: 'nope' } })).toEqual([]);
+    expect(assigneeTeamIdsOf(board.columns, null)).toEqual([]);
+  });
+});
+
 describe('itemIndexFields', () => {
   const people = (id: string) => ({ personsAndTeams: [{ id, kind: 'person' }] });
 
@@ -124,17 +148,26 @@ describe('itemIndexFields', () => {
     const values = { owner: people('u1'), sub_owner: people('u2') };
     expect(itemIndexFields(board, { name: 'Task', values, parentItemId: null })).toEqual({
       assigneeUids: ['u1'],
+      assigneeTeamIds: [],
       nameTokens: ['ta', 'tas', 'task'],
     });
     expect(itemIndexFields(board, { name: 'Sub', values, parentItemId: 'p1' })).toEqual({
       assigneeUids: ['u2'],
+      assigneeTeamIds: [],
       nameTokens: ['su', 'sub'],
     });
+  });
+
+  it('indexes teams of a main item', () => {
+    const values = { owner: { personsAndTeams: [{ id: 't1', kind: 'team' }] } };
+    expect(
+      itemIndexFields(board, { name: 'x', values, parentItemId: null }).assigneeTeamIds,
+    ).toEqual(['t1']);
   });
 
   it('copes with a board without subitem columns', () => {
     expect(
       itemIndexFields({ columns: board.columns }, { name: 'x', values: {}, parentItemId: 'p' }),
-    ).toEqual({ assigneeUids: [], nameTokens: [] });
+    ).toEqual({ assigneeUids: [], assigneeTeamIds: [], nameTokens: [] });
   });
 });

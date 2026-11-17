@@ -22,6 +22,7 @@ import {
   validateAutomation,
   validateButtonActions,
   recentSchema,
+  teamSchema,
   updateReplySchema,
   workspaceMemberSchema,
 } from '@atrium/shared';
@@ -88,6 +89,7 @@ test('every document re-validates against its shared schema', () => {
     [/^users\/[^/]+\/recents\/[^/]+$/, recentSchema],
     [/^users\/[^/]+\/notifications\/[^/]+$/, notificationSchema],
     [/^workspaces\/[^/]+\/members\/[^/]+$/, workspaceMemberSchema],
+    [/^workspaces\/[^/]+\/teams\/[^/]+$/, teamSchema],
   ];
   for (const { path, data } of docs) {
     const entry = byPattern.find(([pattern]) => pattern.test(path));
@@ -468,6 +470,32 @@ test('People cells reference the fake members', () => {
   for (const uid of SHOWCASE_MEMBER_UIDS) assert.ok(used.has(uid), uid);
 });
 
+test('a showcase team holds only the owner and is assigned on one People cell', async () => {
+  const { docs } = build();
+  const teams = docs.filter((d) => d.path.includes('/teams/'));
+  assert.deepEqual(
+    teams.map((d) => d.path),
+    [`workspaces/${WORKSPACE}/teams/showcase-team-crew`],
+  );
+  assert.deepEqual(teams[0].data.memberUids, [OWNER]);
+  const assigned = docs.filter(
+    (d) =>
+      MAIN_ITEM.test(d.path) &&
+      (d.data.values.person?.personsAndTeams ?? []).some((p) => p.kind === 'team'),
+  );
+  assert.equal(assigned.length, 1);
+  assert.deepEqual(assigned[0].data.assigneeTeamIds, ['showcase-team-crew']);
+  // A reset removes the team again before recreating it.
+  const client = fakeFirestore(baseWorld());
+  await seed(client);
+  assert.ok(client.store.has(`workspaces/${WORKSPACE}/teams/showcase-team-crew`));
+  await seed(client, { reset: true });
+  assert.ok(client.store.has(`workspaces/${WORKSPACE}/teams/showcase-team-crew`));
+  assert.ok(isOwnedPath(`workspaces/${WORKSPACE}/teams/showcase-team-crew`, OWNER, WORKSPACE));
+  assert.ok(!isOwnedPath(`workspaces/${WORKSPACE}/teams/real-team`, OWNER, WORKSPACE));
+  assert.ok(!isOwnedPath(`workspaces/other/teams/showcase-team-crew`, OWNER, WORKSPACE));
+});
+
 test('ownership allow-list', () => {
   assert.ok(
     isOwnedPath(`workspaces/${WORKSPACE}/members/${SHOWCASE_MEMBER_UIDS[0]}`, OWNER, WORKSPACE),
@@ -650,7 +678,8 @@ const isShowcasePath = (p) =>
   /^docs\/showcase/.test(p) ||
   /\/(favorites|recents)\/showcase/.test(p) ||
   /\/notifications\/showcase-notification-/.test(p) ||
-  /^workspaces\/[^/]+\/members\/showcase-user-/.test(p);
+  /^workspaces\/[^/]+\/members\/showcase-user-/.test(p) ||
+  /^workspaces\/[^/]+\/teams\/showcase-team-/.test(p);
 const foreignDocs = (client) =>
   Object.fromEntries([...client.store.entries()].filter(([p]) => !isShowcasePath(p)));
 
