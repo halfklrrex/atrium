@@ -1,4 +1,13 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import classNames from 'classnames';
+import { Button } from '@vibe/core';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 import { getReadableTextColor, hexToHsv, hsvToHex, normalizeHex, type Hsv } from './label-color';
 import popups from './popups.module.css';
 
@@ -119,7 +128,7 @@ export function ColorPicker({
       >
         <span
           className={popups.pickerHandle}
-          style={{ left: `${hsv.s}%`, top: `${100 - hsv.v}%` }}
+          style={{ left: `${hsv.s}%`, top: `${100 - hsv.v}%`, backgroundColor: hex }}
           aria-hidden="true"
         />
       </div>
@@ -130,6 +139,9 @@ export function ColorPicker({
         max={360}
         step={1}
         value={Math.round(hsv.h)}
+        style={
+          { '--atrium-picker-thumb-fill': hsvToHex({ h: hsv.h, s: 100, v: 100 }) } as CSSProperties
+        }
         aria-label="Hue"
         onChange={(event) => setFromHsv({ ...hsv, h: Number(event.target.value) })}
       />
@@ -142,7 +154,7 @@ export function ColorPicker({
           Aa
         </span>
         <input
-          className={popups.input}
+          className={classNames(popups.input, popups.pickerHex)}
           value={text}
           maxLength={7}
           spellCheck={false}
@@ -156,13 +168,13 @@ export function ColorPicker({
           Enter a color like #1a2b3c.
         </p>
       ) : null}
-      <div className={popups.footer}>
-        <button type="button" className={popups.linkButton} onClick={onCancel}>
+      <div className={popups.pickerFooter}>
+        <Button kind="tertiary" size="small" onClick={onCancel}>
           Cancel
-        </button>
-        <button type="button" className={popups.linkButton} disabled={invalid} onClick={applyColor}>
+        </Button>
+        <Button size="small" disabled={invalid} onClick={applyColor}>
           Use
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -212,7 +212,21 @@
 }
 
 .paletteWheel {
-  background: conic-gradient(var(--atrium-picker-hues));
+  background: conic-gradient(from 0deg, var(--atrium-picker-hues));
+}
+
+.paletteWheel:hover:not(.paletteSelected) {
+  box-shadow: 0 0 0 var(--border-width) var(--ui-border-color);
+}
+
+.paletteWheel[aria-expanded='true'] {
+  border-color: var(--primary-text-color);
+  box-shadow: inset 0 0 0 var(--space-2) var(--atrium-table-popup-bg);
+}
+
+.paletteSwatch:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: var(--space-2);
 }
 
 .customRow {
@@ -231,8 +245,12 @@
 .picker {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
-  padding: var(--space-8) 0;
+  gap: var(--space-12);
+  margin: var(--space-8) 0;
+  padding: var(--space-12);
+  border: var(--border-width) var(--border-style) var(--ui-border-color);
+  border-radius: var(--atrium-table-radius);
+  background: var(--atrium-table-popup-bg);
 }
 
 .pickerSquare {
@@ -246,9 +264,20 @@
   touch-action: none;
 }
 
+/* A hairline over the gradient keeps a very light or dark hue visible against the panel. */
+.pickerSquare::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 var(--border-width) var(--atrium-picker-edge);
+  pointer-events: none;
+}
+
 .pickerSquare:focus-visible,
 .pickerHue:focus-visible {
   outline: var(--atrium-focus-ring);
+  outline-offset: var(--space-2);
 }
 
 .pickerHandle {
@@ -258,35 +287,55 @@
   margin: calc(var(--atrium-picker-handle) / -2) 0 0 calc(var(--atrium-picker-handle) / -2);
   border: var(--space-2) solid var(--atrium-table-on-fill);
   border-radius: 50%;
-  box-shadow: 0 0 0 var(--border-width) var(--atrium-picker-black);
+  box-shadow: var(--atrium-picker-thumb-shadow);
   pointer-events: none;
 }
 
 .pickerHue {
+  display: block;
   width: 100%;
-  height: var(--atrium-picker-hue-height);
+  height: var(--atrium-picker-handle);
   margin: 0;
-  border-radius: var(--atrium-table-radius);
-  background: linear-gradient(to right, var(--atrium-picker-hues));
+  padding: 0;
+  background: transparent;
   appearance: none;
   cursor: pointer;
+}
+
+.pickerHue::-webkit-slider-runnable-track {
+  height: var(--atrium-picker-hue-height);
+  border-radius: var(--atrium-picker-hue-height);
+  background: linear-gradient(to right, var(--atrium-picker-hues));
+  box-shadow: inset 0 0 0 var(--border-width) var(--atrium-picker-edge);
+}
+
+.pickerHue::-moz-range-track {
+  height: var(--atrium-picker-hue-height);
+  border-radius: var(--atrium-picker-hue-height);
+  background: linear-gradient(to right, var(--atrium-picker-hues));
+  box-shadow: inset 0 0 0 var(--border-width) var(--atrium-picker-edge);
 }
 
 .pickerHue::-webkit-slider-thumb {
   width: var(--atrium-picker-handle);
   height: var(--atrium-picker-handle);
+  box-sizing: border-box;
+  margin-top: calc((var(--atrium-picker-hue-height) - var(--atrium-picker-handle)) / 2);
   border: var(--space-2) solid var(--atrium-table-on-fill);
   border-radius: 50%;
-  box-shadow: 0 0 0 var(--border-width) var(--atrium-picker-black);
+  background: var(--atrium-picker-thumb-fill);
+  box-shadow: var(--atrium-picker-thumb-shadow);
   appearance: none;
 }
 
 .pickerHue::-moz-range-thumb {
   width: var(--atrium-picker-handle);
   height: var(--atrium-picker-handle);
+  box-sizing: border-box;
   border: var(--space-2) solid var(--atrium-table-on-fill);
   border-radius: 50%;
-  box-shadow: 0 0 0 var(--border-width) var(--atrium-picker-black);
+  background: var(--atrium-picker-thumb-fill);
+  box-shadow: var(--atrium-picker-thumb-shadow);
 }
 
 .pickerFields {
@@ -299,10 +348,25 @@
   display: inline-grid;
   flex: none;
   place-items: center;
-  width: var(--atrium-table-swatch);
-  height: var(--atrium-table-swatch);
+  width: var(--atrium-control-height);
+  height: var(--atrium-control-height);
   border-radius: var(--atrium-table-radius);
+  box-shadow: inset 0 0 0 var(--border-width) var(--atrium-picker-edge);
   font: var(--font-text3-normal);
+}
+
+.pickerHex {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  text-transform: lowercase;
+}
+
+.pickerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-8);
 }
 
 .iconButton {
