@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BoardViewDoc } from '../../data';
 import { syntheticMainView } from '../../data/views';
 import { chooseMenuItem } from '../../test/menu';
@@ -192,5 +192,72 @@ describe('view tabs', () => {
     openMenuOf('Sign up');
     expect(menuItems()).toEqual(expect.arrayContaining(['Rename', 'Duplicate', 'Delete']));
     expect(menuItems()).not.toContain('Make personal');
+  });
+
+  describe('overflow', () => {
+    const many = [
+      main,
+      ...['One', 'Two', 'Three', 'Four', 'Five', 'Six'].map((name, i) =>
+        view(`o${i}`, name, null, `b${i}`),
+      ),
+    ];
+    const restore: Array<() => void> = [];
+
+    /** jsdom has no layout: give the row 460px and every tab 100px. */
+    function fakeLayout() {
+      const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(460);
+      const rect = vi
+        .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+        .mockImplementation(function (this: HTMLElement) {
+          const w = this.getAttribute('role') === 'tab' ? 100 : 0;
+          return {
+            width: w,
+            height: 0,
+            top: 0,
+            left: 0,
+            right: w,
+            bottom: 0,
+            x: 0,
+            y: 0,
+          } as DOMRect;
+        });
+      restore.push(
+        () => width.mockRestore(),
+        () => rect.mockRestore(),
+      );
+    }
+
+    afterEach(() => restore.splice(0).forEach((fn) => fn()));
+
+    it('puts the tabs that do not fit behind a "N more" menu', () => {
+      fakeLayout();
+      renderTabs({ canEdit: true, tabs: many });
+      expect(screen.getByRole('button', { name: /more views?/ })).toBeInTheDocument();
+      expect(screen.getByText('Main table')).toBeInTheDocument();
+      expect(screen.queryByText('Six')).not.toBeInTheDocument();
+    });
+
+    it('keeps the selected view visible even when it would be hidden', () => {
+      fakeLayout();
+      renderTabs({ canEdit: true, tabs: many, shown: many[6] });
+      expect(screen.getByText('Six')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /more views?/ })).toBeInTheDocument();
+    });
+
+    it('lists the hidden views with their names and opens one on click', async () => {
+      fakeLayout();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      renderTabs({ canEdit: true, tabs: many });
+      await user.click(screen.getByRole('button', { name: /more views?/ }));
+      const names = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
+      expect(names).toContain('Six');
+      await chooseMenuItem(user, 'Six');
+      await waitFor(() => expect(goTo).toHaveBeenCalledWith('o5'));
+    });
+
+    it('shows no More trigger when every tab fits', () => {
+      renderTabs({ canEdit: true });
+      expect(screen.queryByRole('button', { name: /more views?/ })).not.toBeInTheDocument();
+    });
   });
 });
