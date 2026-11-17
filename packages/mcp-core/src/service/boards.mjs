@@ -13,7 +13,6 @@ import {
 import {
   addLabelsToSettings,
   buildBoardDoc,
-  buildColumn,
   buildGroup,
   buildItemDoc,
   evenPositions,
@@ -40,6 +39,8 @@ export function boardsService(h) {
     subitemColumnsOf,
     readContext,
     readValues,
+    prepareMirrors,
+    prepareColumn,
   } = h;
   /** Item writes for a template's sample items: skips values the column rules would refuse. */
   function sampleItemWrites(boardId, board, sampleItems) {
@@ -149,6 +150,7 @@ export function boardsService(h) {
       const groupOrder = new Map(sortedByPosition(board.groups).map((g, i) => [g.id, i]));
       const readColumns = legacy ? [...board.columns, ...board.subitemColumns] : board.columns;
       const context = await readContext(boardId, board.workspaceId, readColumns);
+      await prepareMirrors(context, docs, readColumns);
       const shape = (doc, columns) => ({
         id: doc.id,
         seq: doc.data.seq ?? null,
@@ -163,6 +165,7 @@ export function boardsService(h) {
             (groupOrder.get(a.data.groupId) ?? 0) - (groupOrder.get(b.data.groupId) ?? 0) ||
             (a.data.position < b.data.position ? -1 : 1),
         );
+      if (context.notes?.length) result.notes = context.notes;
       result.itemCount = roots.length;
       result.items = roots.slice(0, limit).map((doc) => {
         const children = subitems
@@ -360,9 +363,14 @@ export function boardsService(h) {
       });
     },
     async addColumn({ boardId, title, type, settings }) {
-      return mutateBoard(boardId, (board) => {
+      return mutateBoard(boardId, async (board) => {
         if (voteCapExceeded(type, board)) throw new McpUserError(VOTE_COLUMN_CAP_MESSAGE);
-        const column = buildColumn({ title, type, settings, existingColumns: board.columns });
+        const column = await prepareColumn({
+          loaded: { workspaceId: board.workspaceId, board },
+          title,
+          type,
+          settings,
+        });
         return {
           patch: { columns: [...board.columns, column] },
           result: {

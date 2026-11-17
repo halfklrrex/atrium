@@ -102,7 +102,13 @@ export const boardTools = (service) => [
     description:
       `Adds a column at the end of a board. Types: ${CREATABLE_COLUMN_TYPES.join(', ')}. ` +
       'For status, dropdown and tags pass the labels as settings.addLabels (status: texts or {label,color}). ' +
-      "Other settings are the type's own (e.g. rating: {limit, symbol}). Needs the board owner role. Additive.",
+      "Other settings are the type's own (e.g. rating: {limit, symbol}). " +
+      'Calculated types (formula: {expression, outputType, decimalPlaces?}, progress: {statusColumns: [status columns]}, ' +
+      'item_id, auto_number, creation_log, last_updated, mirror) and managed ones (files, time_tracking) hold no value you can set; ' +
+      'vote columns are written with atrium_vote_item (at most 10 per board). ' +
+      'board_relation: {boards: [board ids or names you can read], allowMultipleItems?}; ' +
+      'mirror: {relationColumn: a board_relation column, targetColumns: {board: column to show}, aggregation?}; ' +
+      'dependency: {strict?, timeColumn?}. Needs the board owner role. Additive.',
     inputSchema: {
       boardId: id,
       title: z.string().trim().min(1).max(120),

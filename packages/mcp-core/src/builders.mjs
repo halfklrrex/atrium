@@ -12,6 +12,7 @@ import {
   itemSchema,
   itemUpdateSchema,
   updateReplySchema,
+  validateColumnDef,
   withoutServerColumnFields,
 } from '@atrium/shared';
 import { CREATABLE_COLUMN_TYPES } from './values.mjs';
@@ -230,9 +231,6 @@ export function buildColumn({ title, type, settings, existingColumns, newId = ne
       `Column type "${type}" is not supported. Use one of: ${CREATABLE_COLUMN_TYPES.join(', ')}.`,
     );
   }
-  if (columnRegistry.isDerived(type) || columnRegistry.isServerManaged(type)) {
-    throw new McpUserError(`Column type "${type}" is calculated or managed by Atrium.`);
-  }
   const column = {
     id: newId(),
     type,
@@ -240,7 +238,11 @@ export function buildColumn({ title, type, settings, existingColumns, newId = ne
     position: positionAfter(existingColumns.map((c) => c.position)),
     settings: buildColumnSettings(type, settings),
   };
-  return parseOrThrow(columnDefSchema, column, 'The column');
+  const parsed = parseOrThrow(columnDefSchema, column, 'The column');
+  // The same check the web's column settings run (settings schema, defaults).
+  const checked = validateColumnDef(parsed, columnRegistry);
+  if (!checked.valid) throw new McpUserError(checked.error);
+  return parsed;
 }
 
 // ---- items -------------------------------------------------------------------------------------

@@ -7,6 +7,7 @@
 // tools); a new domain is one file and one line in `DOMAINS`. The original 45 tools keep the order
 // they were registered in (`LEGACY_ORDER`); every later tool follows them in `DOMAINS` order.
 import { boardTools } from './tools/boards.mjs';
+import { columnTools } from './tools/columns.mjs';
 import { docTools } from './tools/docs.mjs';
 import { itemTools } from './tools/items.mjs';
 import { memberTools } from './tools/members.mjs';
@@ -25,6 +26,7 @@ export const DOMAINS = {
   docs: docTools,
   teams: teamTools,
   views: viewTools,
+  columns: columnTools,
 };
 
 /** The registration order of the tools that existed before the split (a parity test pins it). */

@@ -236,7 +236,7 @@
       "idempotentHint": false,
       "openWorldHint": false
     },
-    "description": "Adds a column at the end of a board. Types: text, long_text, numbers, status, dropdown, date, timeline, checkbox, link, people, tags, rating. For status, dropdown and tags pass the labels as settings.addLabels (status: texts or {label,color}). Other settings are the type's own (e.g. rating: {limit, symbol}). Needs the board owner role. Additive.",
+    "description": "Adds a column at the end of a board. Types: text, long_text, numbers, status, dropdown, date, timeline, checkbox, link, people, tags, rating, email, phone, country, location, hour, week, world_clock, color_picker, vote, progress, formula, item_id, auto_number, creation_log, last_updated, board_relation, mirror, dependency, files, time_tracking. For status, dropdown and tags pass the labels as settings.addLabels (status: texts or {label,color}). Other settings are the type's own (e.g. rating: {limit, symbol}). Calculated types (formula: {expression, outputType, decimalPlaces?}, progress: {statusColumns: [status columns]}, item_id, auto_number, creation_log, last_updated, mirror) and managed ones (files, time_tracking) hold no value you can set; vote columns are written with atrium_vote_item (at most 10 per board). board_relation: {boards: [board ids or names you can read], allowMultipleItems?}; mirror: {relationColumn: a board_relation column, targetColumns: {board: column to show}, aggregation?}; dependency: {strict?, timeColumn?}. Needs the board owner role. Additive.",
     "inputSchema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
@@ -264,7 +264,27 @@
             "link",
             "people",
             "tags",
-            "rating"
+            "rating",
+            "email",
+            "phone",
+            "country",
+            "location",
+            "hour",
+            "week",
+            "world_clock",
+            "color_picker",
+            "vote",
+            "progress",
+            "formula",
+            "item_id",
+            "auto_number",
+            "creation_log",
+            "last_updated",
+            "board_relation",
+            "mirror",
+            "dependency",
+            "files",
+            "time_tracking"
           ]
         },
         "settings": {
@@ -523,7 +543,7 @@
                   "type": "string"
                 },
                 "additionalProperties": {},
-                "description": "Cell values keyed by column title or id. status: label text; dropdown/tags: label text or an array of texts; date: \"YYYY-MM-DD\"; timeline: [\"YYYY-MM-DD\",\"YYYY-MM-DD\"]; checkbox: true/false; rating: number; link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid or email, \"me\", or a team as \"team:<name or id>\" (see atrium_list_teams), or an array of those (a single-person column holds one); vote columns are written with atrium_vote_item. null clears a cell (refused on a required column). Calculated columns cannot be set."
+                "description": "Cell values keyed by column title or id. status: label text; dropdown/tags: label text or an array of texts; date: \"YYYY-MM-DD\"; timeline: [\"YYYY-MM-DD\",\"YYYY-MM-DD\"]; checkbox: true/false; rating: number; link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid or email, \"me\", or a team as \"team:<name or id>\" (see atrium_list_teams), or an array of those (a single-person column holds one); vote columns are written with atrium_vote_item. email: an address or {email, text}; phone: text or {phone, country}; country: a two-letter code or the English name; location: {lat, lng, address?} (an address text alone is refused); hour: \"14:30\" or \"2:30 PM\"; week: \"2026-W47\" or any date in the week; world_clock: an IANA zone such as \"Europe/Amsterdam\"; color_picker: \"#RRGGBB\"; board_relation: item ids or exact item names on the connected boards (or {board, item}), as an array; dependency: item ids or exact names of other items on the same board (a circular dependency is refused). null clears a cell (refused on a required column). Calculated and managed columns (formula, mirror, files, ...) cannot be set."
               }
             },
             "required": ["name"]
@@ -571,7 +591,7 @@
             "type": "string"
           },
           "additionalProperties": {},
-          "description": "Cell values keyed by column title or id. status: label text; dropdown/tags: label text or an array of texts; date: \"YYYY-MM-DD\"; timeline: [\"YYYY-MM-DD\",\"YYYY-MM-DD\"]; checkbox: true/false; rating: number; link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid or email, \"me\", or a team as \"team:<name or id>\" (see atrium_list_teams), or an array of those (a single-person column holds one); vote columns are written with atrium_vote_item. null clears a cell (refused on a required column). Calculated columns cannot be set."
+          "description": "Cell values keyed by column title or id. status: label text; dropdown/tags: label text or an array of texts; date: \"YYYY-MM-DD\"; timeline: [\"YYYY-MM-DD\",\"YYYY-MM-DD\"]; checkbox: true/false; rating: number; link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid or email, \"me\", or a team as \"team:<name or id>\" (see atrium_list_teams), or an array of those (a single-person column holds one); vote columns are written with atrium_vote_item. email: an address or {email, text}; phone: text or {phone, country}; country: a two-letter code or the English name; location: {lat, lng, address?} (an address text alone is refused); hour: \"14:30\" or \"2:30 PM\"; week: \"2026-W47\" or any date in the week; world_clock: an IANA zone such as \"Europe/Amsterdam\"; color_picker: \"#RRGGBB\"; board_relation: item ids or exact item names on the connected boards (or {board, item}), as an array; dependency: item ids or exact names of other items on the same board (a circular dependency is refused). null clears a cell (refused on a required column). Calculated and managed columns (formula, mirror, files, ...) cannot be set."
         }
       },
       "required": ["boardId", "itemId"]
@@ -934,7 +954,7 @@
                   "type": "string"
                 },
                 "additionalProperties": {},
-                "description": "Cell values keyed by column title or id. status: label text; dropdown/tags: label text or an array of texts; date: \"YYYY-MM-DD\"; timeline: [\"YYYY-MM-DD\",\"YYYY-MM-DD\"]; checkbox: true/false; rating: number; link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid or email, \"me\", or a team as \"team:<name or id>\" (see atrium_list_teams), or an array of those (a single-person column holds one); vote columns are written with atrium_vote_item. null clears a cell (refused on a required column). Calculated columns cannot be set."
+                "description": "Cell values keyed by column title or id. status: label text; dropdown/tags: label text or an array of texts; date: \"YYYY-MM-DD\"; timeline: [\"YYYY-MM-DD\",\"YYYY-MM-DD\"]; checkbox: true/false; rating: number; link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid or email, \"me\", or a team as \"team:<name or id>\" (see atrium_list_teams), or an array of those (a single-person column holds one); vote columns are written with atrium_vote_item. email: an address or {email, text}; phone: text or {phone, country}; country: a two-letter code or the English name; location: {lat, lng, address?} (an address text alone is refused); hour: \"14:30\" or \"2:30 PM\"; week: \"2026-W47\" or any date in the week; world_clock: an IANA zone such as \"Europe/Amsterdam\"; color_picker: \"#RRGGBB\"; board_relation: item ids or exact item names on the connected boards (or {board, item}), as an array; dependency: item ids or exact names of other items on the same board (a circular dependency is refused). null clears a cell (refused on a required column). Calculated and managed columns (formula, mirror, files, ...) cannot be set."
               }
             },
             "required": ["name"]
