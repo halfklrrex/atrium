@@ -1,11 +1,12 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProfileTab } from './ProfileTab';
 import { timeZoneChoices } from './time-zones';
 
 const mocks = vi.hoisted(() => ({
-  doc: { timezone: 'Europe/Paris' } as { timezone: string } | null,
+  doc: { timezone: 'Europe/Paris' } as Record<string, unknown> | null,
+  setMyProfile: vi.fn(),
   setTimezone: vi.fn(),
   showToast: vi.fn(),
 }));
@@ -20,6 +21,9 @@ vi.mock('../../data/user-settings', () => ({
   useMyUserDoc: () => ({ data: mocks.doc, loading: false }),
   userWrites: { setTimezone: (...args: unknown[]) => mocks.setTimezone(...args) },
 }));
+vi.mock('../../lib/callables', () => ({
+  profileCalls: { setMyProfile: (...args: unknown[]) => mocks.setMyProfile(...args) },
+}));
 vi.mock('../../components/toast-store', () => ({ showToast: mocks.showToast }));
 
 describe('ProfileTab', () => {
@@ -27,6 +31,7 @@ describe('ProfileTab', () => {
     vi.clearAllMocks();
     mocks.doc = { timezone: 'Europe/Paris' };
     mocks.setTimezone.mockResolvedValue(undefined);
+    mocks.setMyProfile.mockResolvedValue({ workspaces: 1 });
     vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
       timeZone: 'America/New_York',
     } as Intl.ResolvedDateTimeFormatOptions);
@@ -38,7 +43,9 @@ describe('ProfileTab', () => {
     expect(screen.getByText('avery@example.com')).toBeVisible();
     expect(screen.getByText('From your Google account')).toBeVisible();
     expect(screen.getByRole('region', { name: 'Your Google account' })).toBeVisible();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(
+      within(screen.getByRole('region', { name: 'Your Google account' })).queryByRole('textbox'),
+    ).toBeNull();
   });
 
   it('selects the stored time zone and saves a change straight away', async () => {
@@ -74,6 +81,54 @@ describe('ProfileTab', () => {
         type: 'negative',
       }),
     );
+  });
+
+  it('re-sends the profile after a time zone change when local time is shared', async () => {
+    const stamp = { toDate: () => new Date(0), toMillis: () => 0 };
+    mocks.doc = {
+      timezone: 'Europe/Paris',
+      profile: {
+        title: 'Mom',
+        about: null,
+        location: 'Lyon',
+        birthday: { month: 3, day: 12 },
+        showLocalTime: true,
+        updatedAt: stamp,
+      },
+    };
+    render(<ProfileTab />);
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Your time zone' }),
+      'Asia/Tokyo',
+    );
+    await vi.waitFor(() =>
+      expect(mocks.setMyProfile).toHaveBeenCalledWith({
+        title: 'Mom',
+        about: null,
+        location: 'Lyon',
+        birthday: { month: 3, day: 12 },
+        showLocalTime: true,
+      }),
+    );
+  });
+
+  it('does not re-send the profile after a time zone change when local time is private', async () => {
+    mocks.doc = {
+      timezone: 'Europe/Paris',
+      profile: { title: 'Mom', about: null, location: null, birthday: null, showLocalTime: false },
+    };
+    render(<ProfileTab />);
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Your time zone' }),
+      'Asia/Tokyo',
+    );
+    await vi.waitFor(() => expect(mocks.setTimezone).toHaveBeenCalled());
+    expect(mocks.setMyProfile).not.toHaveBeenCalled();
+  });
+
+  it('shows the About you card', () => {
+    render(<ProfileTab />);
+    expect(screen.getByRole('region', { name: 'About you' })).toBeVisible();
   });
 
   it('shows the user ID and copies it', async () => {

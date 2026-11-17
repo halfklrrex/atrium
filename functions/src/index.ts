@@ -35,6 +35,7 @@ export { declineInvite } from './callable/declineInvite';
 export { changeMemberRole } from './callable/changeMemberRole';
 export { removeMember } from './callable/removeMember';
 export { leaveWorkspace } from './callable/leaveWorkspace';
+export { setMyProfile } from './callable/setMyProfile';
 export { setBoardAccess } from './callable/setBoardAccess';
 export { setBoardKind } from './callable/setBoardKind';
 export { setDashboardAccess } from './callable/setDashboardAccess';

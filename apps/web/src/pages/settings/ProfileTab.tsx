@@ -3,14 +3,17 @@ import { useId, useMemo } from 'react';
 import { useAuth } from '../../auth/auth-context';
 import { showToast } from '../../components/toast-store';
 import { useMyUserDoc, userWrites } from '../../data/user-settings';
+import { profileCalls } from '../../lib/callables';
+import { AboutYouCard } from './AboutYouCard';
 import { IdentityCard } from './IdentityCard';
+import { writeFromProfile } from './profile-form';
 import styles from './Settings.module.css';
 import { SettingsCard } from './SettingsCard';
 import { timeZoneChoices } from './time-zones';
 
 const deviceTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** Settings > Profile: the Google identity (read-only), the time zone and the user ID. */
+/** Settings > Profile: the Google identity (read-only), "About you", the time zone and the user ID. */
 export function ProfileTab() {
   const { user } = useAuth();
   const uid = user?.uid;
@@ -21,9 +24,20 @@ export function ProfileTab() {
 
   const save = (timezone: string) => {
     if (!uid || timezone === stored) return;
-    userWrites.setTimezone(uid, timezone).catch(() => {
-      showToast("Couldn't save your time zone.", { type: 'negative' });
-    });
+    const profile = doc?.profile;
+    userWrites
+      .setTimezone(uid, timezone)
+      .then(() => {
+        // Members see the local time computed from the zone, so re-send the profile to refresh the
+        // copies on their member docs (only when the person shares their local time).
+        if (profile?.showLocalTime) {
+          return profileCalls.setMyProfile(writeFromProfile(profile)).then(() => undefined);
+        }
+        return undefined;
+      })
+      .catch(() => {
+        showToast("Couldn't save your time zone.", { type: 'negative' });
+      });
   };
 
   const copyUid = () => {
@@ -39,6 +53,8 @@ export function ProfileTab() {
   return (
     <>
       <IdentityCard />
+
+      <AboutYouCard saved={doc?.profile} />
 
       <SettingsCard title="Time zone" hint="Used for scheduled automations.">
         <div className={styles.row}>

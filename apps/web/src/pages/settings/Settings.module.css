@@ -219,6 +219,38 @@
   font: var(--font-text2-normal);
 }
 
+/* "About you" form */
+.formStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+
+.counter {
+  align-self: flex-end;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.birthdayRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Theme cards */
 .themeGrid {
   display: grid;
