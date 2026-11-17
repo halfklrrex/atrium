@@ -92,6 +92,7 @@ const DOMAIN_TOOLS = {
   ],
   members: ['atrium_find_member', 'atrium_list_members', 'atrium_list_teams'],
   teams: ['atrium_create_team', 'atrium_update_team', 'atrium_delete_team'],
+  teams: ['atrium_create_team', 'atrium_update_team', 'atrium_delete_team'],
   mywork: [
     'atrium_my_work',
     'atrium_search',
@@ -106,6 +107,13 @@ const DOMAIN_TOOLS = {
     'atrium_rename_doc',
     'atrium_delete_doc',
     'atrium_restore_doc',
+  ],
+  views: [
+    'atrium_list_views',
+    'atrium_get_view_items',
+    'atrium_create_view',
+    'atrium_update_view',
+    'atrium_delete_view',
   ],
 };
 
