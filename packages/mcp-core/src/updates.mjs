@@ -66,8 +66,21 @@ export function buildRichBody(markdown, resolve) {
   return { content: parsed.data.content, contentDoc: doc, mentions };
 }
 
+/**
+ * The doc with every `@[Name]` turned into a mention chip, and the uids mentioned. `resolve` is a
+ * `memberResolver`; more than `NOTIFICATION_LIMITS.mentions` people is refused.
+ */
+export function resolveMentions(doc, resolve) {
+  const found = new Set();
+  const resolved = mentionNodes(doc, resolve, found);
+  if (found.size > NOTIFICATION_LIMITS.mentions) {
+    throw new McpUserError(`At most ${NOTIFICATION_LIMITS.mentions} people can be mentioned.`);
+  }
+  return { doc: resolved, mentions: [...found] };
+}
+
 /** Finds a member by `@[...]` text: exact uid, display name or email (case-insensitive). */
-export function memberResolver(members, selfUid) {
+export function memberResolver(members, selfUid, scope = 'board') {
   const norm = (text) => String(text).trim().toLowerCase();
   return (ref) => {
     if (norm(ref) === 'me') {
@@ -83,7 +96,7 @@ export function memberResolver(members, selfUid) {
     }
     const known = members.map((m) => m.name).join(', ') || 'none';
     throw new McpUserError(
-      `@[${ref}] is not a member who can see this board. Members: ${known}. ` +
+      `@[${ref}] is not a member who can see this ${scope}. Members: ${known}. ` +
         'Use atrium_list_members to see them.',
     );
   };
