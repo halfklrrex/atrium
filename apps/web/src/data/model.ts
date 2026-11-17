@@ -3,6 +3,8 @@ import type {
   BoardTemplate,
   BoardView,
   Dashboard,
+  DocBody,
+  DocMeta,
   Favorite,
   Folder,
   Item,
@@ -25,6 +27,10 @@ export type FolderDoc = WithId<Folder>;
 export type BoardDoc = WithId<Board>;
 /** `dashboards/{id}`: a page of widgets reading live from boards. */
 export type DashboardDoc = WithId<Dashboard>;
+/** `docs/{id}`: the metadata of a workspace doc (its text is in `content/body`). */
+export type DocMetaDoc = WithId<DocMeta>;
+/** `docs/{id}/content/body`: the text of a doc, revision-checked. */
+export type DocBodyDoc = DocBody;
 /** `workspaces/{id}/templates/{id}`: a saved board template. */
 export type TemplateDoc = WithId<BoardTemplate>;
 /** A saved view; `synthetic` marks the built-in `main` view that has not been saved yet. */
