@@ -9,7 +9,17 @@ import {
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { MAIN_VIEW_ID } from '@atrium/shared';
-import { Icon, Menu, MenuButton, MenuItem, Tab, TabList, Tooltip } from '@vibe/core';
+import {
+  Dialog,
+  DialogContentContainer,
+  Icon,
+  Menu,
+  MenuButton,
+  MenuItem,
+  Tab,
+  TabList,
+  Tooltip,
+} from '@vibe/core';
 import {
   Add,
   Board,
@@ -17,6 +27,7 @@ import {
   Chart,
   Gallery,
   Delete,
+  DropdownChevronDown,
   Duplicate,
   Edit,
   Form,
@@ -33,6 +44,8 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   type ComponentProps,
   useRef,
   useState,
@@ -45,6 +58,7 @@ import { useViewIdDirty } from '../board-filters';
 import { viewActions } from './view-actions';
 import { useBoardViewsContext } from './view-context';
 import { viewPermissions } from './view-permissions';
+import { fitVisibleTabs } from './view-tabs-overflow';
 import styles from './ViewTabs.module.css';
 
 /** Wait for the tab menu to close (and give focus back) before the rename input takes it. */
@@ -61,6 +75,14 @@ const VIEW_ICONS = {
   files: Gallery,
   form: Form,
 } as const;
+
+/** Gap between the tab list and the "N more" trigger (`.tabs` in the CSS) or the "+" button (`.row`). */
+const TAB_GAP = 8;
+const ROW_GAP = 4;
+/** Room kept for the unsaved-changes dot, which appears on the selected tab after measuring. */
+const SLACK = 16;
+/** Width of the "N more" trigger until it has been measured. */
+const MORE_FALLBACK = 96;
 
 const SOON_VIEWS = [{ title: 'Map', icon: Pin }] as const;
 
@@ -205,13 +227,88 @@ export function ViewTabs() {
   const [deleting, setDeleting] = useState<BoardViewDoc | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const rowRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLSpanElement>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const [tabWidths, setTabWidths] = useState<ReadonlyMap<string, number>>(new Map());
+  // Bumped after a pick: remounting the dialog is what closes it (Vibe's Dialog has no `open` prop).
+  const [moreKey, setMoreKey] = useState(0);
+  const [rowWidth, setRowWidth] = useState<number | null>(null);
+  const [addWidth, setAddWidth] = useState(0);
+  const [moreWidth, setMoreWidth] = useState(MORE_FALLBACK);
+  const allViews = ctx?.views;
+  const hasViews = Boolean(allViews);
+  const activeId = ctx?.view.id ?? '';
+  // A tab's width depends on its name, type icon and personal icon; a change re-measures it.
+  const widthKey = useCallback(
+    (v: BoardViewDoc) => `${v.id}|${v.name}|${v.type}|${v.ownerId === null ? 0 : 1}`,
+    [],
+  );
+  const measured = !allViews || allViews.every((v) => tabWidths.has(widthKey(v)));
+
+  // Measure every tab once (all of them render for that one pass, before paint); after that only
+  // the tabs that fit stay rendered.
+  useLayoutEffect(() => {
+    const root = tabsRef.current;
+    if (!root || !allViews || measured) return;
+    const next = new Map(tabWidths);
+    let changed = false;
+    const tabById = new Map<string, HTMLElement>();
+    root.querySelectorAll<HTMLElement>('[data-view-id]').forEach((el) => {
+      const li = el.closest('li');
+      if (li && el.dataset.viewId) tabById.set(el.dataset.viewId, li);
+    });
+    for (const v of allViews) {
+      const tab = tabById.get(v.id);
+      if (!tab || next.has(widthKey(v))) continue;
+      next.set(widthKey(v), Math.ceil(tab.getBoundingClientRect().width));
+      changed = true;
+    }
+    if (changed) setTabWidths(next);
+  }, [allViews, measured, tabWidths, widthKey]);
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const read = () => {
+      setRowWidth(row.clientWidth);
+      setAddWidth(addRef.current?.offsetWidth ?? 0);
+    };
+    read();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(read);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [hasViews]);
+
+  const visibleIds = useMemo(() => {
+    // Null while measuring or without layout (jsdom): every tab shows.
+    if (!allViews || !measured || !rowWidth) return null;
+    const widths = new Map(allViews.map((v) => [v.id, tabWidths.get(widthKey(v)) ?? 0]));
+    return fitVisibleTabs({
+      ids: allViews.map((v) => v.id),
+      widths,
+      available: rowWidth - addWidth - ROW_GAP - SLACK,
+      moreWidth: moreWidth + TAB_GAP,
+      gap: 0, // Vibe tabs carry their own padding and sit flush
+      activeId,
+    });
+  }, [allViews, measured, rowWidth, addWidth, moreWidth, tabWidths, widthKey, activeId]);
+  useLayoutEffect(() => {
+    const width = moreRef.current?.offsetWidth ?? 0;
+    if (width > 0 && width !== moreWidth) setMoreWidth(width);
+  }, [visibleIds, moreWidth]);
+
   if (!ctx) return null;
 
   const { views, view: shown, actions } = ctx;
+  const visibleSet = visibleIds ? new Set(visibleIds) : null;
+  const tabViews = visibleSet ? views.filter((v) => visibleSet.has(v.id)) : views;
+  const hiddenViews = views.filter((v) => !tabViews.includes(v));
   const uid = actions.uid;
   const activeIndex = Math.max(
     0,
-    views.findIndex((v) => v.id === shown.id),
+    tabViews.findIndex((v) => v.id === shown.id),
   );
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -270,105 +367,149 @@ export function ViewTabs() {
 
   return (
     <div className={styles.row} ref={rowRef} onContextMenu={onContextMenu} data-print="hide">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={views.map((v) => v.id)} strategy={horizontalListSortingStrategy}>
-          <TabList
-            activeTabId={activeIndex}
-            stretchedUnderline
-            onTabChange={(index: number) => {
-              const next = views[index];
-              if (next && next.id !== shown.id) actions.goTo(next.id);
-            }}
+      <div className={styles.tabs} ref={tabsRef}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext
+            items={tabViews.map((v) => v.id)}
+            strategy={horizontalListSortingStrategy}
           >
-            {views.map((view) => (
-              <ViewTab
-                key={view.id}
-                view={view}
-                boardId={actions.boardId}
-                renaming={renamingId === view.id}
-                menuOpen={menuFor === view.id}
-                menu={menuFor_(view)}
-                onMenuOpenChange={(open) =>
-                  setMenuFor((current) => (open ? view.id : current === view.id ? null : current))
-                }
-                onRenameDone={(name) => {
-                  setRenamingId(null);
-                  if (name !== null) void viewActions.rename(actions, view, name);
-                }}
+            <TabList
+              activeTabId={activeIndex}
+              stretchedUnderline
+              onTabChange={(index: number) => {
+                const next = tabViews[index];
+                if (next && next.id !== shown.id) actions.goTo(next.id);
+              }}
+            >
+              {tabViews.map((view) => (
+                <ViewTab
+                  key={view.id}
+                  view={view}
+                  boardId={actions.boardId}
+                  renaming={renamingId === view.id}
+                  menuOpen={menuFor === view.id}
+                  menu={menuFor_(view)}
+                  onMenuOpenChange={(open) =>
+                    setMenuFor((current) => (open ? view.id : current === view.id ? null : current))
+                  }
+                  onRenameDone={(name) => {
+                    setRenamingId(null);
+                    if (name !== null) void viewActions.rename(actions, view, name);
+                  }}
+                />
+              ))}
+            </TabList>
+          </SortableContext>
+        </DndContext>
+        {hiddenViews.length > 0 ? (
+          <Dialog
+            key={moreKey}
+            showTrigger={['click']}
+            hideTrigger={['clickoutside', 'esckey', 'onContentClick']}
+            position="bottom-start"
+            moveBy={{ main: 0, secondary: 0 }}
+            content={
+              <DialogContentContainer>
+                <Menu id="more-views-menu" size="medium" focusOnMount>
+                  {hiddenViews.map((view) => (
+                    <MenuItem
+                      key={view.id}
+                      title={view.name}
+                      icon={VIEW_ICONS[view.type]}
+                      onClick={() => {
+                        actions.goTo(view.id);
+                        setMoreKey((k) => k + 1);
+                      }}
+                    />
+                  ))}
+                </Menu>
+              </DialogContentContainer>
+            }
+          >
+            <button
+              ref={moreRef}
+              type="button"
+              className={styles.moreViews}
+              aria-haspopup="menu"
+              aria-label={`${hiddenViews.length} more ${hiddenViews.length === 1 ? 'view' : 'views'}`}
+            >
+              <span>{hiddenViews.length} more</span>
+              <Icon icon={DropdownChevronDown} size={16} aria-hidden />
+            </button>
+          </Dialog>
+        ) : null}
+      </div>
+
+      <span ref={addRef} className={styles.addWrap}>
+        <MenuButton
+          component={Add}
+          size="xs"
+          aria-label="Add view"
+          closeMenuOnItemClick
+          dialogPosition="bottom-start"
+          className={styles.add}
+        >
+          <Menu id="add-view-menu" size="medium">
+            <MenuItem
+              title="Table"
+              icon={Table}
+              onClick={() => void viewActions.add(actions, 'table')}
+            />
+            <MenuItem
+              title="Kanban"
+              icon={Board}
+              onClick={() => void viewActions.add(actions, 'kanban')}
+            />
+            <MenuItem
+              title="Calendar"
+              icon={Calendar}
+              onClick={() => void viewActions.add(actions, 'calendar')}
+            />
+            <MenuItem
+              title="Timeline"
+              icon={Timeline}
+              onClick={() => void viewActions.add(actions, 'timeline')}
+            />
+            <MenuItem
+              title="Gantt"
+              icon={Gantt}
+              onClick={() => void viewActions.add(actions, 'gantt')}
+            />
+            <MenuItem
+              title="Workload"
+              icon={Team}
+              onClick={() => void viewActions.add(actions, 'workload')}
+            />
+            <MenuItem
+              title="Chart"
+              icon={Chart}
+              onClick={() => void viewActions.add(actions, 'chart')}
+            />
+            <MenuItem
+              title="Files gallery"
+              icon={Gallery}
+              onClick={() => void viewActions.add(actions, 'files')}
+            />
+            {actions.canEdit ? (
+              <MenuItem
+                title="Form"
+                icon={Form}
+                onClick={() => void viewActions.add(actions, 'form')}
+              />
+            ) : null}
+            {SOON_VIEWS.map((soon) => (
+              <MenuItem
+                key={soon.title}
+                title={soon.title}
+                icon={soon.icon}
+                disabled
+                tooltipContent="Coming soon"
+                onClick={() => undefined}
               />
             ))}
-          </TabList>
-        </SortableContext>
-      </DndContext>
-
-      <MenuButton
-        component={Add}
-        size="xs"
-        aria-label="Add view"
-        closeMenuOnItemClick
-        dialogPosition="bottom-start"
-        className={styles.add}
-      >
-        <Menu id="add-view-menu" size="medium">
-          <MenuItem
-            title="Table"
-            icon={Table}
-            onClick={() => void viewActions.add(actions, 'table')}
-          />
-          <MenuItem
-            title="Kanban"
-            icon={Board}
-            onClick={() => void viewActions.add(actions, 'kanban')}
-          />
-          <MenuItem
-            title="Calendar"
-            icon={Calendar}
-            onClick={() => void viewActions.add(actions, 'calendar')}
-          />
-          <MenuItem
-            title="Timeline"
-            icon={Timeline}
-            onClick={() => void viewActions.add(actions, 'timeline')}
-          />
-          <MenuItem
-            title="Gantt"
-            icon={Gantt}
-            onClick={() => void viewActions.add(actions, 'gantt')}
-          />
-          <MenuItem
-            title="Workload"
-            icon={Team}
-            onClick={() => void viewActions.add(actions, 'workload')}
-          />
-          <MenuItem
-            title="Chart"
-            icon={Chart}
-            onClick={() => void viewActions.add(actions, 'chart')}
-          />
-          <MenuItem
-            title="Files gallery"
-            icon={Gallery}
-            onClick={() => void viewActions.add(actions, 'files')}
-          />
-          {actions.canEdit ? (
-            <MenuItem
-              title="Form"
-              icon={Form}
-              onClick={() => void viewActions.add(actions, 'form')}
-            />
-          ) : null}
-          {SOON_VIEWS.map((soon) => (
-            <MenuItem
-              key={soon.title}
-              title={soon.title}
-              icon={soon.icon}
-              disabled
-              tooltipContent="Coming soon"
-              onClick={() => undefined}
-            />
-          ))}
-        </Menu>
-      </MenuButton>
+          </Menu>
+        </MenuButton>
+      </span>
 
       {deleting ? (
         <ConfirmDialog

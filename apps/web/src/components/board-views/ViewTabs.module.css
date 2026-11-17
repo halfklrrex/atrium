@@ -1,5 +1,6 @@
 .row {
   display: flex;
+  min-width: 0;
   align-items: flex-end;
   gap: var(--space-4);
   border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
@@ -7,6 +8,53 @@
 
 .add {
   margin-block-end: var(--space-8);
+}
+
+.addWrap {
+  display: inline-flex;
+  flex: none;
+}
+
+/* Visible tabs + the "N more" trigger. Never wider than the row, so the page never scrolls sideways. */
+.tabs {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: flex-end;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.tabs li[role='tab'] {
+  flex: none;
+}
+
+/* "N more": looks like a tab (same height, hover and focus ring) and opens the hidden views. */
+.moreViews {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  margin-block-end: var(--space-8);
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: var(--secondary-text-color);
+  font: inherit;
+  font-size: var(--font-size-20);
+  line-height: var(--font-line-height-20);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.moreViews:hover {
+  background: var(--primary-background-hover-color);
+  color: var(--primary-text-color);
+}
+
+.moreViews:focus-visible {
+  outline: var(--atrium-focus-ring);
+  outline-offset: calc(var(--space-2) * -1);
 }
 
 .tab {
