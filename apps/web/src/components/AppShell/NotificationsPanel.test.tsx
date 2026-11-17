@@ -234,6 +234,15 @@ describe('NotificationsPanel list', () => {
     mockUnreadIds = ['n1', 'n3'];
   });
 
+  it('says "via <team>" on an assignment that came through a team', () => {
+    mockList = [
+      note('n9', { kind: 'assigned', snippet: '', viaTeamId: 't1', viaTeamName: 'Kids' }),
+    ];
+    renderPanel();
+    setOpen(true);
+    expect(screen.getByText('Assigned you (via Kids) to an item')).toBeInTheDocument();
+  });
+
   it('renders the cards with their action text, snippet and item', () => {
     renderPanel();
     setOpen(true);

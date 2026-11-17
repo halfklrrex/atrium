@@ -2,7 +2,7 @@ import { dateKeysOf, itemIndexFields, type ItemIndexBoard } from '@atrium/shared
 
 /**
  * `onItemPeopleAssigned` also keeps the server-maintained index fields of an item
- * (`assigneeUids`, `nameTokens`; see `packages/shared/src/item-index.ts`) and, since P5d, `dateKeys`
+ * (`assigneeUids`, `assigneeTeamIds`, `nameTokens`; see `packages/shared/src/item-index.ts`) and, since P5d, `dateKeys`
  * (`"<columnId>:<YYYY-MM-DD>"` per date cell of a main item; a subitem gets `[]`). They are metadata, not an
  * edit: the write never touches `updatedAt` / `updatedBy`. The pure logic takes an injected store so
  * it can be unit-tested; `admin-item-index.ts` adapts the Admin SDK to it.
@@ -18,6 +18,7 @@ import { dateKeysOf, itemIndexFields, type ItemIndexBoard } from '@atrium/shared
 
 export interface ItemIndexWrite {
   assigneeUids: string[];
+  assigneeTeamIds: string[];
   nameTokens: string[];
   dateKeys: string[];
 }
@@ -50,6 +51,7 @@ export interface ItemIndexChange {
     parentItemId?: string | null;
     values?: Record<string, unknown>;
     assigneeUids?: unknown;
+    assigneeTeamIds?: unknown;
     nameTokens?: unknown;
     dateKeys?: unknown;
   };
@@ -96,6 +98,7 @@ export async function syncItemIndexFields(
   const valuesChanged = !before || !sameJson(before.values, after.values);
   const missing =
     !Array.isArray(after.assigneeUids) ||
+    !Array.isArray(after.assigneeTeamIds) ||
     !Array.isArray(after.nameTokens) ||
     !Array.isArray(after.dateKeys);
   if (!nameChanged && !valuesChanged && !missing) return false;
@@ -103,7 +106,10 @@ export async function syncItemIndexFields(
   // The assignees depend on `values` and on the board's columns. A column changed to People writes
   // its values through the Admin SDK, which fires this trigger with changed values.
   const needsBoard =
-    valuesChanged || !Array.isArray(after.assigneeUids) || !Array.isArray(after.dateKeys);
+    valuesChanged ||
+    !Array.isArray(after.assigneeUids) ||
+    !Array.isArray(after.assigneeTeamIds) ||
+    !Array.isArray(after.dateKeys);
   let fields: ItemIndexWrite;
   if (needsBoard) {
     const board = await store.getBoard(change.boardId);
@@ -117,12 +123,14 @@ export async function syncItemIndexFields(
     fields = {
       ...itemIndexFields({ columns: [] }, after),
       assigneeUids: after.assigneeUids as string[],
+      assigneeTeamIds: after.assigneeTeamIds as string[],
       dateKeys: after.dateKeys as string[],
     };
   }
 
   if (
     sameList(after.assigneeUids, fields.assigneeUids) &&
+    sameList(after.assigneeTeamIds, fields.assigneeTeamIds) &&
     sameList(after.nameTokens, fields.nameTokens) &&
     sameList(after.dateKeys, fields.dateKeys)
   ) {

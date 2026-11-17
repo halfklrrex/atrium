@@ -102,12 +102,16 @@ describe('buildBoardCsvRows', () => {
     expect(buildBoardCsvRows({ ...base, items: [unknown] })[1]![4]).toBe('Board member');
   });
 
-  it('keeps the old CSV fallback for a team entry', () => {
+  it('writes a team by its name, and "Deleted team" when it is gone', () => {
     const withTeam = makeItem({
       id: 'i3',
       values: { owner: { personsAndTeams: [{ id: 't1', kind: 'team' }] } },
     });
-    expect(buildBoardCsvRows({ ...base, items: [withTeam] })[1]![4]).toBe('Board member');
+    expect(buildBoardCsvRows({ ...base, items: [withTeam] })[1]![4]).toBe('Deleted team');
+    const names = (id: string) => (id === 't1' ? 'Kids' : base.personNames(id));
+    expect(buildBoardCsvRows({ ...base, personNames: names, items: [withTeam] })[1]![4]).toBe(
+      'Kids',
+    );
   });
 
   it('marks numeric cells and exports the computed formula value', () => {

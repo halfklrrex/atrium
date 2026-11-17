@@ -722,6 +722,23 @@ describe('Filter & Sort Engine', () => {
       expect(groups[1]?.items.length).toBe(1);
     });
 
+    it('groups by People with a team as its own group', () => {
+      const team = createTestItem({
+        name: 'Item 4',
+        groupId: 'group-default-1',
+        values: {
+          [peopleCol.id]: { personsAndTeams: [{ id: 'team-kids', kind: 'team' }] } as PeopleValue,
+        },
+      });
+      const lookup = (id: string) => (id === 'team-kids' ? 'Kids' : undefined);
+      const groups = groupItems([item1, team], peopleCol.id, peopleCol, undefined, lookup);
+      const kids = groups.find((g) => g.groupId === 'team_team-kids');
+      expect(kids?.groupTitle).toBe('Kids');
+      expect(kids?.items.map((i) => i.name)).toEqual(['Item 4']);
+      const gone = groupItems([team], peopleCol.id, peopleCol);
+      expect(gone[0]?.groupTitle).toBe('Deleted team');
+    });
+
     it('clusters dynamically by status column', () => {
       const items = [item1, item2, item3];
       const groups = groupItems(items, statusCol.id, statusCol);

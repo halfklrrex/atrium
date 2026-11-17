@@ -28,7 +28,7 @@ import {
 } from './helpers';
 
 /**
- * P3 My Work and global search: `assigneeUids` and `nameTokens` are index fields only Cloud
+ * P3 My Work and global search: `assigneeUids`, `assigneeTeamIds` (TEAMS PR 3) and `nameTokens` are index fields only Cloud
  * Functions write (the Admin SDK bypasses rules). They are in neither item key list, so clients
  * can't create, change or remove them. Reads are the per-board queries the existing
  * `canReadBoard` rule already authorises; there is no collection-group `items` match.
@@ -48,6 +48,7 @@ const indexed = (overrides: Record<string, unknown> = {}) =>
   itemDoc({
     name: 'Plan Q3',
     assigneeUids: [USERS.member],
+    assigneeTeamIds: ['team1'],
     nameTokens: ['pl', 'pla', 'plan', 'q3'],
     ...overrides,
   });
@@ -87,6 +88,8 @@ describe('assigneeUids and nameTokens are server-maintained', () => {
       ['a', { assigneeUids: [USERS.member] }],
       ['b', { nameTokens: ['it'] }],
       ['c', { assigneeUids: [], nameTokens: [] }],
+      ['d', { assigneeTeamIds: ['team1'] }],
+      ['e', { assigneeTeamIds: [] }],
     ] as const) {
       await assertFails(setDoc(itemRef(USERS.member, id), newItem(USERS.member, extra)));
     }
@@ -94,7 +97,7 @@ describe('assigneeUids and nameTokens are server-maintained', () => {
 
   it('denies changing or removing either field, even for the board owner', async () => {
     for (const uid of [USERS.owner, USERS.member]) {
-      for (const field of ['assigneeUids', 'nameTokens']) {
+      for (const field of ['assigneeUids', 'assigneeTeamIds', 'nameTokens']) {
         await assertFails(updateDoc(itemRef(uid, 'indexed'), { [field]: ['x1'], ...audit(uid) }));
         await assertFails(
           updateDoc(itemRef(uid, 'indexed'), { [field]: deleteField(), ...audit(uid) }),
@@ -113,6 +116,12 @@ describe('assigneeUids and nameTokens are server-maintained', () => {
     await assertFails(
       updateDoc(itemRef(USERS.member, 'i1'), { nameTokens: ['it'], ...audit(USERS.member) }),
     );
+    await assertFails(
+      updateDoc(itemRef(USERS.member, 'i1'), {
+        assigneeTeamIds: ['team1'],
+        ...audit(USERS.member),
+      }),
+    );
   });
 
   it('denies smuggling them in with a legitimate edit', async () => {
@@ -129,6 +138,26 @@ describe('assigneeUids and nameTokens are server-maintained', () => {
     await assertSucceeds(
       updateDoc(itemRef(USERS.member, 'indexed'), { name: 'Renamed', ...audit(USERS.member) }),
     );
+  });
+});
+
+describe('the My Work team query follows board access', () => {
+  const byTeam = (uid: string, board: string) =>
+    query(
+      collection(as(uid), 'boards', board, 'items'),
+      where('assigneeTeamIds', 'array-contains-any', ['team1', 'team2']),
+      where('state', '==', 'active'),
+    );
+
+  it('lets a workspace member and a private-board member run it', async () => {
+    const found = await assertSucceeds(getDocs(byTeam(USERS.member, MAIN_BOARD)));
+    expect(found.docs.map((d) => d.id)).toEqual(['indexed']);
+    await assertSucceeds(getDocs(byTeam(USERS.member, PRIVATE_BOARD)));
+  });
+
+  it('denies it on a private board the user is not on and to an outsider', async () => {
+    await assertFails(getDocs(byTeam(USERS.admin, PRIVATE_BOARD)));
+    await assertFails(getDocs(byTeam(USERS.outsider, MAIN_BOARD)));
   });
 });
 

@@ -53,9 +53,15 @@ const board = makeBoard({
   ],
 });
 
-const entry = (id: string, name: string, values: Record<string, unknown>) => ({
+const entry = (
+  id: string,
+  name: string,
+  values: Record<string, unknown>,
+  viaTeam?: { id: string; name: string },
+) => ({
   board,
   item: makeItem({ id, name, groupId: 'g1', values }),
+  ...(viaTeam ? { viaTeam } : {}),
 });
 
 function Location() {
@@ -106,6 +112,16 @@ describe('MyWorkPage', () => {
     expect(screen.queryByText('Old chore')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Done/ }));
     expect(screen.getByText('Old chore')).toBeInTheDocument();
+  });
+
+  it('marks an item that reached the person through a team with "via <team>"', () => {
+    mocks.state.entries = [
+      entry('i1', 'Direct item', {}),
+      entry('i2', 'Team item', {}, { id: 't1', name: 'Kids' }),
+    ];
+    renderPage();
+    expect(screen.getByText('via Kids')).toBeInTheDocument();
+    expect(screen.getAllByText(/^via /)).toHaveLength(1);
   });
 
   it('filters with the search box and says when nothing matches', async () => {

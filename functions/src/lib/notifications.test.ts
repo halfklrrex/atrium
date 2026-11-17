@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PURGE_BATCH_SIZE,
   addedPeople,
+  addedTeams,
   makeSnippet,
   mentionedUidsOf,
   notifyDescriptionMentions,
@@ -19,6 +20,7 @@ import {
   type NotificationBoard,
   type NotificationPurgeStore,
   type NotificationStore,
+  type WorkspaceTeam,
 } from './notifications';
 
 const AVERY = 'avery'; // the actor
@@ -43,6 +45,8 @@ class FakeStore implements NotificationStore {
   prefs = new Map<string, Partial<NotificationPrefs>>();
   members = new Map([[AVERY, { name: 'Avery Quinn', photoURL: 'https://example.com/avery.png' }]]);
   updateAuthor: string | null = BLAKE;
+  teams: WorkspaceTeam[] = [];
+  teamReads = 0;
   docs = new Map<string, NewNotification>();
   /** Documents the user already changed (stands in for `readAt`); create must not touch them. */
   creates = 0;
@@ -63,6 +67,10 @@ class FakeStore implements NotificationStore {
   getMemberProfile(_ws: string, uid: string) {
     this.reads += 1;
     return Promise.resolve(this.members.get(uid) ?? null);
+  }
+  getWorkspaceTeams() {
+    this.teamReads += 1;
+    return Promise.resolve(this.teams);
   }
   getItemName() {
     this.reads += 1;
@@ -134,6 +142,99 @@ describe('addedPeople', () => {
     expect(addedPeople(board, true, {}, { subowner: people(BLAKE) })).toEqual([
       { uid: BLAKE, kind: 'assigned', columnId: 'subowner' },
     ]);
+  });
+});
+
+describe('addedTeams', () => {
+  const board = new FakeStore().board as NotificationBoard;
+  const teams = (...ids: string[]) => ({
+    personsAndTeams: ids.map((id) => ({ id, kind: 'team' as const })),
+  });
+
+  it('returns newly added team ids once each, with the first column', () => {
+    expect(
+      addedTeams(
+        board,
+        false,
+        { owner: teams('t1') },
+        { owner: teams('t1', 't2'), backup: teams('t2', 't3') },
+      ),
+    ).toEqual([
+      { teamId: 't2', columnId: 'owner' },
+      { teamId: 't3', columnId: 'backup' },
+    ]);
+  });
+
+  it('ignores persons and non-people columns', () => {
+    expect(addedTeams(board, false, {}, { owner: people(BLAKE), status: teams('t1') })).toEqual([]);
+  });
+});
+
+describe('notifyPeopleAssigned through teams', () => {
+  const KIDS: WorkspaceTeam = { id: 'kids', name: 'Kids', memberUids: [AVERY, BLAKE, CASEY] };
+  const teamChange = (after: Record<string, unknown>, before: Record<string, unknown> = {}) =>
+    itemChange({
+      before: { values: before },
+      after: { name: 'Plan the trip', values: after, updatedBy: AVERY, createdBy: AVERY },
+    });
+  const kids = { personsAndTeams: [{ id: 'kids', kind: 'team' as const }] };
+
+  it('notifies each member except the actor, with "via" fields', async () => {
+    const store = new FakeStore();
+    store.teams = [KIDS];
+    await expect(notifyPeopleAssigned(store, teamChange({ owner: kids }))).resolves.toBe(2);
+    expect(store.forUser(AVERY)).toEqual([]);
+    for (const uid of [BLAKE, CASEY]) {
+      expect(store.forUser(uid)).toMatchObject([
+        { kind: 'assigned', columnId: 'owner', viaTeamId: 'kids', viaTeamName: 'Kids' },
+      ]);
+    }
+    expect(store.teamReads).toBe(1);
+  });
+
+  it('keeps the direct entry for someone added directly and via a team', async () => {
+    const store = new FakeStore();
+    store.teams = [KIDS];
+    const both = {
+      personsAndTeams: [
+        { id: 'kids', kind: 'team' as const },
+        { id: CASEY, kind: 'person' as const },
+      ],
+    };
+    await expect(notifyPeopleAssigned(store, teamChange({ owner: both }))).resolves.toBe(2);
+    const casey = store.forUser(CASEY);
+    expect(casey).toHaveLength(1);
+    expect(casey[0]?.viaTeamId).toBeUndefined();
+    expect(store.forUser(BLAKE)[0]?.viaTeamId).toBe('kids');
+  });
+
+  it('does not read teams when no team was added, and ignores a deleted team', async () => {
+    const store = new FakeStore();
+    await notifyPeopleAssigned(store, itemChange());
+    expect(store.teamReads).toBe(0);
+    await expect(notifyPeopleAssigned(store, teamChange({ owner: kids }))).resolves.toBe(0);
+    expect(store.teamReads).toBe(1);
+  });
+
+  it('notifies nothing again for a team that was already assigned', async () => {
+    const store = new FakeStore();
+    store.teams = [KIDS];
+    await expect(
+      notifyPeopleAssigned(store, teamChange({ owner: kids, status: 'x' }, { owner: kids })),
+    ).resolves.toBe(0);
+    expect(store.teamReads).toBe(0);
+  });
+
+  it('stops at 50 people and respects the preference and board access filters', async () => {
+    const store = new FakeStore();
+    const members = Array.from({ length: 80 }, (_, i) => `m${i}`);
+    store.teams = [{ id: 'kids', name: 'Kids', memberUids: members }];
+    store.roles = Object.fromEntries(members.map((m) => [m, 'member' as const]));
+    store.prefs.set('m0', { assigned: false });
+    // 50 candidates, one switched its notifications off.
+    await expect(notifyPeopleAssigned(store, teamChange({ owner: kids }))).resolves.toBe(49);
+    expect(store.forUser('m49')).toHaveLength(1);
+    expect(store.forUser('m50')).toHaveLength(0);
   });
 });
 

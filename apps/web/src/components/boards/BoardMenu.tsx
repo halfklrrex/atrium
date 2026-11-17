@@ -30,10 +30,10 @@ import {
   useFavorites,
   useFolders,
   useItems,
-  useUserLookup,
   useWorkspace,
   type BoardDoc,
 } from '../../data';
+import { usePersonOrTeamName } from '../../data/person-or-team-name';
 import { useBoardFilter, useHiddenColumnIds } from '../board-filters';
 import { buildColumnViews, buildGroupModels } from '../board-table/table-model';
 import { useTableStore } from '../board-table/table-store';
@@ -114,7 +114,7 @@ function BoardMenuContent({
   const { data: favorites } = useFavorites(uid);
   const { data: items, loading: itemsLoading } = useItems(board.id);
   const { data: views } = useBoardViews(board.id, uid);
-  const memberLookup = useUserLookup(board.workspaceId);
+  const nameLookup = usePersonOrTeamName(board.workspaceId);
   const { filterState } = useBoardFilter(board.id);
   const viewHiddenIds = useHiddenColumnIds(board.id);
   const search = useTableStore((s) => s.search);
@@ -141,7 +141,7 @@ function BoardMenuContent({
       subColumns: buildColumnViews(columnsForSubitems(board) as ColumnDef[]),
       search: exportOpenView ? search.trim() : '',
       filterState: exportOpenView ? filterState : undefined,
-      userLookup: (id) => memberLookup(id)?.name,
+      userLookup: nameLookup,
     });
     return {
       board,
@@ -151,7 +151,7 @@ function BoardMenuContent({
       subColumns: columnsForSubitems(board),
       hiddenColumnIds: exportOpenView ? viewHiddenIds : [],
       groups: board.groups,
-      personNames: (id) => memberLookup(id)?.name,
+      personNames: nameLookup,
     };
   };
 

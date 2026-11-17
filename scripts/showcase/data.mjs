@@ -24,6 +24,7 @@ import {
   itemUpdateSchema,
   notificationSchema,
   recentSchema,
+  teamSchema,
   updateReplySchema,
   workspaceMemberSchema,
 } from '@atrium/shared';
@@ -90,6 +91,22 @@ const memberUid = (key) => {
   const member = SHOWCASE_MEMBERS.find((m) => m.key === key);
   if (!member) throw new Error(`Unknown showcase member "${key}"`);
   return member.uid;
+};
+
+/**
+ * One fake team (TEAMS PR 3), so a People cell shows a team avatar and My Work shows "via Website
+ * crew". Its only member is the board owner: the fake people above are not workspace members, and a
+ * team may only hold current members (the rules refuse an edit of a team with anyone else). The
+ * seed writes it straight to `workspaces/{id}/teams/{id}` and removes it again on `--reset`.
+ */
+export const SHOWCASE_TEAMS = [
+  { key: 'crew', id: 'showcase-team-crew', name: 'Website crew', color: '#579bfc' },
+];
+export const SHOWCASE_TEAM_IDS = SHOWCASE_TEAMS.map((t) => t.id);
+const teamId = (key) => {
+  const team = SHOWCASE_TEAMS.find((t) => t.key === key);
+  if (!team) throw new Error(`Unknown showcase team "${key}"`);
+  return team.id;
 };
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -417,7 +434,8 @@ function descriptionOf(blocks) {
 /**
  * Compact item description. `due` is days from today (negative = past), `created` is days ago.
  * Omit a field to leave the cell empty. `owner: true` puts the board owner in the people cell;
- * `people: ['jordan', 'sam']` adds fake members (see SHOWCASE_MEMBERS) to it.
+ * `people: ['jordan', 'sam']` adds fake members (see SHOWCASE_MEMBERS) to it, and
+ * `teams: ['crew']` adds a showcase team (see SHOWCASE_TEAMS).
  */
 /**
  * Planned dates (days from today, as `timeline`) of the items on the Gantt's dependency chain, drawn
@@ -522,6 +540,7 @@ const ITEMS = [
       { ul: ['Plan cards with a clear highlight', 'FAQ underneath', 'Annual toggle'] },
     ],
     people: ['sam', 'casey'],
+    teams: ['crew'],
     group: 'this_week',
     name: 'Design new pricing page',
     owner: true,
@@ -1222,8 +1241,14 @@ export function parseCell(columnsById, columnId, value, itemName) {
 function rawValues(spec, ownerUid, anchor) {
   const values = {};
   const people = [...(spec.owner ? [ownerUid] : []), ...(spec.people ?? []).map(memberUid)];
-  if (people.length > 0) {
-    values.person = { personsAndTeams: people.map((id) => ({ id, kind: 'person' })) };
+  const teams = (spec.teams ?? []).map(teamId);
+  if (people.length > 0 || teams.length > 0) {
+    values.person = {
+      personsAndTeams: [
+        ...people.map((id) => ({ id, kind: 'person' })),
+        ...teams.map((id) => ({ id, kind: 'team' })),
+      ],
+    };
   }
   if (spec.status) values.status = { index: STATUS[spec.status] };
   if (spec.priority) values.priority = { index: PRIORITY[spec.priority] };
@@ -2117,6 +2142,23 @@ export function buildShowcase({
   }
   summary.members = SHOWCASE_MEMBERS.length;
 
+  // ---- The fake team (a real doc the rules would accept: the owner is its only member) ----
+  for (const team of SHOWCASE_TEAMS) {
+    docs.push({
+      path: `workspaces/${workspaceId}/teams/${team.id}`,
+      data: teamSchema.parse({
+        name: team.name,
+        color: team.color,
+        memberUids: [ownerUid],
+        createdAt: ago(20 * DAY),
+        createdBy: ownerUid,
+        updatedAt: ago(20 * DAY),
+        updatedBy: ownerUid,
+      }),
+    });
+  }
+  summary.teams = SHOWCASE_TEAMS.length;
+
   // ---- The owner's favourite and recent visit for the main board ----
   docs.push({
     path: `users/${ownerUid}/favorites/${SHOWCASE_MAIN_ID}`,
@@ -2198,7 +2240,7 @@ export function buildShowcase({
 /**
  * Whether the seed script may create, update or delete the document at `path`. The only paths it
  * owns are: `boards/showcase-*` and everything below them, the `dashboards/showcase-*` dashboard, the owner's `favorites` and
- * `recents` documents named like a showcase board, the three `showcase-notification-*` notifications, and the fake members' `members` docs in the
+ * `recents` documents named like a showcase board, the three `showcase-notification-*` notifications, and the fake members' `members` docs and the showcase `teams` docs in the
  * workspace being seeded. Nothing else, ever.
  */
 export function isOwnedPath(path, ownerUid, workspaceId) {
@@ -2218,13 +2260,13 @@ export function isOwnedPath(path, ownerUid, workspaceId) {
     );
   }
   if (parts[0] === 'workspaces') {
-    // Only the fake members' profile docs, and only in the workspace being seeded.
+    // Only the fake members' profile docs and the showcase teams, in the workspace being seeded.
     return (
       workspaceId !== undefined &&
       parts.length === 4 &&
       parts[1] === workspaceId &&
-      parts[2] === 'members' &&
-      SHOWCASE_MEMBER_UIDS.includes(parts[3])
+      ((parts[2] === 'members' && SHOWCASE_MEMBER_UIDS.includes(parts[3])) ||
+        (parts[2] === 'teams' && SHOWCASE_TEAM_IDS.includes(parts[3])))
     );
   }
   if (parts[0] === 'users') {

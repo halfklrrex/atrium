@@ -38,6 +38,13 @@ export interface ActorProfile {
   photoURL: string | null;
 }
 
+/** The slice of `workspaces/{ws}/teams/{id}` the assigned notifications need (TEAMS PR 3). */
+export interface WorkspaceTeam {
+  id: string;
+  name: string;
+  memberUids: readonly string[];
+}
+
 /** Narrow data-access interface. Every method is a read except `createNotification`. */
 export interface NotificationStore {
   /** `null` when the board no longer exists. */
@@ -52,6 +59,8 @@ export interface NotificationStore {
   getItemName(boardId: string, itemId: string): Promise<string | null>;
   /** The author of an update, `null` when the update is gone. */
   getUpdateAuthorId(boardId: string, itemId: string, updateId: string): Promise<string | null>;
+  /** The workspace's teams (id, name, members); empty when it has none. One read per call. */
+  getWorkspaceTeams(workspaceId: string): Promise<WorkspaceTeam[]>;
   /** Creates the doc. Resolves `false` (no error) when it already exists, `true` when created. */
   createNotification(uid: string, id: string, data: NewNotification): Promise<boolean>;
 }
@@ -106,6 +115,9 @@ export interface NotificationCandidate {
   kind: NotificationKind;
   /** Assigned only: the People column the person was added to. */
   columnId?: string;
+  /** Assigned through a team (TEAMS PR 3): the team's id and name for the card ("via Kids"). */
+  viaTeamId?: string;
+  viaTeamName?: string;
 }
 
 export interface DeliveryEvent {
@@ -192,6 +204,12 @@ export async function deliverNotifications(
       replyId: event.replyId ?? null,
       columnId: recipient.columnId ?? null,
       snippet: event.snippet ?? '',
+      ...(recipient.viaTeamId
+        ? {
+            viaTeamId: recipient.viaTeamId,
+            viaTeamName: clip(recipient.viaTeamName ?? '', NOTIFICATION_LIMITS.teamName),
+          }
+        : {}),
       ...(event.buttonLabel !== undefined ? { buttonLabel: clip(event.buttonLabel, 50) } : {}),
       ...(event.recipeName !== undefined ? { recipeName: clip(event.recipeName, 80) } : {}),
     };
@@ -368,6 +386,67 @@ export function addedPeople(
   return [...added.values()];
 }
 
+function teamIds(value: unknown): string[] {
+  const list = (value as { personsAndTeams?: unknown } | null | undefined)?.personsAndTeams;
+  if (!Array.isArray(list)) return [];
+  const ids: string[] = [];
+  for (const entry of list as Array<{ id?: unknown; kind?: unknown }>) {
+    if (entry && entry.kind === 'team' && typeof entry.id === 'string') ids.push(entry.id);
+  }
+  return ids;
+}
+
+/**
+ * Teams added to a People column by this write (same rule as `addedPeople`): a team appears once,
+ * with the first column it was added to.
+ */
+export function addedTeams(
+  board: Pick<NotificationBoard, 'columns' | 'subitemColumns'>,
+  isSubitem: boolean,
+  before: Record<string, unknown> | undefined,
+  after: Record<string, unknown> | undefined,
+): Array<{ teamId: string; columnId: string }> {
+  const columns = columnsForItem(board, { parentItemId: isSubitem ? 'sub' : null });
+  const added = new Map<string, { teamId: string; columnId: string }>();
+  for (const column of columns) {
+    if (column.type !== 'people') continue;
+    const previous = new Set(teamIds(before?.[column.id]));
+    for (const teamId of teamIds(after?.[column.id])) {
+      if (!previous.has(teamId) && !added.has(teamId)) {
+        added.set(teamId, { teamId, columnId: column.id });
+      }
+    }
+  }
+  return [...added.values()];
+}
+
+/**
+ * Turns the added teams into one `assigned` candidate per member (TEAMS PR 3): never the actor,
+ * a person who was also added directly keeps the direct entry, and the whole write stops at
+ * `NOTIFICATION_LIMITS.teamFanOut` people. A team that no longer exists adds nobody.
+ */
+export function teamMemberCandidates(
+  added: ReadonlyArray<{ teamId: string; columnId: string }>,
+  teams: ReadonlyArray<WorkspaceTeam>,
+  direct: ReadonlyArray<NotificationCandidate>,
+  actorId: string,
+): NotificationCandidate[] {
+  const byId = new Map(teams.map((team) => [team.id, team]));
+  const taken = new Set(direct.map((candidate) => candidate.uid));
+  const out: NotificationCandidate[] = [];
+  for (const { teamId, columnId } of added) {
+    const team = byId.get(teamId);
+    if (!team) continue;
+    for (const uid of team.memberUids) {
+      if (uid === actorId || taken.has(uid)) continue;
+      if (direct.length + out.length >= NOTIFICATION_LIMITS.teamFanOut) return out;
+      taken.add(uid);
+      out.push({ uid, kind: 'assigned', columnId, viaTeamId: team.id, viaTeamName: team.name });
+    }
+  }
+  return out;
+}
+
 export interface ItemWriteChange {
   eventId: string;
   boardId: string;
@@ -398,7 +477,20 @@ export async function notifyPeopleAssigned(
 
   const board = await store.getBoard(change.boardId);
   if (!board) return 0;
-  const candidates = addedPeople(board, after.parentItemId != null, before?.values, after.values);
+  const isSubitem = after.parentItemId != null;
+  const direct = addedPeople(board, isSubitem, before?.values, after.values);
+  // The workspace's teams are read only when a team was added by this write.
+  const addedTeamEntries = addedTeams(board, isSubitem, before?.values, after.values);
+  const viaTeams =
+    addedTeamEntries.length > 0 && board.workspaceId
+      ? teamMemberCandidates(
+          addedTeamEntries,
+          await store.getWorkspaceTeams(board.workspaceId),
+          direct,
+          actorId,
+        )
+      : [];
+  const candidates = [...direct, ...viaTeams];
   if (candidates.length === 0) return 0;
 
   return await deliverNotifications(store, {

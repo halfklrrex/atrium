@@ -1,5 +1,6 @@
 // One-off, idempotent migration (P3 My Work and global search): gives every existing item its
-// server-maintained index fields, `assigneeUids` (uids in the board's People columns) and
+// server-maintained index fields: `assigneeUids` (uids in the board's People columns),
+// `assigneeTeamIds` (team ids in the same columns; TEAMS PR 3, for My Work "via team") and
 // `nameTokens` (search tokens of the name).
 //
 // New and edited items get both from the `onItemPeopleAssigned` Cloud Function; this only fills the
@@ -13,7 +14,7 @@
 //   Apply:         add --apply (to either)
 //
 // It writes only the items whose stored fields differ from the computed ones (so a re-run writes
-// nothing), only those two fields (field mask), never `updatedAt` / `updatedBy`, and skips deleted
+// nothing), only those three fields (field mask), never `updatedAt` / `updatedBy`, and skips deleted
 // items (the function indexes them if they are restored). Batches of 400.
 //
 // It authenticates like scripts/showcase: the emulator's bypass token, or `gcloud auth print-access-token`
@@ -27,9 +28,17 @@ import { SeedError, createClient } from '../showcase/seed-showcase.mjs';
 export const CHUNK_SIZE = 400;
 const MAX_ATTEMPTS = 10;
 const BOARD_FIELDS = ['columns', 'subitemColumns'];
-const ITEM_FIELDS = ['name', 'values', 'parentItemId', 'state', 'assigneeUids', 'nameTokens'];
+const ITEM_FIELDS = [
+  'name',
+  'values',
+  'parentItemId',
+  'state',
+  'assigneeUids',
+  'assigneeTeamIds',
+  'nameTokens',
+];
 
-const HELP = `Backfill items.assigneeUids and items.nameTokens (P3 My Work and global search). Dry run unless --apply is given.
+const HELP = `Backfill items.assigneeUids, items.assigneeTeamIds and items.nameTokens (P3 My Work and global search). Dry run unless --apply is given.
 
 Targets:
   (no flag)                Firestore emulator: FIRESTORE_EMULATOR_HOST, else this copy's port
@@ -91,6 +100,7 @@ export function planItem(board, item) {
   );
   if (
     sameList(item.assigneeUids, fields.assigneeUids) &&
+    sameList(item.assigneeTeamIds, fields.assigneeTeamIds) &&
     sameList(item.nameTokens, fields.nameTokens)
   ) {
     return null;
@@ -125,7 +135,11 @@ export async function runBackfill({ client, apply = false, log = console.log }) 
         const writes = chunk.map(({ id, fields, updateTime }) => ({
           op: 'patch',
           path: `boards/${board.id}/items/${id}`,
-          data: { assigneeUids: fields.assigneeUids, nameTokens: fields.nameTokens },
+          data: {
+            assigneeUids: fields.assigneeUids,
+            assigneeTeamIds: fields.assigneeTeamIds,
+            nameTokens: fields.nameTokens,
+          },
           precondition: { updateTime },
         }));
         try {
