@@ -71,7 +71,12 @@ export function NotificationCard({
           ) : null}
           <span className={styles.meta}>
             {formatUpdated(n.createdAt)}
-            {isPlaceholderRef(n.kind) ? null : (
+            {n.docId ? (
+              <>
+                {' • '}
+                <Highlight text={n.docName ?? ''} term={term} />
+              </>
+            ) : isPlaceholderRef(n.kind) ? null : (
               <>
                 {' • '}
                 <Highlight text={n.itemName} term={term} />

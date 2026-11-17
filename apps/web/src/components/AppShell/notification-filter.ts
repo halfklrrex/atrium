@@ -21,7 +21,7 @@ const TAB_KIND: Partial<Record<NotificationTab, NotificationKind>> = {
 function matchesTerm(n: NotificationDoc, term: string): boolean {
   const needle = term.trim().toLowerCase();
   if (!needle) return true;
-  return [n.actorName, n.itemName, n.boardName, n.snippet].some((field) =>
+  return [n.actorName, n.itemName, n.boardName, n.docName ?? '', n.snippet].some((field) =>
     field.toLowerCase().includes(needle),
   );
 }
@@ -58,6 +58,7 @@ export function actorsOf(list: readonly NotificationDoc[]): { id: string; name: 
 /** "Assigned you to an item", "Assigned you (via Kids) to an item", "Clicked "Label"", "Replied to your update", "Mentioned you in a reply", "Mentioned you in a description". */
 export function actionText(
   n: Pick<NotificationDoc, 'kind' | 'replyId' | 'updateId'> & {
+    docId?: string | null;
     buttonLabel?: string | null;
     recipeName?: string | null;
     viaTeamName?: string | null;
@@ -71,6 +72,7 @@ export function actionText(
     case 'reply':
       return 'Replied to your update';
     case 'mention':
+      if (n.docId) return 'Mentioned you in a doc';
       if (n.replyId) return 'Mentioned you in a reply';
       return n.updateId ? 'Mentioned you in an update' : 'Mentioned you in a description';
     case 'button':

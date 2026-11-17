@@ -7,6 +7,7 @@ import {
   makeSnippet,
   mentionedUidsOf,
   notifyDescriptionMentions,
+  notifyDocMentions,
   notificationId,
   notifyPeopleAssigned,
   notifyReply,
@@ -15,6 +16,8 @@ import {
   purgeExpiredNotifications,
   retentionCutoff,
   type DescriptionWriteChange,
+  type DocBodyWriteChange,
+  type NotificationDocMeta,
   type ItemWriteChange,
   type NewNotification,
   type NotificationBoard,
@@ -718,5 +721,109 @@ describe('deliverButtonNotifications', () => {
     expect(store.forUser(CASEY)[0]?.snippet).toBe('two');
     expect(await deliverButtonNotifications(store, click({ targets }))).toBe(0);
     expect(store.creates).toBe(2);
+  });
+});
+
+describe('notifyDocMentions', () => {
+  class DocStore extends FakeStore {
+    doc: NotificationDocMeta | null = {
+      name: 'Packing list',
+      kind: 'main',
+      workspaceId: 'ws1',
+      access: {},
+      state: 'active',
+    };
+    getDoc() {
+      this.reads += 1;
+      return Promise.resolve(this.doc);
+    }
+  }
+  const body = (...nodes: unknown[]) => ({
+    type: 'doc',
+    content: [{ type: 'paragraph', content: nodes }],
+  });
+  const change = (
+    before: unknown,
+    after: unknown,
+    extra: Partial<DocBodyWriteChange['after']> = {},
+  ): DocBodyWriteChange => ({
+    eventId: 'e1',
+    docId: 'd1',
+    ...(before === undefined ? {} : { before: { doc: before } }),
+    after: { doc: after, text: 'Ask Blake about the tent', updatedBy: AVERY, ...extra },
+  });
+
+  it('notifies a new chip once, linking the doc through docId, with a deterministic id', async () => {
+    const store = new DocStore();
+    await expect(notifyDocMentions(store, change(undefined, body(chip(BLAKE))))).resolves.toBe(1);
+    expect(store.forUser(BLAKE)).toEqual([
+      expect.objectContaining({
+        kind: 'mention',
+        actorId: AVERY,
+        actorName: 'Avery Quinn',
+        workspaceId: 'ws1',
+        docId: 'd1',
+        docName: 'Packing list',
+        boardId: 'd1',
+        itemId: 'd1',
+        updateId: null,
+        snippet: 'Ask Blake about the tent',
+      }),
+    ]);
+    expect([...store.docs.keys()]).toEqual([`${BLAKE}/mention-e1-${BLAKE}`]);
+    // A retry of the same event creates nothing more.
+    await expect(notifyDocMentions(store, change(undefined, body(chip(BLAKE))))).resolves.toBe(0);
+  });
+
+  it('skips old chips, the actor, strangers, private docs without access and muted people', async () => {
+    const store = new DocStore();
+    const withBlake = body(chip(BLAKE));
+    await expect(
+      notifyDocMentions(store, change(withBlake, body(chip(BLAKE), { type: 'text', text: 'x' }))),
+    ).resolves.toBe(0);
+    await expect(notifyDocMentions(store, change(undefined, body(chip(AVERY))))).resolves.toBe(0);
+    await expect(notifyDocMentions(store, change(undefined, body(chip(STRANGER))))).resolves.toBe(
+      0,
+    );
+    store.prefs.set(BLAKE, { mention: false });
+    await expect(notifyDocMentions(store, change(undefined, body(chip(BLAKE))))).resolves.toBe(0);
+    store.prefs.clear();
+    store.doc = { ...store.doc!, kind: 'private', access: { [AVERY]: 'owner' } };
+    await expect(notifyDocMentions(store, change(undefined, body(chip(BLAKE))))).resolves.toBe(0);
+    store.doc = { ...store.doc, access: { [AVERY]: 'owner', [BLAKE]: 'viewer' } };
+    await expect(notifyDocMentions(store, change(undefined, body(chip(BLAKE))))).resolves.toBe(1);
+    expect(store.creates).toBe(1);
+  });
+
+  it('notifies only the newly added people and reads nothing when nobody is new', async () => {
+    const store = new DocStore();
+    await expect(
+      notifyDocMentions(store, change(body(chip(BLAKE)), body(chip(BLAKE), chip(CASEY)))),
+    ).resolves.toBe(1);
+    expect(store.forUser(CASEY)).toHaveLength(1);
+    expect(store.forUser(BLAKE)).toHaveLength(0);
+    const quiet = new DocStore();
+    await notifyDocMentions(quiet, change(body(chip(BLAKE)), body(chip(BLAKE))));
+    expect(quiet.reads).toBe(0);
+  });
+
+  it('ignores a trashed or missing doc and a write without an author', async () => {
+    const store = new DocStore();
+    store.doc = { ...store.doc!, state: 'deleted' };
+    await expect(notifyDocMentions(store, change(undefined, body(chip(BLAKE))))).resolves.toBe(0);
+    store.doc = null;
+    await expect(notifyDocMentions(store, change(undefined, body(chip(BLAKE))))).resolves.toBe(0);
+    const noAuthor = change(undefined, body(chip(BLAKE)));
+    delete noAuthor.after.updatedBy;
+    await expect(notifyDocMentions(new DocStore(), noAuthor)).resolves.toBe(0);
+  });
+
+  it('caps one save at 20 notifications', async () => {
+    const store = new DocStore();
+    const ids = Array.from({ length: 30 }, (_, i) => `member${i}`);
+    for (const id of ids) store.roles[id] = 'member';
+    await expect(
+      notifyDocMentions(store, change(undefined, body(...ids.map((id) => chip(id))))),
+    ).resolves.toBe(20);
   });
 });

@@ -99,6 +99,8 @@ export type PushNotificationData = Pick<
   | 'recipeName'
   | 'updateId'
   | 'replyId'
+  | 'docId'
+  | 'docName'
 >;
 
 const errorCode = (error: unknown): string => {
@@ -114,6 +116,7 @@ function actionText(n: PushNotificationData): string {
     case 'reply':
       return 'replied to your update';
     case 'mention':
+      if (n.docId) return 'mentioned you in a doc';
       if (n.replyId) return 'mentioned you in a reply';
       return n.updateId ? 'mentioned you in an update' : 'mentioned you in a description';
     case 'button':
@@ -146,6 +149,7 @@ const isPlaceholderRef = (kind: NotificationKind): boolean =>
  * router state in the web app, so a URL cannot carry it: the item opens.
  */
 export function pushUrl(n: PushNotificationData): string {
+  if (n.docId) return `${APP_BASE_URL}/docs/${encodeURIComponent(n.docId)}`;
   switch (n.kind) {
     case 'inbox_new':
       return `${APP_BASE_URL}/admin/inbox/${encodeURIComponent(n.itemId)}`;
@@ -162,6 +166,7 @@ export function pushUrl(n: PushNotificationData): string {
 
 /** Collapse key: one per item (or thread), so a burst replaces the previous notification. */
 export function pushTag(n: PushNotificationData): string {
+  if (n.docId) return `doc-${n.docId}`;
   return isPlaceholderRef(n.kind) ? `${n.kind}-${n.itemId}` : `item-${n.boardId}-${n.itemId}`;
 }
 
@@ -172,6 +177,7 @@ export function pushText(n: PushNotificationData): { title: string; body: string
   const title = `${actor} ${actionText(n)}`;
   if (n.snippet) return { title, body: n.snippet };
   if (isPlaceholderRef(n.kind)) return { title, body: '' };
+  if (n.docId) return { title, body: n.docName ?? '' };
   return { title, body: [n.itemName, n.boardName].filter(Boolean).join(' · ') };
 }
 
