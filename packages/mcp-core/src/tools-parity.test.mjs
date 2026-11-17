@@ -91,6 +91,7 @@ const DOMAIN_TOOLS = {
     'atrium_unlike_update',
   ],
   members: ['atrium_find_member', 'atrium_list_members', 'atrium_list_teams'],
+  teams: ['atrium_create_team', 'atrium_update_team', 'atrium_delete_team'],
   mywork: [
     'atrium_my_work',
     'atrium_search',
