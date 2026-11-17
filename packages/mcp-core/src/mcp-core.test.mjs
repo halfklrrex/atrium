@@ -382,10 +382,10 @@ test('groups: add, rename, and delete only when empty and not the last', async (
   assert.equal(client.docs.get(`boards/${boardId}`).data.groups.length, 1);
 });
 
-test('columns: only simple types; derived and server-managed types are refused', async () => {
+test('columns: button and unknown types are refused (every other type is in columns.test.mjs)', async () => {
   const { service } = setup();
   const { id } = await service.createBoard({ name: 'B' });
-  for (const type of ['formula', 'time_tracking', 'files', 'button', 'mirror']) {
+  for (const type of ['button', 'nonsense']) {
     await assert.rejects(service.addColumn({ boardId: id, title: 'X', type }), /not supported/);
   }
   const status = await service.addColumn({

@@ -16,7 +16,12 @@ export const cellValues = z
     'Cell values keyed by column title or id. status: label text; dropdown/tags: label text or an array of texts; ' +
       'date: "YYYY-MM-DD"; timeline: ["YYYY-MM-DD","YYYY-MM-DD"]; checkbox: true/false; rating: number; ' +
       'link: a URL; long_text/text: a string; numbers: a number; people: a workspace member uid or email, "me", or a team as "team:<name or id>" (see atrium_list_teams), or an array of those (a single-person column holds one); vote columns are written with atrium_vote_item. ' +
-      'null clears a cell (refused on a required column). Calculated columns cannot be set.',
+      'email: an address or {email, text}; phone: text or {phone, country}; country: a two-letter code or the English name; ' +
+      'location: {lat, lng, address?} (an address text alone is refused); hour: "14:30" or "2:30 PM"; week: "2026-W47" or any date in the week; ' +
+      'world_clock: an IANA zone such as "Europe/Amsterdam"; color_picker: "#RRGGBB"; ' +
+      'board_relation: item ids or exact item names on the connected boards (or {board, item}), as an array; ' +
+      'dependency: item ids or exact names of other items on the same board (a circular dependency is refused). ' +
+      'null clears a cell (refused on a required column). Calculated and managed columns (formula, mirror, files, ...) cannot be set.',
   );
 export const labelEntry = z.union([
   z.string().min(1).max(60),
