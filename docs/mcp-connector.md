@@ -1,6 +1,6 @@
 # Atrium MCP connector
 
-Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions and updates in the live Atrium, as the person who signed in. It comes in two modes with the same 50 tools:
+Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions and updates in the live Atrium, as the person who signed in. It comes in two modes with the same 60 tools:
 
 - **Hosted (OPS4, recommended):** one public URL, `https://atrium-workboards.web.app/mcp`. You add it once as a connector in claude.ai and in Claude Code, sign in with your Atrium (Google) account, and it works in every project and on every device. Spec: `docs/specs/OPS4-hosted-mcp-connector.md`.
 - **Local stdio (OPS3):** a server that Claude Code starts on your own machine with admin credentials. Spec: `docs/specs/OPS3-atrium-mcp-connector.md`. Use it for development and tests, or when the hosted connector is switched off.
@@ -98,7 +98,7 @@ claude mcp add atrium --scope local ^
 
 **Picking up new tools (no reinstall).** The server is not installed anywhere: Claude Code starts it from the checkout named in the `claude mcp add` command (`pnpm exec tsx scripts/mcp/atrium-mcp.mjs`) every time a session starts, so there is no build step and no re-registration. To get a new tool: (1) update that checkout to a commit that has it (`git pull` on `main` after the PR merges), then (2) restart Claude Code, or run `/mcp` and reconnect `atrium`. A running session keeps the old tool list until you do (2). Only if the registration points at an old or different folder do you need `claude mcp remove atrium` and add it again with the right path.
 
-To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 50 tools.
+To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 60 tools.
 
 ### Environment variables
 
