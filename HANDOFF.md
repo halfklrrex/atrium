@@ -31,6 +31,17 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **No open-PR limits** (owner, 2026-11-04). Pace is set by usage and the owner's availability; hot-spot PRs merge in order and rebase.
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
+## Open work (2026-11-17)
+
+Supersedes the "Waiting on the owner" and "Do next" lines of the 2026-11-16 section below.
+
+- **Owner answered on 2026-11-17:** approved the vote backfill, the showcase seeder, the Docs editor and Teams and profiles; signed off paste speed, the label editor panel, empty-label-first and the scrollable description; dropped the duplicate-comment cleanup; the full phone pass waits until the app is more complete.
+- **Ops done 2026-11-17:** the vote backfill ran on production (12 of 13 boards got `voteColumnIds`, re-run shows 0 left), so vote integrity now covers existing boards. The showcase seeder ran on production after a dry run (83 documents written, 2 stale removed).
+- **Merged 2026-11-17:** #284 color wheel redesign, #285 sidebar description editable (the editor now follows a late-loading role through `setEditable`), #286 view tabs overflow into an "N more" menu (`view-tabs-overflow.ts`, selected view always visible).
+- **Waiting on the owner (monday, Actionable = Yes):** the Files gallery report (3362234627): the agent could not reproduce a blank body or empty pickers, even with the showcase seed in a production build; the owner was asked for a hard reload and the result of `document.querySelector('ul[aria-label="Files"]')?.getBoundingClientRect()`; checks of the color wheel (3362056585), the sidebar description (3346809308), the view tabs menu (3363536105) and the re-seeded showcase (3361958365).
+- **In flight:** Docs editor PR 1 (`claude/docs-1-data`) and Teams PR 1 (`claude/teams-1-data`); both touch `packages/shared/**` and `firestore.rules`, so merge in order and rebase. Next: Docs PR 2 to 6 (`docs/specs/P7-docs-editor.md`), Teams PR 2 to 5 and profiles (`docs/specs/TEAMS-teams-and-profiles.md`), MCP 1c PR 3, SUBITEMS PR 6, the vote cap in `changeColumnType` and MCP `addColumn` (3362375832).
+- **Gotchas:** Chrome blocks some emulator ports (ERR_UNSAFE_PORT), so avoid offsets 50 and 60 for browser work; new emulator accounts are "pending" because `functions/.env.atrium-board` sets `ACCOUNT_APPROVAL_REQUIRED=true` (use a temporary gitignored `functions/.env.local`); the first `bootstrapUser` call after signup can fail once; a monday reply to a reply is refused, reply to the top-level update.
+
 ## Open work (2026-11-16, end of day)
 
 Full day log: `docs/handoff/2026-11-16-ophelia-day-plan.md` and `docs/handoff/2026-11-16-ophelia-evening-summary.md`. **No PRs are open.** Everything below is merged and live unless it says otherwise.
