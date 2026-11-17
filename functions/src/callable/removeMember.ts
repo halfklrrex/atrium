@@ -3,8 +3,16 @@ import { logger } from 'firebase-functions/v2';
 import { onCall } from 'firebase-functions/v2/https';
 import { actorFromRequest, parseInput } from '../lib/actor';
 import { db } from '../lib/admin';
-import { cleanupBoardAccess, removeMemberInTransaction } from '../lib/membership';
-import { adminBoardAccessStore, adminMembershipTx } from '../lib/membership-admin';
+import {
+  cleanupBoardAccess,
+  cleanupTeamMembership,
+  removeMemberInTransaction,
+} from '../lib/membership';
+import {
+  adminBoardAccessStore,
+  adminMembershipTx,
+  adminTeamMembershipStore,
+} from '../lib/membership-admin';
 
 /** Owner (anyone but themself) or admin (non-admins) removes a member, then strips board access. */
 export const removeMember = onCall(async (request) => {
@@ -16,6 +24,12 @@ export const removeMember = onCall(async (request) => {
   );
   await cleanupBoardAccess(
     adminBoardAccessStore(firestore),
+    input.workspaceId,
+    input.uid,
+    (message, error) => logger.error(message, error),
+  );
+  await cleanupTeamMembership(
+    adminTeamMembershipStore(firestore),
     input.workspaceId,
     input.uid,
     (message, error) => logger.error(message, error),

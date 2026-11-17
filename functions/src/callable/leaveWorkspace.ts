@@ -3,8 +3,16 @@ import { logger } from 'firebase-functions/v2';
 import { onCall } from 'firebase-functions/v2/https';
 import { actorFromRequest, parseInput } from '../lib/actor';
 import { db } from '../lib/admin';
-import { cleanupBoardAccess, leaveWorkspaceInTransaction } from '../lib/membership';
-import { adminBoardAccessStore, adminMembershipTx } from '../lib/membership-admin';
+import {
+  cleanupBoardAccess,
+  cleanupTeamMembership,
+  leaveWorkspaceInTransaction,
+} from '../lib/membership';
+import {
+  adminBoardAccessStore,
+  adminMembershipTx,
+  adminTeamMembershipStore,
+} from '../lib/membership-admin';
 
 /** A member (not the owner) leaves a workspace. */
 export const leaveWorkspace = onCall(async (request) => {
@@ -16,6 +24,12 @@ export const leaveWorkspace = onCall(async (request) => {
   );
   await cleanupBoardAccess(
     adminBoardAccessStore(firestore),
+    input.workspaceId,
+    actor.uid,
+    (message, error) => logger.error(message, error),
+  );
+  await cleanupTeamMembership(
+    adminTeamMembershipStore(firestore),
     input.workspaceId,
     actor.uid,
     (message, error) => logger.error(message, error),

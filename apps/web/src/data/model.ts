@@ -10,6 +10,7 @@ import type {
   McpGrant,
   Notification,
   Recent,
+  Team,
   UpdateReply,
   User,
   Workspace,
@@ -40,3 +41,6 @@ export type McpGrantDoc = WithId<McpGrant>;
 /** `workspaces/{id}/members/{uid}`: the uid is the document id. */
 export type MemberDoc = WithId<WorkspaceMember>;
 export type InviteDoc = WithId<WorkspaceInvite>;
+
+/** `workspaces/{id}/teams/{id}`: a group of workspace members People cells can hold. */
+export type TeamDoc = WithId<Team>;

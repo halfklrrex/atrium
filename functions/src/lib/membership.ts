@@ -435,6 +435,45 @@ export async function cleanupBoardAccess(
 }
 
 // ---------------------------------------------------------------------------------------------
+// Team membership cleanup (removeMember, leaveWorkspace)
+// ---------------------------------------------------------------------------------------------
+
+export interface TeamMembershipStore {
+  /** Ids of the workspace's teams whose `memberUids` contain the uid. */
+  listTeamIdsWithMember(workspaceId: string, uid: string): Promise<string[]>;
+  /** Removes the uid from `memberUids` on these teams (one batch). */
+  removeFromTeams(workspaceId: string, teamIds: string[], uid: string): Promise<void>;
+}
+
+/**
+ * Strips a removed member from every team of the workspace. Housekeeping like `cleanupBoardAccess`:
+ * failures are logged and never thrown (a re-run of the removal heals a stale team).
+ */
+export async function cleanupTeamMembership(
+  store: TeamMembershipStore,
+  workspaceId: string,
+  uid: string,
+  log: (message: string, error: unknown) => void = () => undefined,
+): Promise<number> {
+  let cleaned = 0;
+  try {
+    const ids = await store.listTeamIdsWithMember(workspaceId, uid);
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const chunk = ids.slice(i, i + BATCH_SIZE);
+      try {
+        await store.removeFromTeams(workspaceId, chunk, uid);
+        cleaned += chunk.length;
+      } catch (error) {
+        log(`Team cleanup failed for ${workspaceId}/${uid}`, error);
+      }
+    }
+  } catch (error) {
+    log(`Team cleanup failed for ${workspaceId}/${uid}`, error);
+  }
+  return cleaned;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Member profile sync (bootstrapUser)
 // ---------------------------------------------------------------------------------------------
 

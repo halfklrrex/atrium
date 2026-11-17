@@ -1,10 +1,11 @@
 import { MAX_PENDING_INVITES, type WorkspaceRole } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   acceptInviteInTransaction,
   changeMemberRoleInTransaction,
   cleanupBoardAccess,
+  cleanupTeamMembership,
   createInviteInTransaction,
   declineInviteInTransaction,
   getInviteStatus,
@@ -20,6 +21,7 @@ import {
   type MemberProfile,
   type MemberProfileStore,
   type MembershipTx,
+  type TeamMembershipStore,
   type WorkspaceData,
 } from './membership';
 
@@ -768,5 +770,74 @@ describe('syncMemberProfiles', () => {
       Array.from({ length: 30 }, (_, i) => ({ workspaceId: `w${i}`, role: 'member' as const })),
     );
     expect(await syncMemberProfiles(store, actor('avery'))).toBe(20);
+  });
+});
+
+describe('cleanupTeamMembership', () => {
+  class FakeTeams implements TeamMembershipStore {
+    constructor(public teams: Map<string, { workspaceId: string; memberUids: string[] }>) {}
+    batches: number[] = [];
+    failOn: number | null = null;
+    listTeamIdsWithMember(workspaceId: string, uid: string) {
+      return Promise.resolve(
+        [...this.teams]
+          .filter(([, t]) => t.workspaceId === workspaceId && t.memberUids.includes(uid))
+          .map(([id]) => id),
+      );
+    }
+    removeFromTeams(workspaceId: string, ids: string[], uid: string) {
+      if (this.failOn === this.batches.length) {
+        this.batches.push(-1);
+        return Promise.reject(new Error('boom'));
+      }
+      this.batches.push(ids.length);
+      for (const id of ids) {
+        const t = this.teams.get(id)!;
+        t.memberUids = t.memberUids.filter((u) => u !== uid);
+      }
+      return Promise.resolve();
+    }
+  }
+
+  const team = (workspaceId: string, memberUids: string[]) => ({ workspaceId, memberUids });
+
+  it('removes the person from every team of that workspace only', async () => {
+    const teams = new Map([
+      ['t1', team(WS, ['gone', 'owner'])],
+      ['t2', team(WS, ['gone'])],
+      ['t3', team(WS, ['owner'])],
+      ['t4', team('other', ['gone'])],
+    ]);
+    expect(await cleanupTeamMembership(new FakeTeams(teams), WS, 'gone')).toBe(2);
+    expect(teams.get('t1')!.memberUids).toEqual(['owner']);
+    expect(teams.get('t2')!.memberUids).toEqual([]);
+    expect(teams.get('t3')!.memberUids).toEqual(['owner']);
+    expect(teams.get('t4')!.memberUids).toEqual(['gone']);
+  });
+
+  it('does nothing when the person is on no team', async () => {
+    const store = new FakeTeams(new Map([['t1', team(WS, ['owner'])]]));
+    expect(await cleanupTeamMembership(store, WS, 'gone')).toBe(0);
+    expect(store.batches).toEqual([]);
+  });
+
+  it('chunks big workspaces and keeps going after a failed batch', async () => {
+    const teams = new Map(
+      Array.from({ length: 850 }, (_, i) => [`t${i}`, team(WS, ['gone'])] as const),
+    );
+    const store = new FakeTeams(teams);
+    store.failOn = 1;
+    const log = vi.fn();
+    expect(await cleanupTeamMembership(store, WS, 'gone', log)).toBe(450);
+    expect(store.batches).toEqual([400, -1, 50]);
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+
+  it('never throws when listing fails', async () => {
+    const store = new FakeTeams(new Map());
+    store.listTeamIdsWithMember = () => Promise.reject(new Error('down'));
+    const log = vi.fn();
+    expect(await cleanupTeamMembership(store, WS, 'gone', log)).toBe(0);
+    expect(log).toHaveBeenCalledTimes(1);
   });
 });
