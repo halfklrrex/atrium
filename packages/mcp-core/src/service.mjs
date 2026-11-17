@@ -22,6 +22,9 @@ import { findColumn } from './refs.mjs';
 import { peopleInputHasEmail, peopleInputHasTeam, readableCell, toValidCell } from './values.mjs';
 import { EDIT_ROLES, MAX_ITEMS_PER_CALL } from './service/constants.mjs';
 import { boardsService } from './service/boards.mjs';
+import { columnsService } from './service/columns.mjs';
+import { createLinkResolver } from './service/links.mjs';
+import { createMirrorReader } from './service/mirror.mjs';
 import { docsService } from './service/docs.mjs';
 import { itemsService } from './service/items.mjs';
 import { membersService } from './service/members.mjs';
@@ -184,6 +187,9 @@ export function createService({ client, actor, now = () => new Date() }) {
     }
   }
 
+  const resolveLinkCells = createLinkResolver({ client, roleOn, itemsOf: (id) => itemsOf(id) });
+  const prepareMirrors = createMirrorReader({ client, roleOn });
+
   async function cellContext(loaded) {
     return { uid, memberUids: (await workspace(loaded.workspaceId)).memberUids };
   }
@@ -199,8 +205,15 @@ export function createService({ client, actor, now = () => new Date() }) {
   }
 
   /** `{ "<column title or id>": input }` -> `{ <columnId>: storedValue }`, fully validated. */
-  async function convertValues(loaded, values = {}, columns = loaded.board.columns) {
+  async function convertValues(
+    loaded,
+    values = {},
+    columns = loaded.board.columns,
+    itemContext = {},
+  ) {
     const ctx = await cellContext(loaded);
+    const links = await resolveLinkCells(loaded, columns, values, itemContext);
+    if (links.size > 0) ctx.links = links;
     const peopleInputs = Object.entries(values)
       .filter(([ref]) => {
         const column = columns.find(
@@ -414,12 +427,17 @@ export function createService({ client, actor, now = () => new Date() }) {
     readContext,
     readCell,
     readValues,
+    prepareMirrors,
     boardMembers,
     iso,
     sortedPositions,
     subitemDocs,
     subitemColumnsOf,
   };
+
+  const columns = columnsService(helpers);
+  helpers.prepareColumn = columns.prepareColumn;
+  const { prepareColumn: _prepareColumn, ...columnsApi } = columns;
 
   return {
     ...boardsService(helpers),
@@ -429,6 +447,7 @@ export function createService({ client, actor, now = () => new Date() }) {
     ...myWorkService(helpers),
     ...docsService(helpers),
     ...teamsService(helpers),
+    ...columnsApi,
     async verify() {
       const profile = await client.getDoc(`users/${uid}`);
       if (!profile) throw new McpUserError(`User "${uid}" does not exist in Atrium.`);

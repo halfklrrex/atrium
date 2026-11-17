@@ -97,6 +97,7 @@ export function itemsService(h) {
     readContext,
     readValues,
     readCell,
+    prepareMirrors,
     boardMembers,
   } = h;
   return {
@@ -152,7 +153,9 @@ export function itemsService(h) {
             (a.data.position < b.data.position ? -1 : a.data.position > b.data.position ? 1 : 0) ||
             (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
         );
-      const page = found.slice(offset, offset + limit).map((d) => ({
+      const pageDocs = found.slice(offset, offset + limit);
+      await prepareMirrors(context, pageDocs, board.columns);
+      const page = pageDocs.map((d) => ({
         id: d.id,
         seq: d.data.seq ?? null,
         name: d.data.name,
@@ -160,6 +163,7 @@ export function itemsService(h) {
         values: readValues(context, d, board.columns, (c) => c.title),
       }));
       return {
+        ...(context.notes?.length ? { notes: context.notes } : {}),
         total: found.length,
         offset,
         shown: page.length,
@@ -214,7 +218,7 @@ export function itemsService(h) {
       const item = await loadItem(boardId, itemId);
       const isSub = Boolean(item.parentItemId);
       const columns = columnsForItem(loaded.board, item);
-      const cells = await convertValues(loaded, values, columns);
+      const cells = await convertValues(loaded, values, columns, { item: { ...item, id: itemId } });
       assertRequiredKept(loaded, columns, item, cells);
       let groupId;
       let position;
@@ -522,7 +526,9 @@ export function itemsService(h) {
       const titles = new Map(columns.map((c) => [c.id, c.title]));
       const subs = await subitemDocs(boardId, itemId);
       const context = await readContext(boardId, board.workspaceId, columns);
+      await prepareMirrors(context, subs, columns);
       return {
+        ...(context.notes?.length ? { notes: context.notes } : {}),
         itemId,
         columns: sortedByPosition(columns).map((c) => ({
           id: c.id,
@@ -552,7 +558,9 @@ export function itemsService(h) {
       const writes = [];
       const created = [];
       for (const input of subitems) {
-        const values = await convertValues(loaded, input.values, columns);
+        const values = await convertValues(loaded, input.values, columns, {
+          parentItemId: itemId,
+        });
         const position = positionAfter(positions);
         positions.push(position);
         const id = newDocId();

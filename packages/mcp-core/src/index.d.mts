@@ -319,6 +319,29 @@ export interface McpService {
     dryRun: boolean;
     deleted: boolean;
   }>;
+  editLabels(args: {
+    boardId: string;
+    column: string;
+    rename?: { from: string; to: string }[];
+    recolor?: { label: string; color: string }[];
+    order?: string[];
+    remove?: string[];
+    dryRun?: boolean;
+    allowDataLoss?: boolean;
+  }): Promise<{
+    id: string;
+    title: string;
+    type: string;
+    renamed: { from: string; to: string }[];
+    recolored: { label: string; color: string }[];
+    removed: { label: string; items: number }[];
+    itemsCleared?: number;
+    itemsAffected?: number;
+    needsAllowDataLoss?: boolean;
+    dryRun?: boolean;
+    warning?: string;
+    [key: string]: unknown;
+  }>;
   /** Startup check: the user exists (and is a member of the filter workspace, when set). */
   verify(): Promise<{ uid: string; workspaces: WorkspaceSummary[] }>;
 }
