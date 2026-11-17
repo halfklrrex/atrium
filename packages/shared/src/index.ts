@@ -30,6 +30,7 @@ export * from './schemas/dashboard-sharing';
 export * from './schemas/template';
 export * from './schemas/dashboard';
 export * from './schemas/team';
+export * from './schemas/doc';
 export * from './templates';
 export * from './columns';
 export * from './derived-ids';
