@@ -576,6 +576,106 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
+    // docs/{docId} (P7 docs): a workspace page of rich text. Same access model and lifecycle as
+    // dashboards (`kind`, `access`, `accessUids`, `boardRole`; owner-only `state`; sharing fields
+    // written only by a callable in a later PR). The text lives in `content/body` so listing docs
+    // never downloads it. Spec: docs/specs/P7-docs-editor.md.
+    // ---------------------------------------------------------------------
+    match /docs/{docId} {
+      function validDocCreate(d) {
+        return d.keys().hasOnly(['workspaceId', 'folderId', 'name', 'kind', 'access', 'accessUids',
+                                 'position', 'icon', 'state', 'deletedAt', 'createdAt',
+                                 'createdBy', 'updatedAt', 'updatedBy'])
+          && d.keys().hasAll(['workspaceId', 'folderId', 'name', 'kind', 'access', 'accessUids',
+                              'position', 'icon', 'state', 'deletedAt', 'createdAt', 'createdBy',
+                              'updatedAt'])
+          && d.workspaceId is string
+          && canCreateInWs(d.workspaceId)
+          && (d.folderId == null
+              || (d.folderId is string && folderExistsIn(d.workspaceId, d.folderId)))
+          && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+          && d.kind in ['main', 'private', 'shareable']
+          && d.access == {(uid()): 'owner'}
+          && d.accessUids == [uid()]
+          && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
+          && d.icon == null
+          && d.state == 'active'
+          && d.deletedAt == null
+          && d.createdBy == uid()
+          && d.createdAt == request.time
+          && d.updatedAt == request.time
+          && (!('updatedBy' in d) || d.updatedBy == uid());
+      }
+
+      // Owners and editors rename and move the doc. Lifecycle (`state`, `deletedAt`) is owner-only.
+      // Sharing (`kind`, `access`, `accessUids`), `workspaceId`, `icon` and the audit fields are not
+      // client-writable. Every update sends `updatedBy == uid()`.
+      function validDocUpdate() {
+        let d = request.resource.data;
+        let changed = d.diff(resource.data).affectedKeys();
+        let role = boardRole(resource.data);
+        return role in ['owner', 'editor']
+          && changed.hasOnly(['folderId', 'position', 'name', 'state', 'deletedAt', 'updatedAt',
+                              'updatedBy'])
+          && d.get('updatedBy', null) == uid()
+          && (!changed.hasAny(['state', 'deletedAt']) || role == 'owner')
+          && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
+          && (!changed.hasAny(['folderId']) || d.folderId == null
+              || (d.folderId is string && folderExistsIn(resource.data.workspaceId, d.folderId)))
+          && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+          && d.state in ['active', 'deleted']
+          && (!changed.hasAny(['state', 'deletedAt'])
+              || (d.state == 'deleted' ? d.deletedAt == request.time : d.deletedAt == null))
+          && d.updatedAt == request.time;
+      }
+
+      allow get: if signedIn() && boardRole(resource.data) in ['owner', 'editor', 'viewer'];
+      allow list: if signedIn() && isWsMember(resource.data.workspaceId)
+        && (resource.data.kind == 'main' || uid() in resource.data.accessUids);
+      allow create: if signedIn() && validDocCreate(request.resource.data);
+      allow update: if signedIn() && validDocUpdate();
+      // Soft-deleted through `state`; purging is a server concern.
+      allow delete: if false;
+
+      // docs/{docId}/content/{part}: `body` is the rich text; `images` (a later PR) is written
+      // only by Cloud Functions. Saves are revision-checked: `rev` is 1 on create and must be
+      // exactly the stored `rev` + 1 on every update, so two editors never overwrite each other
+      // silently (the loser's save is refused and the UI asks what to do).
+      match /content/{part} {
+        function docParent() {
+          return get(/databases/$(database)/documents/docs/$(docId)).data;
+        }
+
+        function validDocBody(d) {
+          return d.keys().hasOnly(['doc', 'text', 'rev', 'updatedAt', 'updatedBy'])
+            && d.keys().hasAll(['doc', 'text', 'rev', 'updatedAt', 'updatedBy'])
+            && d.doc is map && d.doc.type == 'doc'
+            && d.text is string && d.text.size() <= 50000
+            && d.rev is int
+            && d.updatedAt == request.time
+            && d.updatedBy == uid();
+        }
+
+        function canWriteDocBody() {
+          return part == 'body'
+            && signedIn()
+            && boardRole(docParent()) in ['owner', 'editor']
+            && docParent().state == 'active';
+        }
+
+        allow get: if signedIn() && part in ['body', 'images']
+          && boardRole(docParent()) in ['owner', 'editor', 'viewer'];
+        allow create: if canWriteDocBody()
+          && validDocBody(request.resource.data)
+          && request.resource.data.rev == 1;
+        allow update: if canWriteDocBody()
+          && validDocBody(request.resource.data)
+          && request.resource.data.rev == resource.data.rev + 1;
+        allow delete: if false;
+      }
+    }
+
+    // ---------------------------------------------------------------------
     // boards/{boardId}
     // ---------------------------------------------------------------------
     match /boards/{boardId} {

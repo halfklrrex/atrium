@@ -19,5 +19,6 @@ export type { BoardPatch } from './firestore';
 export type { SnapshotState } from './useSnapshot';
 export * from './my-work';
 export * from './dashboards';
+export * from './docs';
 export * from './dashboard-items';
 export * from './automations';
