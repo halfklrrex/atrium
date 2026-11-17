@@ -142,7 +142,7 @@ describe('custom label colors', () => {
     await user.type(hex, '#12zz');
     expect(hex.getAttribute('aria-invalid')).toBe('true');
     expect(screen.getByRole('alert').textContent).toContain('Enter a color');
-    expect((screen.getByRole('button', { name: 'Use' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Use' }).getAttribute('aria-disabled')).toBe('true');
     await user.click(screen.getByRole('button', { name: 'Apply' }));
     expect((onSave.mock.calls[0]?.[0] as StatusSettings).labels[0]?.color).toBe('#fdab3d');
   });
