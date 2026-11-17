@@ -43,6 +43,20 @@ export function adminPurgeStore(): PurgeTrashStore {
       await firestore.recursiveDelete(boardRef);
     },
 
+    async findDeletedDocs(cutoff: Date) {
+      const snap = await firestore
+        .collection('docs')
+        .where('state', '==', 'deleted')
+        .where('deletedAt', '<=', cutoff)
+        .get();
+      return snap.docs.map((d) => ({ id: d.id }));
+    },
+
+    async purgeDoc(id: string) {
+      // Also removes content/body, content/images and presence/*.
+      await firestore.recursiveDelete(firestore.collection('docs').doc(id));
+    },
+
     async deleteItems(items) {
       let totalDeleted = 0;
       for (const item of items) {
@@ -57,7 +71,7 @@ export function adminPurgeStore(): PurgeTrashStore {
     },
 
     async deleteStoragePrefix(prefix: string) {
-      if (!prefix.startsWith('boards/') || !prefix.endsWith('/')) {
+      if (!(prefix.startsWith('boards/') || prefix.startsWith('docs/')) || !prefix.endsWith('/')) {
         throw new Error(`Refusing to delete an unsafe Storage prefix: ${prefix}`);
       }
       await getStorage().bucket().deleteFiles({ prefix });
@@ -103,7 +117,7 @@ export const purgeTrash = onSchedule(
     const snapshotsPurged = await purgeExpiredColumnSnapshots(adminColumnSnapshotPurgeStore());
     logger.info(`Purged ${snapshotsPurged} expired column snapshots.`, { snapshotsPurged });
     logger.info(
-      `Purge completed: ${result.boardsPurged} boards and ${result.itemsPurged} items purged.`,
+      `Purge completed: ${result.boardsPurged} boards, ${result.itemsPurged} items and ${result.docsPurged} docs purged.`,
       result,
     );
   },

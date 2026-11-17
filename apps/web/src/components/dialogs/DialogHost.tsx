@@ -3,6 +3,7 @@ import { AboutDialog } from './AboutDialog';
 import { FeedbackDialog } from './FeedbackDialog';
 import { ShareBoardDialog } from '../boards/ShareBoardDialog';
 import { ShareDashboardDialog } from '../dashboard/ShareDashboardDialog';
+import { ShareEntityDialog } from '../sharing/ShareEntityDialog';
 import { NewBoardDialog } from './BoardDialogs';
 import { NewDashboardDialog } from './DashboardDialogs';
 import { NewDocDialog } from './DocDialogs';
@@ -55,6 +56,8 @@ export function DialogHost() {
       return <DashboardBoardsDialog dashboardId={dialog.dashboardId} onClose={close} />;
     case 'shareDashboard':
       return <ShareDashboardDialog dashboardId={dialog.dashboardId} onClose={close} />;
+    case 'shareDoc':
+      return <ShareEntityDialog kind="doc" entityId={dialog.docId} onClose={close} />;
     case 'saveTemplate':
       return <SaveAsTemplateDialog boardId={dialog.boardId} onClose={close} />;
     case 'folder':

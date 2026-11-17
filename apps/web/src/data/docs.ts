@@ -11,6 +11,8 @@ import {
   createDocInputSchema,
   docBodyBytes,
   type CreateDocInput,
+  type BoardKind,
+  type BoardRole,
   type DocBodyJson,
   type DocState,
 } from '@atrium/shared';
@@ -30,6 +32,7 @@ import {
   type Query,
 } from 'firebase/firestore';
 import { useMemo } from 'react';
+import { docSharingCalls } from '../lib/callables';
 import { db } from '../lib/firebase';
 import { comparePositions } from '../lib/positions';
 import { requireUid } from './firestore';
@@ -126,6 +129,12 @@ export interface DocPatch {
   position?: string;
 }
 
+/** One sharing change: a new kind and/or one person's role (`null` removes them). */
+export interface DocSharingChange {
+  kind?: BoardKind;
+  person?: { uid: string; role: BoardRole | null };
+}
+
 /** What a body save sends: the ProseMirror JSON and its plain-text mirror. */
 export interface DocBodyContent {
   doc: DocBodyJson;
@@ -188,6 +197,15 @@ export const docWrites = {
   /** Bring a doc back from the trash. Only doc owners may do this (rules). */
   async restoreDoc(docId: string): Promise<void> {
     await updateMeta(docId, { state: 'active' satisfies DocState, deletedAt: null });
+  },
+
+  /**
+   * Change the doc's kind and/or one person's role (`role: null` removes them). Goes through the
+   * `setDocAccess` callable (doc owners only; workspace members only, role capped by the
+   * workspace role, a live owner stays); the rules refuse direct writes of these fields.
+   */
+  async setDocSharing(docId: string, change: DocSharingChange): Promise<void> {
+    await docSharingCalls.setAccess({ docId, ...change });
   },
 
   /**

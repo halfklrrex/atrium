@@ -38,6 +38,7 @@ export { leaveWorkspace } from './callable/leaveWorkspace';
 export { setBoardAccess } from './callable/setBoardAccess';
 export { setBoardKind } from './callable/setBoardKind';
 export { setDashboardAccess } from './callable/setDashboardAccess';
+export { setDocAccess } from './callable/setDocAccess';
 export { leaveBoard } from './callable/leaveBoard';
 export { mcpAuthRequestInfo } from './callable/mcpAuthRequestInfo';
 export { mcpAuthorize } from './callable/mcpAuthorize';

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeDoc, makeWorkspace } from '../../test/fixtures';
+import { useUiStore } from '../AppShell/ui-store';
 import { DocPage } from './DocPage';
 
 const mocks = vi.hoisted(() => ({
@@ -119,6 +120,22 @@ describe('DocPage', () => {
     });
     renderPage();
     expect(screen.getByText("We couldn't find that page")).toBeInTheDocument();
+  });
+
+  it('shows Share to doc owners and opens the doc share dialog', async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(useUiStore.getState().dialog).toEqual({ type: 'shareDoc', docId: 'doc1' });
+  });
+
+  it('hides Share from editors and from a doc in the trash', () => {
+    mocks.doc = makeDoc({ id: 'doc1', name: 'Packing list', access: { u1: 'editor' } });
+    const view = renderPage();
+    expect(screen.queryByRole('button', { name: 'Share' })).toBeNull();
+    view.unmount();
+    mocks.doc = makeDoc({ id: 'doc1', name: 'Packing list', state: 'deleted' });
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Share' })).toBeNull();
   });
 
   it('renders the title, who edited last and the saved text', async () => {

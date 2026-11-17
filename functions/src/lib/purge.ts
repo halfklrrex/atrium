@@ -6,6 +6,10 @@ export interface PurgeTrashStore {
   findDeletedBoards(cutoff: Date): Promise<readonly { id: string }[]>;
   findDeletedItems(cutoff: Date): Promise<readonly { id: string; boardId: string }[]>;
   purgeBoard(id: string): Promise<void>;
+  /** Docs with `state == 'deleted'` and `deletedAt <= cutoff`. */
+  findDeletedDocs(cutoff: Date): Promise<readonly { id: string }[]>;
+  /** Recursively deletes `docs/{id}` (metadata, body, images map, presence). */
+  purgeDoc(id: string): Promise<void>;
   deleteItems(items: readonly { id: string; boardId: string }[]): Promise<number>;
   /** Deletes every Storage object whose name starts with `prefix` (always ends with `/`). */
   deleteStoragePrefix(prefix: string): Promise<void>;
@@ -18,17 +22,18 @@ export function getThirtyDayCutoff(now = Date.now()): Date {
 }
 
 /**
- * Purge boards and items whose `state == 'deleted'` and `deletedAt <= cutoff`.
+ * Purge boards, items and docs whose `state == 'deleted'` and `deletedAt <= cutoff`.
  * Boards are purged recursively (including subcollections).
  * Returns the counts of records purged.
  */
 export async function purgeTrashLogic(
   store: PurgeTrashStore,
   cutoff: Date,
-): Promise<{ boardsPurged: number; itemsPurged: number }> {
-  const [deletedBoards, deletedItems] = await Promise.all([
+): Promise<{ boardsPurged: number; itemsPurged: number; docsPurged: number }> {
+  const [deletedBoards, deletedItems, deletedDocs] = await Promise.all([
     store.findDeletedBoards(cutoff),
     store.findDeletedItems(cutoff),
+    store.findDeletedDocs(cutoff),
   ]);
 
   // Storage goes first: if it fails, the documents stay and the next run retries. An item's prefix
@@ -46,9 +51,16 @@ export async function purgeTrashLogic(
     await store.deleteItems(deletedItems);
   }
 
+  // A doc's prefix covers its images (`docs/{id}/images/...`).
+  for (const doc of deletedDocs) {
+    await store.deleteStoragePrefix(`docs/${doc.id}/`);
+    await store.purgeDoc(doc.id);
+  }
+
   return {
     boardsPurged: deletedBoards.length,
     itemsPurged: deletedItems.length,
+    docsPurged: deletedDocs.length,
   };
 }
 

@@ -23,3 +23,22 @@ export const setDashboardAccessRequestSchema = z
     message: 'Nothing to change.',
   });
 export type SetDashboardAccessRequest = z.infer<typeof setDashboardAccessRequestSchema>;
+
+/** Callable name for doc sharing. */
+export const SET_DOC_ACCESS_CALLABLE = 'setDocAccess';
+
+/** One sharing change on a doc (doc owners only); same shape and result as the dashboard one. */
+export const setDocAccessRequestSchema = z
+  .object({
+    docId: z.string().min(1).max(64),
+    kind: boardKindSchema.optional(),
+    person: z
+      .object({ uid: z.string().min(1).max(128), role: boardRoleSchema.nullable() })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .refine((r) => r.kind !== undefined || r.person !== undefined, {
+    message: 'Nothing to change.',
+  });
+export type SetDocAccessRequest = z.infer<typeof setDocAccessRequestSchema>;

@@ -83,7 +83,9 @@ import {
   acceptInviteResultSchema,
   boardSharingResultSchema,
   SET_DASHBOARD_ACCESS_CALLABLE,
+  SET_DOC_ACCESS_CALLABLE,
   setDashboardAccessRequestSchema,
+  setDocAccessRequestSchema,
   bootstrapUserResultSchema,
   changeColumnTypeRequestSchema,
   changeColumnTypeResultSchema,
@@ -162,6 +164,7 @@ import {
   type SetBoardAccessRequest,
   type SetBoardKindRequest,
   type SetDashboardAccessRequest,
+  type SetDocAccessRequest,
   type StartTimeTrackingRequest,
   type StartTimeTrackingResult,
   type StopTimeTrackingRequest,
@@ -248,6 +251,15 @@ export const dashboardSharingCalls = {
   setAccess: validatedCallable<SetDashboardAccessRequest, BoardSharingResult>(
     SET_DASHBOARD_ACCESS_CALLABLE,
     (r) => setDashboardAccessRequestSchema.parse(r),
+    (d) => boardSharingResultSchema.parse(d),
+  ),
+};
+
+/** Doc sharing: the doc's kind and who can see and edit it. Clients cannot write these fields directly. */
+export const docSharingCalls = {
+  setAccess: validatedCallable<SetDocAccessRequest, BoardSharingResult>(
+    SET_DOC_ACCESS_CALLABLE,
+    (r) => setDocAccessRequestSchema.parse(r),
     (d) => boardSharingResultSchema.parse(d),
   ),
 };
