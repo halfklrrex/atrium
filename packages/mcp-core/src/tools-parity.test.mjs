@@ -97,6 +97,13 @@ const DOMAIN_TOOLS = {
     'atrium_list_notifications',
     'atrium_mark_notifications_read',
   ],
+  views: [
+    'atrium_list_views',
+    'atrium_get_view_items',
+    'atrium_create_view',
+    'atrium_update_view',
+    'atrium_delete_view',
+  ],
 };
 
 test('every domain file lists exactly the tools asserted here, and every tool is in one file', () => {
