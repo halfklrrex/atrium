@@ -2,6 +2,7 @@ import { Avatar, AvatarGroup, Tooltip } from '@vibe/core';
 import { useAuth } from '../../auth/auth-context';
 import { useBoardPresence, useDocPresence } from '../../data/presence';
 import { initialsOf } from '../../lib/format';
+import { ProfileLink } from '../profile';
 import { formatViewingNow } from './formatPresence';
 import styles from './PresenceAvatars.module.css';
 
@@ -43,14 +44,21 @@ export function PresenceAvatars({ boardId, docId, max = 3, size = 'small' }: Pre
             const isMe = viewer.uid === user?.uid;
             const name = viewer.displayName || (isMe ? 'You' : 'Anonymous');
             return (
-              <Avatar
+              <ProfileLink
                 key={viewer.uid}
-                type={viewer.photoURL ? 'img' : 'text'}
-                src={viewer.photoURL ?? undefined}
-                text={initialsOf(name)}
-                aria-label={name}
-                backgroundColor={isMe ? 'bright-blue' : 'primary'}
-              />
+                uid={viewer.uid}
+                name={name}
+                photoURL={viewer.photoURL}
+                label={`Profile of ${name}`}
+              >
+                <Avatar
+                  type={viewer.photoURL ? 'img' : 'text'}
+                  src={viewer.photoURL ?? undefined}
+                  text={initialsOf(name)}
+                  aria-label={name}
+                  backgroundColor={isMe ? 'bright-blue' : 'primary'}
+                />
+              </ProfileLink>
             );
           })}
         </AvatarGroup>

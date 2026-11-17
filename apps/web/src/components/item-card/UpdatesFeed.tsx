@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/auth-context';
 import { createUpdate, deleteUpdate, toggleLikeUpdate, useItemUpdates } from '../../data/updates';
 import { formatRelativeShort } from '../../lib/format';
 import { authorLabel, isAutomationActor } from '../../lib/automation-actor';
+import { ProfileLink } from '../profile';
 import { UserAvatar } from '../UserAvatar';
 import { MentionedText } from './MentionedText';
 import { LazyUpdateComposer } from './LazyUpdateComposer';
@@ -123,17 +124,24 @@ export function UpdatesFeed({
               >
                 <header className={styles.updateHeader}>
                   <div className={styles.authorMeta}>
-                    <div className={styles.avatar}>
-                      <UserAvatar
-                        uid={update.authorId}
-                        name={update.authorName}
-                        photoURL={update.authorPhotoUrl}
-                        size="medium"
-                      />
-                    </div>
-                    <span className={styles.authorName}>
-                      {authorLabel(update.authorId, update.authorName, uid)}
-                    </span>
+                    <ProfileLink
+                      uid={update.authorId}
+                      name={update.authorName}
+                      photoURL={update.authorPhotoUrl}
+                      label={`Profile of ${authorLabel(update.authorId, update.authorName, uid)}`}
+                    >
+                      <div className={styles.avatar}>
+                        <UserAvatar
+                          uid={update.authorId}
+                          name={update.authorName}
+                          photoURL={update.authorPhotoUrl}
+                          size="medium"
+                        />
+                      </div>
+                      <span className={styles.authorName}>
+                        {authorLabel(update.authorId, update.authorName, uid)}
+                      </span>
+                    </ProfileLink>
                     <span className={styles.timestamp}>
                       {formatRelativeShort(update.createdAt)}
                     </span>

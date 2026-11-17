@@ -1,0 +1,167 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: var(--atrium-profile-card-width);
+  max-width: 100%;
+  padding: var(--space-16);
+  outline: 0;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--atrium-profile-card-avatar);
+  height: var(--atrium-profile-card-avatar);
+  overflow: hidden;
+  border-radius: var(--atrium-team-avatar-radius);
+  background: var(--color-bright-blue);
+  color: var(--atrium-team-avatar-text-color);
+  font: var(--font-h3-bold);
+}
+
+.photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--primary-text-color);
+  font: var(--font-h3-bold);
+  font-family: var(--title-font-family);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  overflow: hidden;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fact {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.factIcon {
+  flex: none;
+  color: var(--secondary-text-color);
+}
+
+.about {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text2-normal);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.teams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.teamChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+  padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
+  border-radius: var(--border-radius-big);
+  background: var(--allgrey-background-color);
+  color: var(--primary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.teamName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emailRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-width: 0;
+  padding-block-start: var(--space-8);
+  border-block-start: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.email {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-small);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.trigger:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
+.rowWrap {
+  display: flex;
+  align-items: center;
+}
+
+.rowWrap > :first-child {
+  flex: 1;
+  min-width: 0;
+}

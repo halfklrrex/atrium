@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
+import type { MemberProfile } from '@atrium/shared';
 import { useAuth } from '../auth/auth-context';
 import { subscribeToMembers } from './members-source';
 import type { MemberDoc } from './model';
@@ -16,6 +17,8 @@ export interface PersonInfo {
   name: string;
   photoURL: string | null;
   email: string | null;
+  /** The profile fields the person shared with the workspace (title, about, ...); absent until filled in. */
+  profile?: MemberProfile;
 }
 
 interface MembersEntry {
@@ -133,7 +136,13 @@ export function buildUserLookup(
     if (member) {
       const name = member.displayName || member.email;
       if (name) {
-        return { uid, name, photoURL: member.photoURL ?? null, email: member.email || null };
+        return {
+          uid,
+          name,
+          photoURL: member.photoURL ?? null,
+          email: member.email || null,
+          ...(member.profile ? { profile: member.profile } : {}),
+        };
       }
     }
     if (self && self.uid === uid) {

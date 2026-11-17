@@ -687,6 +687,23 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `team-dialog-${theme}`);
     });
 
+    // TEAMS-5: the profile card, opened from a row of the Members dialog.
+    test('workspace: profile card', async ({ page }) => {
+      await page.goto(`/workspaces/${IDS.personalWorkspace}`);
+      await appReady(page);
+      await page.getByRole('button', { name: /^Invite \/ \d+$/ }).click();
+      const dialog = page.getByRole('dialog', { name: /^Members of / });
+      await dialog.getByRole('button', { name: 'Profile of Avery Atrium' }).click();
+      const card = page.getByRole('dialog', { name: 'Profile of Avery Atrium' });
+      await expect(card).toBeVisible();
+      await expect(card.getByText('Head gardener')).toBeVisible();
+      await expect(card.getByText(/^Local time /)).toBeVisible();
+      await expect(
+        card.getByRole('list', { name: 'Teams' }).getByText('Garden crew'),
+      ).toBeVisible();
+      await shoot(page, `profile-card-${theme}`);
+    });
+
     // P4: the item card's Activity Log tab and the board's Activity log panel, seeded with fixed entries.
     test('board: item card Activity Log tab', async ({ page }) => {
       await seedActivity();
