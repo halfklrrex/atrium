@@ -212,3 +212,69 @@ describe('commit mapping', () => {
     expect(new McpUserError('x')).toBeInstanceOf(Error);
   });
 });
+
+describe('runQuery mapping', () => {
+  /** A recording `Query`: every builder call is logged and returns the same query. */
+  function fakeQueryFirestore(): { firestore: Firestore; paths: string[]; calls: Call[] } {
+    const calls: Call[] = [];
+    const paths: string[] = [];
+    const query: unknown = new Proxy(
+      {},
+      {
+        get: (_target, method: string) => {
+          if (method === 'get') return async () => ({ docs: [] });
+          return (...args: unknown[]) => {
+            calls.push({ method, args });
+            return query;
+          };
+        },
+      },
+    );
+    const firestore = {
+      databaseId: 'fake-db',
+      collection: (path: string) => {
+        paths.push(path);
+        return query;
+      },
+    } as unknown as Firestore;
+    return { firestore, paths, calls };
+  }
+
+  it('queries a nested collection with equality, array-contains and array-contains-any', async () => {
+    const { firestore, paths, calls } = fakeQueryFirestore();
+    const client = createAdminClient(firestore);
+    await client.runQuery('boards/b1/items', {
+      state: 'active',
+      assigneeUids: { arrayContains: 'u1' },
+      assigneeTeamIds: { arrayContainsAny: ['t1', 't2'] },
+    });
+    expect(paths).toEqual(['boards/b1/items']);
+    expect(calls.map((c) => [c.method, c.args[1]])).toEqual([
+      ['where', '=='],
+      ['where', 'array-contains'],
+      ['where', 'array-contains-any'],
+    ]);
+    expect(calls[2]!.args[2]).toEqual(['t1', 't2']);
+  });
+
+  it('applies limit and orderBy, and refuses orderBy with filters or too many values', async () => {
+    const { firestore, calls } = fakeQueryFirestore();
+    const client = createAdminClient(firestore);
+    await client.runQuery(
+      'users/u1/notifications',
+      {},
+      { orderBy: { field: 'createdAt', direction: 'desc' }, limit: 30 },
+    );
+    expect(calls.map((c) => c.method)).toEqual(['orderBy', 'limit']);
+    expect(calls[0]!.args[1]).toBe('desc');
+    expect(calls[1]!.args).toEqual([30]);
+    await expect(
+      client.runQuery('boards', { state: 'active' }, { orderBy: { field: 'name' } }),
+    ).rejects.toThrow(/orderBy is only supported without filters/);
+    await expect(
+      client.runQuery('boards', {
+        id: { arrayContainsAny: Array.from({ length: 31 }, (_, i) => i) },
+      }),
+    ).rejects.toThrow(/1 to 30/);
+  });
+});

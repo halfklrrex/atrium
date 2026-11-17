@@ -76,34 +76,84 @@ function tags(column, input) {
   return { tag_ids: ids };
 }
 
-/** True when a people input names someone by email (so the caller must load the profiles). */
-export function peopleInputHasEmail(input) {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    return (Array.isArray(input) ? input : [input]).some(
-      (entry) => typeof entry === 'string' && entry.includes('@'),
-    );
+/** The text of a team reference: `"team:<name or id>"` or `{ team: "<name or id>" }`, else `null`. */
+function teamRefOf(entry) {
+  if (typeof entry === 'string' && /^team:/i.test(entry.trim())) {
+    return entry.trim().slice('team:'.length).trim();
   }
-  return false;
+  if (entry !== null && typeof entry === 'object' && !Array.isArray(entry) && 'team' in entry) {
+    return typeof entry.team === 'string' ? entry.team.trim() : '';
+  }
+  return null;
 }
 
-function people(input, ctx) {
-  const list = (Array.isArray(input) ? input : [input]).map((entry) => {
-    if (entry === 'me') return ctx.uid;
+/** True when a people input is a list of entries (not the native `{ personsAndTeams }` value). */
+function isPeopleEntries(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return true;
+  return 'team' in input;
+}
+
+const entriesOf = (input) => (Array.isArray(input) ? input : [input]);
+
+/** True when a people input names someone by email (so the caller must load the member profiles). */
+export function peopleInputHasEmail(input) {
+  if (!isPeopleEntries(input)) return false;
+  return entriesOf(input).some(
+    (entry) => typeof entry === 'string' && teamRefOf(entry) === null && entry.includes('@'),
+  );
+}
+
+/** True when a people input names a team (so the caller must load the workspace's teams). */
+export function peopleInputHasTeam(input) {
+  return isPeopleEntries(input) && entriesOf(input).some((entry) => teamRefOf(entry) !== null);
+}
+
+function oneTeam(ref, ctx) {
+  const teams = ctx.teams ?? [];
+  const names =
+    teams
+      .map((t) => `"${t.name}"`)
+      .sort()
+      .join(', ') || 'none';
+  const byId = teams.find((t) => t.id === ref);
+  if (byId) return byId;
+  const matches = teams.filter((t) => norm(t.name) === norm(ref));
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) {
+    throw new McpUserError(
+      `More than one team is called "${ref}" (ids: ${matches.map((t) => t.id).join(', ')}). Use the team id.`,
+    );
+  }
+  throw new McpUserError(`No team "${ref}" in this workspace. Teams: ${names}.`);
+}
+
+function people(column, input, ctx) {
+  const list = entriesOf(input).map((entry) => {
+    const teamRef = teamRefOf(entry);
+    if (teamRef !== null) {
+      if (teamRef === '')
+        throw new McpUserError('Give the team as a name or an id: "team:<name>".');
+      return { id: oneTeam(teamRef, ctx).id, kind: 'team' };
+    }
+    let uid = entry;
+    if (entry === 'me') uid = ctx.uid;
     // An email is matched against the workspace members only; a non-member and an unknown address
     // fail with the same message as an unknown uid, so this cannot probe accounts.
-    if (typeof entry === 'string' && entry.includes('@')) {
-      return ctx.emailToUid?.get(entry.trim().toLowerCase()) ?? entry;
+    else if (typeof entry === 'string' && entry.includes('@')) {
+      uid = ctx.emailToUid?.get(entry.trim().toLowerCase()) ?? entry;
     }
-    return entry;
-  });
-  for (const uid of list) {
     if (typeof uid !== 'string' || !ctx.memberUids.includes(uid)) {
       throw new McpUserError(
-        'People cells take workspace member uids, the email of a workspace member, or "me" for yourself.',
+        'People cells take workspace member uids, the email of a workspace member, "me" for yourself, ' +
+          'or a team as "team:<name or id>".',
       );
     }
+    return { id: uid, kind: 'person' };
+  });
+  if (column.settings?.singlePerson === true && list.length > 1) {
+    throw new McpUserError(`Column "${column.title}" holds one person or team.`);
   }
-  return { personsAndTeams: list.map((id) => ({ id, kind: 'person' })) };
+  return { personsAndTeams: list };
 }
 
 /**
@@ -137,7 +187,7 @@ export function convertCellValue(column, input, ctx) {
     case 'rating':
       return typeof input === 'number' ? { rating: input } : input;
     case 'people':
-      return typeof input === 'object' && !Array.isArray(input) ? input : people(input, ctx);
+      return isPeopleEntries(input) ? people(column, input, ctx) : input;
     default:
       return input;
   }
@@ -155,16 +205,63 @@ export function toValidCell(column, input, ctx) {
   return parsed.success ? parsed.data : stored;
 }
 
-/** A readable form of a stored cell for `atrium_get_board`. */
-export function readableCell(column, value) {
+export const DELETED_TEAM_NAME = 'Deleted team';
+
+/**
+ * A readable form of a stored cell for `atrium_get_board`. `ctx` carries what a bare value cannot:
+ * `{ boardId, item, columns }` for calculated columns (computed with the registry's own
+ * `computeValue`, like the web's filter engine), and `{ people, teams }` (uid -> name, team id ->
+ * team) to name people and teams.
+ */
+export function readableCell(column, value, ctx) {
+  if (columnRegistry.isDerived(column.type)) return derivedCell(column, ctx);
   if (value === null || value === undefined) return null;
   try {
-    if (column.type === 'people') return value.personsAndTeams?.map((p) => p.id) ?? [];
+    if (column.type === 'people') {
+      return (value.personsAndTeams ?? []).map((p) => {
+        const kind = p.kind === 'team' ? 'team' : 'person';
+        const name =
+          kind === 'team'
+            ? ctx?.teams
+              ? (ctx.teams.get(p.id)?.name ?? DELETED_TEAM_NAME)
+              : null
+            : (ctx?.people?.get(p.id) ?? null);
+        return { id: p.id, kind, name };
+      });
+    }
     if (column.type === 'checkbox') return value.checked === true || value.checked === 'true';
     if (column.type === 'rating') return value.rating;
     const text = columnRegistry.toText(column.type, value, column.settings);
     return text === '' ? null : text;
   } catch {
     return value;
+  }
+}
+
+/** The text of a calculated column for one item; `null` without the item context or a result. */
+function derivedCell(column, ctx) {
+  if (!ctx?.item) return null;
+  try {
+    const { item } = ctx;
+    const computed = columnRegistry.computeValue(column, {
+      boardId: ctx.boardId ?? '',
+      item: {
+        id: item.id ?? '',
+        values: item.values ?? {},
+        createdAt: item.createdAt,
+        createdBy: item.createdBy,
+        updatedAt: item.updatedAt,
+        updatedBy: item.updatedBy,
+        groupId: item.groupId,
+        seq: item.seq,
+        boardSeq: item.boardSeq,
+      },
+      columns: ctx.columns ?? [],
+    });
+    if (computed === null || computed === undefined) return null;
+    const text = columnRegistry.toText(column.type, computed, column.settings);
+    return text === '' ? null : text;
+  } catch {
+    return null;
   }
 }

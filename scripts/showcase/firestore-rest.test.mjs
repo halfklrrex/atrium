@@ -82,3 +82,70 @@ test('REST client: update writes nested field paths, deletes and increments; run
     value: { stringValue: 'active' },
   });
 });
+
+test('REST client: runQuery on a nested collection sends its parent, array-contains-any, limit and orderBy', async () => {
+  const calls = [];
+  const fetch = async (url, init) => {
+    calls.push({ url, body: JSON.parse(init.body) });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => [
+        {
+          document: {
+            name: 'projects/p/databases/d/documents/boards/b1/items/i9',
+            fields: { n: { integerValue: '4' } },
+            updateTime: 't',
+          },
+        },
+      ],
+    };
+  };
+  const rest = createFirestoreRest({
+    origin: 'http://x',
+    project: 'p',
+    database: 'd',
+    getToken: () => 't',
+    fetch,
+  });
+  const rows = await rest.runQuery('boards/b1/items', {
+    assigneeTeamIds: { arrayContainsAny: ['t1', 't2'] },
+  });
+  assert.deepEqual(rows, [{ id: 'i9', data: { n: 4 }, updateTime: 't' }]);
+  assert.ok(
+    calls[0].url.endsWith('/documents/boards/b1:runQuery'),
+    'the parent document path is in the URL',
+  );
+  assert.deepEqual(calls[0].body.structuredQuery.from, [{ collectionId: 'items' }]);
+  assert.deepEqual(calls[0].body.structuredQuery.where.compositeFilter.filters[0].fieldFilter, {
+    field: { fieldPath: 'assigneeTeamIds' },
+    op: 'ARRAY_CONTAINS_ANY',
+    value: { arrayValue: { values: [{ stringValue: 't1' }, { stringValue: 't2' }] } },
+  });
+
+  // orderBy and limit, without filters; a top-level collection keeps the plain URL.
+  await rest.runQuery(
+    'users/u1/notifications',
+    {},
+    { orderBy: { field: 'createdAt', direction: 'desc' }, limit: 30 },
+  );
+  assert.ok(calls[1].url.endsWith('/documents/users/u1:runQuery'));
+  assert.deepEqual(calls[1].body.structuredQuery.orderBy, [
+    { field: { fieldPath: 'createdAt' }, direction: 'DESCENDING' },
+  ]);
+  assert.equal(calls[1].body.structuredQuery.limit, 30);
+  assert.equal('where' in calls[1].body.structuredQuery, false);
+  await rest.runQuery('boards', { a: 1 });
+  assert.ok(calls[2].url.endsWith('/documents:runQuery'));
+
+  await assert.rejects(
+    rest.runQuery('boards', { a: 1 }, { orderBy: { field: 'n' } }),
+    /orderBy is only supported without filters/,
+  );
+  await assert.rejects(
+    rest.runQuery('boards', {
+      a: { arrayContainsAny: Array.from({ length: 31 }, (_, i) => `u${i}`) },
+    }),
+    /1 to 30/,
+  );
+});

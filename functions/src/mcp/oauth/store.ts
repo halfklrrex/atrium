@@ -78,6 +78,9 @@ export interface McpAuditEntry {
   grantId?: string;
   tool?: string;
   boardId?: string;
+  /** What the tool acted on: `board`, `doc`, `dashboard`, `team` or `view`, with its id (64 characters at most). */
+  targetKind?: string;
+  targetId?: string;
   ok?: boolean;
   error?: string;
   ms?: number;

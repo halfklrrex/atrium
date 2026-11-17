@@ -7,58 +7,13 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { toolNamesByDomain } from '@atrium/mcp-core';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const entry = resolve(root, 'scripts/mcp/atrium-mcp.mjs');
 
-const EXPECTED = [
-  'atrium_add_column',
-  'atrium_add_group',
-  'atrium_add_reply',
-  'atrium_add_update',
-  'atrium_archive_board',
-  'atrium_archive_item',
-  'atrium_create_board',
-  'atrium_create_items',
-  'atrium_create_subitems',
-  'atrium_delete_board',
-  'atrium_delete_column',
-  'atrium_delete_group',
-  'atrium_delete_item',
-  'atrium_delete_update',
-  'atrium_duplicate_item',
-  'atrium_edit_update',
-  'atrium_find_items',
-  'atrium_find_member',
-  'atrium_get_activity',
-  'atrium_get_board',
-  'atrium_get_item_description',
-  'atrium_like_update',
-  'atrium_list_boards',
-  'atrium_list_members',
-  'atrium_list_subitems',
-  'atrium_list_templates',
-  'atrium_list_updates',
-  'atrium_list_workspaces',
-  'atrium_lock_column',
-  'atrium_move_item',
-  'atrium_move_item_to_board',
-  'atrium_rename_board',
-  'atrium_rename_column',
-  'atrium_rename_group',
-  'atrium_reorder_columns',
-  'atrium_reorder_groups',
-  'atrium_restore_board',
-  'atrium_restore_item',
-  'atrium_set_item_description',
-  'atrium_unlike_update',
-  'atrium_unlock_column',
-  'atrium_unvote_item',
-  'atrium_update_column_settings',
-  'atrium_update_item',
-  'atrium_vote_item',
-];
-
+/** Every tool the catalogue defines (read from the domain files; no literal count or name list here). */
+const EXPECTED = Object.values(toolNamesByDomain({})).flat().sort();
 test('the server lists its tools over stdio', async () => {
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -75,7 +30,7 @@ test('the server lists its tools over stdio', async () => {
   await client.connect(transport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 45);
+    assert.equal(tools.length, EXPECTED.length);
     assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
     const createItems = tools.find((t) => t.name === 'atrium_create_items');
     assert.deepEqual(createItems.inputSchema.required.sort(), ['boardId', 'items']);

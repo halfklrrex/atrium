@@ -22,8 +22,20 @@ export interface DocRow<T = Record<string, unknown>> {
   updateTime: string;
 }
 
-/** `{ field: value }` for equality, `{ field: { arrayContains: value } }` for array membership. */
-export type QueryWhere = Record<string, unknown | { arrayContains: unknown }>;
+/**
+ * `{ field: value }` for equality, `{ field: { arrayContains: value } }` for array membership and
+ * `{ field: { arrayContainsAny: [values] } }` for array overlap (1 to 30 values).
+ */
+export type QueryWhere = Record<
+  string,
+  unknown | { arrayContains: unknown } | { arrayContainsAny: unknown[] }
+>;
+
+/** `limit`, and `orderBy` (only without filters, so no composite index is ever needed). */
+export interface QueryOptions {
+  limit?: number;
+  orderBy?: { field: string; direction?: 'asc' | 'desc' };
+}
 
 export type Precondition = { exists: boolean } | { updateTime: string };
 
@@ -51,7 +63,8 @@ export interface FirestoreClient {
   getDoc(path: string): Promise<Record<string, unknown> | null>;
   getDocMeta(path: string): Promise<{ data: Record<string, unknown>; updateTime: string } | null>;
   listAllDocs(collectionPath: string, options?: { fields?: string[] }): Promise<DocRow[]>;
-  runQuery(collectionId: string, where?: QueryWhere): Promise<DocRow[]>;
+  /** `collectionPath` may be nested (`boards/{id}/items`). */
+  runQuery(collectionPath: string, where?: QueryWhere, options?: QueryOptions): Promise<DocRow[]>;
   commit(writes: Write[]): Promise<void>;
 }
 
@@ -75,6 +88,17 @@ export interface MemberSummary {
   role?: string;
   workspaceRole?: string | null;
   me?: boolean;
+  /** Shared profile fields the person has set (from the member doc). */
+  title?: string;
+  location?: string;
+  timeZone?: string;
+}
+
+export interface TeamSummary {
+  id: string;
+  name: string;
+  color: string | null;
+  members: { uid: string; name: string }[];
 }
 
 /** The tool logic. Every method takes plain JSON and returns plain JSON or rejects with `McpUserError`. */
@@ -229,6 +253,9 @@ export interface McpService {
     boardId?: string;
     workspaceId?: string;
   }): Promise<{ workspaceId: string; members: MemberSummary[] }>;
+  listTeams(args?: {
+    workspaceId?: string;
+  }): Promise<{ workspaceId: string; teams: TeamSummary[] }>;
   /** Startup check: the user exists (and is a member of the filter workspace, when set). */
   verify(): Promise<{ uid: string; workspaces: WorkspaceSummary[] }>;
 }
@@ -260,8 +287,11 @@ export interface ToolDefinition {
   run(args: Record<string, unknown>): Promise<unknown>;
 }
 
-/** The tool catalogue bound to a service (45 tools). */
+/** The tool catalogue bound to a service. */
 export declare function defineTools(service: McpService): ToolDefinition[];
+
+/** The tool names of each domain file (boards, items, updates, members), for the count tests and docs. */
+export declare function toolNamesByDomain(service?: Partial<McpService>): Record<string, string[]>;
 
 // ---- lower-level helpers (used by tests and the hosted server's own checks) ----------------------
 
@@ -278,14 +308,38 @@ export declare function sortedByPosition<T extends { position: string }>(list: T
 export declare function convertCellValue(
   column: Record<string, unknown>,
   input: unknown,
-  ctx: { uid: string; memberUids: string[] },
+  ctx: {
+    uid: string;
+    memberUids: string[];
+    emailToUid?: Map<string, string>;
+    teams?: { id: string; name: string }[];
+  },
 ): unknown;
 export declare function toValidCell(
   column: Record<string, unknown>,
   input: unknown,
-  ctx: { uid: string; memberUids: string[] },
+  ctx: {
+    uid: string;
+    memberUids: string[];
+    emailToUid?: Map<string, string>;
+    teams?: { id: string; name: string }[];
+  },
 ): unknown;
-export declare function readableCell(column: Record<string, unknown>, value: unknown): unknown;
+/** Context for calculated columns (`boardId`, `item`, `columns`) and for naming people and teams. */
+export interface ReadableCellContext {
+  boardId?: string;
+  item?: Record<string, unknown>;
+  columns?: readonly Record<string, unknown>[];
+  /** uid -> name */
+  people?: Map<string, string>;
+  /** team id -> team (`{ name }`) */
+  teams?: Map<string, { name: string }>;
+}
+export declare function readableCell(
+  column: Record<string, unknown>,
+  value: unknown,
+  ctx?: ReadableCellContext,
+): unknown;
 
 export declare const LABEL_COLORS: Record<string, string>;
 export declare function resolveColor(color: unknown, fallbackIndex?: number): string;
