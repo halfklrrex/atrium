@@ -22,6 +22,7 @@ import { findColumn } from './refs.mjs';
 import { peopleInputHasEmail, peopleInputHasTeam, readableCell, toValidCell } from './values.mjs';
 import { EDIT_ROLES, MAX_ITEMS_PER_CALL } from './service/constants.mjs';
 import { boardsService } from './service/boards.mjs';
+import { docsService } from './service/docs.mjs';
 import { itemsService } from './service/items.mjs';
 import { membersService } from './service/members.mjs';
 import { updatesService } from './service/updates.mjs';
@@ -423,6 +424,7 @@ export function createService({ client, actor, now = () => new Date() }) {
     ...itemsService(helpers),
     ...updatesService(helpers),
     ...membersService(helpers),
+    ...docsService(helpers),
     async verify() {
       const profile = await client.getDoc(`users/${uid}`);
       if (!profile) throw new McpUserError(`User "${uid}" does not exist in Atrium.`);

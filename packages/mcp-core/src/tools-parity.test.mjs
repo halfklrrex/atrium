@@ -91,6 +91,15 @@ const DOMAIN_TOOLS = {
     'atrium_unlike_update',
   ],
   members: ['atrium_find_member', 'atrium_list_members', 'atrium_list_teams'],
+  docs: [
+    'atrium_list_docs',
+    'atrium_get_doc',
+    'atrium_create_doc',
+    'atrium_write_doc',
+    'atrium_rename_doc',
+    'atrium_delete_doc',
+    'atrium_restore_doc',
+  ],
 };
 
 test('every domain file lists exactly the tools asserted here, and every tool is in one file', () => {

@@ -52,9 +52,10 @@ export const itemTools = (service) => [
     name: 'atrium_set_item_description',
     description:
       "Writes an item's description (the rich-text body in the item view) from markdown: headings (#), bold, " +
-      'italic, ~~strike~~, `code`, [links](https://...), bullet/numbered/task (- [ ]) lists, > quotes, ``` code blocks and ---. ' +
+      'italic, ~~strike~~, `code`, [links](https://...), bullet/numbered/task (- [ ]) lists, > quotes, ``` code blocks, ---, ' +
+      'GFM pipe tables and @[Name] mentions of members who can see the board (they get a notification). ' +
       'mode "replace" (the default) overwrites; "append" adds to the end. Empty markdown with replace clears it. ' +
-      'Refuses to replace a description holding images, tables or mentions unless allowOverwriteRich is true.',
+      'Refuses to replace a description holding images, emoji, colored text or tables with merged cells unless allowOverwriteRich is true.',
     inputSchema: {
       boardId: id,
       itemId: id,

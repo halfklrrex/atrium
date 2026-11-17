@@ -35,4 +35,4 @@ export {
   richNodeTypes,
   toStoredDescription,
 } from './description.mjs';
-export { buildRichBody, memberResolver } from './updates.mjs';
+export { buildRichBody, memberResolver, resolveMentions } from './updates.mjs';

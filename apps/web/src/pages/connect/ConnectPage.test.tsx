@@ -87,6 +87,10 @@ describe('ConnectPage', () => {
     expect(read).toBeDisabled();
     expect(write).toBeChecked();
     expect(write).toBeEnabled();
+    expect(screen.getByText('See your workspaces, boards, docs, items and updates.')).toBeVisible();
+    expect(
+      screen.getByText('Create and change boards, docs, items and updates you can edit.'),
+    ).toBeVisible();
   });
 
   it('warns when the code goes to this computer', async () => {

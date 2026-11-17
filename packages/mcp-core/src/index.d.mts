@@ -256,6 +256,41 @@ export interface McpService {
   listTeams(args?: {
     workspaceId?: string;
   }): Promise<{ workspaceId: string; teams: TeamSummary[] }>;
+  listDocs(args?: { workspaceId?: string; state?: 'active' | 'deleted' }): Promise<{
+    workspaceId: string;
+    docs: {
+      id: string;
+      name: string;
+      kind: string;
+      role: string;
+      state: string;
+      updatedAt: string | null;
+    }[];
+  }>;
+  getDoc(args: { docId: string }): Promise<Record<string, unknown>>;
+  createDoc(args: {
+    name: string;
+    workspaceId?: string;
+    kind?: 'main' | 'private' | 'shareable';
+    markdown?: string;
+  }): Promise<{
+    id: string;
+    workspaceId: string;
+    name: string;
+    kind: string;
+    rev: number;
+    mentioned: number;
+  }>;
+  writeDoc(args: {
+    docId: string;
+    markdown: string;
+    mode?: 'replace' | 'append';
+    baseRev?: number;
+    allowOverwriteRich?: boolean;
+  }): Promise<{ id: string; mode: string; rev: number; chars: number; mentioned: number }>;
+  renameDoc(args: { docId: string; name: string }): Promise<{ id: string; name: string }>;
+  deleteDoc(args: { docId: string }): Promise<{ id: string; name: string; state: string }>;
+  restoreDoc(args: { docId: string }): Promise<{ id: string; name: string; state: string }>;
   /** Startup check: the user exists (and is a member of the filter workspace, when set). */
   verify(): Promise<{ uid: string; workspaces: WorkspaceSummary[] }>;
 }
@@ -290,7 +325,7 @@ export interface ToolDefinition {
 /** The tool catalogue bound to a service. */
 export declare function defineTools(service: McpService): ToolDefinition[];
 
-/** The tool names of each domain file (boards, items, updates, members), for the count tests and docs. */
+/** The tool names of each domain file (boards, items, updates, members, docs), for the count tests and docs. */
 export declare function toolNamesByDomain(service?: Partial<McpService>): Record<string, string[]>;
 
 // ---- lower-level helpers (used by tests and the hosted server's own checks) ----------------------
@@ -424,3 +459,7 @@ export declare function memberResolver(
   members: { uid: string; name: string; email: string | null }[],
   selfUid: string,
 ): (ref: string) => { uid: string; name: string; email: string | null };
+export declare function resolveMentions(
+  doc: Record<string, unknown>,
+  resolve: (ref: string) => { uid: string; name: string },
+): { doc: Record<string, unknown>; mentions: string[] };

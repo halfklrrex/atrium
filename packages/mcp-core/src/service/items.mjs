@@ -21,6 +21,7 @@ import {
   toStoredDescription,
 } from '../description.mjs';
 import { MAX_ITEMS_PER_CALL, MAX_MOVED_SUBITEMS, EDIT_ROLES } from './constants.mjs';
+import { memberResolver, resolveMentions } from '../updates.mjs';
 import { labelSummary } from './shared.mjs';
 
 /** Milliseconds of a stored timestamp (Date, Firestore timestamp or ISO string). */
@@ -96,6 +97,7 @@ export function itemsService(h) {
     readContext,
     readValues,
     readCell,
+    boardMembers,
   } = h;
   return {
     async findItems({ boardId, name, group, where = [], limit = 25, offset = 0 }) {
@@ -398,11 +400,16 @@ export function itemsService(h) {
       if (markdown.length > MAX_MARKDOWN_CHARS) {
         throw new McpUserError(`The description is over ${MAX_MARKDOWN_CHARS} characters.`);
       }
-      await loadBoard(boardId, 'edit');
+      const loaded = await loadBoard(boardId, 'edit');
       const item = await loadItem(boardId, itemId);
       const existing = item.description?.doc ?? null;
       const rich = existing ? richNodeTypes(existing) : [];
-      const added = markdownToDoc(markdown);
+      let added = markdownToDoc(markdown);
+      // @[Name] becomes a mention chip (members who can see the board); the existing description
+      // trigger notifies the people newly mentioned.
+      if (markdown.includes('@[')) {
+        added = resolveMentions(added, memberResolver(await boardMembers(loaded.board), uid)).doc;
+      }
       let doc = added;
       if (mode === 'append') {
         doc = appendDoc(existing, added);
