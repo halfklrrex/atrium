@@ -1,4 +1,8 @@
 import {
+  SET_MY_PROFILE_CALLABLE,
+  setMyProfileResultSchema,
+  type SetMyProfileRequest,
+  type SetMyProfileResult,
   MCP_AUTHORIZE_CALLABLE,
   MCP_AUTH_REQUEST_INFO_CALLABLE,
   REVOKE_MCP_GRANT_CALLABLE,
@@ -206,6 +210,13 @@ function callable<Req, Res>(name: string, parse: (data: unknown) => Res) {
     return parse(data);
   };
 }
+
+/** Profile fields (TEAMS PR 4): saved and copied to every workspace by the callable. */
+export const profileCalls = {
+  setMyProfile: callable<SetMyProfileRequest, SetMyProfileResult>(SET_MY_PROFILE_CALLABLE, (d) =>
+    setMyProfileResultSchema.parse(d),
+  ),
+};
 
 export const membershipCalls = {
   createInvite: callable<CreateInviteRequest, CreateInviteResult>(CREATE_INVITE_CALLABLE, (d) =>

@@ -399,6 +399,7 @@ Own worktree and `ATRIUM_PORT_OFFSET` per branch (10, 20, 40, ...; not 30). Hot 
 3. After deletion, signing in again with the same Google account creates a brand-new account (new uid, pending approval). **Default: accept**; the approval gate decides whether it gets in.
 4. Pending and blocked people cannot reach Settings, so they cannot delete their account themselves. **Default: v1 approved only**; they can ask through the appeal box (blocked) or the owner refuses them (pending). Later: a "Delete account" action for site admins in `/admin` that starts the same job.
 5. People cells and assignments that point at a deleted person show the generic unknown-person label, not "Deleted user" (D8; telling them apart would need a list of deleted uids). **Default: accept.**
+6. Teams and profiles (docs/specs/TEAMS-teams-and-profiles.md, PR 4): the export must include `users/{uid}.profile` (title, about, location, birthday, showLocalTime) and the person's team memberships (workspace and team name), and the shared copy on `members/{uid}.profile` is removed together with the member doc. Deleting an account must strip the uid from every team of every workspace the person was in (the same helper as `removeMember`, `cleanupTeamMembership`). **Default: include both.**
 
 ## Acceptance checks
 

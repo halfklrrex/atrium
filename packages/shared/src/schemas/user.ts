@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { themePreferenceSchema } from '../roles';
 import { userAccountFieldsSchema } from '../account';
 import { notificationPrefsSchema } from './notification';
+import { userProfileSchema } from './profile';
 import { idSchema, positionSchema, timestampSchema, type WriteDoc } from './common';
 
 /** `users/{uid}` (architecture §5.1). */
@@ -14,6 +15,8 @@ export const userSchema = z.object({
   lastWorkspaceId: idSchema.nullable(),
   theme: themePreferenceSchema,
   notificationPrefs: notificationPrefsSchema.optional(),
+  /** Written only by `setMyProfile` (Functions); clients can't write it. */
+  profile: userProfileSchema.optional(),
   createdAt: timestampSchema,
   // Server-owned (Functions and scripts only); optional because existing users lack them.
   ...userAccountFieldsSchema.shape,

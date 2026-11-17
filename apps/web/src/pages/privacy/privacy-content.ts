@@ -8,7 +8,7 @@ import { ACTIVITY_LIMITS, INBOX_LIMITS, NOTIFICATION_LIMITS } from '@atrium/shar
  */
 
 /** Shown at the top of the page; change it whenever the text changes. */
-export const PRIVACY_LAST_UPDATED = '9 November 2026';
+export const PRIVACY_LAST_UPDATED = '17 November 2026';
 
 /** `purgeTrash` (functions/src/lib/purge.ts, `THIRTY_DAYS_MS`) removes deleted boards and items after 30 days. */
 export const TRASH_RETENTION_DAYS = 30;
@@ -38,7 +38,9 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
       'What you create: workspaces, boards, items, updates, replies, likes, mentions, files and images, automations, dashboards, forms and views.',
       `A record of changes on each board (who changed what, with their name and photo), deleted after ${ACTIVITY_LIMITS.retentionDays} days.`,
       'Who is looking at a board right now (name and photo), gone after an hour.',
-      'Your settings: theme, time zone, notification choices, favourite and recently visited boards.',
+      'Your settings: theme, time zone, notification choices, favorite and recently visited boards.',
+      'Your profile, only the parts you choose to fill in: a title, a short "about" text, a location, your birthday (day and month, never the year) and whether to show your local time. All of it is optional. Atrium never asks for a phone number.',
+      'Teams that the owners and admins of a workspace create: the team name and which members belong to it.',
       `Notifications sent to you, deleted after ${NOTIFICATION_LIMITS.retentionDays} days.`,
       'Push notifications, only if you turn them on for a device: a device token, the browser and device type, and when it was last used.',
       `Messages you send to the site admins (feedback, appeals, complaints and data requests): the text, your name, email and photo link. Closed conversations are deleted after ${INBOX_LIMITS.retentionDays} days.`,
@@ -48,7 +50,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     id: 'who',
     heading: 'Who can see it',
     paragraphs: [
-      "The members of a workspace see each other's name, photo and email address, and the boards they have access to. The site admins can see the list of accounts (name, email, status) and the messages you send them. Nobody else.",
+      "The members of a workspace see each other's name, photo and email address, the profile details you filled in (title, about, location, birthday day and month, and your local time only if you turned that on), the teams in the workspace and who belongs to them, and the boards they have access to. Your profile is not shown to people who share no workspace with you. The site admins can see the list of accounts (name, email, status) and the messages you send them. Nobody else.",
     ],
   },
   {

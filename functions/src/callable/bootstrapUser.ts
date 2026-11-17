@@ -15,6 +15,8 @@ import { adminNotificationStore } from '../lib/admin-notifications';
 import { bootstrapUserInTransaction, type Identity } from '../lib/bootstrap';
 import { syncMemberProfiles } from '../lib/membership';
 import { adminMemberProfileStore } from '../lib/membership-admin';
+import { adminProfileStore } from '../lib/admin-profile';
+import { syncProfileOnSignIn } from '../lib/profile';
 
 /**
  * Called by the web app once after every sign-in. Creates `users/{uid}` and a personal workspace on
@@ -97,6 +99,12 @@ export const bootstrapUser = onCall(async (request) => {
       await syncMemberProfiles(adminMemberProfileStore(firestore), actor);
     } catch (error) {
       logger.warn('Member profile sync failed', error);
+    }
+    // Same for the optional profile fields (title, about, ...): copy to member docs that lack them.
+    try {
+      await syncProfileOnSignIn(adminProfileStore(firestore), actor.uid);
+    } catch (error) {
+      logger.warn('Member profile fields sync failed', error);
     }
   }
 

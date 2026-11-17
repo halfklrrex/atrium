@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { workspaceRoleSchema, type WorkspaceRole } from '../roles';
 import { idSchema, timestampSchema, uidSchema, type WriteDoc } from './common';
+import { memberSharedProfileSchema } from './profile';
 
 /** Roles an invite can grant. Ownership only changes through `changeMemberRole` (transfer). */
 export const INVITE_ROLES = ['admin', 'member', 'viewer'] as const;
@@ -30,6 +31,8 @@ export const workspaceMemberSchema = z.object({
   role: workspaceRoleSchema,
   joinedAt: timestampSchema,
   updatedAt: timestampSchema,
+  /** Written by `setMyProfile` and the member-doc writers; absent until the person fills it in. */
+  profile: memberSharedProfileSchema.optional(),
 });
 export type WorkspaceMember = z.infer<typeof workspaceMemberSchema>;
 export type WorkspaceMemberWrite = WriteDoc<WorkspaceMember>;
