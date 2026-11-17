@@ -465,3 +465,38 @@ describe('toolbar="focus" and scrollable', () => {
     expect(container.querySelector('[data-scrollable]')).toBeNull();
   });
 });
+
+describe('DescriptionEditor read-only flips', () => {
+  // The side panel opens before the workspace role has loaded, so the editor first mounts
+  // read-only; once the role arrives it must become editable (and back).
+  it('becomes editable when readOnly turns false after mount, and read-only again', async () => {
+    const onSave = save();
+    const { rerender } = render(
+      <DescriptionEditor boardId="b1" itemId="i1" initial={null} readOnly onSave={onSave} />,
+    );
+    await waitFor(() => expect(pm()).toBeTruthy());
+    expect(pm().getAttribute('contenteditable')).toBe('false');
+    expect(screen.queryByRole('toolbar')).toBeNull();
+
+    rerender(
+      <DescriptionEditor
+        boardId="b1"
+        itemId="i1"
+        initial={null}
+        readOnly={false}
+        onSave={onSave}
+      />,
+    );
+    await waitFor(() => expect(pm().getAttribute('contenteditable')).toBe('true'));
+    expect(editorOf().isEditable).toBe(true);
+    act(() => {
+      editorOf().commands.insertContent('typed');
+    });
+    expect(editorOf().getText()).toBe('typed');
+
+    rerender(
+      <DescriptionEditor boardId="b1" itemId="i1" initial={null} readOnly onSave={onSave} />,
+    );
+    await waitFor(() => expect(pm().getAttribute('contenteditable')).toBe('false'));
+  });
+});

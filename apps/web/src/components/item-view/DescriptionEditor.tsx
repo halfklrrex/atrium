@@ -84,9 +84,11 @@ export default function DescriptionEditor({
         boardId,
         itemId,
         emojiController: emojiSuggest,
-        mentionController: readOnly ? null : mentionSuggest,
+        // Always wired: the extensions are built once per editor, and `readOnly` can flip from
+        // true to false after mount (the board role arrives late). A read-only editor never types.
+        mentionController: mentionSuggest,
       }),
-    [slash, boardId, itemId, emojiSuggest, mentionSuggest, readOnly],
+    [slash, boardId, itemId, emojiSuggest, mentionSuggest],
   );
   const shellRef = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -126,6 +128,13 @@ export default function DescriptionEditor({
     },
     onBlur: () => debouncer.flush(),
   });
+
+  // TipTap keeps the editor's own `editable` across renders, so a role that resolves after mount
+  // (the workspace role loads after the side panel opens) must be pushed in explicitly; without
+  // this the box stays read-only for good.
+  useEffect(() => {
+    if (editor && editor.isEditable !== !readOnly) editor.setEditable(!readOnly);
+  }, [editor, readOnly]);
 
   // Leaving the window (or the item) never loses the last keystrokes.
   useEffect(() => {
