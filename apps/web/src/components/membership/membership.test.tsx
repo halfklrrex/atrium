@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../../auth/auth-context';
 import { resetMembersStore, useMembersStore } from '../../data/members-store';
+import { resetTeamsStore, useTeamsStore } from '../../data/teams';
 import type { InviteDoc, MemberDoc } from '../../data/model';
 import { InvitePage } from '../../pages/InvitePage';
 import { makeWorkspace, ts } from '../../test/fixtures';
@@ -14,6 +15,9 @@ import { memberRowActions } from './permissions';
 import { describeExpiry } from './roles';
 
 const mocks = vi.hoisted(() => ({
+  teamCreate: vi.fn(),
+  teamUpdate: vi.fn(),
+  teamRemove: vi.fn(),
   roles: {} as Record<string, string>,
   invites: [] as unknown[],
   calls: {
@@ -31,6 +35,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../lib/firebase', () => ({ db: {} }));
 vi.mock('../../data/members-source', () => ({ subscribeToMembers: () => () => undefined }));
+vi.mock('../../data/teams-source', () => ({ subscribeToTeams: () => () => undefined }));
+vi.mock('../../data/teams-firestore', () => ({
+  teamWritesImpl: { create: mocks.teamCreate, update: mocks.teamUpdate, remove: mocks.teamRemove },
+}));
 vi.mock('../../lib/callables', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
   membershipCalls: mocks.calls,
@@ -97,6 +105,21 @@ function seedWorkspace() {
   });
 }
 
+const team = (id: string, name: string, memberUids: string[]) => ({
+  id,
+  name,
+  color: '#579bfc',
+  memberUids,
+  createdAt: ts(),
+  createdBy: 'owner',
+  updatedAt: ts(),
+  updatedBy: 'owner',
+});
+
+function seedTeams(teams: ReturnType<typeof team>[]) {
+  useTeamsStore.setState({ byWorkspace: { w1: { teams, loaded: true, error: null } } });
+}
+
 function renderDialog(as: string, initialTab?: 'members' | 'invites') {
   const onClose = vi.fn();
   render(
@@ -115,7 +138,10 @@ beforeEach(() => {
   for (const fn of Object.values(mocks.calls)) fn.mockReset().mockResolvedValue({ ok: true });
 });
 
-afterEach(() => resetMembersStore());
+afterEach(() => {
+  resetMembersStore();
+  resetTeamsStore();
+});
 
 describe('memberRowActions', () => {
   it('follows the role matrix', () => {
@@ -208,7 +234,7 @@ describe('MembersDialog', () => {
 
   it('shows a plain member only a leave action on their own row, and no Invites tab', () => {
     renderDialog('member');
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /invites/i })).not.toBeInTheDocument();
     expect(screen.queryAllByRole('combobox')).toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Actions for Sam Rivera' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Actions for Casey Morgan' })).toBeNull();
@@ -402,5 +428,107 @@ describe('InvitePage', () => {
     mocks.calls.getInviteStatus.mockResolvedValue({ state: 'wrong_email' });
     renderPage();
     expect(await screen.findByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+  });
+});
+
+describe('MembersDialog Teams tab', () => {
+  beforeEach(() => {
+    seedTeams([team('t1', 'Kids', ['member', 'viewer']), team('t2', 'Parents', ['owner'])]);
+    for (const fn of [mocks.teamCreate, mocks.teamUpdate, mocks.teamRemove]) {
+      fn.mockReset().mockResolvedValue('t3');
+    }
+  });
+
+  it('lists teams read-only for a plain member', async () => {
+    const user = userEvent.setup();
+    renderDialog('member');
+    await user.click(screen.getByRole('tab', { name: /teams/i }));
+    const list = screen.getByRole('list', { name: 'Teams' });
+    expect(within(list).getByText('Kids')).toBeInTheDocument();
+    expect(within(list).getByText('2 members')).toBeInTheDocument();
+    expect(within(list).getByText('1 member')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New team' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Actions for Kids' })).toBeNull();
+  });
+
+  it('creates a team from the dialog with the chosen members', async () => {
+    const user = userEvent.setup();
+    renderDialog('admin');
+    await user.click(screen.getByRole('tab', { name: /teams/i }));
+    await user.click(screen.getByRole('button', { name: 'New team' }));
+    const dialog = await screen.findByRole('dialog', {}, SLOW_UI);
+    expect(within(dialog).getByRole('button', { name: 'Create team' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.type(within(dialog).getByLabelText('Team name'), 'Garden crew');
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Sam Rivera' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Create team' }));
+    await waitFor(() =>
+      expect(mocks.teamCreate).toHaveBeenCalledWith('w1', {
+        name: 'Garden crew',
+        color: '#579bfc',
+        memberUids: ['member'],
+      }),
+    );
+  });
+
+  it('filters the member checklist by search', async () => {
+    const user = userEvent.setup();
+    renderDialog('admin');
+    await user.click(screen.getByRole('tab', { name: /teams/i }));
+    await user.click(screen.getByRole('button', { name: 'New team' }));
+    const dialog = await screen.findByRole('dialog', {}, SLOW_UI);
+    await user.type(within(dialog).getByLabelText('Search people'), 'jordan');
+    await waitFor(() =>
+      expect(within(dialog).queryByRole('checkbox', { name: 'Sam Rivera' })).toBeNull(),
+    );
+    expect(within(dialog).getByRole('checkbox', { name: 'Jordan Lee' })).toBeInTheDocument();
+  });
+
+  it('edits a team and drops people who already left the workspace', async () => {
+    seedTeams([team('t1', 'Kids', ['member', 'gone'])]);
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderDialog('owner');
+    await user.click(screen.getByRole('tab', { name: /teams/i }));
+    await user.click(screen.getByRole('button', { name: 'Actions for Kids' }));
+    await chooseMenuItem(user, 'Edit', SLOW_UI);
+    const dialog = await screen.findByRole('dialog', { name: 'Edit team' }, SLOW_UI);
+    expect(
+      within(dialog).getByText(
+        'Someone in this team left the workspace. Remove them and save again.',
+      ),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(mocks.teamUpdate).toHaveBeenCalledWith('w1', 't1', {
+        name: 'Kids',
+        color: '#579bfc',
+        memberUids: ['member'],
+      }),
+    );
+  });
+
+  it('asks before deleting a team, then deletes it', async () => {
+    const user = userEvent.setup();
+    renderDialog('owner');
+    await user.click(screen.getByRole('tab', { name: /teams/i }));
+    const panel = await pickMenuAction(user, 'Kids', 'Delete');
+    expect(panel).toHaveTextContent(
+      'Items assigned to Kids keep the entry but show "Deleted team"',
+    );
+    await user.click(within(panel).getByRole('button', { name: 'Delete team' }));
+    await waitFor(() => expect(mocks.teamRemove).toHaveBeenCalledWith('w1', 't1'));
+  });
+
+  it('disables New team at the 50-team cap', async () => {
+    seedTeams(Array.from({ length: 50 }, (_, i) => team(`t${i}`, `Team ${i}`, [])));
+    const user = userEvent.setup();
+    renderDialog('admin');
+    await user.click(screen.getByRole('tab', { name: /teams/i }));
+    expect(screen.getByRole('button', { name: 'New team' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 });

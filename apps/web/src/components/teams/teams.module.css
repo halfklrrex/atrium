@@ -1,0 +1,122 @@
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--atrium-team-avatar-radius);
+  color: var(--atrium-team-avatar-text-color);
+}
+
+.avatarSm {
+  width: var(--atrium-team-avatar-size-sm);
+  height: var(--atrium-team-avatar-size-sm);
+  font: var(--font-text3-medium);
+}
+
+.avatarMd {
+  width: var(--atrium-team-avatar-size-md);
+  height: var(--atrium-team-avatar-size-md);
+  font: var(--font-text2-medium);
+}
+
+.avatarDeleted {
+  background-color: var(--disabled-background-color);
+  color: var(--secondary-text-color);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: var(--atrium-row-height);
+  padding-block: var(--space-8);
+  border-block-end: var(--border-width) var(--border-style) var(--layout-border-color);
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--primary-text-color);
+  font: var(--font-text2-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.hint {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+.empty {
+  margin: 0;
+  color: var(--secondary-text-color);
+  font: var(--font-text2-normal);
+}
+
+.memberList {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--atrium-team-member-list-max-height);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: var(--atrium-avatar-md);
+}
+
+.memberLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.counter {
+  color: var(--secondary-text-color);
+  font: var(--font-text3-normal);
+}
+
+@media (width <= 768px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

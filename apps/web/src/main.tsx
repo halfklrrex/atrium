@@ -24,6 +24,7 @@ import './theme/emoji-tokens.css';
 import './theme/icon-picker-tokens.css';
 import './theme/settings-tokens.css';
 import './theme/item-panel-tokens.css';
+import './theme/teams-tokens.css';
 import './index.css';
 import { registerServiceWorker } from './lib/register-sw';
 import { startThemeSync } from './theme/theme';

@@ -1,0 +1,10 @@
+/* Teams and profile cards (TEAMS spec): sizes that Vibe has no token for. */
+:root {
+  --atrium-team-avatar-size-sm: 24px; /* in avatar stacks and cells */
+  --atrium-team-avatar-size-md: 40px; /* in the Teams tab rows */
+  --atrium-team-avatar-radius: 50%; /* a circle, like a person avatar */
+  --atrium-team-avatar-text-color: #fff; /* initials on every palette color, like status labels */
+  --atrium-profile-card-width: 320px;
+  --atrium-profile-card-avatar: 56px;
+  --atrium-team-member-list-max-height: 240px; /* the member checklist in the team dialog */
+}
