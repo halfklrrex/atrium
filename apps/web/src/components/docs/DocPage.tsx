@@ -1,6 +1,7 @@
 import { canEditBoard, canManageBoard, resolveBoardRole } from '@atrium/shared';
 import { Loader } from '@vibe/core';
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import type { Editor } from '@tiptap/react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { useFolders, useUserLookup, useWorkspace } from '../../data';
@@ -10,6 +11,10 @@ import { docParam, idFromSlugParam, workspacePath } from '../../lib/paths';
 import { NotFoundPage } from '../../pages/NotFoundPage';
 import pageStyles from '../../pages/Pages.module.css';
 import { CanonicalUrl } from '../CanonicalUrl';
+import { docToText, stripTransientNodes } from '../item-view/description';
+import { PresenceAvatars } from '../presence';
+import { showToast } from '../toast-store';
+import { ConflictBanner } from './ConflictBanner';
 import { InlineEdit } from '../InlineEdit';
 import { buildDocValue, docMentionSource } from './doc-body';
 import { docActions } from './doc-actions';
@@ -94,6 +99,29 @@ function DocView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [tiptap, setTiptap] = useState<Editor | null>(null);
+  const handleEditor = useCallback((next: Editor | null) => setTiptap(next), []);
+
+  const keepMine = async () => {
+    if (!tiptap) return;
+    const result = buildDocValue(tiptap.getJSON() as Record<string, unknown>);
+    if (!result.ok) {
+      showToast(result.message, { type: 'negative' });
+      return;
+    }
+    if (result.value) await body.keepMine(result.value);
+  };
+
+  const copyMine = () => {
+    const text = tiptap
+      ? docToText(stripTransientNodes(tiptap.getJSON() as Record<string, unknown>))
+      : '';
+    navigator.clipboard
+      .writeText(text)
+      .then(() => showToast('Your text was copied.', { type: 'positive' }))
+      .catch(() => showToast('Could not copy your text.', { type: 'negative' }));
+  };
+
   const editor = body.meta ? lookup(body.meta.updatedBy)?.name : undefined;
 
   return (
@@ -114,6 +142,7 @@ function DocView({
           ) : null}
         </nav>
         <div className={styles.headerActions}>
+          <PresenceAvatars docId={doc.id} />
           <DocMenu doc={doc} size="small" openDocId={doc.id} />
         </div>
       </header>
@@ -132,6 +161,15 @@ function DocView({
               </button>
             ) : null}
           </div>
+        ) : null}
+
+        {body.conflict && canEdit ? (
+          <ConflictBanner
+            authorName={lookup(body.conflict.updatedBy ?? '')?.name}
+            onLoadTheirs={body.loadTheirs}
+            onKeepMine={keepMine}
+            onCopyMine={copyMine}
+          />
         ) : null}
 
         <InlineEdit
@@ -160,6 +198,7 @@ function DocView({
                 onSave={body.save}
                 onEdit={body.onEdit}
                 external={body.external}
+                onEditor={handleEditor}
                 buildValue={buildDocValue}
                 mentions={mentions}
                 placeholder="Start writing..."

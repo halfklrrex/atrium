@@ -76,6 +76,7 @@ import {
   removeFormView,
   removeDashboard,
   removeDoc,
+  saveDocElsewhere,
   removeView,
   removeSavedTemplate,
   seedSavedTemplate,
@@ -378,6 +379,23 @@ for (const theme of ['light', 'dark'] as const) {
         await page.goto(`/docs/${DOC_ID}`);
         await docReady(page);
         await shoot(page, `doc-page-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeDoc();
+      }
+    });
+
+    test('doc conflict banner', async ({ page }) => {
+      await addDoc();
+      try {
+        await page.goto(`/docs/${DOC_ID}`);
+        await docReady(page);
+        // Unsaved edits, then somebody else saves: the banner offers the choice.
+        await page.getByText('A short list for the week before the trip.').click();
+        await page.keyboard.press('End');
+        await page.keyboard.type(' Do not forget the sunscreen.');
+        await saveDocElsewhere();
+        await expect(page.getByTestId('doc-conflict-banner')).toBeVisible();
+        await shoot(page, `doc-conflict-banner-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeDoc();
       }

@@ -6,6 +6,7 @@ import { ts } from '../test/fixtures';
 const m = vi.hoisted(() => ({
   setDoc: vi.fn(),
   update: vi.fn(),
+  getServer: vi.fn(),
   ids: 0,
   wheres: [] as unknown[][],
 }));
@@ -36,6 +37,7 @@ vi.mock('firebase/firestore', async (importOriginal) => {
     },
     setDoc: m.setDoc,
     updateDoc: m.update,
+    getDocFromServer: m.getServer,
   };
 });
 vi.mock('../lib/firebase', () => ({ db: {}, auth: { currentUser: { uid: 'u1' } } }));
@@ -224,5 +226,13 @@ describe('saveBody', () => {
   it('passes a refused save (stale rev) through for the caller to handle', async () => {
     m.update.mockRejectedValue({ code: 'permission-denied' });
     await expect(docWrites.saveBody('d1', content, 2)).rejects.toSatisfy(isRevConflict);
+  });
+
+  it('reads the stored body from the server (not the cache) to tell a conflict from a denial', async () => {
+    const stored = { rev: 6, doc: { type: 'doc' }, text: 't', updatedBy: 'u2' };
+    m.getServer.mockResolvedValueOnce({ exists: () => true, data: () => stored });
+    await expect(docWrites.readBodyFromServer('d1')).resolves.toBe(stored);
+    m.getServer.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
+    await expect(docWrites.readBodyFromServer('d1')).resolves.toBeNull();
   });
 });

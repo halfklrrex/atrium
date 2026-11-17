@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   isPresenceActive,
   writeBoardPresence,
+  writeDocPresence,
+  deleteDocPresence,
   deleteBoardPresence,
   type BoardPresence,
 } from './presence';
@@ -137,6 +139,24 @@ describe('writeBoardPresence and deleteBoardPresence', () => {
     );
     expect(firestoreModule.deleteDoc).toHaveBeenCalledWith(
       expect.objectContaining({ path: 'boards/b1/presence/u1' }),
+    );
+  });
+});
+
+describe('doc presence', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('writes and deletes docs/{docId}/presence/{uid}', async () => {
+    await writeDocPresence('d1', { uid: 'u1', displayName: 'Alice', photoURL: null });
+    expect(firestoreModule.setDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'docs/d1/presence/u1' }),
+      expect.objectContaining({ uid: 'u1', displayName: 'Alice' }),
+    );
+    await deleteDocPresence('d1', 'u1');
+    expect(firestoreModule.deleteDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ path: 'docs/d1/presence/u1' }),
     );
   });
 });

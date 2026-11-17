@@ -673,6 +673,38 @@ service cloud.firestore {
           && request.resource.data.rev == resource.data.rev + 1;
         allow delete: if false;
       }
+
+      // docs/{docId}/presence/{uid}: who has the doc open (the avatars in the page header). The
+      // board presence rules with the doc role: any role may read, and write or delete their own
+      // record (viewers too: they are "here" as well).
+      match /presence/{presenceUid} {
+        function docPresenceRole() {
+          return exists(/databases/$(database)/documents/docs/$(docId))
+            ? boardRole(get(/databases/$(database)/documents/docs/$(docId)).data)
+            : null;
+        }
+
+        function validDocPresence(d) {
+          return d.keys().hasAll(['uid', 'lastActiveAt', 'expiresAt'])
+            && d.keys().hasOnly(['uid', 'displayName', 'photoURL', 'lastActiveAt', 'expiresAt'])
+            && d.uid == uid()
+            && d.get('displayName', null) == request.auth.token.get('name', null)
+            && d.get('photoURL', null) == request.auth.token.get('picture', null)
+            && (d.get('displayName', null) == null || (d.displayName is string && d.displayName.size() <= 100))
+            && (d.get('photoURL', null) == null || (d.photoURL is string && d.photoURL.size() <= 2000))
+            && d.lastActiveAt == request.time
+            && d.expiresAt is timestamp
+            && d.expiresAt >= request.time
+            && d.expiresAt <= request.time + duration.value(1, 'h') + duration.value(2, 'm');
+        }
+
+        allow read: if signedIn() && docPresenceRole() in ['owner', 'editor', 'viewer'];
+        allow create, update: if signedIn() && uid() == presenceUid
+          && docPresenceRole() in ['owner', 'editor', 'viewer']
+          && validDocPresence(request.resource.data);
+        allow delete: if signedIn() && uid() == presenceUid
+          && docPresenceRole() in ['owner', 'editor', 'viewer'];
+      }
     }
 
     // ---------------------------------------------------------------------

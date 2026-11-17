@@ -11,8 +11,10 @@ vi.mock('../../auth/auth-context', () => ({
 }));
 
 const mockUseBoardPresence = vi.fn();
+const mockUseDocPresence = vi.fn();
 vi.mock('../../data/presence', () => ({
   useBoardPresence: (...args: unknown[]) => mockUseBoardPresence(...args),
+  useDocPresence: (...args: unknown[]) => mockUseDocPresence(...args),
 }));
 
 describe('formatViewingNow helper', () => {
@@ -76,5 +78,25 @@ describe('PresenceAvatars component', () => {
     const container = screen.getByTestId('presence-avatars');
     expect(container).toBeInTheDocument();
     expect(container).toHaveAttribute('aria-label', 'Viewing now: Avery (You), Alice');
+  });
+
+  it('shows the viewers of a doc, listening to the doc and not to a board', () => {
+    mockUseBoardPresence.mockReturnValue({ activeViewers: [], loading: false });
+    mockUseDocPresence.mockReturnValue({
+      activeViewers: [
+        { uid: 'u1', displayName: 'Avery', photoURL: null, lastActiveAt: null },
+        { uid: 'u2', displayName: 'Jordan', photoURL: null, lastActiveAt: null },
+      ],
+      loading: false,
+    });
+
+    render(<PresenceAvatars docId="d1" />);
+
+    expect(mockUseDocPresence).toHaveBeenCalledWith('d1', expect.anything());
+    expect(mockUseBoardPresence).toHaveBeenCalledWith(undefined, expect.anything());
+    expect(screen.getByTestId('presence-avatars')).toHaveAttribute(
+      'aria-label',
+      'Here now: Avery (You), Jordan',
+    );
   });
 });

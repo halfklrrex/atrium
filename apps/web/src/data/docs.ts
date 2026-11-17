@@ -17,6 +17,7 @@ import {
 import {
   collection,
   doc,
+  getDocFromServer,
   query,
   serverTimestamp,
   setDoc,
@@ -103,8 +104,10 @@ export class DocTooLongError extends Error {
 }
 
 /**
- * True when a refused body save is the rules' revision check (or a lost permission): the editor
- * then stops autosaving and offers "Load their version" or "Keep mine".
+ * True when a refused body save was refused by the rules (`permission-denied`). That is the
+ * revision check when somebody else saved in between, but it is also what a lost role or a trashed
+ * doc looks like, so callers confirm with `docWrites.readBodyFromServer` (is the stored rev newer
+ * than the one the save was based on?) before showing the conflict banner.
  */
 export function isRevConflict(error: unknown): boolean {
   return (
@@ -207,6 +210,16 @@ export const docWrites = {
     if (baseRev <= 0) await setDoc(docRefs.body(docId), data as never);
     else await updateDoc(docRefs.body(docId), data);
     return rev;
+  },
+
+  /**
+   * The stored body straight from the server (never the cache): used after a refused save to see
+   * whether somebody else really saved a newer revision. `null` when there is no body yet; rejects
+   * when the server can't be reached or the user can't read the doc.
+   */
+  async readBodyFromServer(docId: string): Promise<DocBodyDoc | null> {
+    const snap = await getDocFromServer(docRefs.body(docId));
+    return snap.exists() ? snap.data() : null;
   },
 };
 

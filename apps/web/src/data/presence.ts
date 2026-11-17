@@ -45,11 +45,15 @@ export function isPresenceActive(
   return nowMs - lastActiveMs <= thresholdMs;
 }
 
-/**
- * Writes or updates the presence record for a user on a specific board with server timestamp.
- */
-export async function writeBoardPresence(boardId: string, user: PresenceUser): Promise<void> {
-  const ref = doc(db, 'boards', boardId, 'presence', user.uid);
+/** The documents that have a `presence` subcollection: boards and docs. */
+export type PresenceParent = 'boards' | 'docs';
+
+async function writePresence(
+  parent: PresenceParent,
+  parentId: string,
+  user: PresenceUser,
+): Promise<void> {
+  const ref = doc(db, parent, parentId, 'presence', user.uid);
   const now = Date.now();
   const expiresAt = new Date(now + 60 * 60 * 1000);
   await setDoc(ref, {
@@ -62,18 +66,39 @@ export async function writeBoardPresence(boardId: string, user: PresenceUser): P
 }
 
 /**
- * Removes the presence record for a user when leaving a board.
+ * Writes or updates the presence record for a user on a specific board with server timestamp.
  */
-export async function deleteBoardPresence(boardId: string, uid: string): Promise<void> {
-  const ref = doc(db, 'boards', boardId, 'presence', uid);
-  await deleteDoc(ref);
+export function writeBoardPresence(boardId: string, user: PresenceUser): Promise<void> {
+  return writePresence('boards', boardId, user);
+}
+
+/** Same for a doc (`docs/{id}/presence/{uid}`). */
+export function writeDocPresence(docId: string, user: PresenceUser): Promise<void> {
+  return writePresence('docs', docId, user);
+}
+
+async function deletePresence(parent: PresenceParent, parentId: string, uid: string) {
+  await deleteDoc(doc(db, parent, parentId, 'presence', uid));
 }
 
 /**
- * Hook that maintains the current user's presence heartbeat on a board
- * and subscribes in real-time to active viewers on that board.
+ * Removes the presence record for a user when leaving a board.
  */
-export function useBoardPresence(
+export function deleteBoardPresence(boardId: string, uid: string): Promise<void> {
+  return deletePresence('boards', boardId, uid);
+}
+
+/** Removes the presence record for a user when leaving a doc. */
+export function deleteDocPresence(docId: string, uid: string): Promise<void> {
+  return deletePresence('docs', docId, uid);
+}
+
+/**
+ * Hook that maintains the current user's presence heartbeat on a board or doc
+ * and subscribes in real-time to the active viewers there.
+ */
+function useParentPresence(
+  parent: PresenceParent,
   boardId: string | undefined,
   currentUser: PresenceUser | null,
 ): { activeViewers: BoardPresence[]; loading: boolean } {
@@ -88,8 +113,8 @@ export function useBoardPresence(
     const sendHeartbeat = () => {
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
       if (typeof document !== 'undefined' && document.hidden) return;
-      void writeBoardPresence(boardId, currentUser).catch((err: unknown) => {
-        console.warn('Could not send board presence heartbeat', err);
+      void writePresence(parent, boardId, currentUser).catch((err: unknown) => {
+        console.warn('Could not send presence heartbeat', err);
       });
     };
 
@@ -109,7 +134,7 @@ export function useBoardPresence(
     }
 
     const handleUnload = () => {
-      void deleteBoardPresence(boardId, currentUser.uid);
+      void deletePresence(parent, boardId, currentUser.uid);
     };
     window.addEventListener('beforeunload', handleUnload);
 
@@ -122,18 +147,18 @@ export function useBoardPresence(
         window.removeEventListener('online', handleVisibilityOrOnline);
         window.removeEventListener('beforeunload', handleUnload);
       }
-      void deleteBoardPresence(boardId, currentUser.uid).catch((err: unknown) => {
-        console.warn('Could not clean up board presence on unmount', err);
+      void deletePresence(parent, boardId, currentUser.uid).catch((err: unknown) => {
+        console.warn('Could not clean up presence on unmount', err);
       });
     };
-  }, [boardId, currentUser]);
+  }, [parent, boardId, currentUser]);
 
   // 2. Real-time listener for presence docs
   useEffect(() => {
     if (!boardId) return;
 
     try {
-      const colRef = collection(db, 'boards', boardId, 'presence');
+      const colRef = collection(db, parent, boardId, 'presence');
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
@@ -142,7 +167,7 @@ export function useBoardPresence(
           setLoading(false);
         },
         (error) => {
-          console.warn('Error listening to board presence', error);
+          console.warn('Error listening to presence', error);
           setAllPresence([]);
           setLoading(false);
         },
@@ -150,10 +175,10 @@ export function useBoardPresence(
 
       return () => unsubscribe();
     } catch (error) {
-      console.warn('Error subscribing to board presence', error);
+      console.warn('Error subscribing to presence', error);
       return undefined;
     }
-  }, [boardId]);
+  }, [parent, boardId]);
 
   // 3. Periodic local clock tick to expire stale viewers
   useEffect(() => {
@@ -170,6 +195,21 @@ export function useBoardPresence(
   }, [boardId, allPresence, tick]);
 
   return { activeViewers, loading: boardId ? loading : false };
+}
+
+export function useBoardPresence(
+  boardId: string | undefined,
+  currentUser: PresenceUser | null,
+): { activeViewers: BoardPresence[]; loading: boolean } {
+  return useParentPresence('boards', boardId, currentUser);
+}
+
+/** The same heartbeat and listener for a doc page. */
+export function useDocPresence(
+  docId: string | undefined,
+  currentUser: PresenceUser | null,
+): { activeViewers: BoardPresence[]; loading: boolean } {
+  return useParentPresence('docs', docId, currentUser);
 }
 
 /**
