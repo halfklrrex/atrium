@@ -1,6 +1,6 @@
 # MCP batch 2 PR 4: views and forms
 
-Branch `claude/mcp-2-4-views`. Implements PR 4 of `docs/specs/MCP-gap-batch-2.md`: `atrium_list_views`, `atrium_get_view_items`, `atrium_create_view`, `atrium_update_view`, `atrium_delete_view` (55 tools on top of main's 50; the spec's 62 assumes PRs 2, 3 and 5 are in). No changes to rules, indexes, `packages/shared`, `firebase.json`, the lockfile or visual baselines.
+Branch `claude/mcp-2-4-views`. Implements PR 4 of `docs/specs/MCP-gap-batch-2.md`: `atrium_list_views`, `atrium_get_view_items`, `atrium_create_view`, `atrium_update_view`, `atrium_delete_view` (65 tools after PRs 2, 3 and 5). No changes to rules, indexes, `packages/shared`, `firebase.json`, the lockfile or visual baselines.
 
 ## What changed
 
@@ -18,6 +18,5 @@ Branch `claude/mcp-2-4-views`. Implements PR 4 of `docs/specs/MCP-gap-batch-2.md
 
 ## Gotchas
 
-- `docs/mcp-connector.md` says 55 tools; whoever merges after PR 2, 3 and 5 fixes the number (the count tests read the catalogue).
 - A forms' link is `/forms/<boardId>/<viewId>`; the connector returns the path only (no origin).
 - Running one emulator test file: see the `emulators:exec ... vitest run <name>` pattern in `scripts/test-rules.mjs`.
