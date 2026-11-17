@@ -205,6 +205,17 @@ describe('MembersDialog', () => {
     expect(within(rows[2]!).getByText('member@example.com')).toBeInTheDocument();
   });
 
+  it('opens a profile card from a member row, and Escape closes only the card', async () => {
+    renderDialog('owner');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Profile of Jordan Lee' }));
+    const card = screen.getByRole('dialog', { name: 'Profile of Jordan Lee' });
+    expect(card).toHaveTextContent('admin@example.com');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Profile of Jordan Lee' })).toBeNull();
+    expect(screen.getByRole('list', { name: 'Members' })).toBeInTheDocument();
+  });
+
   it('gives the owner role dropdowns and a menu on every other member', () => {
     renderDialog('owner');
     expect(screen.getByRole('combobox', { name: 'Role for Jordan Lee' })).toBeInTheDocument();

@@ -419,6 +419,23 @@
   outline: 0;
 }
 
+.listRowOption {
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.listRowOption:focus-visible {
+  outline: var(--atrium-focus-ring);
+}
+
 .listRowOn {
   background: var(--primary-selected-color);
 }

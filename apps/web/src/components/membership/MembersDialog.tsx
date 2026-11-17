@@ -32,6 +32,8 @@ import { showToast } from '../toast-store';
 import { TeamAvatar } from '../teams/TeamAvatar';
 import { TeamDialog } from '../teams/TeamDialog';
 import teamStyles from '../teams/teams.module.css';
+import { PopupLayer } from '../PopupLayer';
+import { ProfileLink } from '../profile';
 import { UserAvatar } from '../UserAvatar';
 import styles from './MembersDialog.module.css';
 import { memberRowActions } from './permissions';
@@ -190,76 +192,79 @@ export function MembersDialog({
 
   return (
     <Modal id="members-dialog" show size="medium" onClose={onClose}>
-      <ModalBasicLayout>
-        <ModalHeader title={`Members of ${workspace.name}`} />
-        <ModalContent>
-          <div className={styles.body}>
-            <TabList
-              activeTabId={tabs.indexOf(tab)}
-              onTabChange={(id: number) => {
-                setTab(tabs[id] ?? 'members');
-                setConfirm(null);
-                setError(null);
-              }}
-            >
-              {tabs.map((t) =>
-                t === 'members' ? (
-                  <Tab key={t} icon={Person}>{`Members (${rows.length})`}</Tab>
-                ) : t === 'invites' ? (
-                  <Tab key={t} icon={Invite}>
-                    Invites
-                  </Tab>
-                ) : (
-                  <Tab key={t} icon={Team}>{`Teams (${teams.length})`}</Tab>
-                ),
+      <PopupLayer>
+        <ModalBasicLayout>
+          <ModalHeader title={`Members of ${workspace.name}`} />
+          <ModalContent>
+            <div className={styles.body}>
+              <TabList
+                activeTabId={tabs.indexOf(tab)}
+                onTabChange={(id: number) => {
+                  setTab(tabs[id] ?? 'members');
+                  setConfirm(null);
+                  setError(null);
+                }}
+              >
+                {tabs.map((t) =>
+                  t === 'members' ? (
+                    <Tab key={t} icon={Person}>{`Members (${rows.length})`}</Tab>
+                  ) : t === 'invites' ? (
+                    <Tab key={t} icon={Invite}>
+                      Invites
+                    </Tab>
+                  ) : (
+                    <Tab key={t} icon={Team}>{`Teams (${teams.length})`}</Tab>
+                  ),
+                )}
+              </TabList>
+
+              {confirm ? (
+                <ConfirmPanel
+                  confirm={confirm}
+                  workspaceName={workspace.name}
+                  busy={busy}
+                  onConfirm={() => void confirmed()}
+                  onCancel={() => setConfirm(null)}
+                />
+              ) : tab === 'members' ? (
+                <ul className={styles.list} aria-label="Members">
+                  {rows.map((row) => (
+                    <MemberRow
+                      key={row.uid}
+                      workspaceId={workspaceId}
+                      row={row}
+                      isSelf={row.uid === uid}
+                      myRole={myRole}
+                      busy={busy}
+                      onChangeRole={(role) => void changeRole(row, role)}
+                      onAsk={setConfirm}
+                    />
+                  ))}
+                </ul>
+              ) : tab === 'teams' ? (
+                <TeamsTab
+                  teams={teams}
+                  people={people}
+                  canManage={isAdmin}
+                  onNew={() => setEditor({})}
+                  onEdit={(team) => setEditor({ team })}
+                  onDelete={(team) =>
+                    setConfirm({ kind: 'deleteTeam', teamId: team.id, name: team.name })
+                  }
+                />
+              ) : (
+                <InvitesTab workspaceId={workspaceId} myRole={myRole} onError={setError} />
               )}
-            </TabList>
 
-            {confirm ? (
-              <ConfirmPanel
-                confirm={confirm}
-                workspaceName={workspace.name}
-                busy={busy}
-                onConfirm={() => void confirmed()}
-                onCancel={() => setConfirm(null)}
-              />
-            ) : tab === 'members' ? (
-              <ul className={styles.list} aria-label="Members">
-                {rows.map((row) => (
-                  <MemberRow
-                    key={row.uid}
-                    row={row}
-                    isSelf={row.uid === uid}
-                    myRole={myRole}
-                    busy={busy}
-                    onChangeRole={(role) => void changeRole(row, role)}
-                    onAsk={setConfirm}
-                  />
-                ))}
-              </ul>
-            ) : tab === 'teams' ? (
-              <TeamsTab
-                teams={teams}
-                people={people}
-                canManage={isAdmin}
-                onNew={() => setEditor({})}
-                onEdit={(team) => setEditor({ team })}
-                onDelete={(team) =>
-                  setConfirm({ kind: 'deleteTeam', teamId: team.id, name: team.name })
-                }
-              />
-            ) : (
-              <InvitesTab workspaceId={workspaceId} myRole={myRole} onError={setError} />
-            )}
-
-            {error ? (
-              <p className={styles.error} role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-        </ModalContent>
-      </ModalBasicLayout>
+              {error ? (
+                <p className={styles.error} role="alert">
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </ModalContent>
+        </ModalBasicLayout>
+      </PopupLayer>
     </Modal>
   );
 }
@@ -401,6 +406,7 @@ function TeamsTab({
 }
 
 function MemberRow({
+  workspaceId,
   row,
   isSelf,
   myRole,
@@ -408,6 +414,7 @@ function MemberRow({
   onChangeRole,
   onAsk,
 }: {
+  workspaceId: string;
   row: Row;
   isSelf: boolean;
   myRole: WorkspaceRole;
@@ -421,14 +428,22 @@ function MemberRow({
   return (
     <li className={styles.row}>
       <div className={styles.person}>
-        <UserAvatar uid={row.uid} name={row.name} photoURL={row.photoURL} size="medium" />
-        <div className={styles.names}>
-          <span className={styles.name}>
-            {row.name}
-            {isSelf ? ' (you)' : ''}
-          </span>
-          {row.email ? <span className={styles.email}>{row.email}</span> : null}
-        </div>
+        <ProfileLink
+          uid={row.uid}
+          workspaceId={workspaceId}
+          name={row.name}
+          photoURL={row.photoURL}
+          label={`Profile of ${row.name}`}
+        >
+          <UserAvatar uid={row.uid} name={row.name} photoURL={row.photoURL} size="medium" />
+          <div className={styles.names}>
+            <span className={styles.name}>
+              {row.name}
+              {isSelf ? ' (you)' : ''}
+            </span>
+            {row.email ? <span className={styles.email}>{row.email}</span> : null}
+          </div>
+        </ProfileLink>
       </div>
       {options.length > 0 ? (
         <div className={styles.roleControl}>

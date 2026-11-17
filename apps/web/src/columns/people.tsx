@@ -6,6 +6,7 @@ import { useAuth } from '../auth/auth-context';
 import { AnchoredPopup } from '../components/board-table/AnchoredPopup';
 import { DELETED_TEAM_NAME, useTeamLookup, useWorkspaceTeams } from '../data/teams';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../data/members-store';
+import { ProfileLink } from '../components/profile';
 import { TeamAvatar } from '../components/teams/TeamAvatar';
 import { initialsOf } from '../lib/format';
 import styles from './cells.module.css';
@@ -103,17 +104,23 @@ export function PersonRow({
   onToggle: () => void;
 }) {
   const { name } = usePerson(uid);
+  // The avatar opens the person's profile card, so it sits beside the option: a control can't nest
+  // inside an option, and the rest of the row still toggles the selection.
   return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={selected}
-      className={classNames(popups.listRow, selected && popups.listRowOn)}
-      onClick={onToggle}
-    >
-      <Avatar uid={uid} />
-      <span>{name}</span>
-    </button>
+    <div role="presentation" className={classNames(popups.listRow, selected && popups.listRowOn)}>
+      <ProfileLink uid={uid} name={name} label={`Profile of ${name}`}>
+        <Avatar uid={uid} />
+      </ProfileLink>
+      <button
+        type="button"
+        role="option"
+        aria-selected={selected}
+        className={popups.listRowOption}
+        onClick={onToggle}
+      >
+        {name}
+      </button>
+    </div>
   );
 }
 

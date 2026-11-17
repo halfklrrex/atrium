@@ -81,6 +81,7 @@ async function clearSeededData(firestore: Firestore): Promise<void> {
   for (const id of [IDS.teamParents, IDS.teamGarden]) {
     batch.delete(ws(IDS.personalWorkspace).collection('teams').doc(id));
   }
+  batch.delete(ws(IDS.personalWorkspace).collection('members').doc(AVERY.uid));
   batch.delete(ws(IDS.personalWorkspace));
   batch.delete(ws(IDS.familyWorkspace));
   batch.delete(firestore.collection('users').doc(AVERY.uid));
@@ -242,6 +243,23 @@ export async function seed(): Promise<void> {
     updatedAt: ago(6 * DAY),
     updatedBy: AVERY.uid,
   };
+  // The signed-in person's member doc with a shared profile: the profile card screen reads it (TEAMS-5).
+  batch.set(personal.collection('members').doc(AVERY.uid), {
+    displayName: AVERY.displayName,
+    photoURL: null,
+    email: AVERY.email,
+    role: 'owner',
+    joinedAt: ago(12 * DAY),
+    updatedAt: ago(12 * DAY),
+    profile: {
+      title: 'Head gardener',
+      about: 'Keeps the garden, the roadmap and the kitchen schedule in order.',
+      location: 'Lyon, France',
+      birthday: { month: 3, day: 12 },
+      timeZone: 'Europe/Paris',
+      updatedAt: ago(6 * DAY),
+    },
+  });
   batch.set(personal.collection('teams').doc(IDS.teamParents), {
     ...teamBase,
     name: 'Parents',
