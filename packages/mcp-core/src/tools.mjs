@@ -13,6 +13,7 @@ import { memberTools } from './tools/members.mjs';
 import { myWorkTools } from './tools/mywork.mjs';
 import { teamTools } from './tools/teams.mjs';
 import { updateTools } from './tools/updates.mjs';
+import { viewTools } from './tools/views.mjs';
 
 /** One function per domain file: `(service) => tool[]`. */
 export const DOMAINS = {
@@ -23,6 +24,7 @@ export const DOMAINS = {
   mywork: myWorkTools,
   docs: docTools,
   teams: teamTools,
+  views: viewTools,
 };
 
 /** The registration order of the tools that existed before the split (a parity test pins it). */
