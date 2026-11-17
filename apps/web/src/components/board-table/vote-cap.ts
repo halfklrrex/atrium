@@ -1,7 +1,7 @@
-import { VOTE_COLUMN_RULE_CAP, type ColumnDef } from '@atrium/shared';
+import { VOTE_COLUMN_CAP_MESSAGE, voteCapExceeded, type ColumnDef } from '@atrium/shared';
 
 /** The refusal text when a board would get more vote columns than the rules can protect. */
-export const VOTE_CAP_MESSAGE = `A board can have at most ${VOTE_COLUMN_RULE_CAP} vote columns (including sub-item columns). Delete another vote column first.`;
+export const VOTE_CAP_MESSAGE = VOTE_COLUMN_CAP_MESSAGE;
 
 /**
  * Throws when adding a column of `type` would push the board (columns and subitem columns together)
@@ -12,7 +12,5 @@ export function assertVoteCapAllows(
   type: string,
   state: { columns: readonly ColumnDef[]; subitemColumns: readonly ColumnDef[] },
 ): void {
-  if (type !== 'vote') return;
-  const count = [...state.columns, ...state.subitemColumns].filter((c) => c.type === 'vote').length;
-  if (count >= VOTE_COLUMN_RULE_CAP) throw new Error(VOTE_CAP_MESSAGE);
+  if (voteCapExceeded(type, state)) throw new Error(VOTE_CAP_MESSAGE);
 }

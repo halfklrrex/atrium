@@ -17,6 +17,8 @@ import {
   columnsForItem,
   columnsForSubitems,
   hasLegacySubitemColumns,
+  VOTE_COLUMN_CAP_MESSAGE,
+  voteCapExceeded,
   isColumnValueEmpty,
   BUILT_IN_TEMPLATES,
   builtInTemplate,
@@ -733,6 +735,7 @@ export function createService({ client, actor, now = () => new Date() }) {
 
     async addColumn({ boardId, title, type, settings }) {
       return mutateBoard(boardId, (board) => {
+        if (voteCapExceeded(type, board)) throw new McpUserError(VOTE_COLUMN_CAP_MESSAGE);
         const column = buildColumn({ title, type, settings, existingColumns: board.columns });
         return {
           patch: { columns: [...board.columns, column] },

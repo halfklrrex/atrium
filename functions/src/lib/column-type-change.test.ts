@@ -9,6 +9,7 @@ import {
   COLUMN_MIGRATION_CHUNK_SIZE,
   COLUMN_MIGRATION_STALE_MS,
   COLUMN_SNAPSHOT_TTL_MS,
+  VOTE_COLUMN_CAP_MESSAGE,
 } from '@atrium/shared';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { describe, expect, it } from 'vitest';
@@ -774,4 +775,31 @@ describe('revertColumnType', () => {
       expect(store.valuesOf().i00007).toBe('7');
     });
   }
+});
+
+describe('changeColumnType: vote column cap', () => {
+  const voteColumn = (id: string): ColumnDef => ({ ...textColumn(id), type: 'vote', title: id });
+  const toVote = () => toNumbers({ toType: 'vote', toSettings: {} });
+
+  it('refuses converting to an 11th vote column (subitem columns count too) and changes nothing', async () => {
+    const votes = Array.from({ length: 10 }, (_, n) => voteColumn(`v${n}`));
+    const store = new FakeStore([textColumn(), ...votes.slice(0, 5)], votes.slice(5));
+    const error = await expectCode(
+      changeColumnTypeLogic(store, OWNER, toVote()),
+      'failed-precondition',
+    );
+    expect(error.message).toBe(VOTE_COLUMN_CAP_MESSAGE);
+    expect(store.column('columns', 'budget').type).toBe('text');
+    expect(store.ledger).toEqual([]);
+  });
+
+  it('allows the 10th vote column and never limits other target types', async () => {
+    const nine = Array.from({ length: 9 }, (_, n) => voteColumn(`v${n}`));
+    const store = new FakeStore([textColumn(), ...nine]);
+    await changeColumnTypeLogic(store, OWNER, toVote());
+    expect(store.column('columns', 'budget').type).toBe('vote');
+    const full = new FakeStore([textColumn(), ...nine, voteColumn('v9')]);
+    await changeColumnTypeLogic(full, OWNER, toNumbers());
+    expect(full.column('columns', 'budget').type).toBe('numbers');
+  });
 });
