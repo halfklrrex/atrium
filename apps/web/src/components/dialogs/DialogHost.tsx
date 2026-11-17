@@ -5,6 +5,7 @@ import { ShareBoardDialog } from '../boards/ShareBoardDialog';
 import { ShareDashboardDialog } from '../dashboard/ShareDashboardDialog';
 import { NewBoardDialog } from './BoardDialogs';
 import { NewDashboardDialog } from './DashboardDialogs';
+import { NewDocDialog } from './DocDialogs';
 import { DashboardBoardsDialog } from '../dashboard/DashboardBoardsDialog';
 import { MembersDialog } from '../membership/MembersDialog';
 import { DeleteFolderDialog, FolderDialog } from './FolderDialogs';
@@ -35,6 +36,15 @@ export function DialogHost() {
     case 'newDashboard':
       return (
         <NewDashboardDialog
+          workspaceId={dialog.workspaceId}
+          folderId={dialog.folderId}
+          initialKind={dialog.kind}
+          onClose={close}
+        />
+      );
+    case 'newDoc':
+      return (
+        <NewDocDialog
           workspaceId={dialog.workspaceId}
           folderId={dialog.folderId}
           initialKind={dialog.kind}

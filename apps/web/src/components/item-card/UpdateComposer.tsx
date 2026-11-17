@@ -15,6 +15,7 @@ import {
 } from 'react';
 import { EmojiSuggestMenu } from '../item-view/EmojiSuggest';
 import { MentionController } from '../item-view/mention/mention-controller';
+import { boardMentionSource } from '../item-view/mention/board-mention-source';
 import { MentionMenu } from '../item-view/mention/MentionMenu';
 import { SuggestController } from '../item-view/slash-menu/slash-controller';
 import { TableControls } from '../item-view/TableControls';
@@ -140,6 +141,7 @@ export default function UpdateComposer({
 
   const emojiSuggest = useMemo(() => new SuggestController<EmojiItem>(), []);
   const mentionSuggest = useMemo(() => new MentionController(), []);
+  const mentionSource = useMemo(() => boardMentionSource(boardId), [boardId]);
   const extensions = useMemo(
     () =>
       createComposerExtensions({
@@ -315,7 +317,7 @@ export default function UpdateComposer({
         </div>
       ) : null}
       <EmojiSuggestMenu controller={emojiSuggest} editor={editor} />
-      <MentionMenu controller={mentionSuggest} editor={editor} boardId={boardId} />
+      <MentionMenu controller={mentionSuggest} editor={editor} source={mentionSource} />
     </div>
   );
 }

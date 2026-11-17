@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell/AppShell';
 import { DashboardPage } from './components/dashboard/DashboardPage';
+import { DocPage } from './components/docs/DocPage';
 import { ConnectPage } from './pages/connect/ConnectPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { BoardPage } from './pages/BoardPage';
@@ -47,6 +48,7 @@ export function App() {
           <Route path="boards/:boardId/views/:viewId" element={<BoardPage />} />
           <Route path="boards/:boardId/views/:viewId/items/:itemId" element={<BoardPage />} />
           <Route path="dashboards/:dashboardId" element={<DashboardPage />} />
+          <Route path="docs/:docId" element={<DocPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

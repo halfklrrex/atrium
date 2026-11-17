@@ -12,10 +12,11 @@ import classNames from 'classnames';
 import { useCallback, useMemo, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
-import { useBoards, useFolders, useWorkspaceDashboards } from '../../data';
+import { useBoards, useFolders, useWorkspaceDashboards, useWorkspaceDocs } from '../../data';
 import type { DropResult } from '../../data/treeDnd';
 import { boardActions, folderActions } from '../boards/board-actions';
 import { dashboardActions } from '../dashboard/dashboard-actions';
+import { docActions } from '../docs/doc-actions';
 import { useUiStore } from '../AppShell/ui-store';
 import { useCurrentWorkspace } from '../AppShell/useCurrentWorkspace';
 import { AddMenu } from './AddMenu';
@@ -85,13 +86,17 @@ export function Sidebar() {
   const { data: folders } = useFolders(workspace?.id);
   const { data: boards, error: boardsError } = useBoards(workspace?.id, uid);
   const { data: dashboards } = useWorkspaceDashboards(workspace?.id, uid);
+  const { data: docs } = useWorkspaceDocs(workspace?.id, uid);
   const boardMatch = useMatch('/boards/:boardId/*');
   const activeBoardId = idFromSlugParam(boardMatch?.params.boardId) || null;
   const dashboardMatch = useMatch('/dashboards/:dashboardId');
   const activeDashboardId = idFromSlugParam(dashboardMatch?.params.dashboardId) || null;
+  const docMatch = useMatch('/docs/:docId');
+  const activeDocId = idFromSlugParam(docMatch?.params.docId) || null;
   const activeFolderId =
     boards.find((b) => b.id === activeBoardId)?.folderId ??
     dashboards.find((d) => d.id === activeDashboardId)?.folderId ??
+    docs.find((d) => d.id === activeDocId)?.folderId ??
     null;
   const { expanded, toggle, expand } = useExpandedFolders(workspace?.id ?? null, activeFolderId);
 
@@ -124,6 +129,11 @@ export function Sidebar() {
       if (!dashboard) return;
       if (drop.folderId) expand(drop.folderId);
       void dashboardActions.moveTo(dashboard, { folderId: drop.folderId, position: drop.position });
+    } else if (drop.type === 'doc') {
+      const doc = docs.find((d) => d.id === drop.docId);
+      if (!doc) return;
+      if (drop.folderId) expand(drop.folderId);
+      void docActions.moveTo(doc, { folderId: drop.folderId, position: drop.position });
     } else if (canManageFolders) {
       void folderActions.reorder(workspace.id, drop.folderId, drop.position);
     }
@@ -228,8 +238,10 @@ export function Sidebar() {
                 folders={folders}
                 boards={boards}
                 dashboards={dashboards}
+                docs={docs}
                 activeBoardId={activeBoardId}
                 activeDashboardId={activeDashboardId}
+                activeDocId={activeDocId}
                 canManageFolders={canManageFolders}
                 canReorder={canCreateBoards}
                 filter={filter}
@@ -239,6 +251,7 @@ export function Sidebar() {
                 onRenameDashboard={(dashboard, name) =>
                   void dashboardActions.rename(dashboard, name)
                 }
+                onRenameDoc={(doc, name) => void docActions.rename(doc, name)}
                 onRenameFolder={(folder, name) =>
                   void folderActions.rename(workspace.id, folder, name)
                 }

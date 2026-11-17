@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeBoard, makeDashboard, makeFolder } from '../test/fixtures';
+import { makeBoard, makeDashboard, makeDoc, makeFolder } from '../test/fixtures';
 import { buildTree } from './boards';
 import { computeDrop } from './treeDnd';
 
@@ -94,5 +94,39 @@ describe('computeDrop with dashboards', () => {
 
   it('ignores a dashboard dropped on a folder it cannot reorder with', () => {
     expect(computeDrop(dTree, 'folder:f1', 'dashboard:d1')).toBeNull();
+  });
+});
+
+describe('computeDrop with docs', () => {
+  const tree = buildTree(
+    folders,
+    boards,
+    [],
+    [
+      makeDoc({ id: 'n1', position: 'a0V' }),
+      makeDoc({ id: 'nin', folderId: 'f1', position: 'a2' }),
+    ],
+  );
+
+  it('places a doc among boards by position', () => {
+    const drop = computeDrop(tree, 'doc:n1', 'board:r3');
+    expect(drop).toMatchObject({ type: 'doc', docId: 'n1', folderId: null });
+    expect(drop?.position && drop.position > 'a2').toBe(true);
+  });
+
+  it('drops a doc on a folder: end of that folder', () => {
+    expect(computeDrop(tree, 'doc:n1', 'folder:f2')).toMatchObject({
+      type: 'doc',
+      docId: 'n1',
+      folderId: 'f2',
+    });
+  });
+
+  it('moves a doc out of its folder when dropped on that folder', () => {
+    expect(computeDrop(tree, 'doc:nin', 'folder:f1')).toMatchObject({
+      type: 'doc',
+      docId: 'nin',
+      folderId: null,
+    });
   });
 });

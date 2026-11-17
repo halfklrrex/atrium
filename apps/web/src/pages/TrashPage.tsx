@@ -5,6 +5,7 @@ import {
   Board,
   Dashboard as DashboardIcon,
   Delete,
+  Doc as DocIcon,
   NavigationChevronLeft,
   Retry,
 } from '@vibe/icons';
@@ -17,12 +18,16 @@ import {
   dashboardWrites,
   deletedBoards,
   deletedDashboards,
+  deletedDocs,
+  docWrites,
   useAllWorkspaceBoards,
   useAllWorkspaceDashboards,
+  useAllWorkspaceDocs,
   useWorkspace,
   writes,
   type BoardDoc,
   type DashboardDoc,
+  type DocMetaDoc,
 } from '../data';
 import styles from './TrashPage.module.css';
 import pageStyles from './Pages.module.css';
@@ -45,8 +50,9 @@ export function TrashPage() {
     workspaceId,
     uid,
   );
+  const { data: allDocs, loading: docsLoading } = useAllWorkspaceDocs(workspaceId, uid);
 
-  if (wsLoading || boardsLoading || dashboardsLoading) {
+  if (wsLoading || boardsLoading || dashboardsLoading || docsLoading) {
     return (
       <div className={pageStyles.center} role="status">
         <Loader size="medium" />
@@ -71,7 +77,8 @@ export function TrashPage() {
   const deletedList = deletedBoards(allBoards);
   const archivedList = archivedBoards(allBoards);
   const deletedDashboardList = deletedDashboards(allDashboards);
-  const deletedCount = deletedList.length + deletedDashboardList.length;
+  const deletedDocList = deletedDocs(allDocs);
+  const deletedCount = deletedList.length + deletedDashboardList.length + deletedDocList.length;
 
   const restoreBoard = async (board: BoardDoc) => {
     try {
@@ -109,9 +116,28 @@ export function TrashPage() {
     }
   };
 
+  const restoreDoc = async (doc: DocMetaDoc) => {
+    try {
+      await docWrites.restoreDoc(doc.id);
+      showToast(`Restored "${doc.name}".`, {
+        type: 'positive',
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            docWrites.deleteDoc(doc.id).catch(console.error);
+          },
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      showToast('Could not restore doc.', { type: 'negative' });
+    }
+  };
+
   const currentList = tab === TAB_ARCHIVED ? archivedList : deletedList;
   const dashboardList = tab === TAB_ARCHIVED ? [] : deletedDashboardList;
-  const isEmpty = currentList.length === 0 && dashboardList.length === 0;
+  const docList = tab === TAB_ARCHIVED ? [] : deletedDocList;
+  const isEmpty = currentList.length === 0 && dashboardList.length === 0 && docList.length === 0;
 
   return (
     <div className={styles.page}>
@@ -129,7 +155,7 @@ export function TrashPage() {
                 Archive & Trash
               </Heading>
               <Text type="text1" color="secondary" className={styles.description}>
-                Review and restore archived or deleted boards and deleted dashboards from this
+                Review and restore archived or deleted boards, dashboards and docs from this
                 workspace. Soft-deleted items are permanently purged after 30 days.
               </Text>
             </div>
@@ -204,6 +230,35 @@ export function TrashPage() {
                           leftIcon={Retry}
                           aria-label={`Restore ${dashboard.name}`}
                           onClick={() => restoreDashboard(dashboard)}
+                        >
+                          Restore
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {docList.map((doc) => {
+                const canRestore = canManageBoard(
+                  resolveBoardRole(doc, uid ?? '', workspace.roles[uid ?? '']),
+                );
+                return (
+                  <div key={doc.id} className={styles.row}>
+                    <div className={styles.itemInfo}>
+                      <DocIcon size="24" />
+                      <div className={styles.itemText}>
+                        <span className={styles.itemTitle}>{doc.name}</span>
+                        <span className={styles.itemMeta}>Doc</span>
+                      </div>
+                    </div>
+                    <div className={styles.actions}>
+                      {canRestore && (
+                        <Button
+                          size="small"
+                          kind="tertiary"
+                          leftIcon={Retry}
+                          aria-label={`Restore ${doc.name}`}
+                          onClick={() => restoreDoc(doc)}
                         >
                           Restore
                         </Button>

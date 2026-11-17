@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { makeBoard, makeDashboard, makeFolder } from '../../test/fixtures';
+import { makeBoard, makeDashboard, makeDoc, makeFolder } from '../../test/fixtures';
 import { useUiStore } from '../AppShell/ui-store';
 import { SidebarTree, type SidebarTreeProps } from './SidebarTree';
 
@@ -10,6 +10,11 @@ vi.mock('../../lib/firebase', () => ({ db: {} }));
 vi.mock('../dashboard/DashboardMenu', () => ({
   DashboardMenu: ({ dashboard }: { dashboard: { name: string } }) => (
     <button type="button" aria-label={`Options for ${dashboard.name}`} />
+  ),
+}));
+vi.mock('../docs/DocMenu', () => ({
+  DocMenu: ({ doc }: { doc: { name: string } }) => (
+    <button type="button" aria-label={`Options for ${doc.name}`} />
   ),
 }));
 vi.mock('../boards/BoardMenu', () => ({
@@ -204,6 +209,54 @@ describe('SidebarTree', () => {
       renderTree({ folders: [], boards: [], dashboards });
       expect(screen.queryByText('No boards yet')).not.toBeInTheDocument();
       expect(screen.getByText('Team overview')).toBeInTheDocument();
+    });
+  });
+
+  describe('docs', () => {
+    const docs = [
+      makeDoc({ id: 'n1', name: 'Packing list', position: 'a0V' }),
+      makeDoc({ id: 'n2', name: 'House rules', folderId: 'f1', kind: 'private' }),
+    ];
+
+    it('lists docs among the boards by position, linking to their page', () => {
+      renderTree({ docs });
+      const items = screen.getAllByRole('treeitem');
+      expect(items.map((i) => i.textContent?.replace(/\d+$/, ''))).toEqual([
+        'Planning',
+        'Archive',
+        'Alpha board',
+        'Packing list',
+        'Zeta board',
+      ]);
+      expect(screen.getByRole('link', { name: 'Packing list' })).toHaveAttribute(
+        'href',
+        '/docs/packing-list-n1',
+      );
+    });
+
+    it('marks the open doc and nests ones inside expanded folders', () => {
+      renderTree({ docs, activeDocId: 'n2', expanded: new Set(['f1']) }, '/docs/house-rules-n2');
+      const link = screen.getByRole('link', { name: 'House rules' });
+      expect(link).toHaveAttribute('aria-current', 'page');
+      expect(link.closest('[role="treeitem"]')).toHaveAttribute('aria-level', '2');
+    });
+
+    it('renames a doc inline', async () => {
+      const props = renderTree({ docs, onRenameDoc: vi.fn() });
+      await userEvent.dblClick(screen.getByRole('link', { name: 'Packing list' }));
+      const input = await screen.findByRole('textbox', { name: 'Doc name' });
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Renamed{Enter}');
+      expect(props.onRenameDoc).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'n1' }),
+        'Renamed',
+      );
+    });
+
+    it('filters docs by name too', () => {
+      renderTree({ docs, filter: 'packing' });
+      expect(screen.getByText('Packing list')).toBeInTheDocument();
+      expect(screen.queryByText('Alpha board')).not.toBeInTheDocument();
     });
   });
 });

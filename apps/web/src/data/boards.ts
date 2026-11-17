@@ -1,5 +1,5 @@
 import { comparePositions } from '../lib/positions';
-import type { BoardDoc, DashboardDoc, FolderDoc } from './model';
+import type { BoardDoc, DashboardDoc, DocMetaDoc, FolderDoc } from './model';
 
 /**
  * Merge the board lists returned by the two listing queries (main boards of the workspace, and
@@ -45,13 +45,18 @@ export interface DashboardNode {
   dashboard: DashboardDoc;
 }
 
-export type TreeNode = FolderNode | BoardNode | DashboardNode;
+export interface DocNode {
+  type: 'doc';
+  doc: DocMetaDoc;
+}
 
-/** A tree leaf: a board or a dashboard (they share one position order inside a folder). */
-export type LeafNode = BoardNode | DashboardNode;
+export type TreeNode = FolderNode | BoardNode | DashboardNode | DocNode;
+
+/** A tree leaf: a board, a dashboard or a doc (they share one position order inside a folder). */
+export type LeafNode = BoardNode | DashboardNode | DocNode;
 
 const leafPosition = (n: LeafNode): { id: string; position: string } =>
-  n.type === 'board' ? n.board : n.dashboard;
+  n.type === 'board' ? n.board : n.type === 'dashboard' ? n.dashboard : n.doc;
 
 /**
  * Sidebar / content tree of a workspace: folders first at each level, then boards, each ordered by
@@ -63,6 +68,7 @@ export function buildTree(
   folders: readonly FolderDoc[],
   boards: readonly BoardDoc[],
   dashboards: readonly DashboardDoc[] = [],
+  docs: readonly DocMetaDoc[] = [],
 ): TreeNode[] {
   const byId = new Map(folders.map((f) => [f.id, f]));
   const parentOf = (f: FolderDoc): string | null => {
@@ -79,6 +85,9 @@ export function buildTree(
     ...dashboards
       .filter((d) => effectiveFolder(d.folderId) === folderId)
       .map<DashboardNode>((dashboard) => ({ type: 'dashboard', dashboard })),
+    ...docs
+      .filter((d) => effectiveFolder(d.folderId) === folderId)
+      .map<DocNode>((doc) => ({ type: 'doc', doc })),
   ];
 
   const build = (folderId: string | null): TreeNode[] => {
@@ -104,7 +113,7 @@ export function buildTree(
 
 /** One visible row of the tree, flattened for rendering and drag and drop. */
 export interface TreeRow {
-  /** Stable dnd/React key: `folder:<id>`, `board:<id>` or `dashboard:<id>`. */
+  /** Stable dnd/React key: `folder:<id>`, `board:<id>`, `dashboard:<id>` or `doc:<id>`. */
   key: string;
   node: TreeNode;
   depth: number;
@@ -115,6 +124,7 @@ export interface TreeRow {
 export const folderKey = (id: string): string => `folder:${id}`;
 export const boardKey = (id: string): string => `board:${id}`;
 export const dashboardKey = (id: string): string => `dashboard:${id}`;
+export const docKey = (id: string): string => `doc:${id}`;
 
 /** The dnd/React key of any tree node. */
 export function nodeKey(node: TreeNode): string {
@@ -122,7 +132,9 @@ export function nodeKey(node: TreeNode): string {
     ? folderKey(node.folder.id)
     : node.type === 'board'
       ? boardKey(node.board.id)
-      : dashboardKey(node.dashboard.id);
+      : node.type === 'dashboard'
+        ? dashboardKey(node.dashboard.id)
+        : docKey(node.doc.id);
 }
 
 /** Flatten the tree into visible rows, skipping the children of collapsed folders. */
@@ -140,14 +152,19 @@ export function flattenTree(nodes: readonly TreeNode[], expanded: ReadonlySet<st
   return rows;
 }
 
-/** Keep boards and dashboards whose name matches `term` (and the folders that contain a match). */
+/** Keep boards, dashboards and docs whose name matches `term` (and the folders that contain a match). */
 export function filterTree(nodes: readonly TreeNode[], term: string): TreeNode[] {
   const needle = term.trim().toLowerCase();
   if (!needle) return [...nodes];
   const out: TreeNode[] = [];
   for (const node of nodes) {
-    if (node.type === 'board' || node.type === 'dashboard') {
-      const name = node.type === 'board' ? node.board.name : node.dashboard.name;
+    if (node.type !== 'folder') {
+      const name =
+        node.type === 'board'
+          ? node.board.name
+          : node.type === 'dashboard'
+            ? node.dashboard.name
+            : node.doc.name;
       if (name.toLowerCase().includes(needle)) out.push(node);
     } else {
       const children = filterTree(node.children, needle);

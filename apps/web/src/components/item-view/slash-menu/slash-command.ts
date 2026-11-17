@@ -22,7 +22,7 @@ export function createSlashCommand(controller: SlashController) {
           char: '/',
           allowSpaces: true,
           decorationClass: 'slash-suggestion',
-          items: ({ query }) => filterSlashItems(query),
+          items: ({ query }) => filterSlashItems(query, controller.imagesEnabled),
           allow: ({ state, range }) => {
             const $from = state.doc.resolve(range.from);
             return !$from.parent.type.spec.code;
