@@ -42,6 +42,7 @@ const EXPECTED = [
   'atrium_list_workspaces',
   'atrium_lock_column',
   'atrium_move_item',
+  'atrium_move_item_to_board',
   'atrium_rename_board',
   'atrium_rename_column',
   'atrium_rename_group',
@@ -74,7 +75,7 @@ test('the server lists its tools over stdio', async () => {
   await client.connect(transport);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 44);
+    assert.equal(tools.length, 45);
     assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
     const createItems = tools.find((t) => t.name === 'atrium_create_items');
     assert.deepEqual(createItems.inputSchema.required.sort(), ['boardId', 'items']);

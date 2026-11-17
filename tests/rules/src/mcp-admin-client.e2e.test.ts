@@ -422,6 +422,45 @@ describe('@atrium/mcp-core on the Admin SDK client', () => {
     expect(items[0]!.data.createdAt).toBeInstanceOf(Date);
   });
 
+  it('moves an item to another board of the workspace in one commit through the Admin SDK client', async () => {
+    const service = createService({ client, actor: { uid: USERS.owner } });
+    const from = (await service.createBoard({ name: 'From' })).id as string;
+    const to = (await service.createBoard({ name: 'To' })).id as string;
+    for (const boardId of [from, to]) {
+      await service.addColumn({ boardId, title: 'Note', type: 'text' });
+    }
+    const { created } = await service.createItems({
+      boardId: from,
+      items: [{ name: 'Travels', values: { Note: 'hello' } }],
+    });
+    const itemId = created[0]!.id;
+    await service.createSubitems({ boardId: from, itemId, subitems: [{ name: 'Child' }] });
+    const dry = await service.moveItemToBoard({
+      boardId: from,
+      itemId,
+      targetBoardId: to,
+      dryRun: true,
+    });
+    expect(dry).toMatchObject({ dryRun: true, newItemId: null, subitems: 1 });
+    expect(await client.listAllDocs(`boards/${to}/items`)).toHaveLength(0);
+
+    const moved = (await service.moveItemToBoard({
+      boardId: from,
+      itemId,
+      targetBoardId: to,
+    })) as { newItemId: string };
+    const copies = await client.listAllDocs(`boards/${to}/items`);
+    expect(copies).toHaveLength(2);
+    const copy = copies.find((c) => c.id === moved.newItemId)!;
+    expect(copy.data.name).toBe('Travels');
+    expect(copy.data.createdBy).toBe(USERS.owner);
+    expect(copy.data.createdAt).toBeInstanceOf(Date);
+    expect(Object.values(copy.data.values as Record<string, unknown>)).toEqual(['hello']);
+    const retired = await client.listAllDocs(`boards/${from}/items`);
+    expect(retired.map((r) => r.data.state)).toEqual(['deleted', 'deleted']);
+    expect(retired[0]!.data.deletedAt).toBeInstanceOf(Date);
+  });
+
   it('keeps boards outside the memberships invisible', async () => {
     const service = createService({ client, actor: { uid: USERS.outsider } });
     await expect(service.listWorkspaces()).resolves.toEqual({ workspaces: [] });

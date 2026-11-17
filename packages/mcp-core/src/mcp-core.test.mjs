@@ -795,7 +795,7 @@ test('structure changes give up after a second conflict', async () => {
 test('tool catalogue: unique atrium_ names, every tool described, scoped and annotated', () => {
   const tools = defineTools({});
   const names = tools.map((t) => t.name);
-  assert.equal(tools.length, 44);
+  assert.equal(tools.length, 45);
   assert.equal(new Set(names).size, names.length);
   for (const tool of tools) {
     assert.match(tool.name, /^atrium_[a-z_]+$/);
@@ -1979,7 +1979,7 @@ test('tool catalogue: the batch 1b tools reach the service with the right scopes
       ['setColumnLock', false],
     ],
   );
-  assert.equal(tools.length, 44);
+  assert.equal(tools.length, 45);
 });
 
 test('findItems pages through equal positions and unknown groups without gaps or repeats', async () => {
@@ -2410,7 +2410,7 @@ test('tool catalogue: batch 1c PR 1 tools, scopes, annotations and schemas', asy
   );
   assert.equal(byName('atrium_list_boards').inputSchema.state.safeParse('trash').success, false);
   assert.equal(byName('atrium_rename_board').inputSchema.name.safeParse('').success, false);
-  assert.equal(tools.length, 44);
+  assert.equal(tools.length, 45);
 });
 
 // ---- templates (batch 1c PR 2) ----------------------------------------------------------------
@@ -2431,7 +2431,7 @@ test('tool catalogue: batch 1c PR 2 tools reach the service', async () => {
     byName('atrium_create_board').inputSchema.templateId.safeParse('a/b').success,
     false,
   );
-  assert.equal(tools.length, 44);
+  assert.equal(tools.length, 45);
 });
 
 const savedTemplate = (more = {}) => ({
@@ -2662,4 +2662,283 @@ test('built-in templates keep their storable sample values', async () => {
       if (p.startsWith(`boards/${created.id}/items/`)) stored += Object.keys(v.data.values).length;
     assert.equal(stored, expected, `${t.id} dropped sample values`);
   }
+});
+
+// ---- move an item to another board (batch 1c PR 3) --------------------------------------------
+
+const moveSetup = ({
+  roles,
+  srcAccess,
+  dstAccess,
+  dstMore = {},
+  srcMore = {},
+  extra = {},
+} = {}) => {
+  const src = boardDoc(WS, srcAccess ?? { [ME]: 'owner' }, {
+    name: 'Src',
+    columns: [
+      { id: 't1', type: 'text', title: 'Note', position: 'a0', settings: {} },
+      {
+        id: 's1',
+        type: 'status',
+        title: 'Stage',
+        position: 'a1',
+        settings: {
+          labels: [
+            { index: 0, label: 'Todo', color: 'red' },
+            { index: 1, label: 'Done', color: 'green' },
+          ],
+        },
+      },
+      { id: 'n1', type: 'numbers', title: 'Cost', position: 'a2', settings: {} },
+      { id: 'f1', type: 'files', title: 'Docs', position: 'a3', settings: {} },
+    ],
+    ...srcMore,
+  });
+  const dst = boardDoc(WS, dstAccess ?? { [ME]: 'owner' }, {
+    name: 'Dst',
+    groups: [
+      { id: 'gz', title: 'Zed', color: '#579bfc', position: 'a1' },
+      { id: 'ga', title: 'Alpha', color: '#579bfc', position: 'a0' },
+    ],
+    columns: [
+      { id: 't9', type: 'text', title: 'note', position: 'a0', settings: {} },
+      {
+        id: 's1',
+        type: 'status',
+        title: 'Other',
+        position: 'a1',
+        settings: { labels: [{ index: 0, label: 'Todo', color: 'red' }] },
+      },
+    ],
+    ...dstMore,
+  });
+  return setup({
+    roles,
+    extra: {
+      'boards/src': src,
+      'boards/dst': dst,
+      'boards/src/items/i1': {
+        name: 'Travels',
+        groupId: 'g1',
+        position: 'a0',
+        parentItemId: null,
+        values: { t1: 'hi', s1: { index: 0 }, n1: 5 },
+        state: 'active',
+        deletedAt: null,
+        createdAt: NOW,
+        createdBy: ME,
+        updatedAt: NOW,
+        updatedBy: ME,
+      },
+      ...extra,
+    },
+  });
+};
+
+test('moveItemToBoard maps by id or title, copies and retires in one commit', async () => {
+  const { service, client } = moveSetup();
+  const dry = await service.moveItemToBoard({
+    boardId: 'src',
+    itemId: 'i1',
+    targetBoardId: 'dst',
+    dryRun: true,
+  });
+  assert.equal(dry.dryRun, true);
+  assert.equal(dry.newItemId, null);
+  assert.equal(client.commits.length, 0);
+  assert.equal(dry.group, 'Alpha');
+  assert.deepEqual(dry.copied, [
+    { from: 'Note', to: 'note' },
+    { from: 'Stage', to: 'Other' },
+  ]);
+  assert.deepEqual(dry.dropped, [{ column: 'Cost', reason: 'no matching column' }]);
+  await assert.rejects(
+    service.moveItemToBoard({ boardId: 'src', itemId: 'i1', targetBoardId: 'dst' }),
+    /Not copied: Cost \(no matching column\)/,
+  );
+  assert.equal(client.commits.length, 0);
+  const moved = await service.moveItemToBoard({
+    boardId: 'src',
+    itemId: 'i1',
+    targetBoardId: 'dst',
+    allowDataLoss: true,
+  });
+  assert.equal(client.commits.length, 1);
+  const copy = client.docs.get(`boards/dst/items/${moved.newItemId}`).data;
+  assert.equal(copy.name, 'Travels');
+  assert.equal(copy.groupId, 'ga');
+  assert.deepEqual(copy.values, { t9: 'hi', s1: { index: 0 } });
+  assert.equal(copy.createdBy, ME);
+  assert.equal(client.docs.get('boards/src/items/i1').data.state, 'deleted');
+});
+
+test('moveItemToBoard maps labels by text, drops missing ones and never creates labels', async () => {
+  const { service } = moveSetup();
+  await service.updateItem({ boardId: 'src', itemId: 'i1', values: { Stage: 'Done' } });
+  const dry = await service.moveItemToBoard({
+    boardId: 'src',
+    itemId: 'i1',
+    targetBoardId: 'dst',
+    dryRun: true,
+  });
+  assert.ok(
+    dry.dropped.some((d) => d.column === 'Stage' && d.reason === 'label "Done" not on the target'),
+  );
+  assert.equal(dry.needsAllowDataLoss, true);
+});
+
+test('moveItemToBoard drops server-managed, dependency, locked and derived cells, and the description', async () => {
+  const { service, client } = moveSetup({
+    dstAccess: { [ME]: 'editor' },
+    dstMore: {
+      columnLocks: ['t9'],
+    },
+  });
+  const item = client.docs.get('boards/src/items/i1');
+  item.data.values.f1 = { files: [{ id: 'a' }, { id: 'b' }] };
+  item.data.description = { type: 'doc', content: [] };
+  const dry = await service.moveItemToBoard({
+    boardId: 'src',
+    itemId: 'i1',
+    targetBoardId: 'dst',
+    dryRun: true,
+  });
+  const reasons = Object.fromEntries(dry.dropped.map((d) => [d.column, d.reason]));
+  assert.equal(reasons.Docs, 'cannot be copied yet');
+  assert.match(reasons.Note, /locked/);
+  assert.equal(reasons.description, 'not copied');
+  await assert.rejects(
+    service.moveItemToBoard({ boardId: 'src', itemId: 'i1', targetBoardId: 'dst' }),
+    /Files on the item: 2/,
+  );
+});
+
+test('moveItemToBoard counts updates, takes subitems along and places the item last', async () => {
+  const sub = (name, position) => ({
+    name,
+    groupId: 'g1',
+    position,
+    parentItemId: 'i1',
+    values: { t1: name },
+    state: 'active',
+    deletedAt: null,
+    createdAt: NOW,
+    createdBy: ME,
+    updatedAt: NOW,
+    updatedBy: ME,
+  });
+  const { service, client } = moveSetup({
+    extra: {
+      'boards/src/items/s1': sub('One', 'a0'),
+      'boards/src/items/s2': sub('Two', 'a1'),
+      'boards/src/items/i1/updates/u1': { content: 'hi' },
+      'boards/dst/items/x': {
+        name: 'Existing',
+        groupId: 'gz',
+        position: 'a5',
+        parentItemId: null,
+        values: {},
+        state: 'active',
+        deletedAt: null,
+        createdAt: NOW,
+        createdBy: ME,
+        updatedAt: NOW,
+        updatedBy: ME,
+      },
+    },
+  });
+  const dry = await service.moveItemToBoard({
+    boardId: 'src',
+    itemId: 'i1',
+    targetBoardId: 'dst',
+    group: 'zed',
+    dryRun: true,
+  });
+  assert.equal(dry.subitems, 2);
+  assert.equal(dry.updatesLeftOnSource, 1);
+  const moved = await service.moveItemToBoard({
+    boardId: 'src',
+    itemId: 'i1',
+    targetBoardId: 'dst',
+    group: 'gz',
+    allowDataLoss: true,
+  });
+  const copy = client.docs.get(`boards/dst/items/${moved.newItemId}`).data;
+  assert.ok(copy.position > 'a5');
+  const kids = [...client.docs.entries()].filter(
+    ([path, v]) => path.startsWith('boards/dst/items/') && v.data.parentItemId === moved.newItemId,
+  );
+  assert.deepEqual(kids.map(([, v]) => v.data.name).sort(), ['One', 'Two']);
+  assert.equal(client.docs.get('boards/src/items/s1').data.state, 'deleted');
+  assert.equal(client.docs.get('boards/src/items/s2').data.state, 'deleted');
+  assert.equal(client.commits.at(-1).length, 6);
+});
+
+test('moveItemToBoard refuses subitems, the same board, other workspaces, viewers and too many subitems', async () => {
+  const sub = {
+    name: 'One',
+    groupId: 'g1',
+    position: 'a0',
+    parentItemId: 'i1',
+    values: {},
+    state: 'active',
+    deletedAt: null,
+    createdAt: NOW,
+    createdBy: ME,
+    updatedAt: NOW,
+    updatedBy: ME,
+  };
+  const { service } = moveSetup({ extra: { 'boards/src/items/s1': sub } });
+  const args = { boardId: 'src', itemId: 'i1', targetBoardId: 'dst' };
+  await assert.rejects(service.moveItemToBoard({ ...args, itemId: 's1' }), /Move its parent/);
+  await assert.rejects(
+    service.moveItemToBoard({ ...args, targetBoardId: 'src' }),
+    /different board/,
+  );
+  await assert.rejects(service.moveItemToBoard({ ...args, group: 'nope' }), /No group/);
+  await assert.rejects(service.moveItemToBoard({ ...args, itemId: 'zz' }), /not found/);
+
+  const other = moveSetup({
+    roles: { [ME]: 'owner' },
+    extra: {
+      'workspaces/ws2': workspaceDoc({ [ME]: 'owner' }),
+      'boards/far': boardDoc('ws2', { [ME]: 'owner' }),
+    },
+  });
+  await assert.rejects(
+    other.service.moveItemToBoard({ ...args, targetBoardId: 'far' }),
+    /another workspace/,
+  );
+
+  const viewer = moveSetup({ dstAccess: { [ME]: 'viewer' } });
+  await assert.rejects(
+    viewer.service.moveItemToBoard(args),
+    /Board "dst" was not found in your workspaces/,
+  );
+  const none = moveSetup({ dstAccess: { [OTHER]: 'owner' } });
+  await assert.rejects(none.service.moveItemToBoard(args), /not found/);
+  const srcViewer = moveSetup({ srcAccess: { [ME]: 'viewer' } });
+  await assert.rejects(srcViewer.service.moveItemToBoard(args), /only view/);
+
+  const extra = {};
+  for (let i = 0; i < 201; i += 1) extra[`boards/src/items/k${i}`] = { ...sub };
+  const big = moveSetup({ extra });
+  await assert.rejects(big.service.moveItemToBoard(args), /201 subitems/);
+});
+
+test('tool catalogue: atrium_move_item_to_board is a destructive write that reaches the service', async () => {
+  const calls = [];
+  const spy = new Proxy({}, { get: (_, key) => async (args) => calls.push([key, args]) });
+  const tools = defineTools(spy);
+  const tool = tools.find((t) => t.name === 'atrium_move_item_to_board');
+  assert.equal(tool.scope, 'write');
+  assert.equal(tool.annotations.destructiveHint, true);
+  await tool.run({ boardId: 'a', itemId: 'b', targetBoardId: 'c', dryRun: true });
+  assert.deepEqual(calls[0], [
+    'moveItemToBoard',
+    { boardId: 'a', itemId: 'b', targetBoardId: 'c', dryRun: true },
+  ]);
+  assert.equal(tool.inputSchema.targetBoardId.safeParse('a/b').success, false);
+  assert.equal(tools.length, 45);
 });
