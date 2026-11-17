@@ -88,6 +88,8 @@ function DocView({
   const lookup = useUserLookup(doc.workspaceId);
   const body = useDocBody(doc.id);
   const mentions = useMemo(() => docMentionSource(doc.id), [doc.id]);
+  // Always on: viewers' editors need the scope to load the images (a read-only editor ignores paste).
+  const images = useMemo(() => ({ docId: doc.id }), [doc.id]);
   const deleted = doc.state === 'deleted';
   const openDialog = useUiStore((s) => s.openDialog);
 
@@ -212,6 +214,7 @@ function DocView({
                 onEditor={handleEditor}
                 buildValue={buildDocValue}
                 mentions={mentions}
+                images={images}
                 placeholder="Start writing..."
                 expandLabel="Doc"
                 canExpand={false}

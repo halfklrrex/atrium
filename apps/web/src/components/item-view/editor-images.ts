@@ -1,7 +1,8 @@
 import { Image, type ImageOptions } from '@tiptap/extension-image';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Extension, mergeAttributes, Node, ReactNodeViewRenderer } from '@tiptap/react';
-import { uploadDescriptionImages, type ImageContext } from './description-image-upload';
+import { imageContextOf, type ImageContext } from './description-image-url';
+import { uploadDescriptionImages } from './description-image-upload';
 import { ImageNodeView, ImageUploadNodeView } from './ImageNodeView';
 
 export const IMAGE_MIN_WIDTH = 25;
@@ -14,7 +15,14 @@ export function normalizeImageWidth(value: unknown): number | null {
   return Math.min(IMAGE_MAX_WIDTH, Math.max(IMAGE_MIN_WIDTH, Math.round(n)));
 }
 
-export type DescriptionImageOptions = ImageOptions & ImageContext;
+/** The scope options: `boardId` + `itemId` for a description, or `docId` for a doc. */
+export interface ImageScopeOptions {
+  boardId: string;
+  itemId: string;
+  docId?: string;
+}
+
+export type DescriptionImageOptions = ImageOptions & ImageScopeOptions;
 
 /**
  * A description image. The doc stores `{ fileId, alt, width }` and never a `src`: the node view
@@ -22,7 +30,7 @@ export type DescriptionImageOptions = ImageOptions & ImageContext;
  */
 export const DescriptionImage = Image.extend<DescriptionImageOptions>({
   addOptions() {
-    return { ...this.parent?.(), boardId: '', itemId: '' } as DescriptionImageOptions;
+    return { ...this.parent?.(), boardId: '', itemId: '', docId: '' } as DescriptionImageOptions;
   },
 
   addAttributes() {
@@ -101,15 +109,15 @@ const imageFilesOf = (files: FileList | null | undefined): File[] =>
   Array.from(files ?? []).filter((file) => file.type.startsWith('image/'));
 
 /** Pasting or dropping image files uploads them as description images. */
-export const ImageFileHandlers = Extension.create<ImageContext>({
+export const ImageFileHandlers = Extension.create<ImageScopeOptions>({
   name: 'imageFileHandlers',
 
   addOptions() {
-    return { boardId: '', itemId: '' };
+    return { boardId: '', itemId: '', docId: '' };
   },
 
   addProseMirrorPlugins() {
-    const ctx = () => ({ boardId: this.options.boardId, itemId: this.options.itemId });
+    const ctx = (): ImageContext => imageContextOf(this.options);
     return [
       new Plugin({
         key: new PluginKey('atriumImageFiles'),

@@ -31,6 +31,8 @@ export interface EditorExtensionOptions {
   /** The item the description belongs to: image uploads and downloads are scoped to it. */
   boardId?: string;
   itemId?: string;
+  /** The doc the images belong to (instead of `boardId` and `itemId`). */
+  docId?: string;
   /** Image paste and drop handling; default true. Docs without an image adapter turn it off. */
   imagesEnabled?: boolean;
   /** Empty-editor hint; default "Add a description...". */
@@ -52,7 +54,11 @@ export function createEditorExtensions(
   controller: SlashController,
   options: EditorExtensionOptions = {},
 ) {
-  const image = { boardId: options.boardId ?? '', itemId: options.itemId ?? '' };
+  const image = {
+    boardId: options.boardId ?? '',
+    itemId: options.itemId ?? '',
+    docId: options.docId ?? '',
+  };
   return [
     StarterKit.configure({ link: { openOnClick: false } }),
     TaskList,

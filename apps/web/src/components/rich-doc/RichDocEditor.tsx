@@ -113,13 +113,15 @@ export function RichDocEditor({
   const emojiSuggest = useMemo(() => new SuggestController<EmojiItem>(), []);
   const mentionSuggest = useMemo(() => new MentionController(), []);
   const imagesOn = images !== undefined;
-  const imageBoardId = images?.boardId;
-  const imageItemId = images?.itemId;
+  const imageBoardId = images && 'boardId' in images ? images.boardId : undefined;
+  const imageItemId = images && 'itemId' in images ? images.itemId : undefined;
+  const imageDocId = images && 'docId' in images ? images.docId : undefined;
   const extensions = useMemo(
     () =>
       createEditorExtensions(slash, {
         boardId: imageBoardId,
         itemId: imageItemId,
+        docId: imageDocId,
         imagesEnabled: imagesOn,
         placeholder,
         emojiController: emojiSuggest,
@@ -127,7 +129,16 @@ export function RichDocEditor({
         // true to false after mount (the board role arrives late). A read-only editor never types.
         mentionController: mentionSuggest,
       }),
-    [slash, imageBoardId, imageItemId, imagesOn, placeholder, emojiSuggest, mentionSuggest],
+    [
+      slash,
+      imageBoardId,
+      imageItemId,
+      imageDocId,
+      imagesOn,
+      placeholder,
+      emojiSuggest,
+      mentionSuggest,
+    ],
   );
   const shellRef = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);

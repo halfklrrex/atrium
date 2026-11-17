@@ -15,6 +15,7 @@ import { getStorage } from 'firebase-admin/storage';
 import type { BootstrapTx } from './bootstrap';
 import type { FileStorageBucket, FileStorageTx, StorageFileMetadata } from './file-storage';
 import type { DescriptionImageTx } from './description-images';
+import type { DocImageTx } from './doc-images';
 import type { EntitySharingTx } from './entity-sharing';
 import type { UpdateAttachmentTx } from './update-attachments';
 import { isListableItem, type PostFilesRow, type UpdateFilesStore } from './update-files';
@@ -116,6 +117,37 @@ export function adminDescriptionImageTx(firestore: Firestore, tx: Transaction): 
     setDescriptionImage(boardId, itemId, fileId, image) {
       const itemRef = firestore.collection('boards').doc(boardId).collection('items').doc(itemId);
       tx.update(itemRef, new FieldPath('descriptionImages', fileId), image);
+    },
+  };
+}
+
+/** Adapts an Admin SDK transaction to the doc-image callables' narrow interface. */
+export function adminDocImageTx(firestore: Firestore, tx: Transaction): DocImageTx {
+  const docRef = (id: string) => firestore.collection('docs').doc(id);
+  const imagesRef = (id: string) => docRef(id).collection('content').doc('images');
+  return {
+    async getDoc(docId) {
+      const snap = await tx.get(docRef(docId));
+      if (!snap.exists) return null;
+      return {
+        workspaceId: String(snap.get('workspaceId') ?? ''),
+        kind: snap.get('kind'),
+        access: (snap.get('access') as Record<string, BoardRole> | undefined) ?? {},
+        state: snap.get('state') ?? 'active',
+      };
+    },
+    async getWorkspaceRoles(workspaceId) {
+      const snap = await tx.get(firestore.collection('workspaces').doc(workspaceId));
+      if (!snap.exists) return null;
+      return (snap.get('roles') as Record<string, WorkspaceRole> | undefined) ?? {};
+    },
+    async getImages(docId) {
+      const snap = await tx.get(imagesRef(docId));
+      return snap.exists ? snap.data() : undefined;
+    },
+    setImage(docId, fileId, image) {
+      // set + merge creates the map document on the first image and only touches this key.
+      tx.set(imagesRef(docId), { [fileId]: image }, { merge: true });
     },
   };
 }
