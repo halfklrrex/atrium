@@ -256,6 +256,34 @@ export interface McpService {
   listTeams(args?: {
     workspaceId?: string;
   }): Promise<{ workspaceId: string; teams: TeamSummary[] }>;
+  createTeam(args: {
+    workspaceId?: string;
+    name: string;
+    color?: string;
+    members?: string[];
+  }): Promise<{ workspaceId: string; team: TeamSummary }>;
+  updateTeam(args: {
+    workspaceId?: string;
+    team: string;
+    name?: string;
+    color?: string;
+    addMembers?: string[];
+    removeMembers?: string[];
+  }): Promise<{ workspaceId: string; team: TeamSummary; droppedFormerMembers?: string[] }>;
+  deleteTeam(args: {
+    workspaceId?: string;
+    team: string;
+    dryRun?: boolean;
+    allowDataLoss?: boolean;
+  }): Promise<{
+    workspaceId: string;
+    team: TeamSummary;
+    assignedItems: number;
+    boards: { boardId: string; name: string; items: number }[];
+    needsAllowDataLoss: boolean;
+    dryRun: boolean;
+    deleted: boolean;
+  }>;
   /** Startup check: the user exists (and is a member of the filter workspace, when set). */
   verify(): Promise<{ uid: string; workspaces: WorkspaceSummary[] }>;
 }

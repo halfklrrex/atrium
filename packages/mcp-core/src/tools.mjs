@@ -10,6 +10,7 @@ import { boardTools } from './tools/boards.mjs';
 import { itemTools } from './tools/items.mjs';
 import { memberTools } from './tools/members.mjs';
 import { myWorkTools } from './tools/mywork.mjs';
+import { teamTools } from './tools/teams.mjs';
 import { updateTools } from './tools/updates.mjs';
 
 /** One function per domain file: `(service) => tool[]`. */
@@ -19,6 +20,7 @@ export const DOMAINS = {
   updates: updateTools,
   members: memberTools,
   mywork: myWorkTools,
+  teams: teamTools,
 };
 
 /** The registration order of the tools that existed before the split (a parity test pins it). */

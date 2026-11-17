@@ -25,6 +25,7 @@ import { boardsService } from './service/boards.mjs';
 import { itemsService } from './service/items.mjs';
 import { membersService } from './service/members.mjs';
 import { myWorkService } from './service/mywork.mjs';
+import { teamsService } from './service/teams.mjs';
 import { updatesService } from './service/updates.mjs';
 
 export { MAX_ITEMS_PER_CALL };
@@ -425,6 +426,7 @@ export function createService({ client, actor, now = () => new Date() }) {
     ...updatesService(helpers),
     ...membersService(helpers),
     ...myWorkService(helpers),
+    ...teamsService(helpers),
     async verify() {
       const profile = await client.getDoc(`users/${uid}`);
       if (!profile) throw new McpUserError(`User "${uid}" does not exist in Atrium.`);
