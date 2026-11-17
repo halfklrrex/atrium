@@ -1,9 +1,10 @@
 import { canEditBoard, canManageBoard, resolveBoardRole } from '@atrium/shared';
-import { Loader } from '@vibe/core';
+import { Button, Loader } from '@vibe/core';
 import type { Editor } from '@tiptap/react';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
+import { useUiStore } from '../AppShell/ui-store';
 import { useFolders, useUserLookup, useWorkspace } from '../../data';
 import { useDocMeta } from '../../data/docs';
 import { formatUpdated } from '../../lib/format';
@@ -88,6 +89,7 @@ function DocView({
   const body = useDocBody(doc.id);
   const mentions = useMemo(() => docMentionSource(doc.id), [doc.id]);
   const deleted = doc.state === 'deleted';
+  const openDialog = useUiStore((s) => s.openDialog);
 
   // A new doc opens with its title ready to type over.
   const [editingTitle, setEditingTitle] = useState(
@@ -143,6 +145,15 @@ function DocView({
         </nav>
         <div className={styles.headerActions}>
           <PresenceAvatars docId={doc.id} />
+          {isOwner && !deleted ? (
+            <Button
+              kind="secondary"
+              size="small"
+              onClick={() => openDialog({ type: 'shareDoc', docId: doc.id })}
+            >
+              Share
+            </Button>
+          ) : null}
           <DocMenu doc={doc} size="small" openDocId={doc.id} />
         </div>
       </header>

@@ -7,6 +7,7 @@ const m = vi.hoisted(() => ({
   setDoc: vi.fn(),
   update: vi.fn(),
   getServer: vi.fn(),
+  setAccess: vi.fn(),
   ids: 0,
   wheres: [] as unknown[][],
 }));
@@ -40,6 +41,7 @@ vi.mock('firebase/firestore', async (importOriginal) => {
     getDocFromServer: m.getServer,
   };
 });
+vi.mock('../lib/callables', () => ({ docSharingCalls: { setAccess: m.setAccess } }));
 vi.mock('../lib/firebase', () => ({ db: {}, auth: { currentUser: { uid: 'u1' } } }));
 
 import {
@@ -234,5 +236,17 @@ describe('saveBody', () => {
     await expect(docWrites.readBodyFromServer('d1')).resolves.toBe(stored);
     m.getServer.mockResolvedValueOnce({ exists: () => false, data: () => undefined });
     await expect(docWrites.readBodyFromServer('d1')).resolves.toBeNull();
+  });
+
+  it('sends sharing changes through the setDocAccess callable, never a direct write', async () => {
+    m.setAccess.mockResolvedValue({ kind: 'private', access: {} });
+    await docWrites.setDocSharing('d1', { kind: 'private' });
+    await docWrites.setDocSharing('d1', { person: { uid: 'u2', role: 'viewer' } });
+    expect(m.setAccess).toHaveBeenNthCalledWith(1, { docId: 'd1', kind: 'private' });
+    expect(m.setAccess).toHaveBeenNthCalledWith(2, {
+      docId: 'd1',
+      person: { uid: 'u2', role: 'viewer' },
+    });
+    expect(m.update).not.toHaveBeenCalled();
   });
 });

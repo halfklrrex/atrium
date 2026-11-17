@@ -11,6 +11,7 @@ export type DialogState =
   | { type: 'newDoc'; workspaceId: string; folderId: string | null; kind?: BoardKind }
   | { type: 'dashboardBoards'; dashboardId: string }
   | { type: 'shareDashboard'; dashboardId: string }
+  | { type: 'shareDoc'; docId: string }
   | {
       type: 'folder';
       workspaceId: string;

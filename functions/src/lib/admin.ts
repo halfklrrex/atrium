@@ -15,6 +15,7 @@ import { getStorage } from 'firebase-admin/storage';
 import type { BootstrapTx } from './bootstrap';
 import type { FileStorageBucket, FileStorageTx, StorageFileMetadata } from './file-storage';
 import type { DescriptionImageTx } from './description-images';
+import type { EntitySharingTx } from './entity-sharing';
 import type { UpdateAttachmentTx } from './update-attachments';
 import { isListableItem, type PostFilesRow, type UpdateFilesStore } from './update-files';
 import type { ColumnActionsTx } from './column-actions';
@@ -530,6 +531,37 @@ export function adminDashboardSharingTx(firestore: Firestore, tx: Transaction): 
     },
     writeSharing(dashboardId, next, updatedBy) {
       tx.update(dashboardRef(dashboardId), {
+        kind: next.kind,
+        access: next.access,
+        accessUids: Object.keys(next.access),
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy,
+      });
+    },
+  };
+}
+
+/** Adapts an Admin SDK transaction to the doc sharing callable's narrow interface. */
+export function adminDocSharingTx(firestore: Firestore, tx: Transaction): EntitySharingTx {
+  const docRef = (id: string) => firestore.collection('docs').doc(id);
+  return {
+    async getEntity(docId) {
+      const snap = await tx.get(docRef(docId));
+      if (!snap.exists) return null;
+      return {
+        workspaceId: String(snap.get('workspaceId') ?? ''),
+        kind: snap.get('kind'),
+        access: (snap.get('access') as Record<string, BoardRole> | undefined) ?? {},
+        state: snap.get('state') ?? 'active',
+      };
+    },
+    async getWorkspaceRoles(workspaceId) {
+      const snap = await tx.get(firestore.collection('workspaces').doc(workspaceId));
+      if (!snap.exists) return null;
+      return (snap.get('roles') as Record<string, WorkspaceRole> | undefined) ?? {};
+    },
+    writeSharing(docId, next, updatedBy) {
+      tx.update(docRef(docId), {
         kind: next.kind,
         access: next.access,
         accessUids: Object.keys(next.access),

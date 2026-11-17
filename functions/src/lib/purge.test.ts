@@ -31,6 +31,8 @@ describe('purgeTrashLogic', () => {
       purgeBoard: async (id) => {
         purgedBoards.push(id);
       },
+      findDeletedDocs: async () => [],
+      purgeDoc: async () => {},
       deleteItems: async (items) => {
         deletedItems.push(...items.map((it) => it.id));
         return items.length;
@@ -62,6 +64,8 @@ describe('purgeTrashLogic', () => {
       findDeletedBoards: async () => [],
       findDeletedItems: async () => [{ id: 'i1', boardId: 'b1' }],
       purgeBoard: async () => {},
+      findDeletedDocs: async () => [],
+      purgeDoc: async () => {},
       deleteItems: async () => {
         order.push('docs');
         return 1;
@@ -84,6 +88,8 @@ describe('purgeTrashLogic', () => {
       purgeBoard: async () => {
         calledPurgeBoard = true;
       },
+      findDeletedDocs: async () => [],
+      purgeDoc: async () => {},
       deleteItems: async () => {
         calledDeleteItems = true;
         return 0;
@@ -96,6 +102,53 @@ describe('purgeTrashLogic', () => {
     expect(result.itemsPurged).toBe(0);
     expect(calledPurgeBoard).toBe(false);
     expect(calledDeleteItems).toBe(false);
+  });
+});
+
+describe('purgeTrashLogic: docs', () => {
+  it('clears the doc Storage prefix, then recursively deletes each expired doc', async () => {
+    const order: string[] = [];
+    const cutoffs: Date[] = [];
+    const store: PurgeTrashStore = {
+      findDeletedBoards: async () => [],
+      findDeletedItems: async () => [],
+      purgeBoard: async () => {},
+      findDeletedDocs: async (cutoff) => {
+        cutoffs.push(cutoff);
+        return [{ id: 'doc-1' }, { id: 'doc-2' }];
+      },
+      purgeDoc: async (id) => {
+        order.push(`purge:${id}`);
+      },
+      deleteItems: async () => 0,
+      deleteStoragePrefix: async (prefix) => {
+        order.push(prefix);
+      },
+    };
+    const cutoff = new Date();
+    const result = await purgeTrashLogic(store, cutoff);
+    expect(result).toEqual({ boardsPurged: 0, itemsPurged: 0, docsPurged: 2 });
+    expect(cutoffs).toEqual([cutoff]);
+    expect(order).toEqual(['docs/doc-1/', 'purge:doc-1', 'docs/doc-2/', 'purge:doc-2']);
+  });
+
+  it('keeps the doc when Storage fails, so the next run retries', async () => {
+    const purged: string[] = [];
+    const store: PurgeTrashStore = {
+      findDeletedBoards: async () => [],
+      findDeletedItems: async () => [],
+      purgeBoard: async () => {},
+      findDeletedDocs: async () => [{ id: 'doc-1' }],
+      purgeDoc: async (id) => {
+        purged.push(id);
+      },
+      deleteItems: async () => 0,
+      deleteStoragePrefix: async () => {
+        throw new Error('storage down');
+      },
+    };
+    await expect(purgeTrashLogic(store, new Date())).rejects.toThrow('storage down');
+    expect(purged).toEqual([]);
   });
 });
 
