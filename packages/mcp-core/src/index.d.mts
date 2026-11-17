@@ -205,6 +205,25 @@ export interface McpService {
     subitems: { name: string; values?: Record<string, unknown> }[];
   }): Promise<unknown>;
   duplicateItem(args: { boardId: string; itemId: string }): Promise<unknown>;
+  moveItemToBoard(args: {
+    boardId: string;
+    itemId: string;
+    targetBoardId: string;
+    group?: string;
+    dryRun?: boolean;
+    allowDataLoss?: boolean;
+  }): Promise<{
+    newItemId: string | null;
+    targetBoardId: string;
+    group: string;
+    copied: { from: string; to: string }[];
+    dropped: { column: string; reason: string }[];
+    subitems: number;
+    updatesLeftOnSource: number;
+    sourceState: 'deleted';
+    dryRun: boolean;
+    needsAllowDataLoss: boolean;
+  }>;
   getActivity(args: { boardId: string; itemId?: string; limit?: number }): Promise<unknown>;
   listMembers(args?: {
     boardId?: string;
@@ -241,7 +260,7 @@ export interface ToolDefinition {
   run(args: Record<string, unknown>): Promise<unknown>;
 }
 
-/** The tool catalogue bound to a service (44 tools). */
+/** The tool catalogue bound to a service (45 tools). */
 export declare function defineTools(service: McpService): ToolDefinition[];
 
 // ---- lower-level helpers (used by tests and the hosted server's own checks) ----------------------

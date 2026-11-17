@@ -370,6 +370,31 @@ export function defineTools(service) {
       inputSchema: { boardId: id, itemId: id },
       run: (args) => service.duplicateItem(args),
     }),
+    change({
+      name: 'atrium_move_item_to_board',
+      description:
+        'Moves an item (with its active subitems) to another board of the same workspace by COPYING it: the new item has a new id and number and is created now by you, ' +
+        'and the original (with its updates and files) goes to the trash, so atrium_restore_item brings it back. Values are mapped to the target by column id, else by title and type; ' +
+        'status, dropdown and tags map by label text and never create labels. Calculated, files, time tracking, button and dependency cells, ' +
+        'unmatched columns and the description are not copied. If anything would be left behind (or the item has updates) the call refuses until allowDataLoss is true; ' +
+        'dryRun previews the report without writing. Board automations on the target see a new item. Needs the editor role on both boards.',
+      inputSchema: {
+        boardId: id,
+        itemId: id,
+        targetBoardId: id,
+        group: ref
+          .optional()
+          .describe("Target group id or title; default the target's first group."),
+        dryRun: z.boolean().optional().describe('Default false. Preview only; nothing is written.'),
+        allowDataLoss: z
+          .boolean()
+          .optional()
+          .describe(
+            'Default false. Needed when the report lists dropped cells or the item has updates.',
+          ),
+      },
+      run: (args) => service.moveItemToBoard(args),
+    }),
     read({
       name: 'atrium_get_activity',
       description:

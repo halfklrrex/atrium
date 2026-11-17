@@ -56,6 +56,7 @@ import {
 } from './description.mjs';
 
 export const MAX_ITEMS_PER_CALL = 50;
+const MAX_MOVED_SUBITEMS = 200;
 
 /** Milliseconds of a stored timestamp (Date, Firestore timestamp or ISO string). */
 const millis = (value) =>
@@ -91,6 +92,53 @@ function labelSummary(column) {
  *   read and write is done as, and optionally the one workspace they may touch.
  * @param {() => Date} [options.now]
  */
+
+const norm = (text) => String(text).trim().toLowerCase();
+
+/** The label texts a status, dropdown or tags cell shows, or `null` for other types. */
+function labelTexts(column, value) {
+  const s = column.settings ?? {};
+  if (column.type === 'status') {
+    const found = (s.labels ?? []).find((l) => l.index === value.index);
+    return [found ? found.label : null];
+  }
+  if (column.type === 'dropdown') {
+    return (value.ids ?? []).map((id) => (s.labels ?? []).find((l) => l.id === id)?.label ?? null);
+  }
+  if (column.type === 'tags') {
+    return (value.tag_ids ?? []).map((id) => (s.tags ?? []).find((t) => t.id === id)?.name ?? null);
+  }
+  return null;
+}
+
+/**
+ * One cell, source column -> matching target column. Label columns map by label text (a label the
+ * target lacks is reported through `drop` and skipped); a vote cell keeps its voters; other types
+ * keep their native value. Returns the stored value, or `undefined` when nothing is left.
+ */
+function mapOneValue(from, to, value, ctx, drop) {
+  const texts = labelTexts(from, value);
+  if (texts) {
+    const known = (
+      to.type === 'tags' ? (to.settings?.tags ?? []) : (to.settings?.labels ?? [])
+    ).map((l) => norm(l.label ?? l.name));
+    const kept = [];
+    for (const text of texts) {
+      if (text === null) drop('label not found on the source column');
+      else if (!known.includes(norm(text))) drop(`label "${text}" not on the target`);
+      else kept.push(text);
+    }
+    if (kept.length === 0) return undefined;
+    return toValidCell(to, to.type === 'status' ? kept[0] : kept, ctx);
+  }
+  if (from.type === 'vote') {
+    const result = columnRegistry.validateCell(to, value);
+    if (!result.ok) throw new McpUserError(result.message);
+    return value;
+  }
+  return toValidCell(to, value, ctx);
+}
+
 export function createService({ client, actor, now = () => new Date() }) {
   const uid = assertId(actor?.uid, 'actor.uid');
   const workspaceFilter =
@@ -1690,6 +1738,206 @@ export function createService({ client, actor, now = () => new Date() }) {
       }
       await client.commit(writes);
       return { id, name: writes[0].data.name, subitems };
+    },
+
+    async moveItemToBoard({
+      boardId,
+      itemId,
+      targetBoardId,
+      group,
+      dryRun = false,
+      allowDataLoss = false,
+    }) {
+      const source = await loadBoard(boardId, 'edit');
+      assertId(targetBoardId, 'targetBoardId');
+      if (targetBoardId === boardId) {
+        throw new McpUserError('Pick a different board: the item is already on this one.');
+      }
+      const target = await loadBoard(targetBoardId, 'read');
+      // A viewer on the target reads as "not found", like a board outside the memberships.
+      if (!EDIT_ROLES.includes(target.role)) {
+        throw new McpUserError(`Board "${targetBoardId}" was not found in your workspaces.`);
+      }
+      if (target.workspaceId !== source.workspaceId) {
+        throw new McpUserError("Moving to another workspace isn't supported yet.");
+      }
+      assertId(itemId, 'itemId');
+      const meta = await client.getDocMeta(`boards/${boardId}/items/${itemId}`);
+      if (!meta) throw new McpUserError(`Item "${itemId}" was not found on this board.`);
+      const item = meta.data;
+      if (item.state !== 'active') throw new McpUserError(`Item "${itemId}" is ${item.state}.`);
+      if (item.parentItemId) {
+        throw new McpUserError('Move its parent instead: a subitem cannot be moved on its own.');
+      }
+      const targetGroup = group
+        ? findGroup(target.board, group)
+        : sortedByPosition(target.board.groups)[0];
+      if (!targetGroup) throw new McpUserError('The target board has no groups.');
+
+      const subs = await subitemDocs(boardId, itemId);
+      if (subs.length > MAX_MOVED_SUBITEMS) {
+        throw new McpUserError(
+          `The item has ${subs.length} subitems; moving more than ${MAX_MOVED_SUBITEMS} at once is not supported.`,
+        );
+      }
+
+      const ctx = await cellContext(target);
+      const dropped = [];
+      const copied = [];
+      const mapValues = (values = {}, fromColumns, toColumns, label) => {
+        const cells = {};
+        const used = new Set();
+        const drop = (column, reason) =>
+          dropped.push({ column: label ? `${label}: ${column.title}` : column.title, reason });
+        for (const column of fromColumns) {
+          const value = values[column.id];
+          if (value === undefined || value === null) continue;
+          if (columnRegistry.isDerived(column.type)) continue; // nothing is stored
+          if (isColumnValueEmpty(column.type, value)) continue;
+          if (columnRegistry.isServerManaged(column.type)) {
+            drop(column, 'cannot be copied yet');
+            continue;
+          }
+          if (column.type === 'dependency') {
+            drop(column, 'points at items of the source board');
+            continue;
+          }
+          let match = toColumns.find((c) => c.id === column.id && c.type === column.type);
+          if (!match) {
+            const same = toColumns.filter(
+              (c) => c.type === column.type && norm(c.title) === norm(column.title),
+            );
+            if (same.length === 1) match = same[0];
+          }
+          if (!match) {
+            drop(column, 'no matching column');
+            continue;
+          }
+          if (used.has(match.id)) {
+            drop(column, 'the matching column is already filled by another column');
+            continue;
+          }
+          if (match.migrating) {
+            drop(column, 'the matching column is changing type');
+            continue;
+          }
+          if ((target.board.columnLocks ?? []).includes(match.id) && target.role !== 'owner') {
+            drop(column, 'the matching column is locked to board owners');
+            continue;
+          }
+          try {
+            const mapped = mapOneValue(column, match, value, ctx, (reason) => drop(column, reason));
+            if (mapped === undefined) continue;
+            cells[match.id] = mapped;
+            used.add(match.id);
+            copied.push({
+              from: label ? `${label}: ${column.title}` : column.title,
+              to: match.title,
+            });
+          } catch (error) {
+            if (!(error instanceof McpUserError)) throw error;
+            drop(column, error.message);
+          }
+        }
+        return cells;
+      };
+
+      const itemCells = mapValues(
+        item.values,
+        columnsForItem(source.board, item),
+        columnsForItem(target.board, { parentItemId: null }),
+      );
+      const subCells = subs.map((sub) =>
+        mapValues(
+          sub.data.values,
+          columnsForItem(source.board, sub.data),
+          subitemColumnsOf(target.board),
+          `subitem "${sub.data.name}"`,
+        ),
+      );
+      if (item.description) dropped.push({ column: 'description', reason: 'not copied' });
+
+      const countUpdates = async (boardItemId, doc) =>
+        doc.updatesCount ??
+        (await client.listAllDocs(`boards/${boardId}/items/${boardItemId}/updates`)).length;
+      let updatesLeft = await countUpdates(itemId, item);
+      for (const sub of subs) updatesLeft += await countUpdates(sub.id, sub.data);
+      let files = 0;
+      for (const [, value] of Object.entries(item.values ?? {})) {
+        if (Array.isArray(value?.files)) files += value.files.length;
+      }
+
+      const needsAllowDataLoss = dropped.length > 0 || updatesLeft > 0;
+      const base = {
+        targetBoardId,
+        group: targetGroup.title,
+        copied,
+        dropped,
+        subitems: subs.length,
+        updatesLeftOnSource: updatesLeft,
+        sourceState: 'deleted',
+      };
+      if (dryRun) {
+        return { ...base, newItemId: null, dryRun: true, needsAllowDataLoss };
+      }
+      if (needsAllowDataLoss && !allowDataLoss) {
+        const lines = dropped.map((d) => `${d.column} (${d.reason})`);
+        throw new McpUserError(
+          'Moving would leave things behind. ' +
+            (lines.length ? `Not copied: ${lines.join('; ')}. ` : '') +
+            `Files on the item: ${files}. Updates on the item: ${updatesLeft} (they stay with the trashed original). ` +
+            'Call again with allowDataLoss: true to move anyway, or dryRun: true to preview.',
+        );
+      }
+
+      const topLevel = (await itemsOf(targetBoardId, ['groupId', 'position', 'parentItemId']))
+        .filter((d) => !d.data.parentItemId && d.data.groupId === targetGroup.id)
+        .map((d) => d.data.position);
+      const newId = newDocId();
+      const writes = [
+        {
+          op: 'set',
+          path: `boards/${targetBoardId}/items/${newId}`,
+          data: buildItemDoc({
+            uid,
+            name: item.name,
+            groupId: targetGroup.id,
+            position: positionAfter(topLevel),
+            values: itemCells,
+            now: now(),
+          }),
+          precondition: { exists: false },
+        },
+      ];
+      subs.forEach((sub, index) => {
+        writes.push({
+          op: 'set',
+          path: `boards/${targetBoardId}/items/${newDocId()}`,
+          data: buildItemDoc({
+            uid,
+            name: sub.data.name,
+            groupId: targetGroup.id,
+            position: sub.data.position,
+            values: subCells[index],
+            now: now(),
+            parentItemId: newId,
+          }),
+          precondition: { exists: false },
+        });
+      });
+      for (const [id, updateTime] of [
+        [itemId, meta.updateTime],
+        ...subs.map((s) => [s.id, s.updateTime]),
+      ]) {
+        writes.push({
+          op: 'update',
+          path: `boards/${boardId}/items/${id}`,
+          set: { state: 'deleted', deletedAt: now(), updatedAt: now(), updatedBy: uid },
+          precondition: { updateTime },
+        });
+      }
+      await client.commit(writes);
+      return { ...base, newItemId: newId, dryRun: false, needsAllowDataLoss };
     },
 
     async getActivity({ boardId, itemId, limit = 30 }) {
