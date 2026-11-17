@@ -1,5 +1,5 @@
-import { resolveBoardRole } from '@atrium/shared';
-import type { BoardDoc, MemberDoc, WorkspaceDoc } from '../../data/model';
+import { resolveBoardRole, type BoardAccessInput } from '@atrium/shared';
+import type { MemberDoc, WorkspaceDoc } from '../../data/model';
 
 /** A member offered in an @ list. */
 export interface MentionCandidate {
@@ -24,7 +24,7 @@ export function mentionCandidates({
   excludeUid,
   limit = MAX_MENTION_SUGGESTIONS,
 }: {
-  board: BoardDoc | null | undefined;
+  board: BoardAccessInput | null | undefined;
   workspace: WorkspaceDoc | null | undefined;
   members: readonly MemberDoc[];
   query: string;

@@ -5,6 +5,7 @@ import { nodeKey, type LeafNode, type TreeNode } from './boards';
 export type DropResult =
   | { type: 'board'; boardId: string; folderId: string | null; position: string }
   | { type: 'dashboard'; dashboardId: string; folderId: string | null; position: string }
+  | { type: 'doc'; docId: string; folderId: string | null; position: string }
   | { type: 'folder'; folderId: string; position: string };
 
 interface Located {
@@ -28,15 +29,17 @@ function locate(nodes: readonly TreeNode[]): Map<string, Located> {
 }
 
 /** Boards and dashboards share one position order inside a folder, so both count as leaves. */
-const leafId = (n: LeafNode): string => (n.type === 'board' ? n.board.id : n.dashboard.id);
 const leafOf = (n: LeafNode): { id: string; position: string } =>
-  n.type === 'board' ? n.board : n.dashboard;
+  n.type === 'board' ? n.board : n.type === 'dashboard' ? n.dashboard : n.doc;
+const leafId = (n: LeafNode): string => leafOf(n).id;
 const leavesOf = (nodes: readonly TreeNode[]): LeafNode[] =>
   nodes.filter((n): n is LeafNode => n.type !== 'folder');
 const leafDrop = (node: LeafNode, folderId: string | null, position: string): DropResult =>
   node.type === 'board'
     ? { type: 'board', boardId: node.board.id, folderId, position }
-    : { type: 'dashboard', dashboardId: node.dashboard.id, folderId, position };
+    : node.type === 'dashboard'
+      ? { type: 'dashboard', dashboardId: node.dashboard.id, folderId, position }
+      : { type: 'doc', docId: node.doc.id, folderId, position };
 const foldersOf = (nodes: readonly TreeNode[]) =>
   nodes.flatMap((n) => (n.type === 'folder' ? [n.folder] : []));
 

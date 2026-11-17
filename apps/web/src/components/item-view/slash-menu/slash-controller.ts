@@ -72,6 +72,12 @@ export interface SlashUi {
 /** The "/" menu's controller. */
 export class SlashController extends SuggestController<SlashItem> {
   ui: SlashUi = { openEmojiPicker: () => {}, pickImage: () => {} };
+  /** False for editors without an image adapter (docs before images ship): hides the entry. */
+  imagesEnabled = true;
+
+  setImagesEnabled(enabled: boolean) {
+    this.imagesEnabled = enabled;
+  }
 
   /** The editor shell says what the Image and Emoji entries do. */
   setUi(ui: SlashUi) {

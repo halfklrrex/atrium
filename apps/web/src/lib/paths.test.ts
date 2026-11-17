@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardPath, dashboardPath, idFromSlugParam, workspacePath } from './paths';
+import { boardPath, dashboardPath, docPath, idFromSlugParam, workspacePath } from './paths';
 
 describe('idFromSlugParam', () => {
   it('returns a bare id as is', () => {
@@ -25,6 +25,9 @@ describe('paths', () => {
     expect(boardPath({ id: 'b1', name: 'Q4 Roadmap' })).toBe('/boards/q4-roadmap-b1');
     expect(workspacePath({ id: 'w1', name: 'Café' }, '/trash')).toBe('/workspaces/cafe-w1/trash');
     expect(dashboardPath({ id: 'd1', name: 'Sales' })).toBe('/dashboards/sales-d1');
+    expect(docPath({ id: 'n1', name: 'Packing list' })).toBe('/docs/packing-list-n1');
+    expect(docPath({ id: 'n1', name: '!!' })).toBe('/docs/doc-n1');
+    expect(docPath({ id: 'n1' })).toBe('/docs/n1');
   });
   it('uses the fallback word for names without Latin letters', () => {
     expect(boardPath({ id: 'b1', name: '🚀' }, '/items/i1')).toBe('/boards/board-b1/items/i1');

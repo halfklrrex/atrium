@@ -159,10 +159,11 @@ export const SLASH_ITEMS: SlashItem[] = [
 ];
 
 /** Items whose title or keywords contain the query (case-insensitive); all of them when empty. */
-export function filterSlashItems(query: string): SlashItem[] {
+export function filterSlashItems(query: string, imagesEnabled = true): SlashItem[] {
   const q = query.trim().toLowerCase();
-  if (!q) return SLASH_ITEMS;
-  return SLASH_ITEMS.filter(
+  const all = imagesEnabled ? SLASH_ITEMS : SLASH_ITEMS.filter((item) => item.id !== 'image');
+  if (!q) return all;
+  return all.filter(
     (item) => item.title.toLowerCase().includes(q) || item.keywords.some((k) => k.includes(q)),
   );
 }

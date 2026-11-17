@@ -27,6 +27,7 @@ export function idFromSlugParam(value: string | undefined): string {
 export const boardParam = (b: DocRef): string => param(b, 'board');
 export const workspaceParam = (w: DocRef): string => param(w, 'workspace');
 export const dashboardParam = (d: DocRef): string => param(d, 'dashboard');
+export const docParam = (d: DocRef): string => param(d, 'doc');
 
 /** `/boards/<slug>-<id>` plus an optional suffix such as `/views/:viewId` or `/items/:itemId`. */
 export const boardPath = (board: DocRef, rest = ''): string =>
@@ -35,3 +36,5 @@ export const workspacePath = (workspace: DocRef, rest = ''): string =>
   `/workspaces/${workspaceParam(workspace)}${rest}`;
 export const dashboardPath = (dashboard: DocRef): string =>
   `/dashboards/${dashboardParam(dashboard)}`;
+/** `/docs/<slug>-<id>`: a workspace doc. */
+export const docPath = (doc: DocRef): string => `/docs/${docParam(doc)}`;

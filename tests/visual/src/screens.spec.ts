@@ -14,6 +14,7 @@ import {
   formBuilderReady,
   formPageReady,
   dashboardReady,
+  docReady,
   shoot,
   test,
 } from './fixtures';
@@ -36,6 +37,7 @@ import {
   FILES_VIEW,
   FORM_VIEW,
   DASHBOARD_ID,
+  DOC_ID,
   addCalendarView,
   addActionButton,
   addPanelFields,
@@ -48,6 +50,7 @@ import {
   addFilesBoard,
   addFormView,
   addDashboard,
+  addDoc,
   addView,
   clearActivity,
   clearInbox,
@@ -72,6 +75,7 @@ import {
   removeFilesBoard,
   removeFormView,
   removeDashboard,
+  removeDoc,
   removeView,
   removeSavedTemplate,
   seedSavedTemplate,
@@ -365,6 +369,17 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `dashboard-${theme}`, PARK_IN_HEADER);
       } finally {
         await removeDashboard();
+      }
+    });
+
+    test('doc page', async ({ page }) => {
+      await addDoc();
+      try {
+        await page.goto(`/docs/${DOC_ID}`);
+        await docReady(page);
+        await shoot(page, `doc-page-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await removeDoc();
       }
     });
 
@@ -901,6 +916,19 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole('textbox', { name: 'Board name' })).toBeFocused();
       await shoot(page, `create-board-dialog-${theme}`);
+    });
+
+    test('new doc dialog', async ({ page }) => {
+      await page.goto('/');
+      await homeReady(page);
+      await page.getByRole('button', { name: 'Add to workspace' }).click();
+      const item = page.getByRole('menuitem', { name: 'Doc', exact: true });
+      await item.hover();
+      await item.click({ delay: 100 });
+      const dialog = page.getByRole('dialog', { name: 'Create doc' });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole('textbox', { name: 'Doc name' })).toBeFocused();
+      await shoot(page, `new-doc-dialog-${theme}`);
     });
 
     test('add workspace dialog, icon picker', async ({ page }) => {

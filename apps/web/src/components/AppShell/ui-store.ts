@@ -8,6 +8,7 @@ export type DialogState =
   | { type: 'workspaceSettings'; workspaceId: string }
   | { type: 'newBoard'; workspaceId: string; folderId: string | null; kind?: BoardKind }
   | { type: 'newDashboard'; workspaceId: string; folderId: string | null; kind?: BoardKind }
+  | { type: 'newDoc'; workspaceId: string; folderId: string | null; kind?: BoardKind }
   | { type: 'dashboardBoards'; dashboardId: string }
   | { type: 'shareDashboard'; dashboardId: string }
   | {

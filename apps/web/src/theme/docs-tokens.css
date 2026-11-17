@@ -1,0 +1,16 @@
+/*
+ * Doc page tokens (P7 docs). The centered column, the title and the "this doc is in the trash"
+ * banner. Values follow the item description editor and the dashboard page; light, dark and
+ * black themes inherit through the Vibe variables used here.
+ */
+
+:root {
+  --atrium-doc-max-width: 800px; /* the text column; the toolbar and the body share it */
+  --atrium-doc-page-padding: var(--space-32);
+  --atrium-doc-title-font: 500 var(--font-size-60) / 1.2 var(--title-font-family);
+  --atrium-doc-meta-gap: var(--space-8);
+  --atrium-doc-meta-color: var(--secondary-text-color);
+  --atrium-doc-banner-bg: var(--warning-color-selected);
+  --atrium-doc-banner-text: var(--primary-text-color);
+  --atrium-doc-toolbar-bg: var(--primary-background-color);
+}

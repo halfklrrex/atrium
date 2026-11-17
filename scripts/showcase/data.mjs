@@ -15,6 +15,8 @@ import {
   boardViewSchema,
   dashboardSchema,
   defaultWidgetSettings,
+  docBodySchema,
+  docMetaSchema,
   columnDefSchema,
   columnRegistry,
   favoriteSchema,
@@ -56,6 +58,9 @@ export const SHOWCASE_BOARD_IDS = [
 /** The dashboard the seed owns (`dashboards/<id>`); it reads the main and the linked board. */
 export const SHOWCASE_DASHBOARD_ID = 'showcasedashboard';
 export const SHOWCASE_DASHBOARD_IDS = [SHOWCASE_DASHBOARD_ID];
+/** The doc the seed owns (`docs/<id>` and its `content/body`). */
+export const SHOWCASE_DOC_ID = 'showcasenotes';
+export const SHOWCASE_DOC_IDS = [SHOWCASE_DOC_ID];
 /**
  * The dashed ids earlier versions of the seed created. They open the "couldn't find that page"
  * screen, so every run deletes whatever is left of them (see `seed-showcase.mjs`). They are
@@ -2101,6 +2106,107 @@ export function buildShowcase({
   });
   summary.dashboards = SHOWCASE_DASHBOARD_IDS.length;
 
+  // ---- Doc: "Showcase notes", a page of rich text (headings, lists, a checklist, a table) ----
+  const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+  const heading = (level, text) => ({
+    type: 'heading',
+    attrs: { level },
+    content: [{ type: 'text', text }],
+  });
+  const bullets = (...items) => ({
+    type: 'bulletList',
+    content: items.map((text) => ({ type: 'listItem', content: [para(text)] })),
+  });
+  const checklist = (...items) => ({
+    type: 'taskList',
+    content: items.map(([checked, text]) => ({
+      type: 'taskItem',
+      attrs: { checked },
+      content: [para(text)],
+    })),
+  });
+  const cell = (type, text) => ({ type, content: [para(text)] });
+  const row = (type, ...texts) => ({
+    type: 'tableRow',
+    content: texts.map((text) => cell(type, text)),
+  });
+  const notesDoc = {
+    type: 'doc',
+    content: [
+      heading(1, 'Website relaunch: kickoff notes'),
+      para('Notes from the kickoff call. Everyone in the workspace can read and edit this page.'),
+      heading(2, 'Decisions'),
+      bullets(
+        'Launch on the first Tuesday of next month.',
+        'The pricing page ships with the first release.',
+        'Design reviews happen on Thursdays.',
+      ),
+      heading(2, 'Next steps'),
+      checklist(
+        [true, 'Book the launch review'],
+        [false, 'Send the copy to translation'],
+        [false, 'Collect the final logos'],
+      ),
+      heading(2, 'Owners'),
+      {
+        type: 'table',
+        content: [
+          row('tableHeader', 'Area', 'Owner'),
+          row('tableCell', 'Design', 'Casey'),
+          row('tableCell', 'Content', 'Morgan'),
+          row('tableCell', 'Engineering', 'Riley'),
+        ],
+      },
+    ],
+  };
+  const notesText = [
+    'Website relaunch: kickoff notes',
+    'Notes from the kickoff call. Everyone in the workspace can read and edit this page.',
+    'Decisions',
+    'Launch on the first Tuesday of next month.',
+    'The pricing page ships with the first release.',
+    'Design reviews happen on Thursdays.',
+    'Next steps',
+    'Book the launch review',
+    'Send the copy to translation',
+    'Collect the final logos',
+    'Owners',
+    'Area Owner',
+    'Design Casey',
+    'Content Morgan',
+    'Engineering Riley',
+  ].join('\n');
+  docs.push({
+    path: `docs/${SHOWCASE_DOC_ID}`,
+    data: docMetaSchema.parse({
+      workspaceId,
+      folderId: null,
+      name: '📝 Showcase notes',
+      kind: 'main',
+      access: { [ownerUid]: 'owner' },
+      accessUids: [ownerUid],
+      position: 'Zy',
+      icon: null,
+      state: 'active',
+      deletedAt: null,
+      createdAt: ago(9 * DAY),
+      createdBy: ownerUid,
+      updatedAt: ago(2 * HOUR),
+      updatedBy: ownerUid,
+    }),
+  });
+  docs.push({
+    path: `docs/${SHOWCASE_DOC_ID}/content/body`,
+    data: docBodySchema.parse({
+      doc: notesDoc,
+      text: notesText,
+      rev: 1,
+      updatedAt: ago(2 * HOUR),
+      updatedBy: ownerUid,
+    }),
+  });
+  summary.docs = SHOWCASE_DOC_IDS.length;
+
   // ---- Fake members' profile docs (members/{uid} only; never roles or memberIds) ----
   for (const member of SHOWCASE_MEMBERS) {
     docs.push({
@@ -2197,7 +2303,7 @@ export function buildShowcase({
 
 /**
  * Whether the seed script may create, update or delete the document at `path`. The only paths it
- * owns are: `boards/showcase-*` and everything below them, the `dashboards/showcase-*` dashboard, the owner's `favorites` and
+ * owns are: `boards/showcase-*` and everything below them, the `dashboards/showcase-*` dashboard, the `docs/showcasenotes` doc and its body, the owner's `favorites` and
  * `recents` documents named like a showcase board, the three `showcase-notification-*` notifications, and the fake members' `members` docs in the
  * workspace being seeded. Nothing else, ever.
  */
@@ -2215,6 +2321,12 @@ export function isOwnedPath(path, ownerUid, workspaceId) {
       parts.length === 2 &&
       (SHOWCASE_DASHBOARD_IDS.includes(parts[1]) ||
         LEGACY_SHOWCASE_DASHBOARD_IDS.includes(parts[1]))
+    );
+  }
+  if (parts[0] === 'docs') {
+    return (
+      SHOWCASE_DOC_IDS.includes(parts[1]) &&
+      (parts.length === 2 || (parts.length === 4 && parts[2] === 'content' && parts[3] === 'body'))
     );
   }
   if (parts[0] === 'workspaces') {

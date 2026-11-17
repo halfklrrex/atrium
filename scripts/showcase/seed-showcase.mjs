@@ -24,6 +24,7 @@ import {
   LEGACY_SHOWCASE_DASHBOARD_IDS,
   SHOWCASE_BOARD_IDS,
   SHOWCASE_DASHBOARD_IDS,
+  SHOWCASE_DOC_IDS,
   SHOWCASE_MEMBER_UIDS,
   SHOWCASE_NOTIFICATION_PREFIX,
   anchorOf,
@@ -284,6 +285,15 @@ export async function runSeed({
     }
   }
 
+  for (const docId of SHOWCASE_DOC_IDS) {
+    const existing = await client.getDoc(`docs/${docId}`);
+    if (existing && existing.workspaceId !== workspaceId) {
+      throw new SeedError(
+        `Doc "${docId}" already exists in another workspace ("${existing.workspaceId}"). Refusing to touch it.`,
+      );
+    }
+  }
+
   // ---- 2. Build the documents (throws if anything is invalid) ----
   const profile = await client.getDoc(`users/${ownerUid}`);
   const { docs, summary } = buildShowcase({
@@ -352,6 +362,13 @@ export async function runSeed({
         deletes.add(`dashboards/${dashboardId}`);
     }
   }
+  // A reset recreates the doc and its body too.
+  if (reset) {
+    for (const docId of SHOWCASE_DOC_IDS) {
+      for (const path of await collectTree(client, `docs/${docId}`)) deletes.add(path);
+      if (await client.getDoc(`docs/${docId}`)) deletes.add(`docs/${docId}`);
+    }
+  }
   // Showcase notifications the content no longer has (the owner may also have deleted some: they
   // are simply written again). Her own notifications from the app are never listed here.
   for (const id of await client.listDocIds(`users/${ownerUid}/notifications`)) {
@@ -389,11 +406,12 @@ export async function runSeed({
   log(
     `  content    ${summary.items} active items (+${summary.subitems} subitems), ${summary.archived} archived, ${summary.trashed} trashed, ` +
       `${summary.updates} updates, ${summary.replies} replies, ${summary.notifications} notifications, ${SHOWCASE_BOARD_IDS.length} boards, ` +
-      `${summary.members} fake member profiles, ${summary.dashboards} dashboard`,
+      `${summary.members} fake member profiles, ${summary.dashboards} dashboard, ${summary.docs} doc`,
   );
   log(`  documents  ${writeCount} to write, ${deleteCount} to delete`);
   for (const boardId of SHOWCASE_BOARD_IDS) log(`  board      boards/${boardId}`);
   for (const id of SHOWCASE_DASHBOARD_IDS) log(`  dashboard  dashboards/${id}`);
+  for (const id of SHOWCASE_DOC_IDS) log(`  doc        docs/${id}`);
 
   // ---- 5. Apply ----
   if (!dryRun) {

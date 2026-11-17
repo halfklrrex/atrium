@@ -26,11 +26,13 @@ export function KindOptions({
   onChange,
   name,
   label = 'Board type',
+  options = BOARD_KIND_OPTIONS,
 }: {
   value: BoardKind;
   onChange: (kind: BoardKind) => void;
   name: string;
   label?: string;
+  options?: readonly { value: BoardKind; label: string; hint: string }[];
 }) {
   return (
     <div role="radiogroup" aria-labelledby={`${name}-label`}>
@@ -38,7 +40,7 @@ export function KindOptions({
         {label}
       </span>
       <div className={styles.options}>
-        {BOARD_KIND_OPTIONS.map((option) => (
+        {options.map((option) => (
           <div key={option.value}>
             <RadioButton
               name={name}

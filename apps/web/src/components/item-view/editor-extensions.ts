@@ -31,6 +31,10 @@ export interface EditorExtensionOptions {
   /** The item the description belongs to: image uploads and downloads are scoped to it. */
   boardId?: string;
   itemId?: string;
+  /** Image paste and drop handling; default true. Docs without an image adapter turn it off. */
+  imagesEnabled?: boolean;
+  /** Empty-editor hint; default "Add a description...". */
+  placeholder?: string;
   /** Feeds the `:` emoji list; a private one when omitted (tests). */
   emojiController?: EmojiSuggestController;
   /** Feeds the `@` member list; without one (read-only, tests) the chip renders but no list opens. */
@@ -61,8 +65,8 @@ export function createEditorExtensions(
     createMentionExtension(options.mentionController ?? null),
     DescriptionImage.configure(image),
     ImageUpload,
-    ImageFileHandlers.configure(image),
-    Placeholder.configure({ placeholder: 'Add a description...' }),
+    ...(options.imagesEnabled === false ? [] : [ImageFileHandlers.configure(image)]),
+    Placeholder.configure({ placeholder: options.placeholder ?? 'Add a description...' }),
     createSlashCommand(controller),
   ];
 }

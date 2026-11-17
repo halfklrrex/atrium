@@ -17,6 +17,7 @@ import './theme/chart-tokens.css';
 import './theme/files-view-tokens.css';
 import './theme/form-tokens.css';
 import './theme/dashboard-tokens.css';
+import './theme/docs-tokens.css';
 import './theme/scrollbar-tokens.css';
 import './theme/editor-tokens.css';
 import './theme/print.css';

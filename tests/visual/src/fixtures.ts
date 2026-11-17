@@ -145,6 +145,17 @@ export async function dashboardReady(page: Page): Promise<void> {
   await expect(page.getByText('Loading…')).toHaveCount(0);
 }
 
+/** The seeded doc: its title, last-edited line and the rich-text body with its toolbar. */
+export async function docReady(page: Page): Promise<void> {
+  await appReady(page);
+  await expect(
+    page.getByRole('button', { name: /^Doc title: Summer trip packing list/ }),
+  ).toBeVisible();
+  await expect(page.getByRole('toolbar')).toBeVisible();
+  await expect(page.getByText('Passports and tickets')).toBeVisible();
+  await expect(page.getByText('Last edited by')).toBeVisible();
+}
+
 /** The seeded roadmap as a Chart view: the title, the drawing and its screen-reader summary. */
 export async function chartReady(page: Page, title: string, marks: number): Promise<void> {
   await appReady(page);

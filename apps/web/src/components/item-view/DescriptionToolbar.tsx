@@ -221,10 +221,11 @@ type OpenPopup = { kind: PopupKind; anchor: HTMLElement } | null;
 interface DescriptionToolbarProps {
   editor: Editor;
   expanded: boolean;
-  onToggleExpand: () => void;
+  /** Absent: the expand button is hidden (a full page doesn't need it). */
+  onToggleExpand?: (() => void) | undefined;
   saveHint: string;
-  /** Opens the file picker for an image. */
-  onPickImage: () => void;
+  /** Opens the file picker for an image. Absent: images are off and the button is hidden. */
+  onPickImage?: (() => void) | undefined;
   /** Whether the emoji picker (owned by the editor shell) is open. */
   emojiOpen: boolean;
   /** Opens or closes the emoji picker, hanging it from the given button. */
@@ -451,12 +452,16 @@ export function DescriptionToolbar({
       button: { label: 'Link', Icon: LinkIcon, active: state.link, onClick: toggle('link') },
       fromMore: open('link'),
     },
-    {
-      id: 'image',
-      group: 4,
-      button: { label: 'Image', tip: 'Add an image', Icon: ImageIcon, onClick: onPickImage },
-      fromMore: () => onPickImage(),
-    },
+    ...(onPickImage
+      ? [
+          {
+            id: 'image',
+            group: 4,
+            button: { label: 'Image', tip: 'Add an image', Icon: ImageIcon, onClick: onPickImage },
+            fromMore: () => onPickImage(),
+          } satisfies ToolDef,
+        ]
+      : []),
     {
       id: 'emoji',
       group: 4,
@@ -567,13 +572,15 @@ export function DescriptionToolbar({
       <span className={styles.saveHint} role="status" aria-live="polite">
         {saveHint}
       </span>
-      <ToolButton
-        label={expanded ? 'Close expanded view' : 'Expand'}
-        tip={expanded ? 'Close expanded view (Esc)' : 'Expand'}
-        Icon={expanded ? Close : Fullscreen}
-        fitId="expand"
-        onClick={onToggleExpand}
-      />
+      {onToggleExpand ? (
+        <ToolButton
+          label={expanded ? 'Close expanded view' : 'Expand'}
+          tip={expanded ? 'Close expanded view (Esc)' : 'Expand'}
+          Icon={expanded ? Close : Fullscreen}
+          fitId="expand"
+          onClick={onToggleExpand}
+        />
+      ) : null}
 
       {popup?.kind === 'style' ? (
         <AnchoredPopup anchor={popup.anchor} onClose={close} label="Text style">

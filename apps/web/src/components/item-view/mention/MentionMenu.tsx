@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import classNames from 'classnames';
 import { exitSuggestion } from '@tiptap/suggestion';
 import type { Editor } from '@tiptap/react';
-import { useBoard, useWorkspace } from '../../../data';
+import { useWorkspace } from '../../../data';
+import type { BoardAccessInput } from '@atrium/shared';
 import { useWorkspaceMembers } from '../../../data/members-store';
 import { UserAvatar } from '../../UserAvatar';
 import { AnchoredPopup } from '../../board-table/AnchoredPopup';
@@ -12,35 +13,43 @@ import slashStyles from '../slash-menu/SlashMenu.module.css';
 import type { MentionController, MentionSuggestState } from './mention-controller';
 import { mentionPluginKey } from './mention-extension';
 
+/**
+ * Where the "@" list gets its people: a hook (stable identity) that says what the content is
+ * (its access settings) and which workspace's members to list.
+ */
+export interface MentionSource {
+  useScope: () => { access: BoardAccessInput | null | undefined; workspaceId: string | undefined };
+}
+
 /** The "@" list under the caret. Mounts the member listeners only while a "@query" is open. */
 export function MentionMenu({
   controller,
   editor,
-  boardId,
+  source,
 }: {
   controller: MentionController;
   editor: Editor;
-  boardId: string;
+  source: MentionSource;
 }) {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   if (!state || !state.anchor) return null;
-  return <MentionList controller={controller} editor={editor} boardId={boardId} state={state} />;
+  return <MentionList controller={controller} editor={editor} source={source} state={state} />;
 }
 
 function MentionList({
   controller,
   editor,
-  boardId,
+  source,
   state,
 }: {
   controller: MentionController;
   editor: Editor;
-  boardId: string;
+  source: MentionSource;
   state: MentionSuggestState;
 }) {
-  const { data: board } = useBoard(boardId);
-  const { data: workspace } = useWorkspace(board?.workspaceId);
-  const { members } = useWorkspaceMembers(board?.workspaceId);
+  const { access: board, workspaceId } = source.useScope();
+  const { data: workspace } = useWorkspace(workspaceId);
+  const { members } = useWorkspaceMembers(workspaceId);
   const [active, setActive] = useState(0);
   const { query, command } = state;
 

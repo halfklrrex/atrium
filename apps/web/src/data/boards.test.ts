@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeBoard, makeDashboard, makeFolder } from '../test/fixtures';
+import { makeBoard, makeDashboard, makeDoc, makeFolder } from '../test/fixtures';
 import {
   activeBoards,
   buildTree,
@@ -17,7 +17,9 @@ const names = (nodes: ReturnType<typeof buildTree>) =>
       ? `[${n.folder.id}]`
       : n.type === 'dashboard'
         ? `dash:${n.dashboard.id}`
-        : n.board.id,
+        : n.type === 'doc'
+          ? `doc:${n.doc.id}`
+          : n.board.id,
   );
 
 describe('mergeBoards (main boards + boards I have access to)', () => {
@@ -167,5 +169,36 @@ describe('buildTree with dashboards', () => {
       makeDashboard({ id: 'd2', name: 'Budget' }),
     ]);
     expect(names(filterTree(tree, 'overv'))).toEqual(['dash:d1']);
+  });
+});
+
+describe('buildTree with docs', () => {
+  const folders = [makeFolder({ id: 'f1', position: 'a0' })];
+  const boards = [makeBoard({ id: 'b1', position: 'a0' }), makeBoard({ id: 'b2', position: 'a2' })];
+  const docs = [
+    makeDoc({ id: 'n1', position: 'a1' }),
+    makeDoc({ id: 'nIn', folderId: 'f1', position: 'a0' }),
+  ];
+
+  it('interleaves docs with boards by position and nests them in folders', () => {
+    const tree = buildTree(folders, boards, [], docs);
+    expect(names(tree)).toEqual(['[f1]', 'b1', 'doc:n1', 'b2']);
+    const f1 = tree[0];
+    if (f1?.type !== 'folder') throw new Error('expected folder');
+    expect(names(f1.children)).toEqual(['doc:nIn']);
+    expect(f1.boardCount).toBe(0);
+  });
+
+  it('flattens doc rows with a doc key and filters them by name', () => {
+    const tree = buildTree(folders, boards, [], docs);
+    const rows = flattenTree(tree, new Set(['f1']));
+    expect(rows.map((r) => r.key)).toContain('doc:nIn');
+    const named = buildTree(
+      [],
+      [],
+      [],
+      [makeDoc({ id: 'n1', name: 'Packing' }), makeDoc({ id: 'n2', name: 'Rules' })],
+    );
+    expect(names(filterTree(named, 'pack'))).toEqual(['doc:n1']);
   });
 });

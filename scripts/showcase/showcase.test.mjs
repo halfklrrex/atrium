@@ -13,6 +13,8 @@ import {
   columnRegistry,
   formPublishProblems,
   dashboardSchema,
+  docBodySchema,
+  docMetaSchema,
   favoriteSchema,
   itemSchema,
   itemUpdateSchema,
@@ -30,6 +32,7 @@ import {
   SHOWCASE_BOARD_IDS,
   SHOWCASE_COLUMN_TYPES,
   SHOWCASE_DASHBOARD_ID,
+  SHOWCASE_DOC_ID,
   SHOWCASE_LINKED_ID,
   SHOWCASE_MEMBERS,
   SHOWCASE_MEMBER_UIDS,
@@ -74,6 +77,8 @@ test('every document re-validates against its shared schema', () => {
   const byPattern = [
     [/^boards\/[^/]+$/, boardSchema],
     [/^dashboards\/[^/]+$/, dashboardSchema],
+    [/^docs\/[^/]+$/, docMetaSchema],
+    [/^docs\/[^/]+\/content\/body$/, docBodySchema],
     [/^boards\/[^/]+\/views\/[^/]+$/, boardViewSchema],
     [/^boards\/[^/]+\/automations\/[^/]+$/, automationSchema],
     [/^boards\/[^/]+\/items\/[^/]+$/, itemSchema],
@@ -642,6 +647,7 @@ const snapshot = (client) =>
 const isShowcasePath = (p) =>
   /^boards\/showcase/.test(p) ||
   /^dashboards\/showcase/.test(p) ||
+  /^docs\/showcase/.test(p) ||
   /\/(favorites|recents)\/showcase/.test(p) ||
   /\/notifications\/showcase-notification-/.test(p) ||
   /^workspaces\/[^/]+\/members\/showcase-user-/.test(p);
@@ -686,6 +692,49 @@ test('the showcase dashboard has one widget of each type over the showcase board
     'workload',
   ]);
   assert.deepEqual(doc.data.boardIds, [SHOWCASE_MAIN_ID, SHOWCASE_LINKED_ID]);
+});
+
+test('the showcase has a "Showcase notes" doc with a revision-1 body', () => {
+  const { docs } = build();
+  const meta = docs.find((d) => d.path === `docs/${SHOWCASE_DOC_ID}`);
+  const body = docs.find((d) => d.path === `docs/${SHOWCASE_DOC_ID}/content/body`);
+  assert.ok(meta && body, 'doc or body missing');
+  assert.match(meta.data.name, /Showcase notes/);
+  assert.equal(meta.data.kind, 'main');
+  assert.equal(meta.data.state, 'active');
+  assert.equal(body.data.rev, 1);
+  assert.equal(body.data.doc.type, 'doc');
+  assert.ok(body.data.text.length > 0);
+  const types = JSON.stringify(body.data.doc);
+  for (const type of ['heading', 'bulletList', 'taskList', 'table']) {
+    assert.ok(types.includes(`"${type}"`), type);
+  }
+});
+
+test('the seed owns only the showcase doc and its body', () => {
+  assert.ok(isOwnedPath(`docs/${SHOWCASE_DOC_ID}`, OWNER));
+  assert.ok(isOwnedPath(`docs/${SHOWCASE_DOC_ID}/content/body`, OWNER));
+  assert.ok(!isOwnedPath(`docs/${SHOWCASE_DOC_ID}/content/images`, OWNER));
+  assert.ok(!isOwnedPath(`docs/${SHOWCASE_DOC_ID}/presence/${OWNER}`, OWNER));
+  assert.ok(!isOwnedPath('docs/somebodyselse', OWNER));
+  assert.ok(!isOwnedPath('docs', OWNER));
+});
+
+test('the seed refuses a showcase doc that lives in another workspace, and a reset recreates it', async () => {
+  const other = fakeFirestore({
+    ...baseWorld(),
+    [`docs/${SHOWCASE_DOC_ID}`]: { workspaceId: 'other' },
+  });
+  await assert.rejects(seed(other), /another workspace/);
+  assert.equal(other.commits.length, 0);
+
+  const world = baseWorld();
+  world[`docs/${SHOWCASE_DOC_ID}`] = { workspaceId: WORKSPACE, name: 'stale' };
+  world[`docs/${SHOWCASE_DOC_ID}/content/body`] = { rev: 7 };
+  const client = fakeFirestore(world);
+  await seed(client, { reset: true });
+  assert.equal(client.store.get(`docs/${SHOWCASE_DOC_ID}/content/body`).rev, 1);
+  assert.match(client.store.get(`docs/${SHOWCASE_DOC_ID}`).name, /Showcase notes/);
 });
 
 test('the main board has a shared Files gallery view over its Files columns', () => {
@@ -1017,7 +1066,7 @@ test('no showcase board or dashboard id has a dash (the app reads the id after t
   const { docs } = build();
   for (const d of docs) {
     const [collection, id] = d.path.split('/');
-    if (collection === 'boards' || collection === 'dashboards') {
+    if (collection === 'boards' || collection === 'dashboards' || collection === 'docs') {
       assert.match(id, /^[A-Za-z0-9]+$/, d.path);
     }
   }

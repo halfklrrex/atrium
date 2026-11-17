@@ -3,6 +3,8 @@ import {
   Board,
   Dashboard as DashboardIcon,
   DashboardPrivate,
+  Doc as DocIcon,
+  DocPrivate,
   BoardPrivate,
   BoardShareable,
   ClassicFolder as FolderIcon,
@@ -16,6 +18,7 @@ import {
   flattenTree,
   type BoardDoc,
   type DashboardDoc,
+  type DocMetaDoc,
   type FolderDoc,
   type TreeRow,
 } from '../../data';
@@ -24,7 +27,7 @@ import { BoardMenu } from '../boards/BoardMenu';
 import { FavoriteStar } from '../boards/FavoriteStar';
 import { UserAvatar } from '../UserAvatar';
 import styles from './WorkspaceLists.module.css';
-import { boardPath, dashboardPath } from '../../lib/paths';
+import { boardPath, dashboardPath, docPath } from '../../lib/paths';
 
 const KIND_LABEL: Record<BoardDoc['kind'], string> = {
   main: 'Board',
@@ -40,13 +43,18 @@ export function WorkspaceContentList({
   folders,
   boards,
   dashboards = [],
+  docs = [],
 }: {
   folders: readonly FolderDoc[];
   boards: readonly BoardDoc[];
   dashboards?: readonly DashboardDoc[];
+  docs?: readonly DocMetaDoc[];
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const tree = useMemo(() => buildTree(folders, boards, dashboards), [folders, boards, dashboards]);
+  const tree = useMemo(
+    () => buildTree(folders, boards, dashboards, docs),
+    [folders, boards, dashboards, docs],
+  );
   const rows = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
 
   const toggle = (id: string) =>
@@ -148,6 +156,35 @@ function ContentRow({
         </span>
         <span role="cell">
           <UserAvatar uid={dashboard.createdBy} size="xs" />
+        </span>
+        <span role="cell" />
+      </div>
+    );
+  }
+
+  if (node.type === 'doc') {
+    const { doc } = node;
+    return (
+      <div role="row" className={classNames(styles.grid, styles.row)} style={style}>
+        <span role="cell" className={styles.nameCell}>
+          <Link to={docPath(doc)} className={styles.nameButton}>
+            <span className={styles.chevronSpacer} />
+            <Icon
+              icon={doc.kind === 'main' ? DocIcon : DocPrivate}
+              size={20}
+              className={styles.boardIcon}
+            />
+            <span className={styles.name}>{doc.name}</span>
+          </Link>
+        </span>
+        <span role="cell" className={styles.muted}>
+          Doc
+        </span>
+        <span role="cell" className={styles.muted}>
+          {formatUpdated(doc.updatedAt)}
+        </span>
+        <span role="cell">
+          <UserAvatar uid={doc.createdBy} size="xs" />
         </span>
         <span role="cell" />
       </div>

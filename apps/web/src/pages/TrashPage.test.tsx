@@ -1,13 +1,15 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { makeBoard, makeDashboard, makeWorkspace } from '../test/fixtures';
+import { makeBoard, makeDashboard, makeDoc, makeWorkspace } from '../test/fixtures';
 import { TrashPage } from './TrashPage';
-import type { BoardDoc, DashboardDoc } from '../data/model';
+import type { BoardDoc, DashboardDoc, DocMetaDoc } from '../data/model';
 
 const mocks = vi.hoisted(() => ({
   boards: [] as BoardDoc[],
   dashboards: [] as DashboardDoc[],
+  docs: [] as DocMetaDoc[],
+  restoreDoc: vi.fn().mockResolvedValue(undefined),
   setDashboardState: vi.fn().mockResolvedValue(undefined),
   setBoardState: vi.fn().mockResolvedValue(undefined),
 }));
@@ -42,6 +44,15 @@ vi.mock('../data', async (importOriginal) => ({
     loading: false,
     error: null,
   }),
+  useAllWorkspaceDocs: () => ({
+    data: mocks.docs,
+    loading: false,
+    error: null,
+  }),
+  docWrites: {
+    restoreDoc: (...args: unknown[]) => mocks.restoreDoc(...args),
+    deleteDoc: vi.fn().mockResolvedValue(undefined),
+  },
   dashboardWrites: {
     setDashboardState: (...args: unknown[]) => mocks.setDashboardState(...args),
   },
@@ -105,5 +116,17 @@ describe('TrashPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Restore Old overview' }));
     expect(mocks.setDashboardState).toHaveBeenCalledWith('d-del', 'active');
     mocks.dashboards = [];
+  });
+
+  it('lists deleted docs and restores them', () => {
+    mocks.boards = [];
+    mocks.dashboards = [];
+    mocks.docs = [makeDoc({ id: 'doc-del', name: 'Old notes', state: 'deleted' })];
+    renderTrash();
+    expect(screen.getByText('Old notes')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Deleted \(1\)/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Old notes' }));
+    expect(mocks.restoreDoc).toHaveBeenCalledWith('doc-del');
+    mocks.docs = [];
   });
 });

@@ -1671,6 +1671,83 @@ export async function removeDashboard(): Promise<void> {
   await adminDb().collection('dashboards').doc(DASHBOARD_ID).delete();
 }
 
+/** Id of the doc the doc screens add to the personal workspace (and remove again). */
+export const DOC_ID = 'docPackingList';
+
+/** A Main doc with a revision-1 body: headings, a list, a checklist and a table. Pair with `removeDoc`. */
+export async function addDoc(): Promise<void> {
+  const para = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+  const item = (text: string) => ({ type: 'listItem', content: [para(text)] });
+  const task = (checked: boolean, text: string) => ({
+    type: 'taskItem',
+    attrs: { checked },
+    content: [para(text)],
+  });
+  const cell = (type: string, text: string) => ({ type, content: [para(text)] });
+  const row = (type: string, ...texts: string[]) => ({
+    type: 'tableRow',
+    content: texts.map((text) => cell(type, text)),
+  });
+  const doc = {
+    type: 'doc',
+    content: [
+      {
+        type: 'heading',
+        attrs: { level: 2 },
+        content: [{ type: 'text', text: 'Before we leave' }],
+      },
+      para('A short list for the week before the trip.'),
+      {
+        type: 'bulletList',
+        content: [item('Passports and tickets'), item('Chargers and adapters')],
+      },
+      {
+        type: 'taskList',
+        content: [task(true, 'Book the car'), task(false, 'Pack the first aid kit')],
+      },
+      {
+        type: 'table',
+        content: [row('tableHeader', 'Who', 'Brings'), row('tableCell', 'Avery', 'Snacks')],
+      },
+    ],
+  };
+  await adminDb()
+    .collection('docs')
+    .doc(DOC_ID)
+    .set({
+      workspaceId: IDS.personalWorkspace,
+      folderId: null,
+      name: 'Summer trip packing list',
+      kind: 'main',
+      access: { [AVERY.uid]: 'owner' },
+      accessUids: [AVERY.uid],
+      position: 'a6',
+      icon: null,
+      state: 'active',
+      deletedAt: null,
+      createdAt: ago(DAY),
+      createdBy: AVERY.uid,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+  await adminDb()
+    .collection('docs')
+    .doc(DOC_ID)
+    .collection('content')
+    .doc('body')
+    .set({
+      doc,
+      text: 'Before we leave A short list for the week before the trip.',
+      rev: 1,
+      updatedAt: ago(DAY),
+      updatedBy: AVERY.uid,
+    });
+}
+
+export async function removeDoc(): Promise<void> {
+  await adminDb().recursiveDelete(adminDb().collection('docs').doc(DOC_ID));
+}
+
 /** Blake: a blocked account (claim and user document), with no workspace, as an admin block leaves it. */
 async function seedBlockedUser(auth: Auth, firestore: Firestore): Promise<void> {
   await auth.deleteUser(BLAKE.uid).catch(() => undefined);

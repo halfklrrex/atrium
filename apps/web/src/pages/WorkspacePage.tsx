@@ -14,6 +14,7 @@ import {
   Add,
   Board,
   Dashboard,
+  Doc,
   ClassicFolder as Folder,
   Delete,
   Locked,
@@ -41,6 +42,7 @@ import {
   useRecents,
   useWorkspace,
   useWorkspaceDashboards,
+  useWorkspaceDocs,
 } from '../data';
 import styles from './WorkspacePage.module.css';
 import pageStyles from './Pages.module.css';
@@ -61,6 +63,7 @@ export function WorkspacePage() {
   const { data: folders } = useFolders(workspaceId);
   const { data: boards } = useBoards(workspaceId, uid);
   const { data: dashboards } = useWorkspaceDashboards(workspaceId, uid);
+  const { data: docs } = useWorkspaceDocs(workspaceId, uid);
   const { data: recents } = useRecents(uid);
   const [chosenTab, setTab] = useState<number | null>(null);
   const workspaceFound = workspace !== null;
@@ -108,11 +111,13 @@ export function WorkspacePage() {
 
   const newBoard = () =>
     openDialog({ type: 'newBoard', workspaceId: workspace.id, folderId: null });
+  const newDoc = () => openDialog({ type: 'newDoc', workspaceId: workspace.id, folderId: null });
   const newDashboard = () =>
     openDialog({ type: 'newDashboard', workspaceId: workspace.id, folderId: null });
   const newFolder = () =>
     openDialog({ type: 'folder', workspaceId: workspace.id, parentFolderId: null });
-  const isEmpty = boards.length === 0 && dashboards.length === 0 && folders.length === 0;
+  const isEmpty =
+    boards.length === 0 && dashboards.length === 0 && docs.length === 0 && folders.length === 0;
 
   return (
     <div className={styles.page}>
@@ -201,6 +206,7 @@ export function WorkspacePage() {
             secondaryDialogContent={
               <Menu id="workspace-add-menu" size="medium">
                 <MenuItem title="New board" icon={Board} onClick={newBoard} />
+                <MenuItem title="New doc" icon={Doc} onClick={newDoc} />
                 <MenuItem title="New dashboard" icon={Dashboard} onClick={newDashboard} />
                 <MenuItem
                   title="New folder"
@@ -243,7 +249,12 @@ export function WorkspacePage() {
               <p className={styles.muted}>Boards you open in this workspace will show up here.</p>
             )
           ) : tab === TAB_CONTENT ? (
-            <WorkspaceContentList folders={folders} boards={boards} dashboards={dashboards} />
+            <WorkspaceContentList
+              folders={folders}
+              boards={boards}
+              dashboards={dashboards}
+              docs={docs}
+            />
           ) : null}
         </div>
       </div>
