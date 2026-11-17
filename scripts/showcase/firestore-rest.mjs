@@ -212,14 +212,40 @@ export function createFirestoreRest({
     },
 
     /**
-     * Documents of a top-level collection matching every filter (AND), decoded, with ids and
-     * `updateTime`. `where` is `{ field: value }` for equality, or `{ field: { arrayContains: value } }`
-     * for an array membership test (`memberIds` array-contains uid). No composite index is needed.
+     * Documents of a collection (top-level, or nested such as `boards/b1/items`) matching every
+     * filter (AND), decoded, with ids and `updateTime`. `where` is `{ field: value }` for equality,
+     * `{ field: { arrayContains: value } }` for an array membership test (`memberIds` array-contains
+     * uid) or `{ field: { arrayContainsAny: [values] } }` (at most 30 values). `options`: `limit`,
+     * and `orderBy: { field, direction: 'asc' | 'desc' }`, which is only allowed without filters so
+     * no composite index is ever needed.
      */
-    async runQuery(collectionId, where = {}) {
+    async runQuery(collectionPath, where = {}, options = {}) {
+      const segments = collectionPath.split('/');
+      const collectionId = segments.at(-1);
+      const parent = segments.slice(0, -1).join('/');
+      const { limit, orderBy } = options;
+      if (orderBy && Object.keys(where).length > 0) {
+        throw new Error('runQuery: orderBy is only supported without filters (it needs an index)');
+      }
       const filters = Object.entries(where).map(([field, condition]) => {
-        const contains =
-          condition !== null && typeof condition === 'object' && 'arrayContains' in condition;
+        const isObject = condition !== null && typeof condition === 'object';
+        if (isObject && 'arrayContainsAny' in condition) {
+          if (
+            !Array.isArray(condition.arrayContainsAny) ||
+            condition.arrayContainsAny.length === 0 ||
+            condition.arrayContainsAny.length > 30
+          ) {
+            throw new Error('runQuery: arrayContainsAny takes 1 to 30 values');
+          }
+          return {
+            fieldFilter: {
+              field: { fieldPath: field },
+              op: 'ARRAY_CONTAINS_ANY',
+              value: encodeValue(condition.arrayContainsAny),
+            },
+          };
+        }
+        const contains = isObject && 'arrayContains' in condition;
         return {
           fieldFilter: {
             field: { fieldPath: field },
@@ -231,8 +257,20 @@ export function createFirestoreRest({
       const structuredQuery = {
         from: [{ collectionId }],
         ...(filters.length > 0 ? { where: { compositeFilter: { op: 'AND', filters } } } : {}),
+        ...(orderBy
+          ? {
+              orderBy: [
+                {
+                  field: { fieldPath: orderBy.field },
+                  direction: orderBy.direction === 'desc' ? 'DESCENDING' : 'ASCENDING',
+                },
+              ],
+            }
+          : {}),
+        ...(limit === undefined ? {} : { limit }),
       };
-      const rows = (await request('POST', `${base}:runQuery`, { structuredQuery })) ?? [];
+      const url = parent ? `${base}/${encodePath(parent)}:runQuery` : `${base}:runQuery`;
+      const rows = (await request('POST', url, { structuredQuery })) ?? [];
       return rows
         .filter((row) => row.document)
         .map((row) => ({

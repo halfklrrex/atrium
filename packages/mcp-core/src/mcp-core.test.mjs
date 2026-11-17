@@ -6,13 +6,15 @@ import { boardSchema, builtInTemplate, columnRegistry, itemSchema } from '@atriu
 import { createFakeClient } from './fake-client.mjs';
 import { buildColumnSettings, ts } from './builders.mjs';
 import { PICK_WORKSPACE_MESSAGE, createService } from './service.mjs';
-import { defineTools } from './tools.mjs';
+import { defineTools, toolNamesByDomain } from './tools.mjs';
 
 const WS = 'ws1';
 const ME = 'user-me';
 const OTHER = 'user-other';
 const NOW = new Date('2026-11-01T10:00:00Z');
 const actor = { uid: ME, workspaceFilter: null };
+/** How many tools the catalogue has: read from the domain files, never a literal. */
+const CATALOGUE_SIZE = Object.values(toolNamesByDomain({})).flat().length;
 
 const workspaceDoc = (roles = { [ME]: 'owner', [OTHER]: 'member' }, name = 'Home') => ({
   name,
@@ -819,7 +821,7 @@ test('structure changes give up after a second conflict', async () => {
 test('tool catalogue: unique atrium_ names, every tool described, scoped and annotated', () => {
   const tools = defineTools({});
   const names = tools.map((t) => t.name);
-  assert.equal(tools.length, 45);
+  assert.equal(tools.length, CATALOGUE_SIZE);
   assert.equal(new Set(names).size, names.length);
   for (const tool of tools) {
     assert.match(tool.name, /^atrium_[a-z_]+$/);
@@ -984,7 +986,7 @@ const MEMBER = { displayName: 'Jordan Lee', email: 'jordan@example.com' };
 
 async function feedFixture() {
   const ctx = await itemFixture();
-  ctx.client.docs.set(`users/${OTHER}`, { data: MEMBER, updateTime: 'u' });
+  ctx.client.docs.set(`workspaces/${WS}/members/${OTHER}`, { data: MEMBER, updateTime: 'u' });
   return ctx;
 }
 
@@ -1691,9 +1693,18 @@ test('likes retry once when the post changed in between, and need the editor rol
 test('findMember matches workspace members by email only, never leaking others', async () => {
   const { service } = setup({
     extra: {
-      [`users/${ME}`]: { displayName: 'Avery Quinn', email: 'avery@example.com' },
-      [`users/${OTHER}`]: { displayName: 'Jordan Lee', email: 'Jordan.Lee@example.com' },
-      'users/outsider': { displayName: 'Casey Fox', email: 'casey@example.com' },
+      [`workspaces/${WS}/members/${ME}`]: {
+        displayName: 'Avery Quinn',
+        email: 'avery@example.com',
+      },
+      [`workspaces/${WS}/members/${OTHER}`]: {
+        displayName: 'Jordan Lee',
+        email: 'Jordan.Lee@example.com',
+      },
+      'workspaces/other-ws/members/outsider': {
+        displayName: 'Casey Fox',
+        email: 'casey@example.com',
+      },
     },
   });
   const hit = await service.findMember({ email: '  JORDAN.lee@Example.com ' });
@@ -2003,7 +2014,7 @@ test('tool catalogue: the batch 1b tools reach the service with the right scopes
       ['setColumnLock', false],
     ],
   );
-  assert.equal(tools.length, 45);
+  assert.equal(tools.length, CATALOGUE_SIZE);
 });
 
 test('findItems pages through equal positions and unknown groups without gaps or repeats', async () => {
@@ -2024,14 +2035,19 @@ test('findItems pages through equal positions and unknown groups without gaps or
   assert.deepEqual(seen, ['a', 'b', 'c', 'd', 'e', 'z1']);
 });
 
-test('findItems refuses to filter on a calculated column', async () => {
+test('findItems refuses to filter on a mirror or a server-managed column', async () => {
   const { service } = withRole('viewer', {
-    columns: [{ id: 'f1', type: 'formula', title: 'Calc', position: 'a0', settings: {} }],
+    columns: [
+      { id: 'm1', type: 'mirror', title: 'Linked', position: 'a0', settings: {} },
+      { id: 'f1', type: 'files', title: 'Docs', position: 'a1', settings: {} },
+    ],
   });
-  await assert.rejects(
-    service.findItems({ boardId: 'b', where: [{ column: 'Calc', equals: 1 }] }),
-    /calculated or managed column, cannot filter/,
-  );
+  for (const column of ['Linked', 'Docs']) {
+    await assert.rejects(
+      service.findItems({ boardId: 'b', where: [{ column, equals: 1 }] }),
+      /managed or mirror column, cannot filter/,
+    );
+  }
 });
 
 test('deleteColumn refuses a column that is changing type', async () => {
@@ -2272,8 +2288,11 @@ test('people cells take a member email, case-insensitively; others look like unk
         { columns: [{ id: 'p1', type: 'people', title: 'Owner', position: 'a0', settings: {} }] },
       ),
       'boards/b/items/i': itemDoc(),
-      [`users/${OTHER}`]: { displayName: 'Jordan Lee', email: 'Jordan@Example.com' },
-      'users/user-outsider': { displayName: 'Sam', email: 'sam@example.com' },
+      [`workspaces/${WS}/members/${OTHER}`]: {
+        displayName: 'Jordan Lee',
+        email: 'Jordan@Example.com',
+      },
+      'workspaces/other-ws/members/user-outsider': { displayName: 'Sam', email: 'sam@example.com' },
     },
   });
   await service.updateItem({
@@ -2434,7 +2453,7 @@ test('tool catalogue: batch 1c PR 1 tools, scopes, annotations and schemas', asy
   );
   assert.equal(byName('atrium_list_boards').inputSchema.state.safeParse('trash').success, false);
   assert.equal(byName('atrium_rename_board').inputSchema.name.safeParse('').success, false);
-  assert.equal(tools.length, 45);
+  assert.equal(tools.length, CATALOGUE_SIZE);
 });
 
 // ---- templates (batch 1c PR 2) ----------------------------------------------------------------
@@ -2455,7 +2474,7 @@ test('tool catalogue: batch 1c PR 2 tools reach the service', async () => {
     byName('atrium_create_board').inputSchema.templateId.safeParse('a/b').success,
     false,
   );
-  assert.equal(tools.length, 45);
+  assert.equal(tools.length, CATALOGUE_SIZE);
 });
 
 const savedTemplate = (more = {}) => ({
@@ -2964,5 +2983,5 @@ test('tool catalogue: atrium_move_item_to_board is a destructive write that reac
     { boardId: 'a', itemId: 'b', targetBoardId: 'c', dryRun: true },
   ]);
   assert.equal(tool.inputSchema.targetBoardId.safeParse('a/b').success, false);
-  assert.equal(tools.length, 45);
+  assert.equal(tools.length, CATALOGUE_SIZE);
 });

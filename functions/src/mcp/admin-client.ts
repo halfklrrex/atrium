@@ -229,15 +229,32 @@ export function createAdminClient(firestore: Firestore): FirestoreClient & { des
       return (await query.get()).docs.map(row);
     },
 
-    async runQuery(collectionId, where: QueryWhere = {}) {
-      let query: Query = firestore.collection(collectionId);
-      for (const [field, condition] of Object.entries(where)) {
-        const contains =
-          condition !== null && typeof condition === 'object' && 'arrayContains' in condition;
-        query = contains
-          ? query.where(fieldPath(field), 'array-contains', encodeValue(condition.arrayContains))
-          : query.where(fieldPath(field), '==', encodeValue(condition));
+    async runQuery(collectionPath, where: QueryWhere = {}, options = {}) {
+      const { limit, orderBy } = options;
+      if (orderBy && Object.keys(where).length > 0) {
+        throw new Error('runQuery: orderBy is only supported without filters (it needs an index)');
       }
+      let query: Query = firestore.collection(collectionPath);
+      for (const [field, condition] of Object.entries(where)) {
+        const isObject = condition !== null && typeof condition === 'object';
+        if (isObject && 'arrayContainsAny' in condition) {
+          const values = condition.arrayContainsAny;
+          if (!Array.isArray(values) || values.length === 0 || values.length > 30) {
+            throw new Error('runQuery: arrayContainsAny takes 1 to 30 values');
+          }
+          query = query.where(fieldPath(field), 'array-contains-any', values.map(encodeValue));
+        } else if (isObject && 'arrayContains' in condition) {
+          query = query.where(
+            fieldPath(field),
+            'array-contains',
+            encodeValue(condition.arrayContains),
+          );
+        } else {
+          query = query.where(fieldPath(field), '==', encodeValue(condition));
+        }
+      }
+      if (orderBy) query = query.orderBy(fieldPath(orderBy.field), orderBy.direction ?? 'asc');
+      if (limit !== undefined) query = query.limit(limit);
       return (await query.get()).docs.map(row);
     },
 

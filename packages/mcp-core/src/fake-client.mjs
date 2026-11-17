@@ -71,19 +71,51 @@ export function createFakeClient(initial = {}) {
         updateTime: v.updateTime,
       }));
     },
-    /** Equality (`{ field: value }`) and array membership (`{ field: { arrayContains: value } }`). */
-    async runQuery(collectionId, where = {}) {
-      const matches = (have, want) =>
-        want !== null && typeof want === 'object' && 'arrayContains' in want
-          ? Array.isArray(have) && have.includes(want.arrayContains)
-          : have === want;
-      return direct(collectionId)
+    /**
+     * Equality (`{ field: value }`), array membership (`{ field: { arrayContains: value } }`) and
+     * array overlap (`{ field: { arrayContainsAny: [values] } }`, at most 30 values), on a top-level or
+     * nested collection (`boards/b1/items`). `options`: `limit`, and `orderBy: { field, direction }`
+     * (only without filters, so no composite index is ever needed, as in Firestore).
+     */
+    async runQuery(collectionPath, where = {}, options = {}) {
+      const matches = (have, want) => {
+        if (want !== null && typeof want === 'object' && 'arrayContains' in want) {
+          return Array.isArray(have) && have.includes(want.arrayContains);
+        }
+        if (want !== null && typeof want === 'object' && 'arrayContainsAny' in want) {
+          if (!Array.isArray(want.arrayContainsAny) || want.arrayContainsAny.length > 30) {
+            throw fail(400, 'arrayContainsAny takes at most 30 values');
+          }
+          return Array.isArray(have) && have.some((v) => want.arrayContainsAny.includes(v));
+        }
+        return have === want;
+      };
+      const { limit, orderBy } = options;
+      if (orderBy && Object.keys(where).length > 0) {
+        throw fail(400, 'orderBy is only supported without filters (it would need an index)');
+      }
+      let rows = direct(collectionPath)
         .filter(([, v]) => Object.entries(where).every(([k, want]) => matches(v.data[k], want)))
         .map(([path, v]) => ({
           id: path.split('/').at(-1),
           data: clone(v.data),
           updateTime: v.updateTime,
         }));
+      if (orderBy) {
+        const sign = orderBy.direction === 'desc' ? -1 : 1;
+        const key = (row) => {
+          const value = row.data[orderBy.field];
+          return value instanceof Date ? value.getTime() : value;
+        };
+        rows = rows
+          .filter((row) => row.data[orderBy.field] !== undefined) // like Firestore: documents without the field are skipped
+          .sort(
+            (a, b) =>
+              (key(a) < key(b) ? -sign : key(a) > key(b) ? sign : 0) ||
+              (a.id < b.id ? -sign : a.id > b.id ? sign : 0),
+          );
+      }
+      return limit === undefined ? rows : rows.slice(0, limit);
     },
     async commit(writes) {
       // Check everything first: a commit is atomic.

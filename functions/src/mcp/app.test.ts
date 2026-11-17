@@ -319,7 +319,8 @@ describe('POST /mcp authentication', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { result: { tools: { name: string }[] } };
     const names = json.result.tools.map((tool) => tool.name);
-    expect(names).toHaveLength(45);
+    const { defineTools } = await import('@atrium/mcp-core');
+    expect(names).toHaveLength(defineTools({} as McpService).length);
     expect(names).toContain('atrium_list_workspaces');
   });
 
@@ -436,6 +437,17 @@ describe('tools', () => {
     expect(h.store.audit.find((entry) => entry.tool === 'atrium_get_board')).toMatchObject({
       boardId: 'board1',
       ok: true,
+    });
+  });
+
+  it('records the first id of a call as the audit target, whatever the tool', async () => {
+    const h = await start();
+    const { body } = await connect(h);
+    await callTool(h, body.access_token, 'atrium_get_board', { boardId: 'board1' });
+    expect(h.store.audit.at(-1)).toMatchObject({
+      boardId: 'board1',
+      targetKind: 'board',
+      targetId: 'board1',
     });
   });
 
