@@ -1,4 +1,5 @@
 import {
+  TEAM_LIMITS,
   canManageWorkspace,
   inviteEmailSchema,
   invitableRoles,
@@ -6,6 +7,7 @@ import {
   type WorkspaceRole,
 } from '@atrium/shared';
 import {
+  AvatarGroup,
   Button,
   Dropdown,
   Menu,
@@ -19,19 +21,23 @@ import {
   TabList,
   TextField,
 } from '@vibe/core';
-import { Delete, Invite, Person } from '@vibe/icons';
+import { Delete, Edit, Invite, Person, Team } from '@vibe/icons';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
-import { useWorkspace, useWorkspaceInvites, useWorkspaceMembers } from '../../data';
+import { useWorkspace, useWorkspaceInvites, useWorkspaceMembers, type TeamDoc } from '../../data';
+import { teamWrites, useWorkspaceTeams } from '../../data/teams';
 import { describeCallableError, membershipCalls } from '../../lib/callables';
 import { showToast } from '../toast-store';
+import { TeamAvatar } from '../teams/TeamAvatar';
+import { TeamDialog } from '../teams/TeamDialog';
+import teamStyles from '../teams/teams.module.css';
 import { UserAvatar } from '../UserAvatar';
 import styles from './MembersDialog.module.css';
 import { memberRowActions } from './permissions';
 import { ROLE_LABEL, describeExpiry, inviteLink } from './roles';
 
-type DialogTab = 'members' | 'invites';
+type DialogTab = 'members' | 'invites' | 'teams';
 
 interface Row {
   uid: string;
@@ -44,7 +50,8 @@ interface Row {
 type Confirm =
   | { kind: 'remove'; uid: string; name: string }
   | { kind: 'transfer'; uid: string; name: string }
-  | { kind: 'leave' };
+  | { kind: 'leave' }
+  | { kind: 'deleteTeam'; teamId: string; name: string };
 
 type DropdownOption = { value: string; label: string };
 
@@ -74,11 +81,13 @@ export function MembersDialog({
   const myRole = workspace?.roles[uid] ?? null;
   const isAdmin = canManageWorkspace(myRole);
   const [tab, setTab] = useState<DialogTab>(
-    initialTab === 'invites' && isAdmin ? 'invites' : 'members',
+    initialTab === 'invites' && isAdmin ? 'invites' : initialTab === 'teams' ? 'teams' : 'members',
   );
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editor, setEditor] = useState<{ team?: TeamDoc } | null>(null);
+  const { teams } = useWorkspaceTeams(workspaceId);
 
   const rows = useMemo<Row[]>(() => {
     if (!workspace) return [];
@@ -100,7 +109,25 @@ export function MembersDialog({
       .sort((a, b) => order[a.role] - order[b.role] || a.name.localeCompare(b.name));
   }, [workspace, members, uid, user]);
 
+  const people = useMemo(
+    () => rows.map((r) => ({ uid: r.uid, name: r.name, email: r.email, photoURL: r.photoURL })),
+    [rows],
+  );
+  const tabs: DialogTab[] = isAdmin ? ['members', 'invites', 'teams'] : ['members', 'teams'];
+
   if (!workspace || !myRole) return null;
+
+  // The team editor replaces this dialog while it is open and hands back to it on close.
+  if (editor) {
+    return (
+      <TeamDialog
+        workspaceId={workspaceId}
+        team={editor.team}
+        people={people}
+        onClose={() => setEditor(null)}
+      />
+    );
+  }
 
   async function run(task: () => Promise<unknown>, failure: string, success?: string) {
     setBusy(true);
@@ -134,6 +161,12 @@ export function MembersDialog({
         'Could not remove that person.',
         `${confirm.name} was removed.`,
       );
+    } else if (confirm.kind === 'deleteTeam') {
+      ok = await run(
+        () => teamWrites.remove(workspaceId, confirm.teamId),
+        'Could not delete the team.',
+        `Deleted ${confirm.name}.`,
+      );
     } else if (confirm.kind === 'transfer') {
       ok = await run(
         () => membershipCalls.changeMemberRole({ workspaceId, uid: confirm.uid, role: 'owner' }),
@@ -161,19 +194,26 @@ export function MembersDialog({
         <ModalHeader title={`Members of ${workspace.name}`} />
         <ModalContent>
           <div className={styles.body}>
-            {isAdmin ? (
-              <TabList
-                activeTabId={tab === 'members' ? 0 : 1}
-                onTabChange={(id: number) => {
-                  setTab(id === 0 ? 'members' : 'invites');
-                  setConfirm(null);
-                  setError(null);
-                }}
-              >
-                <Tab icon={Person}>{`Members (${rows.length})`}</Tab>
-                <Tab icon={Invite}>Invites</Tab>
-              </TabList>
-            ) : null}
+            <TabList
+              activeTabId={tabs.indexOf(tab)}
+              onTabChange={(id: number) => {
+                setTab(tabs[id] ?? 'members');
+                setConfirm(null);
+                setError(null);
+              }}
+            >
+              {tabs.map((t) =>
+                t === 'members' ? (
+                  <Tab key={t} icon={Person}>{`Members (${rows.length})`}</Tab>
+                ) : t === 'invites' ? (
+                  <Tab key={t} icon={Invite}>
+                    Invites
+                  </Tab>
+                ) : (
+                  <Tab key={t} icon={Team}>{`Teams (${teams.length})`}</Tab>
+                ),
+              )}
+            </TabList>
 
             {confirm ? (
               <ConfirmPanel
@@ -197,6 +237,17 @@ export function MembersDialog({
                   />
                 ))}
               </ul>
+            ) : tab === 'teams' ? (
+              <TeamsTab
+                teams={teams}
+                people={people}
+                canManage={isAdmin}
+                onNew={() => setEditor({})}
+                onEdit={(team) => setEditor({ team })}
+                onDelete={(team) =>
+                  setConfirm({ kind: 'deleteTeam', teamId: team.id, name: team.name })
+                }
+              />
             ) : (
               <InvitesTab workspaceId={workspaceId} myRole={myRole} onError={setError} />
             )}
@@ -227,17 +278,21 @@ function ConfirmPanel({
   onCancel: () => void;
 }) {
   const text =
-    confirm.kind === 'remove'
-      ? `Remove ${confirm.name} from ${workspaceName}? They lose access to its boards straight away.`
-      : confirm.kind === 'transfer'
-        ? `Make ${confirm.name} the owner of ${workspaceName}? You become an admin, and only the new owner can transfer ownership again.`
-        : `Leave ${workspaceName}? You lose access to its boards until someone invites you again.`;
+    confirm.kind === 'deleteTeam'
+      ? `Delete ${confirm.name}? Items assigned to ${confirm.name} keep the entry but show "Deleted team".`
+      : confirm.kind === 'remove'
+        ? `Remove ${confirm.name} from ${workspaceName}? They lose access to its boards straight away.`
+        : confirm.kind === 'transfer'
+          ? `Make ${confirm.name} the owner of ${workspaceName}? You become an admin, and only the new owner can transfer ownership again.`
+          : `Leave ${workspaceName}? You lose access to its boards until someone invites you again.`;
   const action =
-    confirm.kind === 'remove'
-      ? 'Remove'
-      : confirm.kind === 'transfer'
-        ? 'Transfer ownership'
-        : 'Leave workspace';
+    confirm.kind === 'deleteTeam'
+      ? 'Delete team'
+      : confirm.kind === 'remove'
+        ? 'Remove'
+        : confirm.kind === 'transfer'
+          ? 'Transfer ownership'
+          : 'Leave workspace';
   return (
     <div className={styles.confirm} role="alertdialog" aria-label={action}>
       <p className={styles.confirmText}>{text}</p>
@@ -257,6 +312,91 @@ function ConfirmPanel({
         </Button>
       </div>
     </div>
+  );
+}
+
+function TeamsTab({
+  teams,
+  people,
+  canManage,
+  onNew,
+  onEdit,
+  onDelete,
+}: {
+  teams: readonly TeamDoc[];
+  people: readonly { uid: string; name: string; photoURL: string | null }[];
+  canManage: boolean;
+  onNew: () => void;
+  onEdit: (team: TeamDoc) => void;
+  onDelete: (team: TeamDoc) => void;
+}) {
+  const byUid = new Map(people.map((p) => [p.uid, p]));
+  const atCap = teams.length >= TEAM_LIMITS.perWorkspace;
+  return (
+    <>
+      {teams.length === 0 ? (
+        <p className={teamStyles.empty}>
+          {canManage
+            ? 'No teams yet. Create one to assign a group of people at once.'
+            : 'No teams yet. Owners and admins can create them.'}
+        </p>
+      ) : (
+        <ul className={teamStyles.list} aria-label="Teams">
+          {teams.map((team) => {
+            const members = team.memberUids.filter((uid) => byUid.has(uid));
+            return (
+              <li key={team.id} className={teamStyles.row}>
+                <div className={teamStyles.who}>
+                  <TeamAvatar name={team.name} color={team.color} />
+                  <div className={teamStyles.names}>
+                    <span className={teamStyles.name}>{team.name}</span>
+                    <span className={teamStyles.meta}>
+                      {members.length === 1 ? '1 member' : `${members.length} members`}
+                    </span>
+                  </div>
+                </div>
+                <AvatarGroup max={4} size="small" type="img">
+                  {members.map((uid) => (
+                    <UserAvatar
+                      key={uid}
+                      uid={uid}
+                      name={byUid.get(uid)?.name}
+                      photoURL={byUid.get(uid)?.photoURL ?? null}
+                    />
+                  ))}
+                </AvatarGroup>
+                {canManage ? (
+                  <MenuButton
+                    size="small"
+                    aria-label={`Actions for ${team.name}`}
+                    closeMenuOnItemClick
+                  >
+                    <Menu id={`team-menu-${team.id}`} size="medium">
+                      <MenuItem title="Edit" icon={Edit} onClick={() => onEdit(team)} />
+                      <MenuItem title="Delete" icon={Delete} onClick={() => onDelete(team)} />
+                    </Menu>
+                  </MenuButton>
+                ) : (
+                  <span />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {canManage ? (
+        <div className={teamStyles.footer}>
+          <Button kind="secondary" size="small" disabled={atCap} onClick={onNew}>
+            New team
+          </Button>
+          {atCap ? (
+            <span className={teamStyles.hint}>
+              A workspace holds at most {TEAM_LIMITS.perWorkspace} teams.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </>
   );
 }
 

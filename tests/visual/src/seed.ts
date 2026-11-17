@@ -53,6 +53,9 @@ export const IDS = {
   sprint: 'boardSprint',
   notes: 'boardNotes',
   trip: 'boardTrip',
+  /** Teams of the personal workspace (TEAMS-2): the Teams tab and team dialog screens. */
+  teamParents: 'teamParents',
+  teamGarden: 'teamGarden',
   /** Created on demand by `addFilesBoard`, for the Files view screens only. */
   files: 'boardFiles',
 } as const;
@@ -75,6 +78,9 @@ async function clearSeededData(firestore: Firestore): Promise<void> {
   const batch = firestore.batch();
   const ws = (id: string) => firestore.collection('workspaces').doc(id);
   batch.delete(ws(IDS.personalWorkspace).collection('folders').doc(IDS.folder));
+  for (const id of [IDS.teamParents, IDS.teamGarden]) {
+    batch.delete(ws(IDS.personalWorkspace).collection('teams').doc(id));
+  }
   batch.delete(ws(IDS.personalWorkspace));
   batch.delete(ws(IDS.familyWorkspace));
   batch.delete(firestore.collection('users').doc(AVERY.uid));
@@ -229,6 +235,23 @@ export async function seed(): Promise<void> {
     updatedAt: ago(12 * DAY),
   });
   batch.set(personal.collection('folders').doc(IDS.folder), folder);
+  const teamBase = {
+    memberUids: [AVERY.uid],
+    createdAt: ago(6 * DAY),
+    createdBy: AVERY.uid,
+    updatedAt: ago(6 * DAY),
+    updatedBy: AVERY.uid,
+  };
+  batch.set(personal.collection('teams').doc(IDS.teamParents), {
+    ...teamBase,
+    name: 'Parents',
+    color: '#9d50dd',
+  });
+  batch.set(personal.collection('teams').doc(IDS.teamGarden), {
+    ...teamBase,
+    name: 'Garden crew',
+    color: '#00c875',
+  });
   batch.set(
     boards.doc(IDS.roadmap),
     board(

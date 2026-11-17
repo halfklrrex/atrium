@@ -623,6 +623,26 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `board-share-dialog-${theme}`, PARK_IN_HEADER);
     });
 
+    // TEAMS-2: the Members dialog's Teams tab and the team dialog (two seeded teams).
+    test('workspace: members dialog Teams tab', async ({ page }) => {
+      await page.goto(`/workspaces/${IDS.personalWorkspace}`);
+      await appReady(page);
+      await page.getByRole('button', { name: /^Invite \/ \d+$/ }).click();
+      const dialog = page.getByRole('dialog', { name: /^Members of / });
+      await dialog.getByRole('tab', { name: /^Teams/ }).click();
+      await expect(
+        dialog.getByRole('list', { name: 'Teams' }).getByText('Garden crew'),
+      ).toBeVisible();
+      await shoot(page, `members-teams-${theme}`);
+      await dialog.getByRole('button', { name: 'New team' }).click();
+      const teamDialog = page.getByRole('dialog', { name: 'New team' });
+      await expect(teamDialog).toBeVisible();
+      await teamDialog.getByLabel('Team name').fill('Kids');
+      await teamDialog.getByText('Avery Atrium').click();
+      await expect(teamDialog.getByRole('checkbox', { name: /Avery/ })).toBeChecked();
+      await shoot(page, `team-dialog-${theme}`);
+    });
+
     // P4: the item card's Activity Log tab and the board's Activity log panel, seeded with fixed entries.
     test('board: item card Activity Log tab', async ({ page }) => {
       await seedActivity();
