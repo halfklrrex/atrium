@@ -10,11 +10,11 @@ import styles from './ConnectPage.module.css';
 const SCOPE_COPY: Record<McpScope, { label: string; hint: string }> = {
   'atrium:read': {
     label: 'Read',
-    hint: 'See your workspaces, boards, items and updates.',
+    hint: 'See your workspaces, boards, docs, items and updates.',
   },
   'atrium:write': {
     label: 'Write',
-    hint: 'Create and change items, updates and boards you can edit.',
+    hint: 'Create and change boards, docs, items and updates you can edit.',
   },
 };
 

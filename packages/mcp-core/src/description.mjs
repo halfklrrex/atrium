@@ -24,6 +24,13 @@ const PLAIN_NODES = new Set([
   'codeBlock',
   'blockquote',
   'horizontalRule',
+  // Tables and mentions round-trip through GFM pipe tables and @[Name]; `richNodeTypes` still flags
+  // a table or cell the pipe syntax cannot hold (merged cells, blocks in a cell, no header row).
+  'table',
+  'tableRow',
+  'tableHeader',
+  'tableCell',
+  'mention',
 ]);
 
 // ---- markdown -> doc --------------------------------------------------------------------------
@@ -69,6 +76,67 @@ function inlineLines(lines) {
 
 const paragraph = (content) =>
   content.length ? { type: 'paragraph', content } : { type: 'paragraph' };
+
+// ---- tables (GFM pipe tables <-> the editor's table / tableRow / tableHeader / tableCell nodes) ----
+
+const TABLE_SEPARATOR = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+
+/** The cells of one pipe-table row (`\|` is a literal pipe). */
+function splitRow(line) {
+  let text = line.trim();
+  if (text.startsWith('|')) text = text.slice(1);
+  if (text.endsWith('|') && !text.endsWith('\\|')) text = text.slice(0, -1);
+  const cells = [];
+  let current = '';
+  for (let i = 0; i < text.length; i += 1) {
+    if (text[i] === '\\' && text[i + 1] === '|') {
+      current += '|';
+      i += 1;
+    } else if (text[i] === '|') {
+      cells.push(current.trim());
+      current = '';
+    } else current += text[i];
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+/** A header row followed by a separator row (with pipes) of the same width starts a table. */
+function isTableStart(lines, i) {
+  if (i + 1 >= lines.length) return false;
+  const head = lines[i];
+  const separator = lines[i + 1];
+  return (
+    head.includes('|') &&
+    separator.includes('|') &&
+    separator.includes('-') &&
+    TABLE_SEPARATOR.test(separator) &&
+    splitRow(head).length === splitRow(separator).length
+  );
+}
+
+const cellNode = (type, text) => ({
+  type,
+  attrs: { colspan: 1, rowspan: 1, colwidth: null },
+  content: [paragraph(inline(text))],
+});
+
+function parseTable(lines, start) {
+  const header = splitRow(lines[start]);
+  const width = header.length;
+  const rows = [{ type: 'tableRow', content: header.map((c) => cellNode('tableHeader', c)) }];
+  let i = start + 2;
+  while (i < lines.length && lines[i].trim() !== '' && lines[i].includes('|')) {
+    const cells = splitRow(lines[i]);
+    while (cells.length < width) cells.push('');
+    rows.push({
+      type: 'tableRow',
+      content: cells.slice(0, width).map((c) => cellNode('tableCell', c)),
+    });
+    i += 1;
+  }
+  return { node: { type: 'table', content: rows }, next: i };
+}
 
 const LIST_LINE = /^( *)([-*+]|\d+[.)])\s+(.*)$/;
 const TASK = /^\[( |x|X)\]\s+(.*)$/;
@@ -153,6 +221,12 @@ export function markdownToDoc(markdown) {
       content.push({ type: 'blockquote', content: markdownToDoc(quoted.join('\n')).content });
       continue;
     }
+    if (isTableStart(lines, i)) {
+      const table = parseTable(lines, i);
+      content.push(table.node);
+      i = table.next;
+      continue;
+    }
     if (LIST_LINE.test(line)) {
       const list = parseList(lines, i);
       content.push(list.node);
@@ -165,6 +239,7 @@ export function markdownToDoc(markdown) {
       lines[i].trim() !== '' &&
       !/^(#{1,6}\s|```|>)/.test(lines[i].trim()) &&
       !LIST_LINE.test(lines[i]) &&
+      !isTableStart(lines, i) &&
       !/^(-{3,}|\*{3,}|_{3,})$/.test(lines[i].trim())
     ) {
       para.push(lines[i].trim());
@@ -194,12 +269,34 @@ function inlineMd(nodes = []) {
     .map((n) => {
       if (n.type === 'text') return markText(n);
       if (n.type === 'hardBreak') return '\n';
-      if (n.type === 'image') return `![${n.attrs?.alt ?? ''}](image)`;
+      if (n.type === 'image') {
+        return `![${n.attrs?.alt ?? ''}](${n.attrs?.fileId ? `atrium-doc-image:${n.attrs.fileId}` : 'image'})`;
+      }
       if (n.type === 'emoji' && n.attrs?.name) return `:${n.attrs.name}:`;
-      if (n.type === 'mention' && n.attrs?.label) return `@${n.attrs.label}`;
+      if (n.type === 'mention' && n.attrs?.label) return `@[${n.attrs.label}]`;
       return inlineMd(n.content);
     })
     .join('');
+}
+
+const cellMd = (cell) =>
+  (cell.content ?? [])
+    .map((block) => inlineMd(block.content ?? []))
+    .join(' ')
+    .replace(/\n/g, ' ')
+    .replace(/\|/g, '\\|')
+    .trim();
+
+function tableMd(table) {
+  const rows = (table.content ?? []).map((row) => (row.content ?? []).map(cellMd));
+  if (rows.length === 0) return '';
+  const width = Math.max(1, ...rows.map((r) => r.length));
+  const line = (cells) => {
+    const padded = [...cells];
+    while (padded.length < width) padded.push('');
+    return `| ${padded.join(' | ')} |`;
+  };
+  return [line(rows[0]), line(Array(width).fill('---')), ...rows.slice(1).map(line)].join('\n');
 }
 
 function blockMd(node, indent = '') {
@@ -218,6 +315,8 @@ function blockMd(node, indent = '') {
         .join('\n');
     case 'horizontalRule':
       return '---';
+    case 'table':
+      return tableMd(node);
     case 'bulletList':
     case 'orderedList':
     case 'taskList':
@@ -246,12 +345,42 @@ export function docToMarkdown(doc) {
   return (doc?.content ?? []).map((n) => blockMd(n)).join('\n\n');
 }
 
-/** Node types in `doc` that markdown cannot round-trip (images, tables, mentions, emoji, ...). */
+/** A cell the pipe syntax holds exactly: one paragraph, no line break, no merged cells. */
+function simpleCell(cell) {
+  const blocks = cell.content ?? [];
+  return (
+    blocks.length === 1 &&
+    blocks[0].type === 'paragraph' &&
+    !(blocks[0].content ?? []).some((n) => n.type === 'hardBreak') &&
+    (cell.attrs?.colspan ?? 1) === 1 &&
+    (cell.attrs?.rowspan ?? 1) === 1
+  );
+}
+
+/** A table that is a header row of header cells, then rows of plain cells (what GFM writes back). */
+function simpleTable(table) {
+  const rows = table.content ?? [];
+  return (
+    rows.length > 0 &&
+    rows.every((row, r) =>
+      (row.content ?? []).every((cell) => cell.type === (r === 0 ? 'tableHeader' : 'tableCell')),
+    )
+  );
+}
+
+/**
+ * Node types in `doc` that markdown cannot round-trip (images, emoji, text colors, ...). A table is
+ * listed (as `table` or `tableCell`) only when it has merged cells, blocks in a cell or no header row.
+ */
 export function richNodeTypes(doc) {
   const found = new Set();
   const walk = (n) => {
     if (!n || typeof n !== 'object') return;
     if (n.type && !PLAIN_NODES.has(n.type)) found.add(n.type);
+    if (n.type === 'table' && !simpleTable(n)) found.add('table');
+    if ((n.type === 'tableCell' || n.type === 'tableHeader') && !simpleCell(n)) {
+      found.add('tableCell');
+    }
     for (const mark of n.marks ?? []) {
       if (!['bold', 'italic', 'strike', 'code', 'link'].includes(mark.type)) found.add(mark.type);
     }
