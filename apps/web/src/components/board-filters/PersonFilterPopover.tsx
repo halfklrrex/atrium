@@ -4,6 +4,8 @@ import classNames from 'classnames';
 import { useMemo, useState } from 'react';
 import { UNKNOWN_PERSON_NAME, useUserLookup, useWorkspaceMembers } from '../../data/members-store';
 import type { BoardDoc, ItemDoc } from '../../data/model';
+import { useWorkspaceTeams } from '../../data/teams';
+import { TeamAvatar } from '../teams/TeamAvatar';
 import { Popover } from '../Popover';
 import { UserAvatar } from '../UserAvatar';
 import styles from './board-filters.module.css';
@@ -18,6 +20,7 @@ export interface PersonFilterPopoverProps {
 export function PersonFilterPopover({ board, items = [], userLookup }: PersonFilterPopoverProps) {
   const memberLookup = useUserLookup(board?.workspaceId);
   const { members } = useWorkspaceMembers(board?.workspaceId);
+  const { teams } = useWorkspaceTeams(board?.workspaceId);
   const [open, setOpen] = useState(false);
   const { filterState, togglePersonFilter, setPersonIds } = useBoardFilter(board?.id);
   const selectedPersonIds = filterState.personIds;
@@ -31,10 +34,11 @@ export function PersonFilterPopover({ board, items = [], userLookup }: PersonFil
       if (item.values) {
         for (const col of board?.columns || []) {
           if (col.type === 'people') {
-            const val = item.values[col.id] as { personsAndTeams?: { id: string }[] } | undefined;
+            const val = item.values[col.id] as
+              { personsAndTeams?: { id: string; kind?: string }[] } | undefined;
             if (val?.personsAndTeams) {
               for (const p of val.personsAndTeams) {
-                if (p.id) peopleSet.add(p.id);
+                if (p.id && p.kind !== 'team') peopleSet.add(p.id);
               }
             }
           }
@@ -81,7 +85,7 @@ export function PersonFilterPopover({ board, items = [], userLookup }: PersonFil
           ) : null}
         </div>
 
-        {availablePeople.length === 0 ? (
+        {availablePeople.length === 0 && teams.length === 0 ? (
           <div className={styles.emptyState}>No assigned people on this board yet.</div>
         ) : (
           <div className={styles.personList} role="listbox" aria-label="People on board">
@@ -104,6 +108,31 @@ export function PersonFilterPopover({ board, items = [], userLookup }: PersonFil
                 </button>
               );
             })}
+            {teams.length > 0 ? (
+              <div role="group" aria-label="Teams">
+                <div className={styles.sectionLabel}>Teams</div>
+                {teams.map((team) => {
+                  const isSelected = selectedPersonIds.includes(team.id);
+                  return (
+                    <button
+                      key={`team:${team.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className={classNames(
+                        styles.personRow,
+                        isSelected && styles.personRowSelected,
+                      )}
+                      onClick={() => togglePersonFilter(team.id)}
+                    >
+                      <TeamAvatar name={team.name} color={team.color} size="sm" />
+                      <span className={styles.personName}>{team.name}</span>
+                      {isSelected ? <Icon icon={Check} size={16} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

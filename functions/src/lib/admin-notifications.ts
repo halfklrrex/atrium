@@ -54,6 +54,24 @@ export function adminNotificationStore(
         photoURL: typeof photo === 'string' && photo ? photo : null,
       };
     },
+    async getWorkspaceTeams(workspaceId) {
+      if (!workspaceId) return [];
+      const snap = await firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('teams')
+        .get();
+      return snap.docs.map((d) => {
+        const members: unknown = d.get('memberUids');
+        return {
+          id: d.id,
+          name: str(d.get('name')) ?? '',
+          memberUids: Array.isArray(members)
+            ? members.filter((m): m is string => typeof m === 'string')
+            : [],
+        };
+      });
+    },
     async getItemName(boardId, itemId) {
       const snap = await firestore
         .collection('boards')

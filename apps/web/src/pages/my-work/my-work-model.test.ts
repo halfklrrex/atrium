@@ -90,6 +90,15 @@ describe('buildRows', () => {
     expect(bare?.group?.title).toBe('Launch');
   });
 
+  it('carries the team behind a "via team" entry', () => {
+    const [direct, viaTeam] = rowsOf([
+      entry('a', {}),
+      { ...entry('b', {}), viaTeam: { id: 't1', name: 'Kids' } },
+    ]);
+    expect(direct?.viaTeamName).toBeUndefined();
+    expect(viaTeam?.viaTeamName).toBe('Kids');
+  });
+
   it('marks rows done from the first status column', () => {
     const [done, working] = rowsOf([
       entry('a', { status: { index: 1 } }),

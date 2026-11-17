@@ -7,6 +7,8 @@ import { columnsForItem } from './subitems';
  * - `assigneeUids`: sorted unique uids of the `person` entries across the board's People columns
  *   (subitems use the board's columns too; `columnsForItem`). Firestore cannot query "assigned to me" from the nested
  *   `values.<colId>.personsAndTeams[]` maps, so Cloud Functions keep this flat array in sync.
+ * - `assigneeTeamIds`: sorted unique ids of the `team` entries of the same columns (TEAMS PR 3), for the
+ *   My Work "via team" query (`array-contains-any` the teams the person belongs to).
  * - `nameTokens`: lowercase, diacritics-stripped prefixes (2 to 15 characters) of every word of the
  *   item name, for `array-contains` name search.
  *
@@ -33,6 +35,7 @@ export interface ItemIndexSource {
 
 export interface ItemIndexFields {
   assigneeUids: string[];
+  assigneeTeamIds: string[];
   nameTokens: string[];
 }
 
@@ -48,6 +51,23 @@ export function assigneeUidsOf(
     if (!parsed.success) continue;
     for (const entry of parsed.data.personsAndTeams) {
       if (entry.kind === 'person') found.add(entry.id);
+    }
+  }
+  return [...found].sort();
+}
+
+/** Ids of the `team` entries in the People columns of `columns`; sorted, unique. */
+export function assigneeTeamIdsOf(
+  columns: ReadonlyArray<IndexColumn>,
+  values: Record<string, unknown> | null | undefined,
+): string[] {
+  const found = new Set<string>();
+  for (const column of columns) {
+    if (column.type !== 'people') continue;
+    const parsed = peopleValueSchema.safeParse(values?.[column.id]);
+    if (!parsed.success) continue;
+    for (const entry of parsed.data.personsAndTeams) {
+      if (entry.kind === 'team') found.add(entry.id);
     }
   }
   return [...found].sort();
@@ -93,11 +113,12 @@ export function searchWordsOf(term: string): string[] {
     .map(({ word }) => word);
 }
 
-/** Both index fields of an item; a subitem (`parentItemId` set) uses the board's subitem columns. */
+/** The index fields of an item; a subitem (`parentItemId` set) uses the board's subitem columns. */
 export function itemIndexFields(board: ItemIndexBoard, item: ItemIndexSource): ItemIndexFields {
   const columns = columnsForItem(board, item);
   return {
     assigneeUids: assigneeUidsOf(columns, item.values),
+    assigneeTeamIds: assigneeTeamIdsOf(columns, item.values),
     nameTokens: nameTokensOf(item.name),
   };
 }

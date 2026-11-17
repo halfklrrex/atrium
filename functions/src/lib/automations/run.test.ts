@@ -190,6 +190,9 @@ function makeNotifications(w: World): NotificationStore {
     async getUpdateAuthorId() {
       return null;
     },
+    async getWorkspaceTeams() {
+      return [];
+    },
     async createNotification(uid, id, data) {
       if (w.notifications.some((n) => n.id === id && n.uid === uid)) return false;
       w.notifications.push({ uid, id, data });

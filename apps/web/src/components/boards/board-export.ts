@@ -17,7 +17,7 @@ import {
   type StatusValue,
 } from '@atrium/shared';
 import type { BoardDoc, ItemDoc } from '../../data';
-import { UNKNOWN_PERSON_NAME } from '../../data/members-store';
+import { DELETED_TEAM_NAME } from '../../data/teams';
 import { cellDisplayText } from '../../lib/cell-display-text';
 import { derivedCellValue } from '../board-table/derived';
 import { buildColumnViews, type ColumnView } from '../board-table/table-model';
@@ -96,8 +96,8 @@ function cellFor(
 
   const text = cellDisplayText(def.type, raw, settings, {
     personName: personNames,
-    // A team keeps the CSV's long-standing fallback (it used to go through `personNames`).
-    teamName: (id) => personNames(id) ?? UNKNOWN_PERSON_NAME,
+    // `personNames` also resolves the workspace's teams (TEAMS PR 3); a deleted team reads so.
+    teamName: (id) => personNames(id) ?? DELETED_TEAM_NAME,
   });
   if (def.type === 'numbers' || typeof raw === 'number') return { text, numeric: true };
   if (typed && def.type === 'date') return { text, date: true };

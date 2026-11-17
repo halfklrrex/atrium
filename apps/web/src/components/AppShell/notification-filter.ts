@@ -55,16 +55,19 @@ export function actorsOf(list: readonly NotificationDoc[]): { id: string; name: 
   return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** "Assigned you to an item", "Clicked "Label"", "Replied to your update", "Mentioned you in a reply", "Mentioned you in a description". */
+/** "Assigned you to an item", "Assigned you (via Kids) to an item", "Clicked "Label"", "Replied to your update", "Mentioned you in a reply", "Mentioned you in a description". */
 export function actionText(
   n: Pick<NotificationDoc, 'kind' | 'replyId' | 'updateId'> & {
     buttonLabel?: string | null;
     recipeName?: string | null;
+    viaTeamName?: string | null;
   },
 ): string {
   switch (n.kind) {
     case 'assigned':
-      return 'Assigned you to an item';
+      return n.viaTeamName
+        ? `Assigned you (via ${n.viaTeamName}) to an item`
+        : 'Assigned you to an item';
     case 'reply':
       return 'Replied to your update';
     case 'mention':

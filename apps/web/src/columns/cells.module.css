@@ -128,6 +128,10 @@
   background: var(--color-winter);
 }
 
+.avatarTeam {
+  color: var(--atrium-team-avatar-text-color);
+}
+
 .avatarMore {
   background: var(--ui-background-color);
   color: var(--primary-text-color);

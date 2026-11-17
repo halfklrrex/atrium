@@ -11,6 +11,10 @@ export const NOTIFICATION_LIMITS = {
   retentionDays: 180,
   /** Page size of the bell panel list. */
   pageSize: 50,
+  /** Most people one write notifies through teams (TEAMS PR 3). */
+  teamFanOut: 50,
+  /** Longest team name (`TEAM_LIMITS.name`) kept on a notification. */
+  teamName: 60,
 } as const;
 
 export const notificationKindSchema = z.enum([
@@ -54,6 +58,9 @@ export const notificationSchema = z.object({
   columnId: idSchema.nullable(),
   /** Button: the button's label when it was clicked. Absent on other kinds. */
   buttonLabel: z.string().max(50).nullable().optional(),
+  /** Assigned through a team (TEAMS PR 3): the team's id and its name when the notification was written. */
+  viaTeamId: idSchema.nullable().optional(),
+  viaTeamName: z.string().max(60).nullable().optional(),
   /** Automation kinds: the recipe name. Absent on other kinds. */
   recipeName: z.string().max(80).nullable().optional(),
   /** First characters of the update or reply (button: the message); '' for assigned. */

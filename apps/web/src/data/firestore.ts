@@ -277,6 +277,9 @@ export const plainRefs = {
     doc(collection(db, COLLECTIONS.boards, boardId, COLLECTIONS.items)),
 };
 
+/** Firestore's `array-contains-any` takes at most 30 values. */
+export const MY_WORK_TEAM_QUERY_CAP = 30;
+
 export const queries = {
   /** The person's connected apps that are still live (OPS4). */
   liveMcpGrants: (uid: string): Query<McpGrantDoc> =>
@@ -319,6 +322,17 @@ export const queries = {
     query(
       refs.items(boardId),
       where('assigneeUids', 'array-contains', uid),
+      where('state', '==', 'active'),
+    ),
+
+  /**
+   * My Work "via team" (TEAMS PR 3): active items of one board assigned to any of the person's
+   * teams (server-maintained `assigneeTeamIds`; at most 30 ids, Firestore's `array-contains-any` cap).
+   */
+  teamAssignedItems: (boardId: string, teamIds: readonly string[]): Query<ItemDoc> =>
+    query(
+      refs.items(boardId),
+      where('assigneeTeamIds', 'array-contains-any', teamIds.slice(0, MY_WORK_TEAM_QUERY_CAP)),
       where('state', '==', 'active'),
     ),
 

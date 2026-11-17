@@ -28,6 +28,14 @@
       "collectionGroup": "items",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "assigneeTeamIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "nameTokens", "arrayConfig": "CONTAINS" },
         { "fieldPath": "state", "order": "ASCENDING" }
       ]

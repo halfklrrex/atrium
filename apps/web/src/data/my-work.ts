@@ -1,10 +1,11 @@
-import { assigneeUidsOf, columnsForItem } from '@atrium/shared';
+import { assigneeTeamIdsOf, assigneeUidsOf, columnsForItem } from '@atrium/shared';
 import { onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { activeBoards, mergeBoards } from './boards';
-import { queries } from './firestore';
+import { MY_WORK_TEAM_QUERY_CAP, queries } from './firestore';
 import { useRecents, useWorkspaces } from './hooks';
-import type { BoardDoc, ItemDoc, RecentDoc } from './model';
+import type { BoardDoc, ItemDoc, RecentDoc, TeamDoc } from './model';
+import { retainTeams, useTeamsStore } from './teams';
 import type { SnapshotState } from './useSnapshot';
 
 /** My Work listens to at most this many boards (most recently visited first, then by name). */
@@ -17,6 +18,40 @@ export const MY_WORK_BOARD_CAP = 100;
 export function isAssignedTo(board: BoardDoc, item: ItemDoc, uid: string): boolean {
   const columns = columnsForItem(board, item);
   return assigneeUidsOf(columns, item.values).includes(uid);
+}
+
+/** A team the person belongs to, as My Work needs it. */
+export interface MyTeam {
+  id: string;
+  name: string;
+}
+
+/**
+ * The first of the person's teams the item is assigned to, or `undefined`. Re-checks the
+ * server-maintained `assigneeTeamIds` hint against the board's current columns.
+ */
+export function viaTeamOf(
+  board: BoardDoc,
+  item: ItemDoc,
+  myTeams: readonly MyTeam[],
+): MyTeam | undefined {
+  if (myTeams.length === 0) return undefined;
+  const assigned = new Set(assigneeTeamIdsOf(columnsForItem(board, item), item.values));
+  return myTeams.find((team) => assigned.has(team.id));
+}
+
+/** The teams of one workspace that `uid` belongs to, sorted by id and cut to the query cap. */
+export function myTeamsIn(teams: readonly TeamDoc[], uid: string): MyTeam[] {
+  const mine = teams
+    .filter((t) => t.memberUids.includes(uid))
+    .map((t) => ({ id: t.id, name: t.name }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (mine.length > MY_WORK_TEAM_QUERY_CAP) {
+    console.warn(
+      `My Work lists work for the first ${MY_WORK_TEAM_QUERY_CAP} of your ${mine.length} teams in one workspace.`,
+    );
+  }
+  return mine.slice(0, MY_WORK_TEAM_QUERY_CAP);
 }
 
 /** The boards My Work listens to: most recent visit first, then name; capped. */
@@ -112,8 +147,11 @@ export function useReadableBoards(uid: string | null): SnapshotState<BoardDoc[]>
 }
 
 export interface MyWorkItems {
-  /** Assigned items with their boards (re-verified against the boards' current columns). */
-  entries: { board: BoardDoc; item: ItemDoc }[];
+  /**
+   * Assigned items with their boards (re-verified against the boards' current columns). `viaTeam`
+   * is set when the item reached the person only through a team they belong to.
+   */
+  entries: { board: BoardDoc; item: ItemDoc; viaTeam?: MyTeam }[];
   loading: boolean;
   /** Set only when nothing could be read at all. */
   error: Error | null;
@@ -125,9 +163,11 @@ export interface MyWorkItems {
 
 /**
  * The signed-in user's assigned items: one listener per readable board on
- * `items where assigneeUids array-contains me and state == 'active'`. The per-board read rule
- * authorises each one, so a board the user lost access to stops answering and is dropped silently.
- * `error` is set only when every listener failed.
+ * `items where assigneeUids array-contains me and state == 'active'`. When the person belongs to
+ * teams in the board's workspace, a second listener asks for `assigneeTeamIds array-contains-any
+ * <my teams>` (TEAMS PR 3); those items carry `viaTeam` unless they are assigned to the person
+ * directly too. The per-board read rule authorises each one, so a board the user lost access to
+ * stops answering and is dropped silently. `error` is set only when every listener failed.
  */
 export function useMyWorkItems(uid: string | null): MyWorkItems {
   const boards = useReadableBoards(uid);
@@ -143,10 +183,36 @@ export function useMyWorkItems(uid: string | null): MyWorkItems {
   );
   const waitingForRecents = overCap && recents.loading;
   const idsKey = waitingForRecents ? '' : chosen.map((b) => b.id).join('|');
-  const requestKey = `${attempt}:${idsKey}`;
+
+  // My teams per workspace of the chosen boards (one shared listener per workspace).
+  const workspaceKey = [...new Set(chosen.map((b) => b.workspaceId))].sort().join('|');
+  useEffect(() => {
+    if (!uid || !workspaceKey) return;
+    const releases = workspaceKey.split('|').map((id) => retainTeams(id));
+    return () => releases.forEach((release) => release());
+  }, [uid, workspaceKey]);
+  const teamsByWorkspace = useTeamsStore((s) => s.byWorkspace);
+  const myTeams = useMemo(() => {
+    const out = new Map<string, MyTeam[]>();
+    if (!uid || !workspaceKey) return out;
+    for (const id of workspaceKey.split('|')) {
+      const mine = myTeamsIn(teamsByWorkspace[id]?.teams ?? [], uid);
+      if (mine.length > 0) out.set(id, mine);
+    }
+    return out;
+  }, [uid, workspaceKey, teamsByWorkspace]);
+  const teamsPending = workspaceKey.split('|').some((id) => id && !teamsByWorkspace[id]?.loaded);
+
+  // The team listeners to run: `boardId:teamId,teamId` per board whose workspace has my teams.
+  const teamQueriesKey = chosen
+    .filter((b) => idsKey && myTeams.has(b.workspaceId))
+    .map((b) => `${b.id}:${(myTeams.get(b.workspaceId) ?? []).map((t) => t.id).join(',')}`)
+    .join('|');
+  const requestKey = `${attempt}:${idsKey}:${teamQueriesKey}`;
 
   const [state, setState] = useState<{
     key: string;
+    /** `p:<boardId>` (assigned to me) and `t:<boardId>` (assigned to my teams). */
     items: Record<string, ItemDoc[]>;
     failed: string[];
   } | null>(null);
@@ -156,39 +222,60 @@ export function useMyWorkItems(uid: string | null): MyWorkItems {
     const items: Record<string, ItemDoc[]> = {};
     const failed = new Set<string>();
     const publish = () => setState({ key: requestKey, items: { ...items }, failed: [...failed] });
-    const unsubscribers = idsKey.split('|').map((boardId) =>
+    const listen = (slot: string, q: ReturnType<typeof queries.assignedItems>) =>
       onSnapshot(
-        queries.assignedItems(boardId, uid),
+        q,
         (snap) => {
-          failed.delete(boardId);
-          items[boardId] = snap.docs.map((d) => d.data());
+          failed.delete(slot);
+          items[slot] = snap.docs.map((d) => d.data());
           publish();
         },
         () => {
-          delete items[boardId];
-          failed.add(boardId);
+          delete items[slot];
+          failed.add(slot);
           publish();
         },
-      ),
-    );
+      );
+    const unsubscribers = [
+      ...idsKey
+        .split('|')
+        .map((boardId) => listen(`p:${boardId}`, queries.assignedItems(boardId, uid))),
+      ...(teamQueriesKey ? teamQueriesKey.split('|') : []).map((entry) => {
+        const [boardId = '', ids = ''] = entry.split(':');
+        return listen(`t:${boardId}`, queries.teamAssignedItems(boardId, ids.split(',')));
+      }),
+    ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [uid, idsKey, requestKey]);
+  }, [uid, idsKey, teamQueriesKey, requestKey]);
 
   const current = state?.key === requestKey ? state : null;
   const entries = useMemo(() => {
     if (!current || !uid) return [];
-    return chosen.flatMap((board) =>
-      (current.items[board.id] ?? [])
-        .filter((item) => isAssignedTo(board, item, uid))
-        .map((item) => ({ board, item })),
-    );
-  }, [current, chosen, uid]);
+    return chosen.flatMap((board) => {
+      const direct = (current.items[`p:${board.id}`] ?? []).filter((item) =>
+        isAssignedTo(board, item, uid),
+      );
+      const directIds = new Set(direct.map((item) => item.id));
+      const teams = myTeams.get(board.workspaceId) ?? [];
+      const viaTeams = (current.items[`t:${board.id}`] ?? []).flatMap((item) => {
+        if (directIds.has(item.id)) return [];
+        const viaTeam = viaTeamOf(board, item, teams);
+        return viaTeam ? [{ board, item, viaTeam }] : [];
+      });
+      return [...direct.map((item) => ({ board, item })), ...viaTeams];
+    });
+  }, [current, chosen, uid, myTeams]);
 
   const boardCount = idsKey ? idsKey.split('|').length : 0;
+  const listenerCount = boardCount + (teamQueriesKey ? teamQueriesKey.split('|').length : 0);
   const answered = current ? current.failed.length + Object.keys(current.items).length : 0;
-  const everyListenerFailed = boardCount > 0 && current?.failed.length === boardCount;
+  const everyListenerFailed = listenerCount > 0 && current?.failed.length === listenerCount;
   const loading =
-    !!uid && (boards.loading || waitingForRecents || (boardCount > 0 && answered < boardCount));
+    !!uid &&
+    (boards.loading ||
+      waitingForRecents ||
+      (boardCount > 0 && teamsPending) ||
+      (listenerCount > 0 && answered < listenerCount));
   return {
     entries,
     loading,

@@ -119,13 +119,41 @@ test('a dry run writes nothing', async () => {
   assert.equal(client.store.get('boards/b1/items/i1').assigneeUids, undefined);
 });
 
-test('writes only the two fields: never updatedAt, updatedBy or name', async () => {
+test('indexes team ids (TEAMS PR 3) and heals items that only lack assigneeTeamIds', async () => {
+  const docs = fixture();
+  const owner = {
+    personsAndTeams: [
+      { id: 't1', kind: 'team' },
+      { id: 'u1', kind: 'person' },
+    ],
+  };
+  docs['boards/b1/items/i1'] = item('Plan Q3', { values: { owner } });
+  // Indexed before TEAMS PR 3: right uids and tokens, no assigneeTeamIds.
+  docs['boards/b2/items/j1'] = item('Café', {
+    assigneeUids: [],
+    nameTokens: ['ca', 'caf', 'cafe'],
+  });
+  const client = fakeClient(docs);
+  const dry = await runBackfill({ client, log: quiet });
+  assert.equal(dry.candidates, 3, 'the dry run counts the items without writing');
+  assert.equal(client.commits.length, 0);
+  await runBackfill({ client, apply: true, log: quiet });
+  assert.deepEqual(client.store.get('boards/b1/items/i1').assigneeTeamIds, ['t1']);
+  assert.deepEqual(client.store.get('boards/b1/items/i1').assigneeUids, ['u1']);
+  assert.deepEqual(client.store.get('boards/b2/items/j1').assigneeTeamIds, []);
+});
+
+test('writes only the three fields: never updatedAt, updatedBy or name', async () => {
   const client = fakeClient(fixture());
   await runBackfill({ client, apply: true, log: quiet });
   assert.deepEqual(client.store.get('boards/b1/items/i1').updatedAt, at(5));
   for (const write of client.commits.flat()) {
     assert.equal(write.op, 'patch');
-    assert.deepEqual(Object.keys(write.data).sort(), ['assigneeUids', 'nameTokens']);
+    assert.deepEqual(Object.keys(write.data).sort(), [
+      'assigneeTeamIds',
+      'assigneeUids',
+      'nameTokens',
+    ]);
   }
 });
 
@@ -133,6 +161,7 @@ test('is idempotent: a second run, and items already right, write nothing', asyn
   const docs = fixture();
   docs['boards/b2/items/j1'] = item('Café', {
     assigneeUids: [],
+    assigneeTeamIds: [],
     nameTokens: ['ca', 'caf', 'cafe'],
   });
   const client = fakeClient(docs);
@@ -150,6 +179,7 @@ test('fixes stale fields', async () => {
   docs['boards/b1/items/i1'] = item('Plan Q3', {
     values: { owner: people('u1') },
     assigneeUids: ['u7'],
+    assigneeTeamIds: [],
     nameTokens: ['pl', 'pla', 'plan', 'q3'],
   });
   const client = fakeClient(docs);

@@ -531,6 +531,8 @@ export function groupItems<T extends Item>(
     for (const item of items) {
       const val = item.values?.[columnDef.id] as PeopleValue | undefined;
       const person = val?.personsAndTeams?.[0];
+      // A team is its own group (TEAMS PR 3); its key never collides with a uid.
+      const isTeam = person?.kind === 'team';
       const key = person?.id ?? 'unassigned';
       let group = groups.get(key);
       if (!group) {
@@ -538,9 +540,13 @@ export function groupItems<T extends Item>(
           key === 'unassigned'
             ? 'Unassigned'
             : (userLookup?.(key) ??
-              (key.startsWith('u_') || key.length > 15 ? 'Board member' : key));
+              (isTeam
+                ? 'Deleted team'
+                : key.startsWith('u_') || key.length > 15
+                  ? 'Board member'
+                  : key));
         group = {
-          groupId: `person_${key}`,
+          groupId: `${isTeam ? 'team' : 'person'}_${key}`,
           groupTitle: title,
           groupColor:
             key === 'unassigned'
