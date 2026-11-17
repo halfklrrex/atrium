@@ -15,6 +15,7 @@ import type {
   MemberProfile,
   MemberProfileStore,
   MembershipTx,
+  TeamMembershipStore,
   WorkspaceData,
 } from './membership';
 
@@ -216,6 +217,28 @@ export function adminBoardAccessStore(firestore: Firestore): BoardAccessStore {
           'accessUids',
           FieldValue.arrayRemove(uid),
         );
+      }
+      await batch.commit();
+    },
+  };
+}
+
+/** Team housekeeping after a member leaves or is removed. Server-set audit fields are left alone. */
+export function adminTeamMembershipStore(firestore: Firestore): TeamMembershipStore {
+  const teamsCol = (workspaceId: string) =>
+    workspaceRef(firestore, workspaceId).collection('teams');
+  return {
+    async listTeamIdsWithMember(workspaceId, uid) {
+      const snap = await teamsCol(workspaceId).where('memberUids', 'array-contains', uid).get();
+      return snap.docs.map((d) => d.id);
+    },
+    async removeFromTeams(workspaceId, teamIds, uid) {
+      const batch = firestore.batch();
+      for (const id of teamIds) {
+        batch.update(teamsCol(workspaceId).doc(id), {
+          memberUids: FieldValue.arrayRemove(uid),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
       }
       await batch.commit();
     },
