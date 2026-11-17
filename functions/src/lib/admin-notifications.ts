@@ -1,6 +1,7 @@
 import type { WorkspaceRole } from '@atrium/shared';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import type {
+  DocNotificationStore,
   NotificationPurgeStore,
   NotificationStore,
   NotificationUpsertStore,
@@ -135,6 +136,24 @@ export function adminNotificationPurgeStore(firestore: Firestore): NotificationP
       const batch = firestore.batch();
       for (const path of paths) batch.delete(firestore.doc(path));
       await batch.commit();
+    },
+  };
+}
+
+/** The notification store plus the doc read the doc-body trigger needs. */
+export function adminDocNotificationStore(firestore: Firestore): DocNotificationStore {
+  return {
+    ...adminNotificationStore(firestore),
+    async getDoc(docId) {
+      const snap = await firestore.collection('docs').doc(docId).get();
+      if (!snap.exists) return null;
+      return {
+        name: str(snap.get('name')) ?? '',
+        kind: snap.get('kind'),
+        workspaceId: str(snap.get('workspaceId')) ?? '',
+        access: snap.get('access') ?? {},
+        state: str(snap.get('state')),
+      };
     },
   };
 }

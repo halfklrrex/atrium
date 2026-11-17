@@ -52,6 +52,7 @@ export { onItemWrittenActivity } from './triggers/onItemWrittenActivity';
 export { onItemRequiredRevert } from './triggers/onItemRequiredRevert';
 export { onBoardWrittenActivity } from './triggers/onBoardWrittenActivity';
 export { onItemPeopleAssigned } from './triggers/onItemPeopleAssigned';
+export { onDocBodyWritten } from './triggers/onDocBodyWritten';
 export { onUpdateCreated } from './triggers/onUpdateCreated';
 export { onReplyCreated } from './triggers/onReplyCreated';
 export { purgeOldNotifications } from './scheduled/purgeOldNotifications';

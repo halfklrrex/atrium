@@ -575,6 +575,85 @@ export async function notifyDescriptionMentions(
   });
 }
 
+// -- Doc mentions (P7 PR 6) -----------------------------------------------------------------------
+
+/** The slice of `docs/{docId}` the mention notifications need. */
+export interface NotificationDocMeta extends BoardAccessInput {
+  name: string;
+  workspaceId: string;
+  state?: string;
+}
+
+/** The notification store plus the one read a doc body write needs. */
+export interface DocNotificationStore extends NotificationStore {
+  /** `null` when the doc no longer exists. */
+  getDoc(docId: string): Promise<NotificationDocMeta | null>;
+}
+
+export interface DocBodyWriteChange {
+  eventId: string;
+  docId: string;
+  before?: { doc?: unknown };
+  after: { doc?: unknown; text?: unknown; updatedBy?: string };
+}
+
+/**
+ * `onDocBodyWritten`: people whose mention chip is new in the saved body get one `mention` that
+ * opens the doc. Only people who can read the doc are notified, never the actor, and the `mention`
+ * preference applies. Reads nothing unless a new uid appeared. `boardId` and `itemId` hold the doc
+ * id so the card and the push link to `/docs/<id>`.
+ */
+export async function notifyDocMentions(
+  store: DocNotificationStore,
+  change: DocBodyWriteChange,
+): Promise<number> {
+  const { before, after } = change;
+  const actorId = after.updatedBy;
+  if (!actorId) return 0;
+  const previous = new Set(mentionedUidsOf(before?.doc));
+  const added = mentionedUidsOf(after.doc).filter((uid) => uid !== actorId && !previous.has(uid));
+  if (added.length === 0) return 0;
+
+  const doc = await store.getDoc(change.docId);
+  if (!doc || doc.state === 'deleted') return 0;
+  const roles = await store.getWorkspaceRoles(doc.workspaceId);
+  const recipients: string[] = [];
+  for (const uid of added.slice(0, NOTIFICATION_LIMITS.mentions)) {
+    if (resolveBoardRole(doc, uid, roles[uid]) === null) continue;
+    const prefs = await store.getPrefs(uid);
+    if (prefs?.mention === false) continue;
+    recipients.push(uid);
+  }
+  if (recipients.length === 0) return 0;
+
+  const member = await store.getMemberProfile(doc.workspaceId, actorId);
+  const text = typeof after.text === 'string' ? after.text : '';
+  let created = 0;
+  for (const uid of recipients) {
+    const data: NewNotification = {
+      kind: 'mention',
+      actorId,
+      actorName: clip(member?.name || 'Someone', 200),
+      actorPhotoURL: member ? member.photoURL : null,
+      workspaceId: doc.workspaceId,
+      boardId: change.docId,
+      boardName: '',
+      itemId: change.docId,
+      itemName: '',
+      updateId: null,
+      replyId: null,
+      columnId: null,
+      docId: change.docId,
+      docName: clip(doc.name, 80),
+      snippet: makeSnippet(text),
+    };
+    if (await store.createNotification(uid, notificationId('mention', change.eventId, uid), data)) {
+      created += 1;
+    }
+  }
+  return created;
+}
+
 // -- Updates and replies -------------------------------------------------------------------------
 
 export interface PostedContent {

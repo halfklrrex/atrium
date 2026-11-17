@@ -63,6 +63,12 @@ export const notificationSchema = z.object({
   viaTeamName: z.string().max(60).nullable().optional(),
   /** Automation kinds: the recipe name. Absent on other kinds. */
   recipeName: z.string().max(80).nullable().optional(),
+  /**
+   * Doc mentions (P7 PR 6): the doc to open and its name when the notification was written. Absent
+   * on every other kind. `boardId` and `itemId` hold the doc id then, so the card links to the doc.
+   */
+  docId: idSchema.nullable().optional(),
+  docName: z.string().max(80).nullable().optional(),
   /** First characters of the update or reply (button: the message); '' for assigned. */
   snippet: z.string().max(NOTIFICATION_LIMITS.snippet),
   createdAt: timestampSchema,

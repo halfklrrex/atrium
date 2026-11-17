@@ -251,6 +251,22 @@ describe('sendPush: payload', () => {
     expect(
       (await first(note({ kind: 'mention', updateId: 'u9', snippet: 'Hi @you' }))).data.title,
     ).toBe('Avery Quinn mentioned you in an update');
+    const docMention = await first(
+      note({
+        kind: 'mention',
+        boardId: 'd1',
+        itemId: 'd1',
+        docId: 'd1',
+        docName: 'Packing list',
+        snippet: '',
+      }),
+    );
+    expect(docMention.data).toMatchObject({
+      title: 'Avery Quinn mentioned you in a doc',
+      body: 'Packing list',
+      tag: 'doc-d1',
+    });
+    expect(docMention.data.url).toMatch(/\/docs\/d1$/);
     expect((await first(note({ kind: 'button', buttonLabel: 'Ship it' }))).data.title).toBe(
       'Avery Quinn clicked "Ship it"',
     );

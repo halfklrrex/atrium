@@ -49,6 +49,19 @@ describe('notificationSchema', () => {
     expect(notificationSchema.safeParse({ ...notification, readAt: ts }).success).toBe(true);
   });
 
+  it('accepts a doc mention with docId and docName, and rejects an over-long docName', () => {
+    const doc = {
+      ...notification,
+      boardId: 'd1',
+      itemId: 'd1',
+      docId: 'd1',
+      docName: 'Packing list',
+    };
+    expect(notificationSchema.safeParse(doc).success).toBe(true);
+    expect(notificationSchema.safeParse({ ...doc, docName: 'x'.repeat(81) }).success).toBe(false);
+    expect(notificationSchema.safeParse(notification).success).toBe(true);
+  });
+
   it('rejects an unknown kind and an over-long snippet', () => {
     expect(notificationSchema.safeParse({ ...notification, kind: 'email' }).success).toBe(false);
     for (const kind of ['automation', 'automation_disabled']) {

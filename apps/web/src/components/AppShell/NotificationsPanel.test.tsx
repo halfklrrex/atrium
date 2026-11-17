@@ -361,6 +361,28 @@ describe('NotificationsPanel list', () => {
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/boards\/b1\/items\/i1\|\|$/);
   });
 
+  it('shows a doc mention and opens the doc', async () => {
+    mockList = [
+      note('n10', {
+        boardId: 'd1',
+        itemId: 'd1',
+        boardName: '',
+        itemName: '',
+        docId: 'd1',
+        docName: 'Packing list',
+        updateId: null,
+        snippet: 'Ask Blake about the tent',
+      }),
+    ];
+    renderPanel();
+    setOpen(true);
+    expect(screen.getByText('Mentioned you in a doc')).toBeInTheDocument();
+    expect(screen.getByText(/Packing list/)).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Ask Blake about the tent'));
+    expect(mockMarkRead).toHaveBeenCalledWith('u1', 'n10');
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/docs\/packing-list-d1\|\|$/);
+  });
+
   it('opens a read assigned notification on the item alone, without marking it', async () => {
     renderPanel();
     setOpen(true);

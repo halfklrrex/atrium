@@ -24,6 +24,7 @@ import {
 } from '../../data/notifications';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { AllCaughtUp } from '../illustrations';
+import { docPath } from '../../lib/paths';
 import { itemViewPath } from '../item-view/item-view-store';
 import { showToast } from '../toast-store';
 import { NotificationCard } from './NotificationCard';
@@ -156,6 +157,10 @@ export function NotificationsPanel() {
     }
     if (n.kind === 'account_request') {
       void navigate('/admin');
+      return;
+    }
+    if (n.docId) {
+      void navigate(docPath({ id: n.docId, name: n.docName ?? '' }));
       return;
     }
     void navigate(itemViewPath(n.boardId, n.itemId), {
