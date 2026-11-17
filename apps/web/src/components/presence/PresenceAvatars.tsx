@@ -1,19 +1,24 @@
 import { Avatar, AvatarGroup, Tooltip } from '@vibe/core';
 import { useAuth } from '../../auth/auth-context';
-import { useBoardPresence } from '../../data/presence';
+import { useBoardPresence, useDocPresence } from '../../data/presence';
 import { initialsOf } from '../../lib/format';
 import { formatViewingNow } from './formatPresence';
 import styles from './PresenceAvatars.module.css';
 
 export interface PresenceAvatarsProps {
-  boardId: string;
+  /** A board page shows its viewers... */
+  boardId?: string;
+  /** ...a doc page its own (exactly one of the two). */
+  docId?: string;
   max?: number;
   size?: 'xs' | 'small' | 'medium';
 }
 
-export function PresenceAvatars({ boardId, max = 3, size = 'small' }: PresenceAvatarsProps) {
+export function PresenceAvatars({ boardId, docId, max = 3, size = 'small' }: PresenceAvatarsProps) {
   const { user } = useAuth();
-  const { activeViewers } = useBoardPresence(boardId, user);
+  const board = useBoardPresence(boardId, user);
+  const docPresence = useDocPresence(docId, user);
+  const { activeViewers } = docId ? docPresence : board;
 
   // Hide avatar group when there are no viewers, or when you are the only viewer (as monday does)
   if (
@@ -23,7 +28,7 @@ export function PresenceAvatars({ boardId, max = 3, size = 'small' }: PresenceAv
     return null;
   }
 
-  const tooltipText = formatViewingNow(activeViewers, user?.uid);
+  const tooltipText = formatViewingNow(activeViewers, user?.uid, docId ? 'Here now' : undefined);
 
   return (
     <Tooltip content={tooltipText}>

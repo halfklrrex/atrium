@@ -1767,6 +1767,27 @@ export async function addDoc(): Promise<void> {
     });
 }
 
+/**
+ * Another editor saves the doc (revision 2) while the page has unsaved edits: the conflict banner
+ * screen. Written by the same user on purpose (the same person in a second tab): the personal
+ * workspace has no other member to name.
+ */
+export async function saveDocElsewhere(): Promise<void> {
+  const text = 'Their version: the trip moved to Friday.';
+  await adminDb()
+    .collection('docs')
+    .doc(DOC_ID)
+    .collection('content')
+    .doc('body')
+    .set({
+      doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] },
+      text,
+      rev: 2,
+      updatedAt: ago(0),
+      updatedBy: AVERY.uid,
+    });
+}
+
 export async function removeDoc(): Promise<void> {
   await adminDb().recursiveDelete(adminDb().collection('docs').doc(DOC_ID));
 }

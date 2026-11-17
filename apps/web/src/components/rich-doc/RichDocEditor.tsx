@@ -1,5 +1,5 @@
 import type { EmojiItem } from '@tiptap/extension-emoji';
-import { EditorContent, useEditor } from '@tiptap/react';
+import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { showToast } from '../toast-store';
@@ -62,6 +62,8 @@ export interface RichDocEditorProps {
    * without triggering a save.
    */
   external?: { key: number; doc: Record<string, unknown> | null };
+  /** Hands the TipTap editor to the host (and `null` on unmount), e.g. to read the current text. */
+  onEditor?: (editor: Editor | null) => void;
   /** Accessible name of the expanded dialog. */
   expandLabel?: string;
   /** Hide the expand button (a full page doesn't need it). */
@@ -90,6 +92,7 @@ export function RichDocEditor({
   placeholder,
   onEdit,
   external,
+  onEditor,
   expandLabel = 'Description',
   canExpand = true,
 }: RichDocEditorProps) {
@@ -165,6 +168,11 @@ export function RichDocEditor({
     },
     onBlur: () => debouncer.flush(),
   });
+
+  useEffect(() => {
+    onEditor?.(editor);
+    return () => onEditor?.(null);
+  }, [editor, onEditor]);
 
   // TipTap keeps the editor's own `editable` across renders, so a role that resolves after mount
   // (the workspace role loads after the side panel opens) must be pushed in explicitly; without

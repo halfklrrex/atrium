@@ -98,3 +98,20 @@
   justify-content: center;
   min-height: 50vh;
 }
+
+/* The "somebody else changed this doc" banner: it sits above the title and stays until resolved. */
+.conflict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--border-radius-medium);
+  background: var(--atrium-doc-banner-bg);
+  color: var(--atrium-doc-banner-text);
+  font: var(--font-text2-normal);
+}
+
+.conflict .bannerText {
+  min-width: 0;
+}
