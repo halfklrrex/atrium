@@ -23,6 +23,7 @@ export type DialogState =
   | { type: 'deleteFolder'; workspaceId: string; folderId: string }
   | { type: 'shareBoard'; boardId: string }
   | { type: 'saveTemplate'; boardId: string }
+  | { type: 'integrations'; boardId: string }
   | { type: 'members'; workspaceId: string; tab?: 'members' | 'invites' }
   | { type: 'search'; initialTerm?: string }
   | { type: 'about' }

@@ -1,6 +1,7 @@
 import { useUiStore } from '../AppShell/ui-store';
 import { AboutDialog } from './AboutDialog';
 import { FeedbackDialog } from './FeedbackDialog';
+import { IntegrationsDialog } from '../integrations/IntegrationsDialog';
 import { ShareBoardDialog } from '../boards/ShareBoardDialog';
 import { ShareDashboardDialog } from '../dashboard/ShareDashboardDialog';
 import { ShareEntityDialog } from '../sharing/ShareEntityDialog';
@@ -79,6 +80,8 @@ export function DialogHost() {
       );
     case 'shareBoard':
       return <ShareBoardDialog boardId={dialog.boardId} onClose={close} />;
+    case 'integrations':
+      return <IntegrationsDialog boardId={dialog.boardId} onClose={close} />;
     case 'members':
       return (
         <MembersDialog workspaceId={dialog.workspaceId} initialTab={dialog.tab} onClose={close} />
