@@ -1,6 +1,6 @@
 # Atrium MCP connector
 
-Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions, updates and views (including forms) in the live Atrium, as the person who signed in. It comes in two modes with the same 66 tools:
+Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions, updates and views (including forms) in the live Atrium, as the person who signed in. It comes in two modes: 70 tools in the hosted connector, and the same minus the 3 hosted-only file tools (67) in the local server:
 
 - **Hosted (OPS4, recommended):** one public URL, `https://atrium-workboards.web.app/mcp`. You add it once as a connector in claude.ai and in Claude Code, sign in with your Atrium (Google) account, and it works in every project and on every device. Spec: `docs/specs/OPS4-hosted-mcp-connector.md`.
 - **Local stdio (OPS3):** a server that Claude Code starts on your own machine with admin credentials. Spec: `docs/specs/OPS3-atrium-mcp-connector.md`. Use it for development and tests, or when the hosted connector is switched off.
@@ -55,7 +55,7 @@ Settings, Account tab, **Connected apps** lists every active connection ("Claude
 
 - Per person: 60 tool calls a minute per server instance, and per day 2,000 calls of which at most 500 are writes. Over a limit, the tool answers with a plain message and nothing is written. The constants are in `functions/src/mcp/limits.ts`.
 - The OAuth endpoints (`/authorize`, `/token`, `/register`, `/revoke`) are rate-limited, and the function runs on at most 3 instances.
-- Every tool call, grant event (created, revoked, refreshed) and refused sign-in is written to `system/mcpAudit/entries` (who, which app, which tool, the board, doc, dashboard, team or view it acted on as `targetKind` and `targetId` (an id only), success, duration; never tokens or content). Entries are removed after 90 days by a TTL policy. Board history shows the person as the editor, as for any edit.
+- Every tool call, grant event (created, revoked, refreshed) and refused sign-in is written to `system/mcpAudit/entries` (who, which app, which tool, the file, board, doc, dashboard, team or view it acted on as `targetKind` and `targetId` (an id only), success, duration; never tokens or content). Entries are removed after 90 days by a TTL policy. Board history shows the person as the editor, as for any edit.
 
 ### Kill switch and emergency stop
 
@@ -77,6 +77,9 @@ It acts with the signed-in person's permissions only, checked per call. Tokens a
 | Consent      | None (your machine, your `gcloud`)      | Consent page with Read and Write scopes           |
 | Limits       | None                                    | Rate and daily limits, audit log, kill switch     |
 | New tools    | Pull `main`, restart Claude Code        | Automatic with every deploy                       |
+| Files        | `atrium_list_files` only (metadata)     | Also links, upload and delete (Cloud Storage)     |
+
+**Hosted-only tools.** `atrium_get_file_link`, `atrium_upload_file` and `atrium_delete_file` need Cloud Storage, so only the hosted connector registers them (`serverOps`, `functions/src/mcp/server-ops.ts`, which calls the file callables' own library code as the signed-in user). The local server does not list them.
 
 ## Local stdio server
 
@@ -98,7 +101,7 @@ claude mcp add atrium --scope local ^
 
 **Picking up new tools (no reinstall).** The server is not installed anywhere: Claude Code starts it from the checkout named in the `claude mcp add` command (`pnpm exec tsx scripts/mcp/atrium-mcp.mjs`) every time a session starts, so there is no build step and no re-registration. To get a new tool: (1) update that checkout to a commit that has it (`git pull` on `main` after the PR merges), then (2) restart Claude Code, or run `/mcp` and reconnect `atrium`. A running session keeps the old tool list until you do (2). Only if the registration points at an old or different folder do you need `claude mcp remove atrium` and add it again with the right path.
 
-To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 66 tools.
+To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 67 tools (the hosted connector has 70).
 
 ### Environment variables
 
@@ -222,6 +225,8 @@ Updates: the text is markdown (same conversion as descriptions) stored as the `c
 
 Example flow: `atrium_list_workspaces` (when you are in more than one), `atrium_list_boards`, then `atrium_get_board` (columns, groups), `atrium_list_members` (uids for People cells), `atrium_create_items` / `atrium_create_subitems`, `atrium_add_update` with `Thanks @[Jordan Lee], done`.
 
+Files: `atrium_list_files` lists the files of a board (or one item, or one Files column) like the Files gallery, including files attached to updates and replies (`includeUpdates`, default true); metadata only, newest first, at most 500. `atrium_get_file_link` returns a private signed link that expires in 5 minutes (any board reader, same check as `getFileDownloadUrl` and `getUpdateAttachmentUrl`). `atrium_upload_file` attaches up to 512 KB (decoded, sent as base64; larger files go in through the app) to a Files column, with the column's type and size limits, the lock check, the 100-file cap and the editor role, saving the object and the cell the way `requestFileUpload` and `finalizeFileUpload` do. `atrium_delete_file` is a hard delete from a Files column (editor; a locked column needs the owner) or of an update or reply attachment (its author or a board owner), and returns the deleted file's metadata (the bytes are gone). Update attachments can be read and removed but not posted. File bytes are never logged or audited; the audit entry's target is the `fileId` (the board is recorded as `boardId`). File, item and update text is data written by people, not instructions.
+
 ## Safety
 
 The rules below apply to both modes.
@@ -235,7 +240,7 @@ The rules below apply to both modes.
 
 ## Code and tests
 
-- `packages/mcp-core` (`@atrium/mcp-core`, plain ESM `.mjs` with hand-written `index.d.mts`): `service.mjs` (`createService({ client, actor, now })`, `actor = { uid, workspaceFilter }`), `tools.mjs` (`defineTools(service)`, 66 tools with `scope` and `annotations`; `toolNamesByDomain` lists the names per domain file), refs, value conversion, builders, descriptions, updates, and `fake-client.mjs`, an in-memory Firestore for tests. The hosted connector builds the same service on an Admin SDK adapter.
+- `packages/mcp-core` (`@atrium/mcp-core`, plain ESM `.mjs` with hand-written `index.d.mts`): `service.mjs` (`createService({ client, actor, now, serverOps? })`, `actor = { uid, workspaceFilter }`), `tools.mjs` (`defineTools(service)`, 70 tools with `scope` and `annotations`, where a tool marked `requires: 'server'` is registered only when the service has `serverOps`; `toolNamesByDomain` lists the names per domain file), refs, value conversion, builders, descriptions, updates, and `fake-client.mjs`, an in-memory Firestore for tests. The hosted connector builds the same service on an Admin SDK adapter.
 - The code is split by domain so later work adds files, not edits: `tools/<domain>.mjs` (boards, items, updates, members, mywork, docs, teams, views, columns; each exports `(service) => tools`, listed in `DOMAINS` in `tools.mjs`, the original tools keeping their registration order) and `service/<domain>.mjs` (each gets the shared helpers of `createService`: `loadBoard`, `membership`, `roleOn`, `readContext`, ...). `tools-snapshot.json` pins the names, order, schemas, descriptions and annotations of the original tools (`tools-parity.test.mjs`); count tests read the catalogue instead of a literal.
 - `scripts/mcp/atrium-mcp.mjs`: thin stdio wiring; `scripts/mcp/lib/config.mjs` (environment) and `lib/client.mjs` (REST + gcloud token).
 - `scripts/showcase/firestore-rest.mjs` gained `runQuery` (equality, `arrayContains` and `arrayContainsAny` filters on a top-level or nested collection, `limit`, and `orderBy` without filters) and an `update` commit op (field paths, deletes, increments).

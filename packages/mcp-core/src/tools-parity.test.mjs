@@ -115,6 +115,7 @@ const DOMAIN_TOOLS = {
     'atrium_delete_view',
   ],
   columns: ['atrium_edit_labels'],
+  files: ['atrium_list_files', 'atrium_get_file_link', 'atrium_upload_file', 'atrium_delete_file'],
 };
 
 test('every domain file lists exactly the tools asserted here, and every tool is in one file', () => {

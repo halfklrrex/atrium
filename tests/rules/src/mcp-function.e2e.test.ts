@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type * as AdminModule from '../../../functions/src/lib/admin';
 import type * as AdminClientModule from '../../../functions/src/mcp/admin-client';
 import type * as AppModule from '../../../functions/src/mcp/app';
+import type * as ServerOpsModule from '../../../functions/src/mcp/server-ops';
 import type * as LimitsModule from '../../../functions/src/mcp/limits';
 import type * as StoreModule from '../../../functions/src/mcp/oauth/admin-store';
 import type * as ConsentModule from '../../../functions/src/mcp/oauth/consent';
@@ -25,6 +26,7 @@ import type * as ConstantsModule from '../../../functions/src/mcp/oauth/constant
 let admin: typeof AdminModule;
 let adminClient: typeof AdminClientModule;
 let app: typeof AppModule;
+let serverOps: typeof ServerOpsModule;
 let limits: typeof LimitsModule;
 let stores: typeof StoreModule;
 let consent: typeof ConsentModule;
@@ -38,6 +40,7 @@ beforeAll(async () => {
   admin = await import('../../../functions/src/lib/admin');
   adminClient = await import('../../../functions/src/mcp/admin-client');
   app = await import('../../../functions/src/mcp/app');
+  serverOps = await import('../../../functions/src/mcp/server-ops');
   limits = await import('../../../functions/src/mcp/limits');
   stores = await import('../../../functions/src/mcp/oauth/admin-store');
   consent = await import('../../../functions/src/mcp/oauth/consent');
@@ -83,6 +86,7 @@ describe('the mcp function against the emulator', () => {
           createService({
             client: adminClient.createAdminClient(firestore),
             actor: { uid: who, workspaceFilter: null },
+            serverOps: serverOps.adminServerOps(),
           }),
         usage: limits.adminUsageStore(firestore),
         limiter: new limits.MinuteLimiter(),

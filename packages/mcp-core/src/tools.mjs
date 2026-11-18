@@ -9,6 +9,7 @@
 import { boardTools } from './tools/boards.mjs';
 import { columnTools } from './tools/columns.mjs';
 import { docTools } from './tools/docs.mjs';
+import { fileTools } from './tools/files.mjs';
 import { itemTools } from './tools/items.mjs';
 import { memberTools } from './tools/members.mjs';
 import { myWorkTools } from './tools/mywork.mjs';
@@ -27,6 +28,7 @@ export const DOMAINS = {
   teams: teamTools,
   views: viewTools,
   columns: columnTools,
+  files: fileTools,
 };
 
 /** The registration order of the tools that existed before the split (a parity test pins it). */
@@ -78,8 +80,16 @@ const LEGACY_ORDER = [
   'atrium_list_members',
 ];
 
+/**
+ * The tools bound to a service. A tool marked `requires: 'server'` needs Cloud Storage or another
+ * server operation, so a service built without `serverOps` (it reports `hasServerOps: false`, as the
+ * local stdio server's does) does not get it. A bare object, as the catalogue tests pass, gets all.
+ */
 export function defineTools(service) {
-  const tools = Object.values(DOMAINS).flatMap((domain) => domain(service));
+  const withServer = service.hasServerOps !== false;
+  const tools = Object.values(DOMAINS)
+    .flatMap((domain) => domain(service))
+    .filter((tool) => withServer || tool.requires !== 'server');
   const rank = (tool) => {
     const at = LEGACY_ORDER.indexOf(tool.name);
     return at < 0 ? Infinity : at;
@@ -96,4 +106,12 @@ export function toolNamesByDomain(service = {}) {
       make(service).map((tool) => tool.name),
     ]),
   );
+}
+
+/** The names of the tools only the hosted connector registers (`requires: 'server'`). */
+export function serverToolNames() {
+  return Object.values(DOMAINS)
+    .flatMap((domain) => domain({}))
+    .filter((tool) => tool.requires === 'server')
+    .map((tool) => tool.name);
 }
