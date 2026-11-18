@@ -83,6 +83,8 @@ import {
   seedActivity,
   seedAutomations,
   seedInbox,
+  seedIntegrations,
+  clearIntegrations,
   seedMcpGrant,
   seedNotifications,
   seedRichUpdate,
@@ -673,6 +675,28 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole('radiogroup')).toBeVisible();
       await shoot(page, `board-share-dialog-${theme}`, PARK_IN_HEADER);
+    });
+
+    // P8 PR 7b: the Integrations dialog (owners only) with two outgoing webhooks and one incoming hook.
+    test('board: Integrations dialog', async ({ page }) => {
+      await seedIntegrations();
+      try {
+        await page.goto(`/boards/${IDS.roadmap}`);
+        await boardReady(page);
+        await page
+          .getByRole('main')
+          .getByRole('button', { name: 'Options for Product roadmap' })
+          .click();
+        await page.getByRole('menuitem', { name: 'Integrations' }).click();
+        const dialog = page.getByRole('dialog', { name: 'Integrations' });
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByText('Team chat relay')).toBeVisible();
+        await expect(dialog.getByText(/Disabled: Turned off after 20/)).toBeVisible();
+        await expect(dialog.getByText('Contact form')).toBeVisible();
+        await shoot(page, `board-integrations-${theme}`, PARK_IN_HEADER);
+      } finally {
+        await clearIntegrations();
+      }
     });
 
     // TEAMS-2: the Members dialog's Teams tab and the team dialog (two seeded teams).
