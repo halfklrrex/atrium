@@ -154,9 +154,14 @@ test('hosted-only tools are registered only when the service has serverOps', () 
   const all = Object.values(toolNamesByDomain({})).flat();
   const serverOnly = serverToolNames();
   assert.deepEqual(serverOnly.sort(), [
+    'atrium_change_column_type',
+    'atrium_click_button',
     'atrium_delete_file',
     'atrium_get_file_link',
+    'atrium_revert_column_type',
     'atrium_set_access',
+    'atrium_start_time_tracking',
+    'atrium_stop_time_tracking',
     'atrium_upload_file',
   ]);
   assert.equal(hosted.length, all.length);

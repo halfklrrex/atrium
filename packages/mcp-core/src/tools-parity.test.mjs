@@ -133,6 +133,13 @@ const DOMAIN_TOOLS = {
     'atrium_set_automation_enabled',
     'atrium_delete_automation',
   ],
+  callables: [
+    'atrium_change_column_type',
+    'atrium_revert_column_type',
+    'atrium_click_button',
+    'atrium_start_time_tracking',
+    'atrium_stop_time_tracking',
+  ],
 };
 
 test('every domain file lists exactly the tools asserted here, and every tool is in one file', () => {
