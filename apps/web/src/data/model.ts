@@ -8,6 +8,7 @@ import type {
   DocMeta,
   Favorite,
   Folder,
+  IncomingHook,
   Item,
   ItemUpdate,
   McpGrant,
@@ -16,6 +17,7 @@ import type {
   Team,
   UpdateReply,
   User,
+  Webhook,
   Workspace,
   WorkspaceInvite,
   WorkspaceMember,
@@ -47,6 +49,10 @@ export type NotificationDoc = WithId<Notification>;
 export type McpGrantDoc = WithId<McpGrant>;
 /** `users/{uid}/apiTokens/{id}`: a personal access token's metadata (P8). The token itself is never stored. */
 export type ApiTokenDoc = WithId<ApiToken>;
+/** `boards/{id}/webhooks/{id}`: an outgoing webhook (P8). Board owners read it; no secret. */
+export type WebhookDoc = WithId<Webhook>;
+/** `boards/{id}/incomingHooks/{id}`: an incoming webhook (P8). No URL or secret. */
+export type IncomingHookDoc = WithId<IncomingHook>;
 /** `workspaces/{id}/members/{uid}`: the uid is the document id. */
 export type MemberDoc = WithId<WorkspaceMember>;
 export type InviteDoc = WithId<WorkspaceInvite>;
