@@ -16,6 +16,8 @@ export interface ApiAuditEntry {
   /** The route pattern (`/api/v1/boards/:id/items`), never the concrete path or query. */
   route?: string;
   boardId?: string;
+  /** Incoming webhook calls: the hook's id (never its token or path). */
+  hookId?: string;
   ok: boolean;
   status: number;
   /** A short code (`not_found`, `rate_limited`, `invalid_token`, ...). */

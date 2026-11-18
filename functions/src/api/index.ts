@@ -7,14 +7,18 @@ import { adminMcpStore } from '../mcp/oauth/admin-store';
 import { AtriumOAuthProvider } from '../mcp/oauth/provider';
 import { adminApiAuditStore } from './audit';
 import { adminIdempotencyStore } from './idempotency';
+import { adminIncomingHookStore } from '../webhooks/incoming-admin-store';
+import { webhooksEnabled } from '../webhooks/flag';
 import { adminApiTokenStore } from './admin-token-store';
 import { apiEnabled, createApiApp } from './app';
+import { createHooksRouter, newHookLimiter } from './hooks';
 import { verifyApiToken, type ApiAuthDeps } from './auth';
 import {
   API_CALLS_PER_MINUTE,
   API_FAILED_AUTH_PER_HOUR,
   API_FAILED_AUTH_WINDOW_MS,
   adminApiUsageStore,
+  adminHookUsageStore,
 } from './limits';
 
 /**
@@ -48,6 +52,23 @@ const authDeps: ApiAuthDeps = {
   verifyOAuthToken: (token) => oauth.verifyAccessToken(token),
 };
 
+const hooks = createHooksRouter({
+  isEnabled: webhooksEnabled,
+  store: lazy(() => adminIncomingHookStore(db())),
+  // The hook's creator is the actor; `via` marks the item as made by the webhook.
+  createService: (uid, via) =>
+    createService({
+      client: createAdminClient(db()),
+      actor: { uid, via },
+      hideEmails: true,
+    }),
+  limiter: newHookLimiter(),
+  usage: lazy(() => adminHookUsageStore(db())),
+  audit,
+  idempotency,
+  now: Date.now,
+});
+
 const app = createApiApp({
   isEnabled: apiEnabled,
   verify: (header) => verifyApiToken(header, authDeps),
@@ -64,6 +85,7 @@ const app = createApiApp({
   ipFailures: new MinuteLimiter(API_FAILED_AUTH_PER_HOUR, Date.now, API_FAILED_AUTH_WINDOW_MS),
   audit,
   idempotency,
+  hooks,
   now: Date.now,
 });
 

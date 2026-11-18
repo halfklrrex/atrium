@@ -61,6 +61,15 @@ export const FORM_UPDATED_VIA = 'form';
 /** Actor ids that start with this are automations, not people. */
 export const AUTOMATION_ACTOR_PREFIX = 'automation:';
 const AUTOMATION_ACTOR_NAME = 'Automation';
+/** `updatedVia` of an item an incoming webhook created is `webhook:<hookId>` (P8 PR 7a). */
+export const WEBHOOK_VIA_PREFIX = 'webhook:';
+
+/** The hook id behind an item an incoming webhook created, or `undefined`. */
+export function webhookIdOf(updatedVia: unknown): string | undefined {
+  return typeof updatedVia === 'string' && updatedVia.startsWith(WEBHOOK_VIA_PREFIX)
+    ? updatedVia.slice(WEBHOOK_VIA_PREFIX.length) || undefined
+    : undefined;
+}
 
 /** Epoch milliseconds when an entry written at `nowMs` is deleted by the TTL policy. */
 export function expiresAtMs(nowMs: number): number {
@@ -347,7 +356,11 @@ function diffItemActivityPlain(
           groupId: groupId ?? null,
           groupTitle: groupTitle(groupId),
           // Items the `submitForm` function creates say so, so automations and the log can tell.
-          ...(after.updatedVia === FORM_UPDATED_VIA ? { data: { source: 'form' as const } } : {}),
+          ...(after.updatedVia === FORM_UPDATED_VIA
+            ? { data: { source: 'form' as const } }
+            : webhookIdOf(after.updatedVia)
+              ? { data: { source: 'webhook' as const } }
+              : {}),
         },
       },
     ];
@@ -508,6 +521,8 @@ export interface ActivityStore {
   ): Promise<Map<string, MemberProfile>>;
   /** The item's name, `null` when the item is gone. */
   getItemName(boardId: string, itemId: string): Promise<string | null>;
+  /** The name of an incoming webhook, `null` when it is gone (optional: only the Admin adapter has it). */
+  getIncomingHookName?(boardId: string, hookId: string): Promise<string | null>;
   /**
    * Creates the entries in one batch. Resolves `0` (no error) when they already exist, which is
    * what a retried event finds.
@@ -547,11 +562,25 @@ export async function recordItemActivity(
     actorId,
     ...itemProfileUids(change, board),
   ]);
+  const hookId = event.before ? undefined : webhookIdOf(event.after.updatedVia);
+  // An item an incoming webhook created: the log says "Webhook: <name>" (the hook's creator stays the
+  // actor id, so notifications and permissions are unchanged).
+  const hookName = hookId
+    ? ((await store.getIncomingHookName?.(event.boardId, hookId)) ?? null)
+    : null;
   const plan = diffItemActivity(change, board, profiles).map((p) => ({
     kind: p.kind,
-    fields: { ...p.fields, itemId: event.itemId },
+    fields: {
+      ...p.fields,
+      itemId: event.itemId,
+      ...(hookId && hookName && p.kind === 'item_created'
+        ? { data: { ...p.fields.data, webhookName: hookName } }
+        : {}),
+    },
   }));
-  const actor = actorOf(actorId, profiles.get(actorId));
+  const actor = hookId
+    ? { id: actorId, name: clipText(`Webhook: ${hookName ?? 'incoming hook'}`), photoUrl: null }
+    : actorOf(actorId, profiles.get(actorId));
   return store.createMany(event.boardId, toEntries(event.eventId, actor, plan));
 }
 
