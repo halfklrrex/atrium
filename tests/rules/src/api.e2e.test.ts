@@ -9,6 +9,7 @@ import type * as AdminClientModule from '../../../functions/src/mcp/admin-client
 import type * as AppModule from '../../../functions/src/api/app';
 import type * as AuditModule from '../../../functions/src/api/audit';
 import type * as AuthModule from '../../../functions/src/api/auth';
+import type * as IdempotencyModule from '../../../functions/src/api/idempotency';
 import type * as LimitsModule from '../../../functions/src/api/limits';
 import type * as McpLimitsModule from '../../../functions/src/mcp/limits';
 import type * as StoreModule from '../../../functions/src/api/admin-token-store';
@@ -26,6 +27,7 @@ let adminClient: typeof AdminClientModule;
 let app: typeof AppModule;
 let audit: typeof AuditModule;
 let auth: typeof AuthModule;
+let idempotency: typeof IdempotencyModule;
 let limits: typeof LimitsModule;
 let mcpLimits: typeof McpLimitsModule;
 let stores: typeof StoreModule;
@@ -50,6 +52,7 @@ beforeAll(async () => {
   app = await import('../../../functions/src/api/app');
   audit = await import('../../../functions/src/api/audit');
   auth = await import('../../../functions/src/api/auth');
+  idempotency = await import('../../../functions/src/api/idempotency');
   limits = await import('../../../functions/src/api/limits');
   mcpLimits = await import('../../../functions/src/mcp/limits');
   stores = await import('../../../functions/src/api/admin-token-store');
@@ -136,6 +139,7 @@ describe('the api function against the emulator', () => {
         limiter: new mcpLimits.MinuteLimiter(120),
         ipFailures: new mcpLimits.MinuteLimiter(300, Date.now, limits.API_FAILED_AUTH_WINDOW_MS),
         audit: audit.adminApiAuditStore(firestore),
+        idempotency: idempotency.adminIdempotencyStore(firestore),
         now: Date.now,
       });
       server = createServer(api);
