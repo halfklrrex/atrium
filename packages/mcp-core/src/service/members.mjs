@@ -11,6 +11,7 @@ export function membersService(h) {
     memberName,
     sharedProfile,
     boardMembers,
+    hideEmails,
   } = h;
   return {
     async listMembers({ boardId, workspaceId } = {}) {
@@ -26,7 +27,7 @@ export function membersService(h) {
         members.push({
           uid: memberUid,
           name: memberName(profile, memberUid),
-          email: profile.email ?? null,
+          ...(hideEmails ? {} : { email: profile.email ?? null }),
           workspaceRole: ws.roles[memberUid] ?? null,
           me: memberUid === uid,
           ...sharedProfile(profile),

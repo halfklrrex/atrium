@@ -1,5 +1,6 @@
 import { API_TOKEN_PREFIX, type ApiTokenScope } from '@atrium/shared';
 import { logger } from 'firebase-functions/v2';
+import { InvalidTokenError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { AccountStatusCache } from '../mcp/oauth/account-cache';
 import { hashApiToken } from './tokens';
@@ -107,8 +108,11 @@ export class ApiTokenVerifier {
     let info: AuthInfo;
     try {
       info = await this.deps.verifyOAuthToken(token);
-    } catch {
-      throw new ApiAuthError('invalid_token');
+    } catch (error) {
+      // Only a refused token is an auth failure. A storage outage or a bug propagates (a 5xx) and is
+      // neither cached nor counted against the caller's IP.
+      if (error instanceof InvalidTokenError) throw new ApiAuthError('invalid_token');
+      throw error;
     }
     const uid = info.extra?.uid;
     if (typeof uid !== 'string' || uid === '') throw new ApiAuthError('invalid_token');

@@ -5,7 +5,7 @@ import { buildRichBody, memberResolver } from '../updates.mjs';
 import { docToMarkdown } from '../description.mjs';
 
 export function updatesService(h) {
-  const { client, uid, now, loadBoard, loadItem, boardMembers, iso } = h;
+  const { client, uid, now, loadBoard, loadItem, boardMembers, iso, safeName } = h;
   let profileCache;
   async function authorProfile() {
     // The actor's own profile (users/{uid} is readable by its owner only).
@@ -37,7 +37,7 @@ export function updatesService(h) {
 
   const shapePost = (id, post) => ({
     id,
-    author: { uid: post.authorId, name: post.authorName ?? null },
+    author: { uid: post.authorId, name: safeName(post.authorName ?? null) },
     mine: post.authorId === uid,
     text: post.content,
     markdown: post.contentDoc ? docToMarkdown(post.contentDoc) : post.content,

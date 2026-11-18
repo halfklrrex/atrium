@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { InvalidTokenError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import {
   API_AUTH_CACHE_MAX,
@@ -296,8 +297,14 @@ describe('OAuth access tokens', () => {
 
   it('rejects when the OPS4 verifier throws', async () => {
     const { verifier, verifyOAuthToken } = setup();
-    verifyOAuthToken.mockRejectedValue(new Error('Invalid token'));
+    verifyOAuthToken.mockRejectedValue(new InvalidTokenError('Invalid token'));
     expect(await reason(verifier.verify('Bearer atr_abc'))).toBe('invalid_token');
+  });
+
+  it('lets any other OAuth verifier error propagate instead of calling it an auth failure', async () => {
+    const { verifier, verifyOAuthToken } = setup();
+    verifyOAuthToken.mockRejectedValue(new Error('firestore unavailable'));
+    await expect(verifier.verify('Bearer atr_abc')).rejects.toThrow('firestore unavailable');
   });
 
   it('rejects an OAuth result without a uid', async () => {

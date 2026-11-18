@@ -16,15 +16,24 @@ const MINUTE_MS = 60 * 1000;
 export class MinuteLimiter {
   private readonly hits = new Map<string, number[]>();
 
+  /** `windowMs` is a minute unless a caller (the API's per-IP failure limit) needs a longer window. */
   constructor(
     private readonly max: number = MCP_CALLS_PER_MINUTE,
     private readonly now: () => number = Date.now,
+    private readonly windowMs: number = MINUTE_MS,
   ) {}
+
+  /** True when `key` has used up its window; records nothing. */
+  over(key: string): boolean {
+    const now = this.now();
+    const recent = (this.hits.get(key) ?? []).filter((at) => at > now - this.windowMs);
+    return recent.length >= this.max;
+  }
 
   /** Records a call and returns true, or returns false (recording nothing) when over the limit. */
   take(key: string): boolean {
     const now = this.now();
-    const recent = (this.hits.get(key) ?? []).filter((at) => at > now - MINUTE_MS);
+    const recent = (this.hits.get(key) ?? []).filter((at) => at > now - this.windowMs);
     if (recent.length >= this.max) {
       this.hits.set(key, recent);
       return false;
@@ -37,7 +46,7 @@ export class MinuteLimiter {
 
   private prune(now: number): void {
     for (const [key, list] of this.hits) {
-      if (list.every((at) => at <= now - MINUTE_MS)) this.hits.delete(key);
+      if (list.every((at) => at <= now - this.windowMs)) this.hits.delete(key);
     }
   }
 }
@@ -55,13 +64,21 @@ export const usageDay = (now: number): string => new Date(now).toISOString().sli
 export function adminUsageStore(
   firestore: Firestore,
   caps: { calls: number; writes: number } = { calls: MCP_DAILY_CALLS, writes: MCP_DAILY_WRITES },
+  /** The API reuses this store with its own collection and a TTL (`expiresAt`) on each counter. */
+  options: { collection?: string; ttlMs?: number } = {},
 ): UsageStore {
+  const collection = options.collection ?? MCP_USAGE;
   return {
     consume: (uid, day, write) =>
       firestore.runTransaction(async (tx) => {
-        const ref = firestore.collection(MCP_USAGE).doc(uid);
+        const ref = firestore.collection(collection).doc(uid);
         const snap = await tx.get(ref);
         const updatedAt = Timestamp.now();
+        // Pushed out on every counted call, so a counter that is no longer used expires by TTL.
+        const expiry =
+          options.ttlMs === undefined
+            ? {}
+            : { expiresAt: Timestamp.fromMillis(updatedAt.toMillis() + options.ttlMs) };
         const sameDay = snap.exists && snap.get('day') === day;
         const calls = sameDay ? Number(snap.get('calls') ?? 0) : 0;
         const writes = sameDay ? Number(snap.get('writes') ?? 0) : 0;
@@ -73,9 +90,10 @@ export function adminUsageStore(
             calls: FieldValue.increment(1),
             writes: FieldValue.increment(add),
             updatedAt,
+            ...expiry,
           });
         } else {
-          tx.set(ref, { day, calls: 1, writes: add, updatedAt });
+          tx.set(ref, { day, calls: 1, writes: add, updatedAt, ...expiry });
         }
         return 'ok' as const;
       }),

@@ -43,12 +43,32 @@ export { MAX_ITEMS_PER_CALL };
 /** How long a workspace membership lookup is reused (bounds how long a removal takes to bite). */
 const MEMBERSHIP_TTL_MS = 60_000;
 
+export const NEUTRAL_MEMBER_NAME = 'A member';
+
 export const PICK_WORKSPACE_MESSAGE = 'Give workspaceId; call atrium_list_workspaces first.';
 
-export function createService({ client, actor, now = () => new Date(), serverOps }) {
+export function createService({
+  client,
+  actor,
+  now = () => new Date(),
+  serverOps,
+  // The public API sets this: names never fall back to an email address and email fields are left out.
+  hideEmails = false,
+}) {
   const uid = assertId(actor?.uid, 'actor.uid');
-  const workspaceFilter =
-    actor.workspaceFilter == null ? null : assertId(actor.workspaceFilter, 'workspaceFilter');
+  // One workspace id, a list of them (a restricted API token), or none.
+  const filterIds =
+    actor.workspaceFilter == null
+      ? null
+      : (Array.isArray(actor.workspaceFilter)
+          ? actor.workspaceFilter
+          : [actor.workspaceFilter]
+        ).map((id) => assertId(id, 'workspaceFilter'));
+  const workspaceFilter = filterIds && filterIds.length > 0 ? new Set(filterIds) : null;
+  // An empty list means "no workspace at all", never "no restriction".
+  const filterNothing = filterIds !== null && filterIds.length === 0;
+  const outsideFilter = (id) =>
+    filterNothing || (workspaceFilter !== null && !workspaceFilter.has(id));
 
   /** workspaceId -> { expires, pending: Promise<membership|null> } */
   const memberships = new Map();
@@ -72,7 +92,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
    */
   function membership(workspaceId) {
     if (typeof workspaceId !== 'string' || workspaceId === '') return Promise.resolve(null);
-    if (workspaceFilter && workspaceId !== workspaceFilter) return Promise.resolve(null);
+    if (outsideFilter(workspaceId)) return Promise.resolve(null);
     const cached = memberships.get(workspaceId);
     if (cached && cached.expires > now().getTime()) return cached.pending;
     const pending = (async () => {
@@ -101,7 +121,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     const rows = await client.runQuery('workspaces', { memberIds: { arrayContains: uid } });
     const out = [];
     for (const row of rows) {
-      if (workspaceFilter && row.id !== workspaceFilter) continue;
+      if (outsideFilter(row.id)) continue;
       const found = shapeMembership(row.id, row.data);
       if (!found) continue;
       memberships.set(row.id, {
@@ -123,8 +143,8 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     if (mine.length === 1) return workspace(mine[0].id);
     if (mine.length === 0) {
       throw new McpUserError(
-        workspaceFilter
-          ? `You are not a member of workspace "${workspaceFilter}".`
+        filterIds?.length === 1
+          ? `You are not a member of workspace "${filterIds[0]}".`
           : 'You are not a member of any workspace.',
       );
     }
@@ -306,7 +326,13 @@ export function createService({ client, actor, now = () => new Date(), serverOps
   }
 
   /** What a member doc shows of a person: the name (display name, else email, else uid). */
-  const memberName = (profile, memberUid) => profile?.displayName || profile?.email || memberUid;
+  const memberName = (profile, memberUid) =>
+    hideEmails
+      ? profile?.displayName || NEUTRAL_MEMBER_NAME
+      : profile?.displayName || profile?.email || memberUid;
+  /** A stored display name that is an email address (some accounts have no name) is never shown with hideEmails. */
+  const safeName = (name) =>
+    hideEmails && typeof name === 'string' && name.includes('@') ? NEUTRAL_MEMBER_NAME : name;
 
   /** The shared profile fields a member doc carries and the person has set: title, location, time zone. */
   function sharedProfile(profile) {
@@ -382,7 +408,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
       out.push({
         uid: memberUid,
         name: memberName(profile, memberUid),
-        email: profile.email ?? null,
+        ...(hideEmails ? {} : { email: profile.email ?? null }),
         role,
         ...sharedProfile(profile),
       });
@@ -439,6 +465,8 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     memberProfiles,
     teamsOf,
     memberName,
+    safeName,
+    hideEmails,
     sharedProfile,
     readContext,
     readCell,
@@ -474,7 +502,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     async verify() {
       const profile = await client.getDoc(`users/${uid}`);
       if (!profile) throw new McpUserError(`User "${uid}" does not exist in Atrium.`);
-      if (workspaceFilter) await workspace(workspaceFilter);
+      for (const id of filterIds ?? []) await workspace(id);
       return { uid, workspaces: await listWorkspaces() };
     },
   };
