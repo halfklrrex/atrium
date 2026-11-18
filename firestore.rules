@@ -201,8 +201,8 @@ service cloud.firestore {
 
     // ---------------------------------------------------------------------
     // users/{uid}/apiTokens/{tokenId} (P8): one personal access token (name, prefix, scopes, dates;
-    // never the secret), written only by Cloud Functions. The approved owner reads them for the API
-    // tokens card; nobody writes. `apiTokenIndex/{sha256hex}` (hash -> uid) has no rule at all:
+    // never the secret), written only by Cloud Functions. Only the owner reads them (`signedIn()` is
+    // the approved-account check, and `uid() == userId`), for the API tokens card; nobody writes. `apiTokenIndex/{sha256hex}` (hash -> uid) has no rule at all:
     // Functions only.
     // ---------------------------------------------------------------------
     match /users/{userId}/apiTokens/{tokenId} {
