@@ -25,6 +25,7 @@ import { boardsService } from './service/boards.mjs';
 import { columnsService } from './service/columns.mjs';
 import { createLinkResolver } from './service/links.mjs';
 import { createMirrorReader } from './service/mirror.mjs';
+import { dashboardsService } from './service/dashboards.mjs';
 import { docsService } from './service/docs.mjs';
 import { itemsService } from './service/items.mjs';
 import { membersService } from './service/members.mjs';
@@ -450,6 +451,7 @@ export function createService({ client, actor, now = () => new Date() }) {
     ...teamsService(helpers),
     ...viewsService(helpers),
     ...columnsApi,
+    ...dashboardsService(helpers),
     async verify() {
       const profile = await client.getDoc(`users/${uid}`);
       if (!profile) throw new McpUserError(`User "${uid}" does not exist in Atrium.`);
