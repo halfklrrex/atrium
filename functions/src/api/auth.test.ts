@@ -57,7 +57,9 @@ describe('parseBearer', () => {
     expect(parseBearer('  Bearer abc  ')).toBe('abc');
   });
   it.each([undefined, null, '', '   '])('reports a missing header for %p', (value) => {
-    expect(() => parseBearer(value)).toThrowError(expect.objectContaining({ reason: 'missing_token' }));
+    expect(() => parseBearer(value)).toThrowError(
+      expect.objectContaining({ reason: 'missing_token' }),
+    );
   });
   it.each(['abc', 'Basic abc', 'Bearer', 'Bearer a b', 'Bearer a\tb', `Bearer ${'x'.repeat(513)}`])(
     'reports a malformed header for %p',

@@ -66,7 +66,12 @@ describe('createApiToken', () => {
 
   it('stores a workspace restriction when the caller is a member of each', async () => {
     const store = setup();
-    const result = await createApiToken(store, T0, UID, input({ workspaceIds: ['w1', 'w2', 'w1'] }));
+    const result = await createApiToken(
+      store,
+      T0,
+      UID,
+      input({ workspaceIds: ['w1', 'w2', 'w1'] }),
+    );
     expect(store.tokens.get(`${UID}/${result.tokenId}`)!.workspaceIds).toEqual(['w1', 'w2']);
   });
 
@@ -115,7 +120,10 @@ describe('revokeApiToken', () => {
   it('marks the token revoked and deletes the index document', async () => {
     const store = setup();
     const { token, tokenId } = await createApiToken(store, T0, UID, input());
-    expect(await revokeApiToken(store, T0 + 5, UID, { tokenId })).toEqual({ tokenId, revoked: true });
+    expect(await revokeApiToken(store, T0 + 5, UID, { tokenId })).toEqual({
+      tokenId,
+      revoked: true,
+    });
     expect(store.tokens.get(`${UID}/${tokenId}`)!.revokedAt).toBe(T0 + 5);
     expect(store.index.has(hashApiToken(token))).toBe(false);
   });
