@@ -21,6 +21,7 @@ import { McpUserError, assertId } from './errors.mjs';
 import { findColumn } from './refs.mjs';
 import { peopleInputHasEmail, peopleInputHasTeam, readableCell, toValidCell } from './values.mjs';
 import { EDIT_ROLES, MAX_ITEMS_PER_CALL } from './service/constants.mjs';
+import { automationsService } from './service/automations.mjs';
 import { boardsService } from './service/boards.mjs';
 import { columnsService } from './service/columns.mjs';
 import { createLinkResolver } from './service/links.mjs';
@@ -454,6 +455,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     ...filesService(helpers, serverOps),
     ...columnsApi,
     ...dashboardsService(helpers),
+    ...automationsService(helpers),
     async verify() {
       const profile = await client.getDoc(`users/${uid}`);
       if (!profile) throw new McpUserError(`User "${uid}" does not exist in Atrium.`);

@@ -6,6 +6,7 @@
 // The catalogue is split by domain (`tools/<domain>.mjs`, each a function of the service returning its
 // tools); a new domain is one file and one line in `DOMAINS`. The original 45 tools keep the order
 // they were registered in (`LEGACY_ORDER`); every later tool follows them in `DOMAINS` order.
+import { automationTools } from './tools/automations.mjs';
 import { boardTools } from './tools/boards.mjs';
 import { columnTools } from './tools/columns.mjs';
 import { dashboardTools } from './tools/dashboards.mjs';
@@ -31,6 +32,7 @@ export const DOMAINS = {
   columns: columnTools,
   dashboards: dashboardTools,
   files: fileTools,
+  automations: automationTools,
 };
 
 /** The registration order of the tools that existed before the split (a parity test pins it). */
