@@ -5,6 +5,9 @@ import { boardRoutes } from './routes/boards';
 import { itemRoutes } from './routes/items';
 import { writeRoutes } from './routes/writes';
 import { API_DAILY_CALLS } from './limits';
+import { INCOMING_HOOK_BODY_MAX_BYTES } from '@atrium/shared';
+
+const HOOK_PATH = '/api/hooks/{token}';
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- reading an untyped JSON document
 const doc = buildOpenApiDocument() as Json;
@@ -26,9 +29,28 @@ describe('OpenAPI document', () => {
   it('describes every route, and nothing else', () => {
     const expected = routes.map((r) => `${r.method} ${openApiPath(r.path)}`).sort();
     const actual = Object.entries(doc.paths as Json)
+      .filter(([path]) => path !== HOOK_PATH)
       .flatMap(([path, ops]) => Object.keys(ops).map((m) => `${m} ${path}`))
       .sort();
     expect(actual).toEqual(expected);
+  });
+
+  it('describes the incoming-webhook route apart: own server, no bearer, POST only', () => {
+    expect(Object.keys(doc.paths[HOOK_PATH])).toEqual(['post']);
+    const op = doc.paths[HOOK_PATH].post;
+    expect(op.security).toEqual([]);
+    expect(op.servers).toEqual([{ url: 'https://atrium-workboards.web.app' }]);
+    expect(Object.keys(op.responses).sort()).toEqual(
+      ['201', '400', '404', '409', '413', '422', '429', '503'].sort(),
+    );
+    expect(
+      op.parameters.some((p: Json) => p.$ref === '#/components/parameters/IdempotencyKey'),
+    ).toBe(true);
+    expect(op.parameters.some((p: Json) => p.in === 'path' && p.name === 'token')).toBe(true);
+    const body = op.requestBody.content['application/json'].schema;
+    expect(Object.keys(body.properties)).toEqual(['name', 'values', 'group']);
+    expect(body.additionalProperties).toBe(false);
+    expect(op.description).toContain(`${INCOMING_HOOK_BODY_MAX_BYTES / 1024} KB`);
   });
 
   it('asks for the scope each route needs', () => {
@@ -44,6 +66,7 @@ describe('OpenAPI document', () => {
       for (const op of Object.values(ops as Json)) {
         expect(ids.has(op.operationId)).toBe(false);
         ids.add(op.operationId);
+        if (path === HOOK_PATH) continue; // no bearer token and a different parameter set: tested above
         const params = (path.match(/\{(\w+)\}/g) ?? []).length;
         const declared = (op.parameters ?? []).filter(
           (p: Json) => p.$ref === '#/components/parameters/Id' || p.in === 'path',
