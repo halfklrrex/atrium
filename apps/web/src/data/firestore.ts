@@ -26,6 +26,7 @@ import {
   type FolderInput,
   type Item,
   type ItemUpdate,
+  type ApiToken,
   type McpGrant,
   type Notification,
   type Recent,
@@ -74,6 +75,7 @@ import type {
   ItemDoc,
   InviteDoc,
   ItemUpdateDoc,
+  ApiTokenDoc,
   McpGrantDoc,
   MemberDoc,
   NotificationDoc,
@@ -112,6 +114,7 @@ const favoriteConverter = converter<Favorite>();
 const recentConverter = converter<Recent>();
 const notificationConverter = converter<Notification>();
 const mcpGrantConverter = converter<McpGrant>();
+const apiTokenConverter = converter<ApiToken>();
 const memberConverter = converter<WorkspaceMember>();
 const inviteConverter = converter<WorkspaceInvite>();
 const templateConverter = converter<BoardTemplate>();
@@ -132,6 +135,7 @@ const COLLECTIONS = {
   recents: 'recents',
   notifications: 'notifications',
   mcpGrants: 'mcpGrants',
+  apiTokens: 'apiTokens',
 } as const;
 
 /**
@@ -161,6 +165,10 @@ export const refs = {
   /** Connected apps (OPS4). Written only by Cloud Functions; the owner reads their own. */
   mcpGrants: (uid: string): CollectionReference<McpGrantDoc> =>
     collection(db, COLLECTIONS.users, uid, COLLECTIONS.mcpGrants).withConverter(mcpGrantConverter),
+
+  /** Personal access tokens (P8). Written only by Cloud Functions; the owner reads their own. */
+  apiTokens: (uid: string): CollectionReference<ApiTokenDoc> =>
+    collection(db, COLLECTIONS.users, uid, COLLECTIONS.apiTokens).withConverter(apiTokenConverter),
 
   workspaces: (): CollectionReference<WorkspaceDoc> =>
     collection(db, COLLECTIONS.workspaces).withConverter(workspaceConverter),
@@ -284,6 +292,10 @@ export const queries = {
   /** The person's connected apps that are still live (OPS4). */
   liveMcpGrants: (uid: string): Query<McpGrantDoc> =>
     query(refs.mcpGrants(uid), where('revokedAt', '==', null)),
+
+  /** The person's personal access tokens that are not revoked (P8); expired ones stay in the list. */
+  liveApiTokens: (uid: string): Query<ApiTokenDoc> =>
+    query(refs.apiTokens(uid), where('revokedAt', '==', null)),
 
   /** "My workspaces" - the query the rules are written for. */
   workspacesForMember: (uid: string): Query<WorkspaceDoc> =>
