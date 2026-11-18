@@ -115,6 +115,14 @@ const DOMAIN_TOOLS = {
     'atrium_delete_view',
   ],
   columns: ['atrium_edit_labels'],
+  dashboards: [
+    'atrium_list_dashboards',
+    'atrium_get_dashboard',
+    'atrium_create_dashboard',
+    'atrium_update_dashboard',
+    'atrium_delete_dashboard',
+    'atrium_restore_dashboard',
+  ],
 };
 
 test('every domain file lists exactly the tools asserted here, and every tool is in one file', () => {
