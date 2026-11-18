@@ -194,7 +194,7 @@
 
 .select {
   box-sizing: border-box;
-  min-inline-size: var(--atrium-settings-select-min-width);
+  min-inline-size: min(var(--atrium-settings-select-min-width), 100%);
   min-block-size: var(--atrium-settings-nav-item-height);
   padding: var(--space-8) var(--space-12);
   border: var(--border-width) var(--border-style) var(--ui-border-color);
@@ -587,4 +587,51 @@
     min-inline-size: 0;
     inline-size: 100%;
   }
+}
+
+/* API tokens card */
+.rowDim {
+  opacity: var(--disabled-component-opacity);
+}
+
+.dialogStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding-block: var(--space-8);
+}
+
+.dialogWarning {
+  margin: 0;
+  color: var(--primary-text-color);
+  font: var(--font-text1-medium);
+}
+
+.radioRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+}
+
+.checkList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-block-size: var(--atrium-settings-token-workspaces-max-height);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.tokenBox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-8);
+}
+
+.tokenValue {
+  flex: 1 1 0;
+  min-inline-size: 0;
 }

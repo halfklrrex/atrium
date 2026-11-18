@@ -2,6 +2,7 @@ import { Button } from '@vibe/core';
 import { useAuth } from '../../auth/auth-context';
 import { useIsSiteAdmin } from '../../auth/useIsSiteAdmin';
 import styles from './Settings.module.css';
+import { ApiTokensCard } from './ApiTokensCard';
 import { ConnectedAppsCard } from './ConnectedAppsCard';
 import { SettingsCard } from './SettingsCard';
 
@@ -50,6 +51,7 @@ export function AccountTab() {
         </ul>
       </SettingsCard>
       <ConnectedAppsCard />
+      <ApiTokensCard />
     </>
   );
 }
