@@ -82,6 +82,7 @@ export function itemsService(h) {
   const {
     client,
     uid,
+    via,
     now,
     loadBoard,
     cellContext,
@@ -291,6 +292,7 @@ export function itemsService(h) {
           position,
           values,
           now: now(),
+          via,
         });
         writes.push({
           op: 'set',

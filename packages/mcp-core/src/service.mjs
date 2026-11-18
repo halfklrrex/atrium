@@ -43,6 +43,13 @@ export { MAX_ITEMS_PER_CALL };
 /** How long a workspace membership lookup is reused (bounds how long a removal takes to bite). */
 const MEMBERSHIP_TTL_MS = 60_000;
 
+function assertViaMarker(value) {
+  if (typeof value !== 'string' || !/^webhook:[A-Za-z0-9_-]{1,64}$/.test(value)) {
+    throw new McpUserError('actor.via must be "webhook:<id>".');
+  }
+  return value;
+}
+
 export const NEUTRAL_MEMBER_NAME = 'A member';
 
 export const PICK_WORKSPACE_MESSAGE = 'Give workspaceId; call atrium_list_workspaces first.';
@@ -56,6 +63,9 @@ export function createService({
   hideEmails = false,
 }) {
   const uid = assertId(actor?.uid, 'actor.uid');
+  // Set by the incoming-webhook route only: stamped on the items this actor creates as `updatedVia`
+  // (`webhook:<hookId>`), so the activity log can say who really made them.
+  const via = actor.via == null ? undefined : assertViaMarker(actor.via);
   // One workspace id, a list of them (a restricted API token), or none.
   const filterIds =
     actor.workspaceFilter == null
@@ -233,8 +243,17 @@ export function createService({
         'conflict',
       );
     }
-    if ((loaded.board.columnLocks ?? []).includes(column.id) && loaded.role !== 'owner') {
-      throw new McpUserError(`Column "${column.title}" is locked to board owners.`, 'forbidden');
+    if ((loaded.board.columnLocks ?? []).includes(column.id)) {
+      // An incoming webhook never writes a locked column, even for a creator who owns the board.
+      if (via !== undefined) {
+        throw new McpUserError(
+          `Column "${column.title}" is locked and cannot be set by a webhook.`,
+          'forbidden',
+        );
+      }
+      if (loaded.role !== 'owner') {
+        throw new McpUserError(`Column "${column.title}" is locked to board owners.`, 'forbidden');
+      }
     }
   }
 
@@ -457,6 +476,7 @@ export function createService({
   const helpers = {
     client,
     uid,
+    via,
     now,
     membership,
     workspace,

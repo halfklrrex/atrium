@@ -76,6 +76,8 @@ export interface Actor {
   uid: string;
   /** When set, only this workspace, or these (a restricted API token), and their boards are visible; an empty list shows none. */
   workspaceFilter?: string | string[] | null;
+  /** `webhook:<hookId>`: stamped as `updatedVia` on the items this actor creates (incoming webhooks only). */
+  via?: string;
 }
 
 export interface WorkspaceSummary {
