@@ -32,6 +32,17 @@ let stores: typeof StoreModule;
 let tokens: typeof TokensModule;
 let server: Server | undefined;
 
+/** The parts of an API answer these tests read. */
+interface ApiBody {
+  uid?: string;
+  boardId?: string;
+  total?: number;
+  nextCursor?: string | null;
+  items: { name: string }[];
+  workspaces: { id: string }[];
+  [key: string]: unknown;
+}
+
 beforeAll(async () => {
   process.env.GCLOUD_PROJECT = 'demo-atrium-rules';
   admin = await import('../../../functions/src/lib/admin');
@@ -134,7 +145,7 @@ describe('the api function against the emulator', () => {
         const res = await fetch(`${base}${path}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        return { status: res.status, body: (await res.json()) as Record<string, any> };
+        return { status: res.status, body: (await res.json()) as ApiBody };
       };
     };
     const get = await serve();
@@ -162,7 +173,7 @@ describe('the api function against the emulator', () => {
     expect(page.body.items.map((i: { name: string }) => i.name)).toEqual(['Item 1', 'Item 2']);
     expect(page.body.total).toBe(3);
     const next = await get(
-      `/boards/${boardId}/items?limit=2&cursor=${encodeURIComponent(page.body.nextCursor)}`,
+      `/boards/${boardId}/items?limit=2&cursor=${encodeURIComponent(String(page.body.nextCursor))}`,
       created.token,
     );
     expect(next.body.items.map((i: { name: string }) => i.name)).toEqual(['Item 3']);
