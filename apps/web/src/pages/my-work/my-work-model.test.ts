@@ -108,11 +108,11 @@ describe('buildRows', () => {
     expect(working?.done).toBe(false);
   });
 
-  it('uses the subitem columns for subitems', () => {
+  it('uses the board columns for subitems', () => {
     const sub = makeBoard({
       id: 'b2',
       workspaceId: 'w1',
-      subitemColumns: [column('sub_date', 'date', 'a0')],
+      columns: [column('sub_date', 'date', 'a0')],
     });
     const [row] = buildRows(
       [

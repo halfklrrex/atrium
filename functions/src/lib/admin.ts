@@ -412,7 +412,6 @@ export function adminColumnTypeChangeStore(firestore: Firestore): ColumnTypeChan
     workspaceId: data.workspaceId,
     access: data.access ?? {},
     columns: data.columns ?? [],
-    subitemColumns: data.subitemColumns ?? [],
     columnLocks: data.columnLocks ?? [],
   });
 
@@ -487,13 +486,13 @@ export function adminColumnTypeChangeStore(firestore: Firestore): ColumnTypeChan
       const snap = await chunksCol(boardId, snapshotId).orderBy('index').get();
       return snap.docs.map((doc) => (doc.get('entries') ?? []) as SnapshotEntry[]);
     },
-    async updateColumn(boardId, scope, columnId, decide, snapshotPatch, write) {
+    async updateColumn(boardId, _scope, columnId, decide, snapshotPatch, write) {
       await firestore.runTransaction(async (tx) => {
         const ref = boardRef(boardId);
         const snap = await tx.get(ref);
         if (!snap.exists) throw new HttpsError('not-found', 'Board not found.');
         const board = toBoardData(snap.data() ?? {});
-        const list = scope === 'columns' ? board.columns : board.subitemColumns;
+        const list = board.columns;
         const current = list.find((c) => c.id === columnId) ?? null;
         const next = decide(current, board);
         if (next === current) return;
@@ -502,7 +501,7 @@ export function adminColumnTypeChangeStore(firestore: Firestore): ColumnTypeChan
           ? await getMemberProfilesTx(firestore, tx, board.workspaceId, [write.updatedBy])
           : null;
         tx.update(ref, {
-          [scope]: list.map((c) => (c.id === columnId ? next : c)),
+          columns: list.map((c) => (c.id === columnId ? next : c)),
           updatedAt: FieldValue.serverTimestamp(),
           updatedBy: write.updatedBy,
         });

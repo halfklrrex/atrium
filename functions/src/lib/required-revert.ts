@@ -16,7 +16,6 @@ const REQUIRED_REVERT_ACTOR_NAME = 'Atrium';
 /** The slice of a board the revert reads. */
 export interface RequiredRevertBoard {
   columns: ReadonlyArray<ColumnDef>;
-  subitemColumns?: ReadonlyArray<ColumnDef>;
   requiredColumnIds?: readonly string[] | null;
 }
 
@@ -83,7 +82,7 @@ export async function revertDoneWithEmptyRequired(
     return { reverted: false, reason: 'no-required' };
   }
   const columns = columnsForItem(
-    { columns: board.columns ?? [], subitemColumns: board.subitemColumns },
+    { columns: board.columns ?? [] },
     {
       parentItemId: typeof event.after.parentItemId === 'string' ? event.after.parentItemId : null,
     },

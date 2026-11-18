@@ -30,7 +30,6 @@ export interface NotificationBoard extends BoardAccessInput {
   name: string;
   workspaceId: string;
   columns: ReadonlyArray<{ id: string; type: string }>;
-  subitemColumns: ReadonlyArray<{ id: string; type: string }>;
 }
 
 export interface ActorProfile {
@@ -363,11 +362,11 @@ function personIds(value: unknown): string[] {
 
 /**
  * People added to a People column by this write: ids in `after` that were not in `before`, for each
- * column of type `people` (a subitem uses `columnsForItem`: the board's columns, or its legacy `subitemColumns`). On create `before` is
+ * column of type `people` (a subitem uses `columnsForItem`: the board's columns). On create `before` is
  * empty. A person added to several columns appears once, with the first column.
  */
 export function addedPeople(
-  board: Pick<NotificationBoard, 'columns' | 'subitemColumns'>,
+  board: Pick<NotificationBoard, 'columns'>,
   isSubitem: boolean,
   before: Record<string, unknown> | undefined,
   after: Record<string, unknown> | undefined,
@@ -401,7 +400,7 @@ function teamIds(value: unknown): string[] {
  * with the first column it was added to.
  */
 export function addedTeams(
-  board: Pick<NotificationBoard, 'columns' | 'subitemColumns'>,
+  board: Pick<NotificationBoard, 'columns'>,
   isSubitem: boolean,
   before: Record<string, unknown> | undefined,
   after: Record<string, unknown> | undefined,

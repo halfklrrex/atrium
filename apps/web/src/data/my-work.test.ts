@@ -24,10 +24,10 @@ describe('isAssignedTo', () => {
     expect(isAssignedTo(board, emptied, 'u1')).toBe(false);
   });
 
-  it('ignores teams and uses the subitem columns for subitems', () => {
+  it('ignores teams and uses the board columns for subitems', () => {
     const team = { personsAndTeams: [{ id: 'u1', kind: 'team' }] };
     expect(isAssignedTo(board, makeItem({ id: 'i', values: { owner: team } }), 'u1')).toBe(false);
-    const withSub = makeBoard({ id: 'b2', columns: [], subitemColumns: [people('sub')] as never });
+    const withSub = makeBoard({ id: 'b2', columns: [people('sub')] as never });
     const sub = makeItem({ id: 's', parentItemId: 'p', values: { sub: mine } });
     expect(isAssignedTo(withSub, sub, 'u1')).toBe(true);
   });

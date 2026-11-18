@@ -202,7 +202,6 @@ export interface ActivityGroup {
 export interface ActivityBoard {
   workspaceId: string;
   columns: ReadonlyArray<ActivityColumn>;
-  subitemColumns: ReadonlyArray<ActivityColumn>;
   groups: ReadonlyArray<ActivityGroup>;
 }
 

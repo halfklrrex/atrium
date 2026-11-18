@@ -39,7 +39,7 @@ export const columnTypeChangeSchema = z.object({
 });
 export type ColumnTypeChange = z.infer<typeof columnTypeChangeSchema>;
 
-/** `ColumnDef` embedded in `boards/{id}.columns` / `subitemColumns`. `settings` is validated per type. */
+/** `ColumnDef` embedded in `boards/{id}.columns`. `settings` is validated per type. */
 export const columnDefSchema = z.object({
   id: slugIdSchema,
   type: z.string().min(1).max(40),
@@ -93,10 +93,10 @@ export const boardSchema = z.object({
   icon: iconSchema.nullable(),
   columns: z.array(columnDefSchema),
   /**
-   * @deprecated SUBITEMS-as-items: subitems share `columns` (read them with `columnsForItem`). Kept
-   * so older boards parse; the merge migration empties it and PR 6 locks it to `[]`.
+   * @deprecated SUBITEMS-as-items: subitems share `columns`. Always `[]` now (the rules refuse
+   * anything else); the field stays so existing documents and the rules' key list keep matching.
    */
-  subitemColumns: z.array(columnDefSchema),
+  subitemColumns: z.array(columnDefSchema).default([]),
   groups: z.array(groupDefSchema),
   /**
    * Ids of the columns whose type is derived (computed, never stored). Maintained only by the

@@ -11,8 +11,6 @@ import { keepServerColumnFields } from './server-column-fields';
 
 export interface BoardStructureState {
   columns: ColumnDef[];
-  /** Columns of the subitem tables (`board.subitemColumns`); `[]` until the first subitem. */
-  subitemColumns: ColumnDef[];
   groups: GroupDef[];
   /** Ids of locked columns (`board.columnLocks`); `[]` when unset. */
   columnLocks?: string[];
@@ -37,7 +35,6 @@ export async function updateBoardStructure(
     const data = snap.data();
     const current: BoardStructureState = {
       columns: (data.columns ?? []) as ColumnDef[],
-      subitemColumns: (data.subitemColumns ?? []) as ColumnDef[],
       groups: (data.groups ?? []) as GroupDef[],
       columnLocks: (data.columnLocks ?? []) as string[],
     };
@@ -45,9 +42,6 @@ export async function updateBoardStructure(
     if (!patch) return null;
     const safe: StructurePatch = { ...patch };
     if (patch.columns) safe.columns = keepServerColumnFields(patch.columns, current.columns);
-    if (patch.subitemColumns) {
-      safe.subitemColumns = keepServerColumnFields(patch.subitemColumns, current.subitemColumns);
-    }
     tx.update(ref, { ...safe, updatedAt: serverTimestamp(), updatedBy: requireUid() });
     return { ...current, ...safe };
   });

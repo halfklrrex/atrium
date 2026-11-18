@@ -191,10 +191,9 @@ describe('syncColumnIdLists', () => {
     );
   });
 
-  it('counts sub-item columns too', async () => {
+  it('counts every board column, which subitems share', async () => {
     const board: BoardColumnsData = {
-      columns: [col('t', 'text')],
-      subitemColumns: [col('sb', 'button')],
+      columns: [col('t', 'text'), col('sb', 'button')],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
@@ -250,8 +249,10 @@ describe('syncColumnIdLists', () => {
 
   it('backfills a board from before REQ-1 that has the two older fields only', async () => {
     const old: BoardColumnsData = {
-      columns: [{ ...col('r', 'text'), required: true }],
-      subitemColumns: [{ ...col('s', 'text'), required: true }],
+      columns: [
+        { ...col('r', 'text'), required: true },
+        { ...col('s', 'text'), required: true },
+      ],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
     };

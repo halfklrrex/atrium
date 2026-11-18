@@ -3,7 +3,6 @@ import {
   boardRoleFromWorkspaceRole,
   BUILT_IN_TEMPLATES,
   columnRegistry,
-  hasLegacySubitemColumns,
   VOTE_COLUMN_CAP_MESSAGE,
   voteCapExceeded,
   builtInTemplate,
@@ -110,8 +109,7 @@ export function boardsService(h) {
       const { board } = await loadBoard(boardId, 'read');
       const columnTitle = new Map();
       const titles = new Set();
-      const legacy = hasLegacySubitemColumns(board);
-      for (const column of legacy ? [...board.columns, ...board.subitemColumns] : board.columns) {
+      for (const column of board.columns) {
         const taken = titles.has(column.title.toLowerCase());
         titles.add(column.title.toLowerCase());
         columnTitle.set(column.id, taken ? `${column.title} (${column.id})` : column.title);
@@ -135,23 +133,13 @@ export function boardsService(h) {
           color: g.color,
         })),
       };
-      // Only a board not yet migrated still has subitem columns of its own to list.
-      if (legacy) {
-        result.subitemColumns = sortedByPosition(board.subitemColumns).map((c) => ({
-          id: c.id,
-          title: c.title,
-          type: c.type,
-          ...labelSummary(c),
-        }));
-      }
       if (!includeItems) return result;
 
       const docs = (await itemsOf(boardId)).filter((d) => d.data.state === 'active');
       const groupTitle = new Map(board.groups.map((g) => [g.id, g.title]));
       const groupOrder = new Map(sortedByPosition(board.groups).map((g, i) => [g.id, i]));
-      const readColumns = legacy ? [...board.columns, ...board.subitemColumns] : board.columns;
-      const context = await readContext(boardId, board.workspaceId, readColumns);
-      await prepareMirrors(context, docs, readColumns);
+      const context = await readContext(boardId, board.workspaceId, board.columns);
+      await prepareMirrors(context, docs, board.columns);
       const shape = (doc, columns) => ({
         id: doc.id,
         seq: doc.data.seq ?? null,

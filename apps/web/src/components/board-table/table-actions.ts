@@ -64,17 +64,13 @@ export interface TableCtx {
   uid: string;
   /**
    * Every column def of the table the action works on: cell writes are validated against them
-   * (derived, settings). In the legacy `'subitems'` scope these are the board's subitem columns.
+   * (derived, settings). Structure writes (add, rename, resize, delete a column) change the
+   * board's `columns`.
    */
   columns: readonly ColumnDef[];
   /**
-   * Which column list structure writes (add, rename, resize, delete a column) change: the board's
-   * `columns` (when unset) or, on a board not yet migrated, its legacy `subitemColumns`.
-   */
-  scope?: 'columns' | 'subitems';
-  /**
-   * The column defs of the board's subitems (`columnsForSubitems`: the board's columns, or the
-   * legacy subitem columns), to validate and copy subitem values (cascades).
+   * The column defs of the board's subitems (`columnsForSubitems`: the board's columns), to
+   * validate and copy subitem values (cascades).
    */
   subColumns?: readonly ColumnDef[];
   /** The board (for `columnLocks` checks). */
@@ -95,13 +91,11 @@ const lockCtxOf = (ctx: TableCtx): ColumnLockContext | undefined =>
     : undefined;
 
 /**
- * A new column id that no column uses in EITHER list: `derivedColumnIds`, `serverManagedColumnIds`
- * and column locks are flat id lists over `columns` and `subitemColumns` together.
+ * A new column id that no column uses: `derivedColumnIds`, `serverManagedColumnIds`
+ * and column locks are flat id lists keyed by column id.
  */
-export function freshColumnId(
-  state: Pick<BoardStructureState, 'columns' | 'subitemColumns'>,
-): string {
-  const taken = new Set([...state.columns, ...state.subitemColumns].map((c) => c.id));
+export function freshColumnId(state: Pick<BoardStructureState, 'columns'>): string {
+  const taken = new Set(state.columns.map((c) => c.id));
   let id = newSlugId();
   while (taken.has(id)) id = newSlugId();
   return id;
@@ -110,17 +104,9 @@ export function freshColumnId(
 const subitemsOf = (ctx: TableCtx, parentId: string): ItemDoc[] =>
   (ctx.getItems?.() ?? []).filter((i) => i.parentItemId === parentId);
 
-type ColumnsKey = 'columns' | 'subitemColumns';
-/** The scope name the type-change callables use for this table. */
-const columnScopeOf = (ctx: TableCtx): ColumnsKey =>
-  ctx.scope === 'subitems' ? 'subitemColumns' : 'columns';
-const columnsKey = (ctx: TableCtx): ColumnsKey =>
-  ctx.scope === 'subitems' ? 'subitemColumns' : 'columns';
 /** The column list a column action works on, and the patch that writes it back. */
-const columnsOf = (ctx: TableCtx, state: BoardStructureState): ColumnDef[] =>
-  state[columnsKey(ctx)];
-const columnsPatch = (ctx: TableCtx, columns: ColumnDef[]): StructurePatch =>
-  ({ [columnsKey(ctx)]: columns }) as StructurePatch;
+const columnsOf = (state: BoardStructureState): ColumnDef[] => state.columns;
+const columnsPatch = (columns: ColumnDef[]): StructurePatch => ({ columns });
 
 /** How long a bulk write may run before the "Updating N selected items" toast appears. */
 const BULK_PENDING_MS = 300;
@@ -228,7 +214,7 @@ export const tableActions = {
     input: { position: string; name?: string },
   ): Promise<string | null> {
     try {
-      // A subitem uses the board's columns (or the legacy subitem columns until the migration).
+      // A subitem uses the board's columns.
       const subColumns = ctx.subColumns ?? ctx.columns;
       const values = newItemValues(subColumns, lockCtxOf(ctx));
       return await itemWrites.create(ctx.uid, ctx.boardId, {
@@ -822,7 +808,7 @@ export const tableActions = {
         updateBoardStructure(ctx.boardId, (state) => {
           assertVoteCapAllows(type, state);
           id = freshColumnId(state);
-          const columns = columnsOf(ctx, state);
+          const columns = columnsOf(state);
           const sorted = [...columns].sort(comparePositions);
           const at = afterColumnId ? sorted.findIndex((c) => c.id === afterColumnId) : -1;
           const position =
@@ -843,7 +829,7 @@ export const tableActions = {
               unknown
             >,
           };
-          return columnsPatch(ctx, [...columns, column]);
+          return columnsPatch([...columns, column]);
         }),
       'Could not add the column.',
     );
@@ -867,7 +853,7 @@ export const tableActions = {
     await attempt(
       () =>
         updateBoardStructure(ctx.boardId, (state) => {
-          const columns = columnsOf(ctx, state);
+          const columns = columnsOf(state);
           const current = columns.find((c) => c.id === columnId);
           if (!current) return null;
           const next: ColumnDef = clean({ ...current, ...patch });
@@ -884,10 +870,7 @@ export const tableActions = {
             const checked = validateColumnDef(next, columnRegistry);
             if (!checked.valid) throw new Error(checked.error);
           }
-          return columnsPatch(
-            ctx,
-            columns.map((c) => (c.id === columnId ? next : c)),
-          );
+          return columnsPatch(columns.map((c) => (c.id === columnId ? next : c)));
         }),
       'Could not update the column.',
     );
@@ -902,13 +885,10 @@ export const tableActions = {
     await attempt(
       () =>
         updateBoardStructure(ctx.boardId, (state) => {
-          const columns = columnsOf(ctx, state);
+          const columns = columnsOf(state);
           if (!columns.some((c) => c.id === columnId)) return null;
           const position = dropPosition(columns, columnId, index);
-          return columnsPatch(
-            ctx,
-            columns.map((c) => (c.id === columnId ? { ...c, position } : c)),
-          );
+          return columnsPatch(columns.map((c) => (c.id === columnId ? { ...c, position } : c)));
         }),
       'Could not move the column.',
     );
@@ -931,10 +911,7 @@ export const tableActions = {
     const removed = await attempt(
       () =>
         updateBoardStructure(ctx.boardId, (state) => {
-          const patch = columnsPatch(
-            ctx,
-            columnsOf(ctx, state).filter((c) => c.id !== column.id),
-          );
+          const patch = columnsPatch(columnsOf(state).filter((c) => c.id !== column.id));
           if (ctx.boardRole === 'owner' && state.columnLocks?.includes(column.id)) {
             patch.columnLocks = state.columnLocks.filter((id) => id !== column.id);
           }
@@ -984,7 +961,7 @@ export const tableActions = {
       const result = await columnTypeCalls.change({
         boardId: ctx.boardId,
         columnId: column.id,
-        scope: columnScopeOf(ctx),
+        scope: 'columns',
         toType,
         toSettings,
         snapshotId: newSlugId(20),
@@ -1019,7 +996,7 @@ export const tableActions = {
       const result = await columnTypeCalls.change({
         boardId: ctx.boardId,
         columnId: column.id,
-        scope: columnScopeOf(ctx),
+        scope: 'columns',
         toType: column.type,
         toSettings: {},
         snapshotId,
@@ -1068,7 +1045,7 @@ export const tableActions = {
         updateBoardStructure(ctx.boardId, (state) => {
           assertVoteCapAllows(source.def.type, state);
           id = freshColumnId(state);
-          const columns = columnsOf(ctx, state);
+          const columns = columnsOf(state);
           const sorted = [...columns].sort(comparePositions);
           const at = sorted.findIndex((c) => c.id === source.def.id);
           const position =
@@ -1084,7 +1061,7 @@ export const tableActions = {
             ),
             position,
           });
-          return columnsPatch(ctx, [...columns, copy]);
+          return columnsPatch([...columns, copy]);
         }),
       'Could not duplicate the column.',
     );

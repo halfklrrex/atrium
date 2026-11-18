@@ -45,9 +45,6 @@ vi.mock('../../data', async (importOriginal) => ({
 const boardColumns: ColumnDef[] = [
   { id: 'note', type: 'text', title: 'Note', position: 'a0', settings: {} },
 ];
-const subColumns: ColumnDef[] = [
-  { id: 'subnote', type: 'text', title: 'Sub note', position: 'a0', settings: {} },
-];
 const groups: GroupDef[] = [
   { id: 'g1', title: 'Alpha', color: '#579bfc', position: 'a0' },
   { id: 'g2', title: 'Beta', color: '#037f4c', position: 'a1' },
@@ -62,7 +59,6 @@ const board = makeBoard({
   id: 'b1',
   access: { u1: 'owner' },
   columns: boardColumns,
-  subitemColumns: subColumns,
   groups,
 });
 
@@ -78,7 +74,7 @@ const ctx = (extra: Partial<TableCtx> = {}): TableCtx => ({
   boardId: 'b1',
   uid: 'u1',
   columns: boardColumns,
-  subColumns,
+  subColumns: boardColumns,
   getItems: allItems,
   ...extra,
 });
@@ -101,7 +97,7 @@ describe('group model with subitems', () => {
   const base = {
     groups,
     columns: buildColumnViews(boardColumns),
-    subColumns: buildColumnViews(subColumns),
+    subColumns: buildColumnViews(boardColumns),
     search: '',
   };
 
@@ -192,17 +188,17 @@ describe('cascade actions', () => {
 
   it('drops derived and server-managed values from duplicated subitems', async () => {
     const managed: ColumnDef[] = [
-      ...subColumns,
+      ...boardColumns,
       { id: 'files', type: 'files', title: 'Files', position: 'a1', settings: {} },
     ];
-    const withFiles = sub('s1', 'p1', 'a0', { values: { subnote: 'x', files: [{ id: 'f' }] } });
+    const withFiles = sub('s1', 'p1', 'a0', { values: { note: 'x', files: [{ id: 'f' }] } });
     await tableActions.duplicateItems(
       ctx({ subColumns: managed, getItems: () => [parent('p1'), withFiles] }),
       [parent('p1')],
       () => [],
     );
     const inputs = mocks.createMany.mock.calls[0]![2] as { values: Record<string, unknown> }[];
-    expect(inputs[1]!.values).toEqual({ subnote: 'x' });
+    expect(inputs[1]!.values).toEqual({ note: 'x' });
   });
 });
 
@@ -225,60 +221,42 @@ describe('subitem writes', () => {
     expect(mocks.create).toHaveBeenCalled();
   });
 
-  it('validates a subitem cell against the subitem column defs', async () => {
-    const subCtx = ctx({ columns: subColumns, scope: 'subitems' });
-    expect(await tableActions.setCell(subCtx, 's1', 'subnote', 'hello')).toBe(true);
-    expect(mocks.setValue).toHaveBeenCalledWith('u1', 'b1', 's1', 'subnote', 'hello');
-    // A board column id is not a subitem column.
-    expect(await tableActions.setCell(subCtx, 's1', 'note', 'nope')).toBe(false);
+  it('validates a subitem cell against the board column defs', async () => {
+    expect(await tableActions.setCell(ctx(), 's1', 'note', 'hello')).toBe(true);
+    expect(mocks.setValue).toHaveBeenCalledWith('u1', 'b1', 's1', 'note', 'hello');
+    // An id that is no board column is refused.
+    expect(await tableActions.setCell(ctx(), 's1', 'subnote', 'nope')).toBe(false);
     expect(useToastStore.getState().toasts.at(-1)?.text).toBe('This column no longer exists');
   });
 
-  it('writes column changes of the subitem scope to subitemColumns', async () => {
-    const subCtx = ctx({ columns: subColumns, scope: 'subitems' });
-    await tableActions.updateColumn(subCtx, 'subnote', { title: 'Renamed' });
-    const updater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => unknown;
-    const state = { columns: boardColumns, subitemColumns: subColumns, groups };
-    expect(updater(state)).toEqual({
-      subitemColumns: [expect.objectContaining({ id: 'subnote', title: 'Renamed' })],
-    });
-    mocks.updateBoardStructure.mockClear();
+  it('writes column changes to the board columns', async () => {
     await tableActions.updateColumn(ctx(), 'note', { title: 'Board note' });
-    const boardUpdater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => unknown;
-    expect(boardUpdater(state)).toEqual({
+    const updater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => unknown;
+    expect(updater({ columns: boardColumns, groups })).toEqual({
       columns: [expect.objectContaining({ id: 'note', title: 'Board note' })],
     });
   });
 });
 
-describe('column ids are unique across both column lists', () => {
-  it('freshColumnId skips ids used in either list', async () => {
-    const state = { columns: boardColumns, subitemColumns: subColumns };
-    const ids = new Set(['note', 'subnote']);
-    for (let i = 0; i < 50; i++) expect(ids.has(freshColumnId(state))).toBe(false);
+describe('column ids are unique', () => {
+  it('freshColumnId skips ids in use', async () => {
+    const state = { columns: boardColumns };
+    for (let i = 0; i < 50; i++) expect(freshColumnId(state)).not.toBe('note');
   });
 
-  it('addColumn and duplicateColumn pick ids outside both lists', async () => {
-    const state = { columns: boardColumns, subitemColumns: subColumns, groups };
-    for (const scope of [undefined, 'subitems'] as const) {
-      mocks.updateBoardStructure.mockClear();
-      const c = ctx({ scope, columns: scope ? subColumns : boardColumns });
-      await tableActions.addColumn(c, 'text');
-      const add = mocks.updateBoardStructure.mock.calls[0]![1] as (
-        s: unknown,
-      ) => Record<string, ColumnDef[]>;
-      const patch = add(state);
-      const list = patch[scope ? 'subitemColumns' : 'columns']!;
-      const added = list.at(-1)!;
-      expect(['note', 'subnote']).not.toContain(added.id);
+  it('addColumn and duplicateColumn pick ids outside the existing ones', async () => {
+    const state = { columns: boardColumns, groups };
+    const c = ctx();
+    await tableActions.addColumn(c, 'text');
+    const add = mocks.updateBoardStructure.mock.calls[0]![1] as (
+      s: unknown,
+    ) => Record<string, ColumnDef[]>;
+    expect(add(state).columns!.at(-1)!.id).not.toBe('note');
 
-      mocks.updateBoardStructure.mockClear();
-      const view = buildColumnViews(scope ? subColumns : boardColumns)[0]!;
-      await tableActions.duplicateColumn(c, view, []);
-      const dup = mocks.updateBoardStructure.mock.calls[0]![1] as typeof add;
-      const copy = dup(state)[scope ? 'subitemColumns' : 'columns']!.at(-1)!;
-      expect(['note', 'subnote']).not.toContain(copy.id);
-    }
+    mocks.updateBoardStructure.mockClear();
+    await tableActions.duplicateColumn(c, buildColumnViews(boardColumns)[0]!, []);
+    const dup = mocks.updateBoardStructure.mock.calls[0]![1] as typeof add;
+    expect(dup(state).columns!.at(-1)!.id).not.toBe('note');
   });
 });
 
@@ -296,28 +274,12 @@ describe('subitems in the board table', () => {
         .getAllByText(/^Sub s/)
         .map((e) => e.textContent),
     ).toEqual(['Sub s1', 'Sub s2']);
-    // The block has its own header with the subitem columns.
-    expect(within(block).getByText('Sub note')).toBeInTheDocument();
-    expect(within(block).queryByText('Note')).toBeNull();
+    // The block has its own header with the board's columns (subitems share them).
+    expect(within(block).getByText('Note')).toBeInTheDocument();
     expect(within(block).getByText('+ Add subitem')).toBeInTheDocument();
 
     await userEvent.click(screen.getByLabelText('Collapse subitems of Parent p1'));
     expect(screen.queryByText('Sub s1')).toBeNull();
-  });
-
-  it('shows the board columns in the subitem block when the board has no subitem columns', async () => {
-    const shared = makeBoard({
-      id: 'b1',
-      access: { u1: 'owner' },
-      columns: boardColumns,
-      subitemColumns: [],
-      groups,
-    });
-    render(<BoardTable board={shared} />);
-    await userEvent.click(screen.getByLabelText('Expand subitems of Parent p1'));
-    const block = screen.getByRole('grid', { name: 'Subitems of Parent p1' });
-    expect(within(block).getByText('Note')).toBeInTheDocument();
-    expect(within(block).queryByText('Sub note')).toBeNull();
   });
 
   it('opens a parent automatically while a search matches only its subitem', async () => {
@@ -338,6 +300,6 @@ describe('subitems in the board table', () => {
     await userEvent.keyboard('{ArrowDown}');
     expect(useTableStore.getState().active).toEqual({ itemId: 's2', columnId: 'name' });
     await userEvent.keyboard('{ArrowRight}');
-    expect(useTableStore.getState().active).toEqual({ itemId: 's2', columnId: 'subnote' });
+    expect(useTableStore.getState().active).toEqual({ itemId: 's2', columnId: 'note' });
   });
 });

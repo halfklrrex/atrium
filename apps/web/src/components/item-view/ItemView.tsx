@@ -71,7 +71,7 @@ export function ItemView({ board, itemId }: ItemViewProps) {
     [board.groups, item?.groupId],
   );
 
-  // A subitem's cells use the board's columns too (its own legacy columns until migrated).
+  // A subitem's cells use the board's columns too.
   const itemColumns = useMemo(
     () => [...columnsForItem(board, item ?? { parentItemId: null })] as ColumnDef[],
     [board, item],

@@ -17,8 +17,8 @@ const NAME_TRACK = 'var(--atrium-table-name-live)';
 
 /**
  * Everything inside a subitem block (and the lifted copy of a dragged subitem) reads the table
- * environment through this scope: the subitem columns (the board's own, except on a board not yet
- * migrated), an action context for them, and its own grid template.
+ * environment through this scope: the board's columns, an action context for them, and its own
+ * grid template.
  */
 export function SubitemScope({
   groupColor,
@@ -32,11 +32,8 @@ export function SubitemScope({
   const env = useTableEnv();
   const [live, setLive] = useState<Record<string, number>>({});
 
-  // The board's columns (all of them, hidden ones included) unless the board is not yet migrated.
-  const defs = useMemo(
-    () => (env.legacySubitems ? env.subColumns.map((c) => c.def) : env.ctx.columns),
-    [env.legacySubitems, env.subColumns, env.ctx.columns],
-  );
+  // The board's columns (all of them, hidden ones included).
+  const defs = env.ctx.columns;
   const columns = useMemo(
     () => env.subColumns.map((c) => (live[c.def.id] ? { ...c, width: live[c.def.id]! } : c)),
     [env.subColumns, live],
@@ -46,10 +43,8 @@ export function SubitemScope({
       ...env.ctx,
       columns: defs,
       subColumns: defs,
-      // Subitems share the board's columns; only a board not yet migrated writes its own list.
-      scope: env.legacySubitems ? 'subitems' : 'columns',
     }),
-    [env.ctx, env.legacySubitems, defs],
+    [env.ctx, defs],
   );
 
   const { getItems: getAllItems } = env;
@@ -76,7 +71,7 @@ export function SubitemScope({
       ...env,
       inSubitemBlock: true,
       columns,
-      allColumns: env.legacySubitems ? columns : (env.allColumns ?? env.columns),
+      allColumns: env.allColumns ?? env.columns,
       ctx,
       getItems,
       getModels: () => [],

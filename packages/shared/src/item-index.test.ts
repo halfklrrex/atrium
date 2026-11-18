@@ -83,7 +83,6 @@ const board = {
     { id: 'reviewer', type: 'people' },
     { id: 'status', type: 'status' },
   ],
-  subitemColumns: [{ id: 'sub_owner', type: 'people' }],
 };
 
 describe('assigneeUidsOf', () => {
@@ -144,15 +143,15 @@ describe('assigneeTeamIdsOf', () => {
 describe('itemIndexFields', () => {
   const people = (id: string) => ({ personsAndTeams: [{ id, kind: 'person' }] });
 
-  it('uses the board columns for items and the subitem columns for subitems', () => {
-    const values = { owner: people('u1'), sub_owner: people('u2') };
+  it('uses the board columns for items and for subitems', () => {
+    const values = { owner: people('u1') };
     expect(itemIndexFields(board, { name: 'Task', values, parentItemId: null })).toEqual({
       assigneeUids: ['u1'],
       assigneeTeamIds: [],
       nameTokens: ['ta', 'tas', 'task'],
     });
     expect(itemIndexFields(board, { name: 'Sub', values, parentItemId: 'p1' })).toEqual({
-      assigneeUids: ['u2'],
+      assigneeUids: ['u1'],
       assigneeTeamIds: [],
       nameTokens: ['su', 'sub'],
     });
@@ -163,11 +162,5 @@ describe('itemIndexFields', () => {
     expect(
       itemIndexFields(board, { name: 'x', values, parentItemId: null }).assigneeTeamIds,
     ).toEqual(['t1']);
-  });
-
-  it('copes with a board without subitem columns', () => {
-    expect(
-      itemIndexFields({ columns: board.columns }, { name: 'x', values: {}, parentItemId: 'p' }),
-    ).toEqual({ assigneeUids: [], assigneeTeamIds: [], nameTokens: [] });
   });
 });

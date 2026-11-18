@@ -45,11 +45,15 @@ const col = (id: string, type: string) => ({
 });
 
 describe('computeDerivedColumnIds', () => {
-  it('lists derived columns, sorted and without duplicates, from columns and subitem columns', () => {
+  it('lists derived columns, sorted and without duplicates', () => {
     expect(
       computeDerivedColumnIds({
-        columns: [col('z', 'test_derived'), col('t', 'text'), col('b', 'test_derived')],
-        subitemColumns: [col('m', 'test_derived'), col('b', 'test_derived')],
+        columns: [
+          col('z', 'test_derived'),
+          col('t', 'text'),
+          col('b', 'test_derived'),
+          col('m', 'test_derived'),
+        ],
       }),
     ).toEqual(['b', 'm', 'z']);
   });
@@ -105,11 +109,15 @@ describe('nextDerivedColumnIds', () => {
 });
 
 describe('computeServerManagedColumnIds (FW2)', () => {
-  it('lists server-managed columns, sorted, from columns and subitem columns', () => {
+  it('lists server-managed columns, sorted', () => {
     expect(
       computeServerManagedColumnIds({
-        columns: [col('z', 'test_managed'), col('t', 'text'), col('b', 'button')],
-        subitemColumns: [col('m', 'test_managed'), col('b', 'button')],
+        columns: [
+          col('z', 'test_managed'),
+          col('t', 'text'),
+          col('b', 'button'),
+          col('m', 'test_managed'),
+        ],
       }),
     ).toEqual(['b', 'm', 'z']);
   });
@@ -127,7 +135,7 @@ describe('computeServerManagedColumnIds (FW2)', () => {
   it('is empty without such columns and tolerates malformed data', () => {
     expect(computeServerManagedColumnIds({ columns: [col('t', 'text')] })).toEqual([]);
     expect(computeServerManagedColumnIds({})).toEqual([]);
-    expect(computeServerManagedColumnIds({ columns: 'oops', subitemColumns: [null] })).toEqual([]);
+    expect(computeServerManagedColumnIds({ columns: 'oops' })).toEqual([]);
   });
 });
 
@@ -192,7 +200,6 @@ describe('type change marks', () => {
   it('a migrating-only or lastTypeChange-only update never rewrites the lists', () => {
     const base = {
       columns: [col('d', 'test_derived'), col('t', 'text')],
-      subitemColumns: [],
       derivedColumnIds: ['d'],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
@@ -223,7 +230,6 @@ describe('type change marks', () => {
   it('finishing a change to a derived type updates the list', () => {
     const board = {
       columns: [col('t', 'test_derived')],
-      subitemColumns: [],
       derivedColumnIds: [],
       serverManagedColumnIds: [],
       requiredColumnIds: [],
@@ -244,11 +250,10 @@ describe('requiredColumnIds (REQ-1)', () => {
     ...(required === undefined ? {} : { required }),
   });
 
-  it('computes the sorted ids of required columns and subitem columns', () => {
+  it('computes the sorted ids of required columns', () => {
     expect(
       computeRequiredColumnIds({
-        columns: [req('z', true), req('t', false), req('u'), req('b', true)],
-        subitemColumns: [req('m', true), req('b', true)],
+        columns: [req('z', true), req('t', false), req('u'), req('b', true), req('m', true)],
       }),
     ).toEqual(['b', 'm', 'z']);
   });
@@ -256,7 +261,7 @@ describe('requiredColumnIds (REQ-1)', () => {
   it('is empty without required columns and tolerates malformed data', () => {
     expect(computeRequiredColumnIds({ columns: [req('t', false), req('u')] })).toEqual([]);
     expect(computeRequiredColumnIds({})).toEqual([]);
-    expect(computeRequiredColumnIds({ columns: 'oops', subitemColumns: [null] })).toEqual([]);
+    expect(computeRequiredColumnIds({ columns: 'oops' })).toEqual([]);
   });
 
   it('next returns null when right (any order), else the list', () => {
@@ -302,13 +307,9 @@ it('the vote cap mirrors the unrolled rules helper', () => {
 describe('voteCapExceeded', () => {
   const vote = (id: string) => ({ id, title: id, type: 'vote' }) as ColumnDef;
   const nine = Array.from({ length: 9 }, (_, n) => vote(`v${n}`));
-  it('allows up to the cap and refuses one more, counting sub-item columns', () => {
+  it('allows up to the cap and refuses one more', () => {
     expect(voteCapExceeded('vote', { columns: nine })).toBe(false);
     expect(voteCapExceeded('vote', { columns: [...nine, vote('v9')] })).toBe(true);
-    expect(
-      voteCapExceeded('vote', { columns: nine.slice(0, 5), subitemColumns: nine.slice(5) }),
-    ).toBe(false);
-    expect(voteCapExceeded('vote', { columns: nine, subitemColumns: [vote('s1')] })).toBe(true);
   });
   it('never limits other types and has a clear message', () => {
     expect(voteCapExceeded('text', { columns: [...nine, vote('v9')] })).toBe(false);

@@ -23,13 +23,8 @@ export interface TableEnv {
   columns: ColumnView[];
   /** Every board column, hidden ones included (position maths and reordering); `columns` when unset. */
   allColumns?: ColumnView[];
-  /**
-   * The columns a subitem block renders: the view's visible `columns` (subitems share the board's
-   * columns), or, on a board not yet migrated, its legacy subitem columns.
-   */
+  /** The columns a subitem block renders: the view's visible `columns` (subitems share them). */
   subColumns: ColumnView[];
-  /** The board still has legacy subitem columns: column writes in subitem blocks go to them. */
-  legacySubitems?: boolean;
   /** Set inside a subitem block (its header offers no sort, and its rows are subitems). */
   inSubitemBlock?: boolean;
   /** Groups in position order. */

@@ -302,10 +302,7 @@ describe('Column locks UI & actions', () => {
     expect(() => updater({ columns: votes, subitemColumns: [], groups: [] })).toThrow(
       /at most 10 vote columns/,
     );
-    // Sub-item vote columns count too; other types are never limited.
-    expect(() =>
-      updater({ columns: votes.slice(0, 5), subitemColumns: votes.slice(5), groups: [] }),
-    ).toThrow();
+    // Other types are never limited.
     mocks.updateBoardStructure.mockClear();
     await tableActions.addColumn(ctx, 'text');
     const textUpdater = mocks.updateBoardStructure.mock.calls[0]![1] as (s: unknown) => unknown;
