@@ -110,6 +110,13 @@ function setup() {
     runTransaction: async () => {
       throw new Error('unused');
     },
+    columnTypeStore: {} as never,
+    runColumnActions: async () => {
+      throw new Error('unused');
+    },
+    clickButton: async () => {
+      throw new Error('unused');
+    },
     bucket: {} as never,
     putObject: async () => undefined,
     runSharing: (fn) => fn(store.stores()),

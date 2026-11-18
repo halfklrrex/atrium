@@ -45,6 +45,13 @@ function runAs(uid: string) {
     },
     bucket: {} as never,
     putObject: async () => undefined,
+    columnTypeStore: {} as never,
+    runColumnActions: async () => {
+      throw new Error('column actions are not used here');
+    },
+    clickButton: async () => {
+      throw new Error('buttons are not used here');
+    },
     runSharing: (fn) =>
       firestore.runTransaction((tx) =>
         fn({

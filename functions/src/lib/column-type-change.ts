@@ -19,6 +19,7 @@ import {
   canEditColumn,
   columnRegistry,
   columnTypeChangeSupport,
+  conversionSamples,
   planColumnConversion,
   resolveBoardRole,
   voteCapExceeded,
@@ -255,6 +256,73 @@ async function readVerifiedEntries(
   return entries;
 }
 
+/** The refusals of a new type change (also the dry run's): vote cap, unsupported pair, owner-only source. */
+function assertTypeChangeAllowed(
+  board: ChangeBoardData,
+  column: ColumnDef,
+  role: BoardRole,
+  toType: string,
+): void {
+  // The rules protect only the first 10 vote columns of a board, so a conversion to an 11th is refused.
+  if (column.type !== 'vote' && voteCapExceeded(toType, board)) {
+    throw new HttpsError('failed-precondition', VOTE_COLUMN_CAP_MESSAGE);
+  }
+  const support = columnTypeChangeSupport(column.type, toType);
+  if (!support.allowed) {
+    throw new HttpsError(
+      'failed-precondition',
+      support.reason ?? 'This type change is not allowed.',
+    );
+  }
+  if (support.ownerOnly && role !== 'owner') {
+    throw new HttpsError('permission-denied', 'Only board owners can convert this kind of column.');
+  }
+}
+
+/** The values a computed (derived) source column shows, per item, as conversion entries. */
+function computedEntries(
+  board: ChangeBoardData,
+  boardId: string,
+  scope: ColumnScope,
+  fromColumn: ColumnDef,
+  items: readonly MigrationItem[],
+): Array<{ id: string; value: unknown }> {
+  return items.flatMap((item) => {
+    const value = columnRegistry.computeValue(fromColumn, {
+      boardId,
+      item: { id: item.id, values: item.values, ...item.meta },
+      columns: columnsOf(board, scope),
+    });
+    return hasValue(value) ? [{ id: item.id, value }] : [];
+  });
+}
+
+const DEFAULT_KEY = '\u0000default';
+
+/** Converts the entries (and the column's default value, last) with the shared conversion plan. */
+async function planEntries(
+  store: ColumnTypeChangeStore,
+  board: ChangeBoardData,
+  fromColumn: ColumnDef,
+  toType: string,
+  toSettings: Record<string, unknown>,
+  entries: Array<{ id: string; value: unknown }>,
+) {
+  const personNames =
+    fromColumn.type === 'people' ? await store.getMemberNames(board.workspaceId) : {};
+  const withDefault =
+    fromColumn.defaultValue !== undefined
+      ? [...entries, { id: DEFAULT_KEY, value: fromColumn.defaultValue }]
+      : entries;
+  const plan = planColumnConversion(fromColumn, toType, toSettings, withDefault, { personNames });
+  return {
+    plan,
+    personNames,
+    itemResults: plan.results.filter((r) => r.id !== DEFAULT_KEY),
+    defaultResult: plan.results.find((r) => r.id === DEFAULT_KEY),
+  };
+}
+
 // ---------------------------------------------------------------------------------------------
 // changeColumnType
 // ---------------------------------------------------------------------------------------------
@@ -313,23 +381,7 @@ export async function changeColumnTypeLogic(
   const requestedSettings = existing?.toSettings ?? req.toSettings;
 
   if (!existing) {
-    // The rules protect only the first 10 vote columns of a board, so a conversion to an 11th is refused.
-    if (column.type !== 'vote' && voteCapExceeded(toType, board)) {
-      throw new HttpsError('failed-precondition', VOTE_COLUMN_CAP_MESSAGE);
-    }
-    const support = columnTypeChangeSupport(column.type, toType);
-    if (!support.allowed) {
-      throw new HttpsError(
-        'failed-precondition',
-        support.reason ?? 'This type change is not allowed.',
-      );
-    }
-    if (support.ownerOnly && role !== 'owner') {
-      throw new HttpsError(
-        'permission-denied',
-        'Only board owners can convert this kind of column.',
-      );
-    }
+    assertTypeChangeAllowed(board, column, role, toType);
   } else if (
     column.type !== fromColumn.type &&
     !(column.type === toType && existing.status === 'applied')
@@ -390,30 +442,21 @@ export async function changeColumnTypeLogic(
   }
 
   // The values to convert.
-  const personNames =
-    fromColumn.type === 'people' ? await store.getMemberNames(board.workspaceId) : {};
   let entries: Array<{ id: string; value: unknown }>;
   if (sourceIsComputed) {
-    entries = items.flatMap((item) => {
-      const value = columnRegistry.computeValue(fromColumn, {
-        boardId,
-        item: { id: item.id, values: item.values, ...item.meta },
-        columns: columnsOf(board, scope),
-      });
-      return hasValue(value) ? [{ id: item.id, value }] : [];
-    });
+    entries = computedEntries(board, boardId, scope, fromColumn, items);
   } else {
     const stored = await readVerifiedEntries(store, boardId, snapshotId, meta);
     entries = stored.map((e) => ({ id: e.itemId, value: e.value }));
   }
-  const defaultKey = '\u0000default';
-  const withDefault =
-    fromColumn.defaultValue !== undefined
-      ? [...entries, { id: defaultKey, value: fromColumn.defaultValue }]
-      : entries;
-  const plan = planColumnConversion(fromColumn, toType, toSettings, withDefault, { personNames });
-  const itemResults = plan.results.filter((r) => r.id !== defaultKey);
-  const defaultResult = plan.results.find((r) => r.id === defaultKey);
+  const { plan, itemResults, defaultResult } = await planEntries(
+    store,
+    board,
+    fromColumn,
+    toType,
+    toSettings,
+    entries,
+  );
   const converted = itemResults.filter((r) => r.ok).length;
   const result: ChangeColumnTypeResult = {
     converted,
@@ -514,6 +557,88 @@ export async function changeColumnTypeLogic(
   );
 
   return result;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Preview (the dry run): what a change would do, without writing anything
+// ---------------------------------------------------------------------------------------------
+
+export interface ColumnTypeChangePreview {
+  fromType: string;
+  toType: string;
+  /** The settings the change would store (the requested ones plus labels the conversion creates). */
+  toSettings: Record<string, unknown>;
+  converted: number;
+  cleared: number;
+  /** Values that would be cleared, as text before the change (at most `PREVIEW_LOST_LIMIT`). */
+  lost: Array<{ itemId: string; before: string }>;
+  samples: Array<{ before: string; after: string | null }>;
+}
+
+export const PREVIEW_LOST_LIMIT = 25;
+
+/**
+ * Runs the same checks and the same conversion as {@link changeColumnTypeLogic} on the column's
+ * current values and reports the result; nothing is written (no snapshot, no column mark).
+ */
+export async function previewColumnTypeChangeLogic(
+  store: ColumnTypeChangeStore,
+  uid: string,
+  req: Pick<ChangeColumnTypeRequest, 'boardId' | 'columnId' | 'scope' | 'toType' | 'toSettings'>,
+): Promise<ColumnTypeChangePreview> {
+  const { boardId, columnId, scope, toType } = req;
+  const { board, column, role } = await requireAccess(store, boardId, uid, columnId, scope);
+  if (column.migrating) {
+    throw new HttpsError(
+      'failed-precondition',
+      'This column is being converted right now. Try again in a few minutes.',
+    );
+  }
+  assertTypeChangeAllowed(board, column, role, toType);
+  const settingsParsed = columnRegistry.parseSettings(toType, req.toSettings);
+  if (!settingsParsed.success) {
+    throw new HttpsError('invalid-argument', `Invalid settings: ${settingsParsed.error}`);
+  }
+  const toSettings = settingsParsed.data as Record<string, unknown>;
+  const items = (await store.listItems(boardId)).filter((i) => inScope(i, scope, board));
+  const entries = columnRegistry.isDerived(column.type)
+    ? computedEntries(board, boardId, scope, column, items)
+    : items.flatMap((i) =>
+        hasValue(i.values[columnId]) ? [{ id: i.id, value: i.values[columnId] }] : [],
+      );
+  const { plan, personNames, itemResults } = await planEntries(
+    store,
+    board,
+    column,
+    toType,
+    toSettings,
+    entries,
+  );
+  const options = { personNames };
+  const itemPlan = { ...plan, results: itemResults };
+  const lost: ColumnTypeChangePreview['lost'] = [];
+  itemResults.forEach((result, index) => {
+    if (result.ok || lost.length >= PREVIEW_LOST_LIMIT) return;
+    const entry = entries[index]!;
+    const [sample] = conversionSamples(
+      column,
+      toType,
+      { ...itemPlan, results: [result] },
+      [entry],
+      1,
+      options,
+    );
+    lost.push({ itemId: entry.id, before: sample?.before ?? '' });
+  });
+  return {
+    fromType: column.type,
+    toType,
+    toSettings: plan.settings as Record<string, unknown>,
+    converted: itemResults.filter((r) => r.ok).length,
+    cleared: itemResults.filter((r) => !r.ok).length,
+    lost,
+    samples: conversionSamples(column, toType, itemPlan, entries, 3, options),
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

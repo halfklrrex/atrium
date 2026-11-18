@@ -31,6 +31,7 @@ import { filesService } from './service/files.mjs';
 import { itemsService } from './service/items.mjs';
 import { membersService } from './service/members.mjs';
 import { myWorkService } from './service/mywork.mjs';
+import { callablesService } from './service/callables.mjs';
 import { sharingService } from './service/sharing.mjs';
 import { teamsService } from './service/teams.mjs';
 import { updatesService } from './service/updates.mjs';
@@ -468,6 +469,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     ...viewsService(helpers),
     ...filesService(helpers, serverOps),
     ...sharingService(helpers, serverOps),
+    ...callablesService(helpers, serverOps),
     ...columnsApi,
     ...dashboardsService(helpers),
     async verify() {

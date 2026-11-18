@@ -1,6 +1,7 @@
 import { McpUserError, type ServerOps } from '@atrium/mcp-core';
 import { getStorage } from 'firebase-admin/storage';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { FieldValue } from 'firebase-admin/firestore';
 import {
   DASHBOARD_LIMITS,
   DOC_LIMITS,
@@ -10,6 +11,8 @@ import {
 } from '@atrium/shared';
 import {
   adminBoardSharingTx,
+  adminColumnActionsTx,
+  adminColumnTypeChangeStore,
   adminDashboardSharingTx,
   adminDocSharingTx,
   adminFileStorageBucket,
@@ -21,6 +24,18 @@ import {
   setBoardKindInTransaction,
   type BoardSharingTx,
 } from '../lib/board-sharing';
+import { runClickButton } from '../lib/click-button';
+import {
+  startTimeTrackingInTransaction,
+  stopTimeTrackingInTransaction,
+  type ColumnActionsTx,
+} from '../lib/column-actions';
+import {
+  changeColumnTypeLogic,
+  previewColumnTypeChangeLogic,
+  revertColumnTypeLogic,
+  type ColumnTypeChangeStore,
+} from '../lib/column-type-change';
 import type { DashboardSharingTx } from '../lib/dashboard-sharing';
 import { setEntityAccessInTransaction, type EntitySharingTx } from '../lib/entity-sharing';
 import {
@@ -51,6 +66,17 @@ export interface ServerOpsDeps {
   putObject(storagePath: string, bytes: Uint8Array, contentType: string): Promise<void>;
   /** Runs `fn` in one Firestore transaction with the sharing callables' store adapters. */
   runSharing<T>(fn: (stores: SharingStores) => Promise<T>): Promise<T>;
+  /** The column type change callables' store (snapshots, board column writes, item values). */
+  columnTypeStore: ColumnTypeChangeStore;
+  /** Runs `fn` in a Firestore transaction with the time tracking and button callables' adapter. */
+  runColumnActions<T>(
+    fn: (tx: ColumnActionsTx, serverTimestamp: unknown) => Promise<T>,
+  ): Promise<T>;
+  /** One button click with its notification delivery (the `clickButton` callable's own code). */
+  clickButton(
+    uid: string,
+    request: { boardId: string; itemId: string; columnId: string },
+  ): ReturnType<typeof runClickButton>;
 }
 
 /** The three sharing callables' transaction adapters, all bound to the same Firestore transaction. */
@@ -97,8 +123,52 @@ const stateOf = (e: { kind: BoardKind; access: Record<string, BoardRole> }): Sha
 });
 
 export function createServerOps(deps: ServerOpsDeps): ServerOps {
-  const { runTransaction, bucket, putObject, runSharing } = deps;
+  const { runTransaction, bucket, putObject, runSharing, columnTypeStore, runColumnActions } = deps;
   return {
+    previewColumnTypeChange: (args) =>
+      asUserError(async () => {
+        const { uid, ...request } = args;
+        return previewColumnTypeChangeLogic(columnTypeStore, uid, { ...request, scope: 'columns' });
+      }),
+
+    changeColumnType: (args) =>
+      asUserError(async () => {
+        const { uid, ...request } = args;
+        return changeColumnTypeLogic(columnTypeStore, uid, { ...request, scope: 'columns' });
+      }),
+
+    revertColumnType: (args) =>
+      asUserError(async () => {
+        const { uid, ...request } = args;
+        return revertColumnTypeLogic(columnTypeStore, uid, request);
+      }),
+
+    clickButton: (args) =>
+      asUserError(async () => {
+        const { uid, ...request } = args;
+        const { success: _success, ...result } = await deps.clickButton(uid, request);
+        void _success;
+        return result;
+      }),
+
+    startTimeTracking: (args) =>
+      asUserError(async () => {
+        const { uid, ...request } = args;
+        const { sessionId, startedAt } = await runColumnActions((tx, stamp) =>
+          startTimeTrackingInTransaction(tx, uid, request, stamp),
+        );
+        return { sessionId, startedAt };
+      }),
+
+    stopTimeTracking: (args) =>
+      asUserError(async () => {
+        const { uid, ...request } = args;
+        const { duration, stoppedAt } = await runColumnActions((tx, stamp) =>
+          stopTimeTrackingInTransaction(tx, uid, request, stamp),
+        );
+        return { duration, stoppedAt };
+      }),
+
     setAccess: (args) =>
       asUserError(() =>
         runSharing(async (stores): Promise<SharingOutcome> => {
@@ -302,6 +372,14 @@ export function adminServerOps(): ServerOps {
         }),
       );
     },
+    columnTypeStore: adminColumnTypeChangeStore(db()),
+    runColumnActions: (fn) => {
+      const firestore = db();
+      return firestore.runTransaction((tx) =>
+        fn(adminColumnActionsTx(firestore, tx), FieldValue.serverTimestamp()),
+      );
+    },
+    clickButton: (uid, request) => runClickButton(db(), uid, request),
     bucket: adminFileStorageBucket(),
     putObject: async (storagePath, bytes, contentType) => {
       await getStorage()

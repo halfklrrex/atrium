@@ -370,6 +370,30 @@ export interface McpService {
     dryRun?: boolean;
     allowDataLoss?: boolean;
   }): Promise<Record<string, unknown>>;
+  changeColumnType(args: {
+    boardId: string;
+    column: string;
+    toType: string;
+    settings?: Record<string, unknown>;
+    dryRun?: boolean;
+    allowDataLoss?: boolean;
+  }): Promise<Record<string, unknown>>;
+  revertColumnType(args: { boardId: string; column: string }): Promise<Record<string, unknown>>;
+  clickButton(args: {
+    boardId: string;
+    itemId: string;
+    column?: string;
+  }): Promise<Record<string, unknown>>;
+  startTimeTracking(args: {
+    boardId: string;
+    itemId: string;
+    column?: string;
+  }): Promise<Record<string, unknown>>;
+  stopTimeTracking(args: {
+    boardId: string;
+    itemId: string;
+    column?: string;
+  }): Promise<Record<string, unknown>>;
 }
 
 /** Which file a tool means: a Files column cell, or an update or reply attachment. */
@@ -402,7 +426,60 @@ export interface SharingState {
   access: Record<string, 'owner' | 'editor' | 'viewer'>;
 }
 
+/** What a column type change would do to the column's current values (nothing is written). */
+export interface ColumnTypeChangePreview {
+  fromType: string;
+  toType: string;
+  toSettings: Record<string, unknown>;
+  converted: number;
+  cleared: number;
+  /** Values that would be cleared, as text, with their item (at most 25). */
+  lost: Array<{ itemId: string; before: string }>;
+  samples: Array<{ before: string; after: string | null }>;
+}
+
 export interface ServerOps {
+  /** The change callable's checks and conversion on the live values, without writing. */
+  previewColumnTypeChange(args: {
+    uid: string;
+    boardId: string;
+    columnId: string;
+    toType: string;
+    toSettings: Record<string, unknown>;
+  }): Promise<ColumnTypeChangePreview>;
+  /** `changeColumnType`'s library logic (snapshot, convert, finish) for a top-level column. */
+  changeColumnType(args: {
+    uid: string;
+    boardId: string;
+    columnId: string;
+    toType: string;
+    toSettings: Record<string, unknown>;
+  }): Promise<{ converted: number; cleared: number; snapshotId: string; toType: string }>;
+  /** `revertColumnType`'s library logic. */
+  revertColumnType(args: {
+    uid: string;
+    boardId: string;
+    snapshotId: string;
+  }): Promise<{ restored: number; removed: number; snapshotId: string; columnId: string }>;
+  /** `clickButton`'s code: the button's actions, then its notifications. */
+  clickButton(args: { uid: string; boardId: string; itemId: string; columnId: string }): Promise<{
+    activityId: string;
+    timestamp: number;
+    applied: Array<{ type: string }>;
+    notified?: number;
+  }>;
+  startTimeTracking(args: {
+    uid: string;
+    boardId: string;
+    itemId: string;
+    columnId: string;
+  }): Promise<{ sessionId: string; startedAt: number }>;
+  stopTimeTracking(args: {
+    uid: string;
+    boardId: string;
+    itemId: string;
+    columnId: string;
+  }): Promise<{ duration: number; stoppedAt: number }>;
   /**
    * Changes a board, doc or dashboard's sharing with the sharing callables' library code, acting as
    * `uid`. `dryRun` runs the same checks and reports the states without writing. `roles` is the
