@@ -49,7 +49,7 @@
 }
 
 .glyph {
-  /* Whole pixels (see icon-picker-tokens.css): Phosphor's regular stroke is only crisp at integer sizes. */
+  /* Whole pixels (see icon-picker-tokens.css): Phosphor's cut-outs are only crisp at integer sizes. */
   width: var(--atrium-tile-glyph);
   height: var(--atrium-tile-glyph);
 }

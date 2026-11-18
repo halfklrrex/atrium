@@ -17,21 +17,29 @@ const LEGACY_KEYS =
   );
 
 describe('workspace icon set', () => {
-  it('has unique, well-formed keys, known groups and regular path data', () => {
+  it('has unique, well-formed keys, known groups and fill path data', () => {
     const keys = WORKSPACE_ICONS.map((i) => i.key);
     expect(new Set(keys).size).toBe(keys.length);
     const groups = new Set(WORKSPACE_ICON_GROUPS.map((g) => g.id));
     for (const icon of WORKSPACE_ICONS) {
       expect(icon.key).toMatch(WORKSPACE_ICON_KEY_PATTERN);
       expect(groups.has(icon.group)).toBe(true);
-      expect(icon.regular.length).toBeGreaterThan(10);
-      expect(icon).not.toHaveProperty('fill');
+      expect(icon.fill.length).toBeGreaterThan(10);
+      expect(icon).not.toHaveProperty('regular');
     }
     for (const group of WORKSPACE_ICON_GROUPS) {
       expect(WORKSPACE_ICONS.some((i) => i.group === group.id)).toBe(true);
     }
     expect(WORKSPACE_ICONS.length).toBeGreaterThanOrEqual(190);
     expect(WORKSPACE_ICONS.length).toBeLessThanOrEqual(210);
+  });
+
+  it('bundles fill paths only, and every curated key resolves to its fill path', () => {
+    expect(generatedSource).not.toContain('regular');
+    expect(generatedSource.match(/ fill: "/g)?.length).toBe(WORKSPACE_ICONS.length);
+    for (const icon of WORKSPACE_ICONS) {
+      expect(findWorkspaceIcon(`ph:${icon.key}`)?.fill).toBe(icon.fill);
+    }
   });
 
   it('stays small and does not use the misleading preview picks', () => {
