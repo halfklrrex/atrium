@@ -19,7 +19,8 @@ import type { ApiTokenStore } from './token-store';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** A fresh token: `atrp_` + 32 random bytes, base64url. Never log it. */
-export const newApiToken = (): string => `${API_TOKEN_PREFIX}${randomBytes(32).toString('base64url')}`;
+export const newApiToken = (): string =>
+  `${API_TOKEN_PREFIX}${randomBytes(32).toString('base64url')}`;
 
 /** SHA-256 hex of a token: the document id in `apiTokenIndex`. */
 export const hashApiToken = (token: string): string =>

@@ -24,11 +24,7 @@ export interface ApiAuthInfo {
 }
 
 export type ApiAuthFailure =
-  | 'missing_token'
-  | 'malformed_header'
-  | 'invalid_token'
-  | 'expired_token'
-  | 'account_not_approved';
+  'missing_token' | 'malformed_header' | 'invalid_token' | 'expired_token' | 'account_not_approved';
 
 /** Every verifier failure is a 401 to the caller; `reason` is for the audit log only. */
 export class ApiAuthError extends Error {
