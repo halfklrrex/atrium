@@ -64,13 +64,11 @@ export const webhookUrlSchema = z
   .trim()
   .min(1)
   .max(WEBHOOK_URL_MAX)
-  .refine((value) => {
-    try {
-      return new URL(value).protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }, 'Use a full https:// address.');
+  // The full parse (and the SSRF rules) run in the Functions; this only needs the scheme and a host.
+  .refine(
+    (value) => /^https:\/\/[^\s/?#]+/i.test(value) && !/\s/.test(value),
+    'Use a full https:// address.',
+  );
 
 export const webhookNameSchema = z.string().trim().min(1).max(WEBHOOK_NAME_MAX);
 
