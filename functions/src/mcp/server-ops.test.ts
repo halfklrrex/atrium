@@ -128,6 +128,13 @@ function setup(options: { locked?: boolean; types?: string[] } = {}) {
     runSharing: async () => {
       throw new Error('sharing is not used by the file tests');
     },
+    columnTypeStore: {} as never,
+    runColumnActions: async () => {
+      throw new Error('unused');
+    },
+    clickButton: async () => {
+      throw new Error('unused');
+    },
   });
   return { tx, ops, objects, deleted, signed };
 }

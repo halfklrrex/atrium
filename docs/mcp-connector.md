@@ -1,6 +1,6 @@
 # Atrium MCP connector
 
-Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions, updates and views (including forms) in the live Atrium, as the person who signed in. It comes in two modes: 83 tools in the hosted connector, and the same minus the 4 hosted-only tools (file links, upload and delete, and sharing; 79) in the local server:
+Atrium has an MCP connector that lets Claude read and edit boards, groups, columns, items, subitems, descriptions, updates and views (including forms) in the live Atrium, as the person who signed in. It comes in two modes: 88 tools in the hosted connector, and the same minus the 9 hosted-only tools (file links, upload and delete, sharing, column type change and undo, buttons and time tracking; 79) in the local server:
 
 - **Hosted (OPS4, recommended):** one public URL, `https://atrium-workboards.web.app/mcp`. You add it once as a connector in claude.ai and in Claude Code, sign in with your Atrium (Google) account, and it works in every project and on every device. Spec: `docs/specs/OPS4-hosted-mcp-connector.md`.
 - **Local stdio (OPS3):** a server that Claude Code starts on your own machine with admin credentials. Spec: `docs/specs/OPS3-atrium-mcp-connector.md`. Use it for development and tests, or when the hosted connector is switched off.
@@ -68,19 +68,20 @@ It acts with the signed-in person's permissions only, checked per call. Tokens a
 
 ## Hosted and local stdio compared
 
-|              | Local stdio (OPS3)                      | Hosted (OPS4)                                     |
-| ------------ | --------------------------------------- | ------------------------------------------------- |
-| Who          | `ATRIUM_USER_UID` from the environment  | The signed-in Atrium user (token to uid)          |
-| Where        | REST + `gcloud auth print-access-token` | Admin SDK, the function's runtime service account |
-| Scope        | Optional `ATRIUM_WORKSPACE_ID` filter   | All memberships, per-call role checks             |
-| Registration | Per machine, per project                | Once per Claude surface (claude.ai, Claude Code)  |
-| Consent      | None (your machine, your `gcloud`)      | Consent page with Read and Write scopes           |
-| Limits       | None                                    | Rate and daily limits, audit log, kill switch     |
-| New tools    | Pull `main`, restart Claude Code        | Automatic with every deploy                       |
-| Files        | `atrium_list_files` only (metadata)     | Also links, upload and delete (Cloud Storage)     |
-| Sharing      | Reads show `access`; no changes         | Also `atrium_set_access`                          |
+|                               | Local stdio (OPS3)                      | Hosted (OPS4)                                                       |
+| ----------------------------- | --------------------------------------- | ------------------------------------------------------------------- |
+| Who                           | `ATRIUM_USER_UID` from the environment  | The signed-in Atrium user (token to uid)                            |
+| Where                         | REST + `gcloud auth print-access-token` | Admin SDK, the function's runtime service account                   |
+| Scope                         | Optional `ATRIUM_WORKSPACE_ID` filter   | All memberships, per-call role checks                               |
+| Registration                  | Per machine, per project                | Once per Claude surface (claude.ai, Claude Code)                    |
+| Consent                       | None (your machine, your `gcloud`)      | Consent page with Read and Write scopes                             |
+| Limits                        | None                                    | Rate and daily limits, audit log, kill switch                       |
+| New tools                     | Pull `main`, restart Claude Code        | Automatic with every deploy                                         |
+| Files                         | `atrium_list_files` only (metadata)     | Also links, upload and delete (Cloud Storage)                       |
+| Sharing                       | Reads show `access`; no changes         | Also `atrium_set_access`                                            |
+| Column types, buttons, timers | Not available                           | Change and undo a column type, click buttons, start and stop timers |
 
-**Hosted-only tools.** `atrium_get_file_link`, `atrium_upload_file` and `atrium_delete_file` need Cloud Storage, and `atrium_set_access` needs the sharing callables' library code, so only the hosted connector registers them (`serverOps`, `functions/src/mcp/server-ops.ts`, which calls the file and sharing callables' own library code as the signed-in user). The local server does not list them.
+**Hosted-only tools.** `atrium_get_file_link`, `atrium_upload_file` and `atrium_delete_file` need Cloud Storage, `atrium_set_access` needs the sharing callables' library code, and `atrium_change_column_type`, `atrium_revert_column_type`, `atrium_click_button`, `atrium_start_time_tracking` and `atrium_stop_time_tracking` need the column type change, button and time tracking callables' library code, so only the hosted connector registers them (`serverOps`, `functions/src/mcp/server-ops.ts`, which calls the callables' own library code as the signed-in user). The local server does not list them.
 
 ## Local stdio server
 
@@ -102,7 +103,7 @@ claude mcp add atrium --scope local ^
 
 **Picking up new tools (no reinstall).** The server is not installed anywhere: Claude Code starts it from the checkout named in the `claude mcp add` command (`pnpm exec tsx scripts/mcp/atrium-mcp.mjs`) every time a session starts, so there is no build step and no re-registration. To get a new tool: (1) update that checkout to a commit that has it (`git pull` on `main` after the PR merges), then (2) restart Claude Code, or run `/mcp` and reconnect `atrium`. A running session keeps the old tool list until you do (2). Only if the registration points at an old or different folder do you need `claude mcp remove atrium` and add it again with the right path.
 
-To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 79 tools (the hosted connector has 83).
+To re-register after a change, run `claude mcp remove atrium` and add it again. Check with `claude mcp list`; inside Claude Code `/mcp` shows the 79 tools (the hosted connector has 88).
 
 ### Environment variables
 
@@ -245,6 +246,14 @@ Files: `atrium_list_files` lists the files of a board (or one item, or one Files
 
 Sharing: `atrium_set_access` (hosted connector only) changes who can see or edit a board, doc or dashboard: `target`, `id`, `kind` (`main`, `private`, `shareable`) and/or `person: { who, role }` (`who` is a workspace member uid, an email or `"me"`; `role` is `owner`, `editor`, `viewer` or `null` to remove). It calls the same library code as the `setBoardAccess`, `setDocAccess` and `setDashboardAccess` callables (`functions/src/lib/board-sharing.ts`, `entity-sharing.ts`, `dashboard-sharing.ts`) inside one Firestore transaction (a board's kind and person change together), so the Share dialog's checks apply as they are: owners only, workspace members only, a role never above the person's workspace role, at least one live owner on a private or shareable object, and a trashed object is refused. It never invites anyone, changes workspace roles or removes members. **Guard:** the answer lists who `gained`, `lost` and had a role change (`changedRoles`); if anyone would lose access (including making a main object private for everyone else), or you would stop being an owner, it refuses unless `allowDataLoss: true` and names the people. `dryRun: true` returns the same report (`wouldChange`) without writing. `atrium_get_board`, `atrium_get_doc` and `atrium_get_dashboard` now return `access: [{ uid, name, role }]` (the object's own access list, no extra rights). Names are untrusted text and the description says so. Emulator test: `tests/rules/src/mcp-sharing.e2e.test.ts`.
 
+Column types, buttons and time tracking (hosted connector only): these five tools run the library code behind the `changeColumnType`, `revertColumnType`, `clickButton`, `startTimeTracking` and `stopTimeTracking` callables as the signed-in user, so the web's checks and refusals apply unchanged (editor role; a locked column needs the owner; converting a calculated or managed column needs the owner; the vote-column cap; the 2 second button repeat guard).
+
+- `atrium_change_column_type` (`boardId`, `column`, `toType`, `settings?`, `dryRun?`, `allowDataLoss?`) converts a top-level column with the same snapshot, convert and finish steps as the web (`changeColumnTypeLogic`), with the target type's default settings unless `settings` is given. Before it writes, it runs the same checks and conversion on the live values (`previewColumnTypeChangeLogic`, shared with the real run) and reports `converted`, `cleared`, the cleared values (`lost`: item, value; at most 25), a few before and after `samples` and the formulas, progress, mirror and dependency columns and views that use the column (`usedBy`), as the web's confirm dialog does. **Guard:** if any value would be cleared it refuses unless `allowDataLoss: true` and names the first few; `dryRun: true` returns the report without writing (no snapshot, no column mark). A column of more than 3000 values is refused (the hosted function has about a minute; convert it in Atrium). Subitem columns of a not-yet-migrated board (`subitemColumns`) are not reachable from the connector.
+- `atrium_revert_column_type` (`boardId`, `column`) is "Undo type change": it reads the column's `lastTypeChange` (or the `migrating` snapshot of an interrupted run) and calls `revertColumnTypeLogic`; it refuses when there is no change to undo, the 30 days are over, or the column changed again. Values edited after the change are replaced by the backup.
+- `atrium_click_button` (`boardId`, `itemId`, `column?`) runs `runClickButton` (`functions/src/lib/click-button.ts`, extracted from the `clickButton` callable so both run the same transaction and the same notification delivery after commit). The answer lists the `applied` action types and how many people were `notified`. The actions' changes start automations and notifications exactly as a click in the app does.
+- `atrium_start_time_tracking` and `atrium_stop_time_tracking` (`boardId`, `itemId`, `column?`) run `startTimeTrackingInTransaction` and `stopTimeTrackingInTransaction`; start is safe to repeat (it returns the running session), stop refuses when no timer runs and returns the total in seconds. `column` may be left out when the board has one Button or Time tracking column.
+  Item, column and value texts are untrusted and each description says so. Tests: `packages/mcp-core/src/callables.test.mjs`, `functions/src/mcp/server-ops-callables.test.ts`, `tests/rules/src/mcp-callables.e2e.test.ts`.
+
 ## Safety
 
 The rules below apply to both modes.
@@ -258,15 +267,15 @@ The rules below apply to both modes.
 
 ## Code and tests
 
-- `packages/mcp-core` (`@atrium/mcp-core`, plain ESM `.mjs` with hand-written `index.d.mts`): `service.mjs` (`createService({ client, actor, now, serverOps? })`, `actor = { uid, workspaceFilter }`), `tools.mjs` (`defineTools(service)`, 83 tools with `scope` and `annotations`, where a tool marked `requires: 'server'` is registered only when the service has `serverOps`; `toolNamesByDomain` lists the names per domain file), refs, value conversion, builders, descriptions, updates, and `fake-client.mjs`, an in-memory Firestore for tests. The hosted connector builds the same service on an Admin SDK adapter.
-- The code is split by domain so later work adds files, not edits: `tools/<domain>.mjs` (boards, items, updates, members, mywork, docs, teams, views, columns, dashboards, files, sharing, automations; each exports `(service) => tools`, listed in `DOMAINS` in `tools.mjs`, the original tools keeping their registration order) and `service/<domain>.mjs` (each gets the shared helpers of `createService`: `loadBoard`, `membership`, `roleOn`, `readContext`, ...). `tools-snapshot.json` pins the names, order, schemas, descriptions and annotations of the original tools (`tools-parity.test.mjs`); count tests read the catalogue instead of a literal.
+- `packages/mcp-core` (`@atrium/mcp-core`, plain ESM `.mjs` with hand-written `index.d.mts`): `service.mjs` (`createService({ client, actor, now, serverOps? })`, `actor = { uid, workspaceFilter }`), `tools.mjs` (`defineTools(service)`, 88 tools with `scope` and `annotations`, where a tool marked `requires: 'server'` is registered only when the service has `serverOps`; `toolNamesByDomain` lists the names per domain file), refs, value conversion, builders, descriptions, updates, and `fake-client.mjs`, an in-memory Firestore for tests. The hosted connector builds the same service on an Admin SDK adapter.
+- The code is split by domain so later work adds files, not edits: `tools/<domain>.mjs` (boards, items, updates, members, mywork, docs, teams, views, columns, dashboards, files, sharing, automations, callables; each exports `(service) => tools`, listed in `DOMAINS` in `tools.mjs`, the original tools keeping their registration order) and `service/<domain>.mjs` (each gets the shared helpers of `createService`: `loadBoard`, `membership`, `roleOn`, `readContext`, ...). `tools-snapshot.json` pins the names, order, schemas, descriptions and annotations of the original tools (`tools-parity.test.mjs`); count tests read the catalogue instead of a literal.
 - `scripts/mcp/atrium-mcp.mjs`: thin stdio wiring; `scripts/mcp/lib/config.mjs` (environment) and `lib/client.mjs` (REST + gcloud token).
 - `scripts/showcase/firestore-rest.mjs` gained `runQuery` (equality, `arrayContains` and `arrayContainsAny` filters on a top-level or nested collection, `limit`, and `orderBy` without filters) and an `update` commit op (field paths, deletes, increments).
 - `pnpm test` runs `packages/mcp-core/src/*.test.mjs` and `scripts/mcp/*.test.mjs` (fakes only, no emulator and no production access; one test spawns the server over stdio and calls `tools/list`). `pnpm mcp` starts the server by hand.
 
 ## Not yet possible (follow-ups)
 
-What the web app can do and the connector cannot yet is planned in [MCP gap batch 2](specs/MCP-gap-batch-2.md) (PRs 7 to 11): column type change, buttons and time tracking (files, sharing, dashboards and automations are done). Until then:
+The batch 2 plan ([MCP gap batch 2](specs/MCP-gap-batch-2.md)) is complete: docs, teams, my work, views, column types, files, sharing, dashboards, automations, column type change, buttons and time tracking. What remains:
 
 - Images in docs.
 - Uploading or downloading files (the Files column and update attachments need the upload callables and signed URLs).

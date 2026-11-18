@@ -17,6 +17,7 @@ import {
   DELETE_VALUE,
   chunkEntries,
   changeColumnTypeLogic,
+  previewColumnTypeChangeLogic,
   revertColumnTypeLogic,
   type ChangeBoardData,
   type ColumnTypeChangeStore,
@@ -326,6 +327,43 @@ describe('changeColumnType: happy path', () => {
     expect(result.converted).toBe(1);
     expect(store.column('subitemColumns', 'sub').type).toBe('numbers');
     expect(store.valuesOf('sub')).toEqual({ child: 7, parent: 'parent value' });
+  });
+});
+
+describe('previewColumnTypeChangeLogic', () => {
+  it('reports the same counts as the real run and writes nothing', async () => {
+    const store = numbersBoard(6);
+    const preview = await previewColumnTypeChangeLogic(store, EDITOR, toNumbers());
+    expect(store.ledger).toEqual([]);
+    expect(store.snapshots.size).toBe(0);
+    expect(store.column().type).toBe('text');
+    expect(preview).toMatchObject({
+      fromType: 'text',
+      toType: 'numbers',
+      converted: 4,
+      cleared: 2,
+    });
+    expect(preview.lost).toEqual([
+      { itemId: 'item0002', before: 'n/a' },
+      { itemId: 'item0005', before: 'n/a' },
+    ]);
+    const real = await changeColumnTypeLogic(store, EDITOR, toNumbers());
+    expect({ converted: real.converted, cleared: real.cleared }).toEqual({
+      converted: preview.converted,
+      cleared: preview.cleared,
+    });
+  });
+
+  it('refuses what the real run refuses', async () => {
+    const store = numbersBoard();
+    await expectCode(previewColumnTypeChangeLogic(store, VIEWER, toNumbers()), 'permission-denied');
+    await expectCode(
+      previewColumnTypeChangeLogic(store, OWNER, toNumbers({ toType: 'files', toSettings: {} })),
+      'failed-precondition',
+    );
+    store.board.columnLocks = ['budget'];
+    await expectCode(previewColumnTypeChangeLogic(store, EDITOR, toNumbers()), 'permission-denied');
+    expect(store.ledger).toEqual([]);
   });
 });
 
