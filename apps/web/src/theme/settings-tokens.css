@@ -8,6 +8,7 @@
   --atrium-settings-index-row-height: 52px; /* phone index rows */
   --atrium-settings-matrix-switch-column: 96px; /* "In the bell" and "Push" columns */
   --atrium-settings-select-min-width: 240px; /* time-zone select */
+  --atrium-settings-token-workspaces-max-height: 200px; /* workspace list in the new-token dialog */
   --atrium-settings-theme-card-min-width: 140px;
   --atrium-settings-theme-preview-height: 96px; /* miniature app window */
   --atrium-settings-theme-preview-sidebar-width: 22%;
