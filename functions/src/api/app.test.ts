@@ -682,3 +682,22 @@ async function brokenHarness() {
     },
   };
 }
+
+describe('GET /openapi.json', () => {
+  it('is served without a token, as JSON, and counts nothing', async () => {
+    const h = await start();
+    const { res, status, body } = await h.get('/openapi.json');
+    expect(status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/application\/json/);
+    expect(res.headers.get('cache-control')).toMatch(/public/);
+    expect(body.openapi).toBe('3.1.0');
+    expect(Object.keys(body.paths)).toContain('/boards/{id}/items');
+    expect(h.audit).toHaveLength(0);
+    expect(h.store.reads).toEqual({ index: 0, token: 0, account: 0 });
+  });
+
+  it('is off with the rest of the API while the kill switch is off', async () => {
+    const h = await start({ enabled: false });
+    expect((await h.get('/openapi.json')).status).toBe(503);
+  });
+});

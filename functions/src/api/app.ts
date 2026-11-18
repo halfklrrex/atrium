@@ -18,6 +18,7 @@ import {
 import { accountRoutes } from './routes/account';
 import { boardRoutes } from './routes/boards';
 import { itemRoutes } from './routes/items';
+import { openApiHandler } from './routes/openapi';
 import { writeRoutes } from './routes/writes';
 import type { RouteDef } from './routes/types';
 
@@ -286,6 +287,7 @@ export function createApiApp(deps: ApiAppDeps): Express {
       res.status(status).json(stripControlChars(body));
     });
   }
+  app.get(`${API_BASE_PATH}/openapi.json`, openApiHandler); // public: before the authenticated router
   app.use(API_BASE_PATH, router);
 
   app.use((_req, res) => {
