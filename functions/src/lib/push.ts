@@ -133,6 +133,8 @@ function actionText(n: PushNotificationData): string {
       return 'wrote to the site admins';
     case 'inbox_reply':
       return 'replied to your feedback';
+    case 'webhook_disabled':
+      return n.recipeName ? `turned off webhook "${n.recipeName}"` : 'turned off a webhook';
   }
 }
 
@@ -159,6 +161,8 @@ export function pushUrl(n: PushNotificationData): string {
       return `${APP_BASE_URL}/admin`;
     case 'account_approved':
       return `${APP_BASE_URL}/`;
+    case 'webhook_disabled':
+      return `${APP_BASE_URL}/boards/${encodeURIComponent(n.boardId)}`;
     default:
       return `${APP_BASE_URL}/boards/${encodeURIComponent(n.boardId)}/items/${encodeURIComponent(n.itemId)}`;
   }

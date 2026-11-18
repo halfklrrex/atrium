@@ -32,6 +32,8 @@ export const notificationKindSchema = z.enum([
   'inbox_new',
   /** A feedback sender: an admin replied (ADMIN-4). One per thread, no pref switch. */
   'inbox_reply',
+  /** The board owner: a webhook was switched off after repeated failures (P8). No pref switch. */
+  'webhook_disabled',
 ]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 

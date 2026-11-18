@@ -24,7 +24,7 @@ import {
 } from '../../data/notifications';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { AllCaughtUp } from '../illustrations';
-import { docPath } from '../../lib/paths';
+import { boardPath, docPath } from '../../lib/paths';
 import { itemViewPath } from '../item-view/item-view-store';
 import { showToast } from '../toast-store';
 import { NotificationCard } from './NotificationCard';
@@ -157,6 +157,10 @@ export function NotificationsPanel() {
     }
     if (n.kind === 'account_request') {
       void navigate('/admin');
+      return;
+    }
+    if (n.kind === 'webhook_disabled') {
+      void navigate(boardPath({ id: n.boardId, name: n.boardName }));
       return;
     }
     if (n.docId) {

@@ -20,6 +20,7 @@ const KIND_ICON: Record<NotificationKind, typeof Person> = {
   account_approved: Person,
   inbox_new: Email,
   inbox_reply: Email,
+  webhook_disabled: Bolt,
 };
 
 /** Account and Inbox notifications carry placeholder board and item ids: no board line. */
