@@ -5,6 +5,7 @@ import { connectorEnabled, createMcpApp } from './app';
 import { MinuteLimiter, adminUsageStore } from './limits';
 import { adminMcpStore } from './oauth/admin-store';
 import type { McpStore } from './oauth/store';
+import { adminServerOps } from './server-ops';
 import { createService } from '@atrium/mcp-core';
 
 /**
@@ -28,6 +29,8 @@ function lazy<T extends object>(factory: () => T): T {
 
 const store = lazy<McpStore>(() => adminMcpStore(db()));
 const usage = lazy(() => adminUsageStore(db()));
+// Cloud Storage work for the hosted-only tools (files); the stdio server has none.
+const serverOps = lazy(() => adminServerOps());
 
 const app = createMcpApp({
   store,
@@ -37,6 +40,7 @@ const app = createMcpApp({
       createService({
         client: createAdminClient(db()),
         actor: { uid, workspaceFilter: null },
+        serverOps,
       }),
     usage,
     limiter: new MinuteLimiter(),

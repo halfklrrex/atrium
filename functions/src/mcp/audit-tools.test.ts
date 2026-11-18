@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { auditTarget } from './audit-tools';
 
 describe('auditTarget', () => {
-  it('takes the first of boardId, docId, dashboardId, teamId and viewId', () => {
+  it('takes the first of fileId, boardId, docId, dashboardId, teamId and viewId', () => {
     expect(auditTarget({ boardId: 'b1', viewId: 'v1' })).toEqual({
       targetKind: 'board',
       targetId: 'b1',
+    });
+    expect(auditTarget({ boardId: 'b1', itemId: 'i1', fileId: 'f1', dataBase64: 'AAAA' })).toEqual({
+      targetKind: 'file',
+      targetId: 'f1',
     });
     expect(auditTarget({ docId: 'd1' })).toEqual({ targetKind: 'doc', targetId: 'd1' });
     expect(auditTarget({ dashboardId: 'x' })).toEqual({ targetKind: 'dashboard', targetId: 'x' });

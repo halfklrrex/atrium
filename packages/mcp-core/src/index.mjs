@@ -3,7 +3,7 @@
 // client and an actor, then register `defineTools(service)`. See docs/mcp-connector.md.
 export { McpUserError, ID_PATTERN, assertId } from './errors.mjs';
 export { createService, MAX_ITEMS_PER_CALL } from './service.mjs';
-export { defineTools, toolNamesByDomain } from './tools.mjs';
+export { defineTools, serverToolNames, toolNamesByDomain } from './tools.mjs';
 export { CREATABLE_COLUMN_TYPES, convertCellValue, readableCell, toValidCell } from './values.mjs';
 export { findColumn, findGroup, sortedByPosition } from './refs.mjs';
 export {
