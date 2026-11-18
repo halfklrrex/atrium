@@ -27,6 +27,8 @@ import {
   type Item,
   type ItemUpdate,
   type ApiToken,
+  type IncomingHook,
+  type Webhook,
   type McpGrant,
   type Notification,
   type Recent,
@@ -76,6 +78,8 @@ import type {
   InviteDoc,
   ItemUpdateDoc,
   ApiTokenDoc,
+  IncomingHookDoc,
+  WebhookDoc,
   McpGrantDoc,
   MemberDoc,
   NotificationDoc,
@@ -115,6 +119,8 @@ const recentConverter = converter<Recent>();
 const notificationConverter = converter<Notification>();
 const mcpGrantConverter = converter<McpGrant>();
 const apiTokenConverter = converter<ApiToken>();
+const webhookConverter = converter<Webhook>();
+const incomingHookConverter = converter<IncomingHook>();
 const memberConverter = converter<WorkspaceMember>();
 const inviteConverter = converter<WorkspaceInvite>();
 const templateConverter = converter<BoardTemplate>();
@@ -169,6 +175,13 @@ export const refs = {
   /** Personal access tokens (P8). Written only by Cloud Functions; the owner reads their own. */
   apiTokens: (uid: string): CollectionReference<ApiTokenDoc> =>
     collection(db, COLLECTIONS.users, uid, COLLECTIONS.apiTokens).withConverter(apiTokenConverter),
+
+  /** Outgoing webhooks of a board (P8). Board owners read them; written only by Cloud Functions. */
+  webhooks: (boardId: string): CollectionReference<WebhookDoc> =>
+    collection(db, 'boards', boardId, 'webhooks').withConverter(webhookConverter),
+  /** Incoming webhooks of a board (P8). Board owners read them; written only by Cloud Functions. */
+  incomingHooks: (boardId: string): CollectionReference<IncomingHookDoc> =>
+    collection(db, 'boards', boardId, 'incomingHooks').withConverter(incomingHookConverter),
 
   workspaces: (): CollectionReference<WorkspaceDoc> =>
     collection(db, COLLECTIONS.workspaces).withConverter(workspaceConverter),

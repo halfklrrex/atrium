@@ -15,6 +15,7 @@ import {
   Edit,
   Favorite,
   Gallery,
+  Integrations,
   ClassicFolder as Folder,
   Locked,
   Move,
@@ -225,6 +226,13 @@ function BoardMenuContent({
           title="Board permissions"
           icon={Locked}
           onClick={() => openDialog({ type: 'shareBoard', boardId: board.id })}
+        />
+      ) : null}
+      {isOwner ? (
+        <MenuItem
+          title="Integrations"
+          icon={Integrations}
+          onClick={() => openDialog({ type: 'integrations', boardId: board.id })}
         />
       ) : null}
       {canLeave ? (

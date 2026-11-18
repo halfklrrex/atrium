@@ -2,6 +2,7 @@ export * from './boards';
 export * from './hooks';
 export * from './members-store';
 export * from './api-tokens';
+export * from './integrations';
 export * from './mcp-grants';
 export * from './model';
 export * from './notifications';
