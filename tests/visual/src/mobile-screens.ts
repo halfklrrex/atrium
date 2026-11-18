@@ -137,7 +137,7 @@ export const MOBILE_SCREENS: MobileScreen[] = [
     open: async (page) => {
       await page.goto('/developers');
       await expect(page.getByRole('heading', { name: 'Developers', level: 1 })).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Webhooks', level: 2 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Webhooks', level: 2, exact: true })).toBeVisible();
     },
   },
   {

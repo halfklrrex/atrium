@@ -142,7 +142,7 @@ for (const theme of ['light', 'dark'] as const) {
       test('developers', async ({ page }) => {
         await page.goto('/developers');
         await expect(page.getByRole('heading', { name: 'Developers', level: 1 })).toBeVisible();
-        await expect(page.getByRole('heading', { name: 'Webhooks', level: 2 })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Webhooks', level: 2, exact: true })).toBeVisible();
         await expect(page).toHaveTitle('Developers · Atrium');
         await shoot(page, `developers-${theme}`);
       });
