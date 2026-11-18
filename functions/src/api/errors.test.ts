@@ -40,6 +40,10 @@ describe('toApiError', () => {
       code: 'internal',
       message: 'Unexpected error',
     });
+    expect(toApiError(Object.assign(new Error('precondition'), { status: 409 }))).toMatchObject({
+      status: 409,
+      code: 'conflict',
+    });
     const own = new ApiError(409, 'conflict', 'changed');
     expect(toApiError(own)).toBe(own);
   });

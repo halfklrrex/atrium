@@ -312,6 +312,13 @@ gcloud firestore fields ttls update expiresAt --collection-group=apiUsage --enab
 
 The audit entries (`system/apiAudit/entries`, 90 days, field `expiresAt`) live in the `entries` collection group, which already has the TTL policy created for the MCP audit log (see "The hosted MCP connector"). Confirm with `gcloud firestore fields ttls list --database=atrium-1 --project=atrium-board` that both `entries` and `apiUsage` are ACTIVE.
 
+1. **TTL on the idempotency records.** `apiIdempotency/{uid}_{key}` (the stored first response of a `POST` with an `Idempotency-Key`) carries an `expiresAt` Timestamp 24 hours out. Add its own TTL policy (collection group `apiIdempotency`), and confirm it is ACTIVE with the same `ttls list` command as above:
+
+```bash
+gcloud firestore fields ttls update expiresAt --collection-group=apiIdempotency --enable-ttl --database=atrium-1 --project=atrium-board
+```
+
+
 2. **Invoker check.** After the first deploy, the policy must list `allUsers` with `roles/run.invoker`; if it does not, delete the function and redeploy (the AGENTS.md deploy gotcha):
 
 ```

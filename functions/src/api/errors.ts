@@ -69,6 +69,10 @@ export function toApiError(error: unknown): ApiError {
     return new ApiError(400, 'invalid', text);
   }
   const status = (error as { status?: unknown } | null)?.status;
+  if (status === 409) {
+    // A write precondition failed (the data changed under the request) and the service's one retry lost too.
+    return new ApiError(409, 'conflict', 'The data changed while the request ran. Try again.');
+  }
   const type = (error as { type?: unknown } | null)?.type;
   if (type === 'entity.parse.failed') {
     return new ApiError(400, 'invalid', 'The request body is not valid JSON.');

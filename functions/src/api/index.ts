@@ -6,6 +6,7 @@ import { MinuteLimiter } from '../mcp/limits';
 import { adminMcpStore } from '../mcp/oauth/admin-store';
 import { AtriumOAuthProvider } from '../mcp/oauth/provider';
 import { adminApiAuditStore } from './audit';
+import { adminIdempotencyStore } from './idempotency';
 import { adminApiTokenStore } from './admin-token-store';
 import { apiEnabled, createApiApp } from './app';
 import { verifyApiToken, type ApiAuthDeps } from './auth';
@@ -39,6 +40,7 @@ const tokenStore = lazy(() => adminApiTokenStore(db()));
 const oauth = lazy(() => new AtriumOAuthProvider(adminMcpStore(db())));
 const usage = lazy(() => adminApiUsageStore(db()));
 const audit = lazy(() => adminApiAuditStore(db()));
+const idempotency = lazy(() => adminIdempotencyStore(db()));
 
 // One deps object per instance: `verifyApiToken` keeps its caches per deps object.
 const authDeps: ApiAuthDeps = {
@@ -61,6 +63,7 @@ const app = createApiApp({
   limiter: new MinuteLimiter(API_CALLS_PER_MINUTE),
   ipFailures: new MinuteLimiter(API_FAILED_AUTH_PER_HOUR, Date.now, API_FAILED_AUTH_WINDOW_MS),
   audit,
+  idempotency,
   now: Date.now,
 });
 

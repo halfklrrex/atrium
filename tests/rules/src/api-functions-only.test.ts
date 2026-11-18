@@ -13,7 +13,7 @@ import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import { USERS, createTestEnv, seedFixture } from './helpers';
 
 /**
- * P8 public API: `apiUsage/{id}` (daily counters) and `system/apiAudit/entries/{id}` (audit trail) have
+ * P8 public API: `apiUsage/{id}` (daily counters), `apiIdempotency/{uid}_{key}` (stored write responses) and `system/apiAudit/entries/{id}` (audit trail) have
  * no rule at all: only Cloud Functions touch them, and every client is refused.
  */
 
@@ -31,6 +31,10 @@ const ME = USERS.member;
 
 const functionsOnly = {
   apiUsage: { path: ['apiUsage', 'tok1'], data: { day: '2026-11-18', calls: 1, writes: 0 } },
+  apiIdempotency: {
+    path: ['apiIdempotency', `${ME}_key1`],
+    data: { hash: 'abc', state: 'done', status: 201, body: '{}' },
+  },
   apiAudit: {
     path: ['system', 'apiAudit', 'entries', 'e1'],
     data: { kind: 'call', uid: ME, status: 200 },
