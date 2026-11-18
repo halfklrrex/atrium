@@ -8,7 +8,7 @@ import { ACTIVITY_LIMITS, INBOX_LIMITS, NOTIFICATION_LIMITS } from '@atrium/shar
  */
 
 /** Shown at the top of the page; change it whenever the text changes. */
-export const PRIVACY_LAST_UPDATED = '17 November 2026';
+export const PRIVACY_LAST_UPDATED = '18 November 2026';
 
 /** `purgeTrash` (functions/src/lib/purge.ts, `THIRTY_DAYS_MS`) removes deleted boards and items after 30 days. */
 export const TRASH_RETENTION_DAYS = 30;
@@ -42,6 +42,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
       'Your profile, only the parts you choose to fill in: a title, a short "about" text, a location, your birthday (day and month, never the year) and whether to show your local time. All of it is optional. Atrium never asks for a phone number.',
       'Teams that the owners and admins of a workspace create: the team name and which members belong to it.',
       `Notifications sent to you, deleted after ${NOTIFICATION_LIMITS.retentionDays} days.`,
+      'API tokens, only if you create them in Settings: the token itself is stored only as a hash, so it cannot be read back; Atrium keeps its name, its first few characters, its access (read or write), the workspaces it is limited to, when it was created, when it expires and when it was last used, until you revoke it or it expires.',
       'Push notifications, only if you turn them on for a device: a device token, the browser and device type, and when it was last used.',
       `Messages you send to the site admins (feedback, appeals, complaints and data requests): the text, your name, email and photo link. Closed conversations are deleted after ${INBOX_LIMITS.retentionDays} days.`,
     ],
