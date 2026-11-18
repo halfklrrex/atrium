@@ -9,6 +9,8 @@ import { adminNotificationStore } from './admin-notifications';
 import { closeOpenAppeals } from './inbox';
 import { adminMcpStore } from '../mcp/oauth/admin-store';
 import { revokeAllMcpGrants } from '../mcp/oauth/grants';
+import { adminApiTokenStore } from '../api/admin-token-store';
+import { revokeAllApiTokens } from '../api/tokens';
 
 const iso = (value: string | undefined): string | null => {
   if (!value) return null;
@@ -121,6 +123,7 @@ export function adminAccountStore(firestore: Firestore): AccountStore {
       await firestore.recursiveDelete(tokens);
     },
     revokeMcpGrants: (uid) => revokeAllMcpGrants(adminMcpStore(firestore), Date.now(), uid),
+    revokeApiTokens: (uid) => revokeAllApiTokens(adminApiTokenStore(firestore), Date.now(), uid),
     closeOpenAppeals: (uid) => closeOpenAppeals({ store: adminInboxStore(firestore) }, uid),
     createNotification: (uid, id, data) =>
       adminNotificationStore(firestore).createNotification(uid, id, data),

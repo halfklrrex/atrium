@@ -154,6 +154,13 @@ class FakeStore implements AccountStore {
     this.revokedMcpGrants.push(uid);
     return Promise.resolve(1);
   }
+  revokedApiTokens: string[] = [];
+  failRevokeApiTokens = false;
+  revokeApiTokens(uid: string) {
+    if (this.failRevokeApiTokens) return Promise.reject(new Error('api tokens failed'));
+    this.revokedApiTokens.push(uid);
+    return Promise.resolve(1);
+  }
   createNotification(uid: string, id: string, data: NewNotification) {
     if (this.notes.some((n) => n.uid === uid && n.id === id)) return Promise.resolve(false);
     this.notes.push({ uid, id, data });
@@ -285,6 +292,22 @@ describe('setAccountStatus: block and unblock', () => {
     const third = setup(account('u3'));
     await setAccountStatus(third.deps, admin, { uid: 'u3', status: 'approved' });
     expect(third.store.revokedMcpGrants).toEqual([]);
+  });
+
+  it('revokes the API tokens of a blocked account, and a failure never fails the block', async () => {
+    const { store, deps } = setup(account('u1', { claims: { acct: 'approved' } }));
+    await setAccountStatus(deps, admin, { uid: 'u1', status: 'blocked' });
+    expect(store.revokedApiTokens).toEqual(['u1']);
+    const second = setup(account('u2', { claims: { acct: 'approved' } }));
+    second.store.failRevokeApiTokens = true;
+    const result = await setAccountStatus(second.deps, admin, { uid: 'u2', status: 'blocked' });
+    expect(result.changed).toBe(true);
+    expect(second.store.statuses.get('u2')).toBe('blocked');
+    expect(second.store.audit).toHaveLength(1);
+    // Approving never touches the tokens.
+    const third = setup(account('u3'));
+    await setAccountStatus(third.deps, admin, { uid: 'u3', status: 'approved' });
+    expect(third.store.revokedApiTokens).toEqual([]);
   });
 
   it('never touches disabled on block, even for an account disabled in the console', async () => {

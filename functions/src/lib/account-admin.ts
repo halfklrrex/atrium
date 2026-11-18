@@ -78,6 +78,8 @@ export interface AccountStore {
   deletePushTokens(uid: string): Promise<unknown>;
   /** Revokes every MCP connection of a blocked account (OPS4 section 4.4); best effort. */
   revokeMcpGrants(uid: string): Promise<unknown>;
+  /** Revokes every personal API token of a blocked account (P8 section 3); best effort. */
+  revokeApiTokens(uid: string): Promise<unknown>;
 }
 
 /** Placeholder ids for notification fields that point at boards; account notices have none. */
@@ -200,6 +202,12 @@ export async function setAccountStatus(
       await store.revokeMcpGrants(uid);
     } catch (error) {
       logger.error('Could not revoke the MCP grants of a blocked account', { uid, error });
+    }
+    // Best effort too: the API verifier also refuses a blocked account, this just ends the tokens.
+    try {
+      await store.revokeApiTokens(uid);
+    } catch (error) {
+      logger.error('Could not revoke the API tokens of a blocked account', { uid, error });
     }
     // The Auth user is NOT disabled: the person can sign in and see the blocked screen. Never touch
     // `disabled` here (an account an operator disabled in the console stays disabled).
