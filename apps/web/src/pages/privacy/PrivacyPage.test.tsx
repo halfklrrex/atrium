@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../../auth/auth-context';
 import { RequireAuth } from '../../auth/RequireAuth';
 import {
+  API_AUDIT_RETENTION_DAYS,
   BACKUP_RETENTION_DAYS,
   LOG_RETENTION_DAYS,
   PRIVACY_ABOUT,
@@ -89,6 +90,9 @@ describe('PrivacyPage', () => {
     expect(text).toContain(`removed after ${TRASH_RETENTION_DAYS} days`);
     expect(text).toContain(`up to ${BACKUP_RETENTION_DAYS} days`);
     expect(text).toContain(`about ${LOG_RETENTION_DAYS} days`);
+    expect(text).toContain(`each call is logged for ${API_AUDIT_RETENTION_DAYS} days`);
+    expect(text).toMatch(/never the request body and never the token itself/);
+    expect(API_AUDIT_RETENTION_DAYS).toBe(90);
     expect([
       ACTIVITY_LIMITS.retentionDays,
       NOTIFICATION_LIMITS.retentionDays,
