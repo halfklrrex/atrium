@@ -31,6 +31,14 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **No open-PR limits** (owner, 2026-11-04). Pace is set by usage and the owner's availability; hot-spot PRs merge in order and rebase.
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
+## Open work (2026-11-18)
+
+- **MCP batch 2 is complete (2026-11-17 to 18).** The owner answered the nine questions in chat and accepted every default (recorded on monday item 3346811892). Merged: #305 (spec `docs/specs/MCP-gap-batch-2.md`), #306 foundations and read fixes (calculated columns, teams in People cells, member docs, nested queries, module split), #307 My Work, search and notifications, #309 Docs, #312 teams, #313 views and forms, #315 every column type and label editing, #316 dashboards, #318 files (hosted-only), #319 sharing (hosted-only), #321 automations (board owners only, created switched off), #323 column-type change, buttons and time tracking (hosted-only). The connector has **88 tools hosted, 79 local** (counts come from the catalogue, `docs/mcp-connector.md`). Hosted-only tools are the ones marked `requires: 'server'`; they call the callables' library code through `functions/src/mcp/server-ops.ts`. Per-PR notes: `docs/handoff/2026-11-17-claude-mcp-2-*.md`, `docs/handoff/2026-11-18-claude-mcp-*.md`.
+- **To verify in production by hand (not covered by an emulator test):** Storage uploads through `atrium_upload_file` (a 300 KB image into a Files column opens; a 600 KB upload is refused clearly; stdio lists only `atrium_list_files`).
+- **Owner decisions recorded:** automations by board owners only, off by default; sharing among workspace members only; uploads up to 512 KB; hosted-only tools are fine; notifications read and mark read only; teams managed by owners and admins; hard deletes allowed and marked destructive; scopes and limits unchanged.
+- **Gotchas:** force-push is blocked, so every conflicting PR is redone on a `-2` branch; parallel MCP PRs conflict on the `tools.mjs` DOMAINS list, `service.mjs` spreads, the parity test lists and the counts in `docs/mcp-connector.md`: merge one at a time and recount from the catalogue; a flaky `item-slash-menu` visual screenshot passes on re-run; stale Firestore emulator processes may need killing by PID.
+- **Next:** SUBITEMS PR 6 (rules hardening), P8 public API and webhooks (needs a spec), email notifications and digests (stop before the provider), GDPR data export and account deletion must include profiles, teams and docs, MCP tools for profiles (low value).
+
 ## Open work (2026-11-17)
 
 Supersedes the "Waiting on the owner" and "Do next" lines of the 2026-11-16 section below.
