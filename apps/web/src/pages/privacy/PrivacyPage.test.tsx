@@ -1,4 +1,9 @@
-import { ACTIVITY_LIMITS, INBOX_LIMITS, NOTIFICATION_LIMITS } from '@atrium/shared';
+import {
+  ACTIVITY_LIMITS,
+  INBOX_LIMITS,
+  NOTIFICATION_LIMITS,
+  WEBHOOK_DELIVERY_RETENTION_DAYS,
+} from '@atrium/shared';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
@@ -92,6 +97,8 @@ describe('PrivacyPage', () => {
     expect(text).toContain(`about ${LOG_RETENTION_DAYS} days`);
     expect(text).toContain(`each call is logged for ${API_AUDIT_RETENTION_DAYS} days`);
     expect(text).toMatch(/never the request body and never the token itself/);
+    expect(text).toContain('incoming webhook URL is stored only as a hash');
+    expect(text).toContain(`deleted after ${WEBHOOK_DELIVERY_RETENTION_DAYS} days`);
     expect(API_AUDIT_RETENTION_DAYS).toBe(90);
     expect([
       ACTIVITY_LIMITS.retentionDays,

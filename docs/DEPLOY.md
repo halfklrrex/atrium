@@ -357,3 +357,19 @@ gcloud run services get-iam-policy createwebhook --region=europe-west1 --project
 (Cloud Run service names are the lower-cased function names: `createwebhook`, `updatewebhook`, `deletewebhook`, `rotatewebhooksecret`, `testwebhook`.) 4. **Enable.** After the UI PR (P8 PR 7) is live, set `WEBHOOKS_ENABLED=true` in a PR. Smoke test: create a webhook on a scratch board (a request-capture service such as a throwaway `https://` receiver), press Test, and see the `ping` arrive within about a minute with a valid `Atrium-Signature`. 5. **Emergency stop.** A PR setting `WEBHOOKS_ENABLED=false` stops new deliveries at once after the deploy (pending ones wait in the queue and expire after 14 days). To stop the sweep without a deploy, pause the job: `gcloud scheduler jobs pause firebase-schedule-deliverWebhooks-europe-west1 --location=europe-west1 --project=atrium-board`.
 
 Outgoing requests are guarded against SSRF (`functions/src/webhooks/ssrf.ts`): https and port 443 only, public addresses only (checked again at every delivery and pinned for the connection), no redirects, 5 second timeout. The signing secret is stored in `boards/{id}/webhookSecrets/{webhookId}` (Functions only), shown once at creation and on rotation.
+
+## Incoming webhooks and the delivery log (P8 PR 7a): owner steps after the first deploy
+
+Both ship behind the same `WEBHOOKS_ENABLED=false` flag as the outgoing webhooks (and the `API_ENABLED` switch of the `api` function, since the route lives in it). While either is off, `POST /api/hooks/...` answers `503` and the five new callables (`createIncomingHook`, `updateIncomingHook`, `rotateIncomingHookSecret`, `deleteIncomingHook`, `listWebhookDeliveries`) answer `failed-precondition`. Nothing else needs to change before the first deploy.
+
+1. **Index.** The deploy ships `webhookDeliveries (webhookId ASC, createdAt DESC)` (`firestore.indexes.json`), which the delivery log's query needs. It builds in a few minutes; `listWebhookDeliveries` fails until it is `READY` (`gcloud firestore indexes composite list --database=atrium-1 --project=atrium-board`).
+2. **TTL policies.** None new: incoming hooks keep no expiring documents, `incomingHookIndex` entries live as long as their hook, and the per-hook daily counters are `apiUsage/hook_<hookId>` documents that already carry `expiresAt` (the `apiUsage` policy from the API section covers them). Idempotency records of the route are in `apiIdempotency` (same policy as the API).
+3. **Invokers.** After the first deploy check that the new callables carry the public invoker binding (the AGENTS.md deploy gotcha; delete and redeploy one that lacks it). Cloud Run service names are the lower-cased function names:
+
+```
+gcloud run services get-iam-policy createincominghook --region=europe-west1 --project=atrium-board
+```
+
+(`createincominghook`, `updateincominghook`, `rotateincominghooksecret`, `deleteincominghook`, `listwebhookdeliveries`.) The route itself is part of the `api` service, which already has the binding. 4. **Smoke test** (after the UI PR and both flags are on): create an incoming hook on a scratch board, then `curl -i -X POST -H 'Content-Type: application/json' -d '{"name":"Test"}' '<the URL>'` must answer `201 {"id":...,"boardId":...}` and the item appears on the board with "Webhook: <name>" in the activity log. A wrong or rotated token answers `404`. 5. **Emergency stop.** Set `WEBHOOKS_ENABLED=false` in a PR (the route and the callables stop after the deploy), or remove the `allUsers` invoker binding of the `api` service to stop the whole API at once.
+
+The URL is the credential: it is shown once (create and rotate), only its SHA-256 hash is stored (`incomingHookIndex/{hash}`, Functions-only), and the route never logs or audits the path or the body (the audit entry has the hook id, board id, status and time).
