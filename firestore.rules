@@ -838,6 +838,18 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------------------
+      // boards/{boardId}/incomingHooks/{hookId} (P8 PR 7a): incoming webhooks (name, enabled, creator,
+      // default group; never the secret or its hash). Read by board owners only, same helper as
+      // `webhooks`; nobody writes, the callables do. The top-level `incomingHookIndex/{sha256hex}`
+      // (token hash -> board and hook) has no rule at all: Functions only, default deny, and no
+      // collection-group rule either.
+      // -------------------------------------------------------------------
+      match /incomingHooks/{hookId} {
+        allow read: if signedIn() && canManageBoard(boardId);
+        allow write: if false;
+      }
+
+      // -------------------------------------------------------------------
       // boards/{boardId}/automations/{automationId} (P5a): recipes. Everyone who can read the board
       // reads them; only board owners write, with a shape check like `columns`. Rules can't count
       // documents, so the 20-per-board limit is enforced by `validateAutomation` in the UI and again
