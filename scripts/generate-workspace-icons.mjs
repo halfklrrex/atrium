@@ -1,5 +1,5 @@
 // Generates apps/web/src/components/workspace-icons/icons.generated.ts: a curated set of Phosphor
-// icons (regular weight only) as SVG path data for workspace and folder icons
+// icons (fill weight only) as SVG path data for workspace and folder icons
 // (docs/specs/ICONS-phosphor-icon-picker.md).
 //
 //   pnpm icons:generate          rewrite the module
@@ -320,7 +320,7 @@ function collect() {
         keywords,
         group: group.id,
         label: key.replace(/-/g, ' '),
-        regular: pathData(join(pkgDir, 'assets/regular', `${key}.svg`), key, 'regular'),
+        fill: pathData(join(pkgDir, 'assets/fill', `${key}-fill.svg`), key, 'fill'),
       });
     }
   }
@@ -335,12 +335,12 @@ const banner = (
 // Modified for Atrium (AGPL-3.0-only), 2026-11-09: only the path data of a curated subset.
 `;
 
-/** icons.generated.ts: keys, labels, keywords, groups and the regular-weight paths. */
+/** icons.generated.ts: keys, labels, keywords, groups and the fill-weight paths. */
 export function render() {
   const { version, icons } = collect();
   const rows = icons.map(
     (i) =>
-      `  { key: ${JSON.stringify(i.key)}, label: ${JSON.stringify(i.label)}, group: ${JSON.stringify(i.group)}, keywords: ${JSON.stringify(i.keywords)}, regular: ${JSON.stringify(i.regular)} },`,
+      `  { key: ${JSON.stringify(i.key)}, label: ${JSON.stringify(i.label)}, group: ${JSON.stringify(i.group)}, keywords: ${JSON.stringify(i.keywords)}, fill: ${JSON.stringify(i.fill)} },`,
   );
   const groups = GROUPS.map(
     (g) => `  { id: ${JSON.stringify(g.id)}, label: ${JSON.stringify(g.label)} },`,
@@ -351,8 +351,8 @@ export interface WorkspaceIconDef {
   readonly label: string;
   readonly group: string;
   readonly keywords: string;
-  /** Path data of the regular weight for \`viewBox="0 0 256 256"\`. */
-  readonly regular: string;
+  /** Path data of the fill weight for \`viewBox="0 0 256 256"\`. */
+  readonly fill: string;
 }
 
 export const WORKSPACE_ICON_GROUPS: readonly { readonly id: string; readonly label: string }[] = [
