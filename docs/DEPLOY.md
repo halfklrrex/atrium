@@ -327,3 +327,5 @@ curl -i https://atrium-workboards.web.app/api/v1/me
 4. **Enable.** Merge the enable PR (`API_ENABLED=true`). Then the same curl returns `401` with `WWW-Authenticate: Bearer realm="atrium"`, and with a personal token (Settings, Account, API tokens) `curl -i -H "Authorization: Bearer atrp_..." https://atrium-workboards.web.app/api/v1/me` returns `200`. Also try `/api/v1/workspaces` and `/api/v1/boards/<id>/items?limit=5`.
 
 Rollback: set `API_ENABLED=false` in a PR (about 10 minutes), or remove the binding at once: `gcloud run services remove-iam-policy-binding api --region=europe-west1 --project=atrium-board --member=allUsers --role=roles/run.invoker` (add it back with `add-iam-policy-binding`).
+
+Known cost: `GET /api/v1/items/{id}` and `/items/{id}/updates` without `?board=<boardId>` look the item up on every board the token can read (one Firestore read per board). That is fine for a family-sized workspace, but clients should pass `?board=` (the items list and board routes already return the board id).

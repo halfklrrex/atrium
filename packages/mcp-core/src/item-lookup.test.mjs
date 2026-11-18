@@ -56,7 +56,7 @@ function setup(actor = { uid: ME }) {
     'boards/b2': board('w2'),
     'boards/b3': board('w3'),
     'boards/b4': board('w1', { state: 'archived' }),
-    'boards/b1/items/i1': item({ name: 'Pizza', values: { price: '10' } }),
+    'boards/b1/items/i1': item({ name: 'Pizza', values: { price: '10', dup: 'second' } }),
     'boards/b1/items/s1': item({ name: 'Sub', parentItemId: 'i1', values: { price: '2' } }),
     'boards/b1/items/gone': item({ name: 'Old', state: 'archived' }),
     'boards/b2/items/i2': item({ name: 'Other board' }),
@@ -124,4 +124,45 @@ test('a single-id workspaceFilter still works as before', async () => {
     (await service.listWorkspaces()).workspaces.map((w) => w.id),
     ['w2'],
   );
+});
+
+test('hideEmails: names never fall back to an email and email fields are left out', async () => {
+  const client = createFakeClient({
+    'workspaces/w1': ws('One', { [ME]: 'owner', [OTHER]: 'member' }),
+    'workspaces/w1/members/user-me': { displayName: 'Avery Quinn', email: 'avery@example.com' },
+    'workspaces/w1/members/user-other': { email: 'nameless@example.com' },
+    'boards/b1': board('w1'),
+    'boards/b1/items/i1': item(),
+    'boards/b1/items/i1/updates/u1': {
+      authorId: OTHER,
+      authorName: 'nameless@example.com',
+      content: 'hi',
+      createdAt: NOW,
+      updatedAt: NOW,
+      likes: [],
+      mentions: [],
+      attachments: [],
+      repliesCount: 0,
+    },
+  });
+  const plain = createService({ client, actor: { uid: ME }, now: () => NOW });
+  const hidden = createService({ client, actor: { uid: ME }, now: () => NOW, hideEmails: true });
+  const before = await plain.listMembers({ boardId: 'b1' });
+  assert.ok(before.members.some((m) => m.email === 'nameless@example.com'));
+  const after = await hidden.listMembers({ boardId: 'b1' });
+  assert.ok(!JSON.stringify(after).includes('@'));
+  assert.deepEqual(after.members.map((m) => m.name).sort(), ['A member', 'Avery Quinn']);
+  const updates = await hidden.listUpdates({ boardId: 'b1', itemId: 'i1' });
+  assert.equal(updates.updates[0].author.name, 'A member');
+  const ws1 = await hidden.listMembers({ workspaceId: 'w1' });
+  assert.ok(!JSON.stringify(ws1).includes('@'));
+});
+
+test('findItems with uniqueTitles keeps both columns that share a title', async () => {
+  const service = setup();
+  const plain = await service.findItems({ boardId: 'b1' });
+  const unique = await service.findItems({ boardId: 'b1', uniqueTitles: true });
+  const row = (r) => r.items.find((i) => i.name === 'Pizza').values;
+  assert.deepEqual(Object.keys(row(plain)), ['Price']);
+  assert.deepEqual(row(unique), { Price: '10', 'Price (dup)': 'second' });
 });

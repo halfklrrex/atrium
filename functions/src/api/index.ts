@@ -54,6 +54,8 @@ const app = createApiApp({
       client: createAdminClient(db()),
       // `null` is "no restriction"; a list (even an empty one) is exactly those workspaces.
       actor: { uid: auth.uid, workspaceFilter: auth.workspaceIds },
+      // Names are display names or "A member", never an email address.
+      hideEmails: true,
     }),
   usage,
   limiter: new MinuteLimiter(API_CALLS_PER_MINUTE),
