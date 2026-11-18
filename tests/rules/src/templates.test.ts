@@ -135,6 +135,15 @@ describe('templates: create', () => {
     );
   });
 
+  it('requires structure.subitemColumns to be empty (subitems share the board columns)', async () => {
+    const column = structure().columns[0];
+    await assertSucceeds(create({ structure: { ...structure(), subitemColumns: [] } }));
+    await assertFails(
+      create({ structure: { ...structure(), subitemColumns: [{ ...column, id: 'sub_status' }] } }),
+    );
+    await assertFails(create({ structure: { ...structure(), subitemColumns: null } }));
+  });
+
   it('caps sample items at 50 and keeps itemCount honest', async () => {
     const items = (n: number) =>
       Array.from({ length: n }, (_, i) => ({ name: `i${i}`, groupId: 'g1', values: {} }));
