@@ -125,6 +125,14 @@ const DOMAIN_TOOLS = {
   ],
   files: ['atrium_list_files', 'atrium_get_file_link', 'atrium_upload_file', 'atrium_delete_file'],
   sharing: ['atrium_set_access'],
+  automations: [
+    'atrium_list_automations',
+    'atrium_list_automation_runs',
+    'atrium_create_automation',
+    'atrium_update_automation',
+    'atrium_set_automation_enabled',
+    'atrium_delete_automation',
+  ],
 };
 
 test('every domain file lists exactly the tools asserted here, and every tool is in one file', () => {
