@@ -98,6 +98,15 @@ export function adminActivityStore(firestore: Firestore): ActivityStore {
         .get();
       return snap.exists ? (str(snap.get('name')) ?? '') : null;
     },
+    async getIncomingHookName(boardId, hookId) {
+      const snap = await firestore
+        .collection('boards')
+        .doc(boardId)
+        .collection('incomingHooks')
+        .doc(hookId)
+        .get();
+      return snap.exists ? (str(snap.get('name')) ?? '') : null;
+    },
     async createMany(boardId, entries) {
       if (entries.length === 0) return 0;
       const batch = firestore.batch();

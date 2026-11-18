@@ -1,5 +1,11 @@
 import type { McpService } from '@atrium/mcp-core';
-import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+  type Router,
+} from 'express';
 import { logger } from 'firebase-functions/v2';
 import { stripControlChars } from '../mcp/server';
 import { usageDay, type MinuteLimiter, type UsageStore } from '../mcp/limits';
@@ -15,6 +21,7 @@ import {
   requestHash,
   type IdempotencyStore,
 } from './idempotency';
+import { HOOKS_BASE_PATH } from './hooks';
 import { accountRoutes } from './routes/account';
 import { boardRoutes } from './routes/boards';
 import { itemRoutes } from './routes/items';
@@ -52,6 +59,8 @@ export interface ApiAppDeps {
   audit: ApiAuditStore;
   /** `Idempotency-Key` records for `POST` (`apiIdempotency`). */
   idempotency: IdempotencyStore;
+  /** The incoming-webhook router (`createHooksRouter`); absent means `/api/hooks` is a plain 404. */
+  hooks?: Router;
   now: () => number;
 }
 
@@ -84,6 +93,10 @@ export function createApiApp(deps: ApiAppDeps): Express {
     if (deps.isEnabled()) return next();
     send(res, new ApiError(503, 'api_disabled', API_DISABLED_MESSAGE));
   });
+
+  // Incoming webhooks (P8 PR 7a): the secret in the path is the credential, so this router sits before
+  // the 256 KB body check and the bearer auth below (it has its own 64 KB cap and kill switch).
+  if (deps.hooks) app.use(HOOKS_BASE_PATH, deps.hooks);
 
   // The Functions Framework may already have parsed the body (up to 32 MB, kept in `rawBody`), in which
   // case `express.json` never runs its own limit. So check the announced and the buffered size first.

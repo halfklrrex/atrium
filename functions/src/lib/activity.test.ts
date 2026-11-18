@@ -98,6 +98,19 @@ describe('diffItemActivity', () => {
     expect(edited.every((p) => p.fields.data?.source === undefined)).toBe(true);
   });
 
+  it('tags item_created with source webhook for an item an incoming webhook created', () => {
+    const plan = diffItemActivity(
+      { after: { ...base, updatedVia: 'webhook:hook1' } },
+      BOARD,
+      profiles,
+    );
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({
+      kind: 'item_created',
+      fields: { data: { source: 'webhook' } },
+    });
+  });
+
   it('logs rename, move, archive, delete and restore', () => {
     const rename = diffItemActivity(
       { before: base, after: edit({ name: 'Write the spec' }) },
@@ -425,6 +438,10 @@ class FakeStore implements ActivityStore {
   async getItemName() {
     return 'Write spec';
   }
+  hookNames = new Map<string, string>();
+  async getIncomingHookName(_boardId: string, hookId: string) {
+    return this.hookNames.get(hookId) ?? null;
+  }
   async createMany(_b: string, entries: readonly NewActivityEntry[]) {
     if (entries.some((e) => this.docs.has(e.id))) return 0;
     for (const e of entries) this.docs.set(e.id, e.doc);
@@ -501,6 +518,39 @@ describe('recordItemActivity', () => {
     expect(
       await recordItemActivity(store, { eventId: 'ev5', boardId: 'b1', itemId: 'i1', after: base }),
     ).toBe(0);
+  });
+
+  it('names the hook as the actor of an item an incoming webhook created, keeping the creator id', async () => {
+    const store = new FakeStore();
+    store.hookNames.set('hook1', 'Order form');
+    await recordItemActivity(store, {
+      eventId: 'ev7',
+      boardId: 'b1',
+      itemId: 'i1',
+      after: { ...base, updatedVia: 'webhook:hook1' },
+    });
+    const doc = store.docs.get('ev7-0')!;
+    expect(doc).toMatchObject({
+      kind: 'item_created',
+      actorId: 'u1',
+      actorName: 'Webhook: Order form',
+      actorPhotoUrl: null,
+      data: { source: 'webhook', webhookName: 'Order form' },
+    });
+    expect(
+      activityEventSchema.safeParse({ ...doc, createdAt: ts(1), expiresAt: ts(2) }).success,
+    ).toBe(true);
+  });
+
+  it('still logs a webhook item when the hook was deleted meanwhile', async () => {
+    const store = new FakeStore();
+    await recordItemActivity(store, {
+      eventId: 'ev8',
+      boardId: 'b1',
+      itemId: 'i1',
+      after: { ...base, updatedVia: 'webhook:gone' },
+    });
+    expect(store.docs.get('ev8-0')).toMatchObject({ actorName: 'Webhook: incoming hook' });
   });
 
   it('validates against the shared schema once the server fields are added', async () => {

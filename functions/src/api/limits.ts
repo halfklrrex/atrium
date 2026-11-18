@@ -1,4 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
+import { INCOMING_HOOK_DAILY_CALLS } from '@atrium/shared';
 import { adminUsageStore, type UsageStore } from '../mcp/limits';
 
 /**
@@ -24,6 +25,17 @@ export const adminApiUsageStore = (firestore: Firestore): UsageStore =>
   adminUsageStore(
     firestore,
     { calls: API_DAILY_CALLS, writes: API_DAILY_WRITES },
+    { collection: API_USAGE, ttlMs: API_USAGE_TTL_MS },
+  );
+
+/**
+ * Incoming webhooks (P8 PR 7a): `apiUsage/hook_<hookId>` with 1,000 calls a day (every call is a write)
+ * and the same TTL, so no new collection or rule is needed.
+ */
+export const adminHookUsageStore = (firestore: Firestore): UsageStore =>
+  adminUsageStore(
+    firestore,
+    { calls: INCOMING_HOOK_DAILY_CALLS, writes: INCOMING_HOOK_DAILY_CALLS },
     { collection: API_USAGE, ttlMs: API_USAGE_TTL_MS },
   );
 
