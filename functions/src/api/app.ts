@@ -7,9 +7,18 @@ import { writeApiAudit, type ApiAuditEntry, type ApiAuditStore } from './audit';
 import { ApiAuthError, type ApiAuthInfo } from './auth';
 import { ApiError, errorBody, toApiError } from './errors';
 import { API_MINUTE_RETRY_SECONDS, secondsUntilNextUtcDay } from './limits';
+import {
+  IDEMPOTENCY_KEY_PATTERN,
+  IDEMPOTENCY_MISMATCH_MESSAGE,
+  IDEMPOTENCY_RUNNING_MESSAGE,
+  idempotencyId,
+  requestHash,
+  type IdempotencyStore,
+} from './idempotency';
 import { accountRoutes } from './routes/account';
 import { boardRoutes } from './routes/boards';
 import { itemRoutes } from './routes/items';
+import { writeRoutes } from './routes/writes';
 import type { RouteDef } from './routes/types';
 
 /**
@@ -40,12 +49,14 @@ export interface ApiAppDeps {
   /** Per client IP, failed authentications an hour. */
   ipFailures: MinuteLimiter;
   audit: ApiAuditStore;
+  /** `Idempotency-Key` records for `POST` (`apiIdempotency`). */
+  idempotency: IdempotencyStore;
   now: () => number;
 }
 
 export const apiEnabled = (): boolean => process.env.API_ENABLED === 'true';
 
-const routes: RouteDef[] = [...accountRoutes, ...boardRoutes, ...itemRoutes];
+const routes: RouteDef[] = [...accountRoutes, ...boardRoutes, ...itemRoutes, ...writeRoutes];
 
 const isWrite = (method: string): boolean => !['GET', 'HEAD', 'OPTIONS'].includes(method);
 
@@ -204,8 +215,51 @@ export function createApiApp(deps: ApiAppDeps): Express {
       let status = 200;
       let body: unknown;
       let failure: ApiError | undefined;
+      let replayed = false;
       try {
-        body = await route.handler({ req, res, auth, service: deps.createService(auth) });
+        const key = req.method === 'POST' ? req.headers['idempotency-key'] : undefined;
+        if (key === undefined) {
+          body = await route.handler({ req, res, auth, service: deps.createService(auth) });
+          status = res.statusCode;
+        } else {
+          if (typeof key !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(key)) {
+            throw new ApiError(
+              400,
+              'invalid',
+              'Idempotency-Key must be 1 to 64 characters: letters, digits, "-" or "_".',
+            );
+          }
+          const id = idempotencyId(auth.uid, key);
+          const hash = requestHash(req.method, `${req.baseUrl}${req.path}`, req.query, req.body);
+          const begun = await deps.idempotency.begin(id, hash, deps.now());
+          if (begun.kind === 'mismatch') {
+            throw new ApiError(422, 'invalid', IDEMPOTENCY_MISMATCH_MESSAGE);
+          }
+          if (begun.kind === 'running') {
+            throw new ApiError(409, 'conflict', IDEMPOTENCY_RUNNING_MESSAGE);
+          }
+          if (begun.kind === 'replay') {
+            replayed = true;
+            status = begun.status;
+            body = JSON.parse(begun.body) as unknown;
+          } else {
+            try {
+              body = stripControlChars(
+                await route.handler({ req, res, auth, service: deps.createService(auth) }),
+              );
+              status = res.statusCode;
+            } catch (error) {
+              // Errors are not stored: free the key so the client may retry.
+              await deps.idempotency.release(id).catch(() => undefined);
+              throw error;
+            }
+            await deps.idempotency
+              .complete(id, hash, status, JSON.stringify(body ?? null), deps.now())
+              .catch((error: unknown) =>
+                logger.error('Could not store an idempotent response', { error }),
+              );
+          }
+        }
       } catch (error) {
         failure = toApiError(error);
         // The error object only: no request, no headers, no token.
@@ -228,6 +282,7 @@ export function createApiApp(deps: ApiAppDeps): Express {
         ...(auth.tokenId ? { tokenId: auth.tokenId } : {}),
       });
       if (failure) return send(res, failure);
+      if (replayed) res.set('Idempotency-Replayed', 'true');
       res.status(status).json(stripControlChars(body));
     });
   }

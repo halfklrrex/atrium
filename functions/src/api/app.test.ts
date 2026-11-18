@@ -11,6 +11,7 @@ import type { ApiAuditEntry, ApiAuditStore } from './audit';
 import { createApiApp } from './app';
 import { verifyApiToken, type ApiAuthDeps } from './auth';
 import { FakeApiTokenStore } from './fake-token-store';
+import { FakeIdempotencyStore } from './idempotency';
 import { createApiToken } from './tokens';
 
 const T0 = Date.parse('2026-11-18T10:00:00.000Z');
@@ -157,6 +158,7 @@ async function start(
     limiter: new MinuteLimiter(options.perMinute ?? 120, () => clock.now),
     ipFailures: new MinuteLimiter(3, () => clock.now, 60 * 60_000),
     audit: auditStore,
+    idempotency: new FakeIdempotencyStore(),
     now: () => clock.now,
   });
   const server = createServer(app);
@@ -308,6 +310,7 @@ describe('authentication', () => {
       limiter: new MinuteLimiter(5),
       ipFailures: new MinuteLimiter(5),
       audit: { append: async () => undefined },
+      idempotency: new FakeIdempotencyStore(),
       now: () => T0,
     });
     const outer = express();
@@ -662,6 +665,7 @@ async function brokenHarness() {
     limiter: new MinuteLimiter(120, () => T0),
     ipFailures: new MinuteLimiter(300, () => T0, 60 * 60_000),
     audit: { append: async () => undefined },
+    idempotency: new FakeIdempotencyStore(),
     now: () => T0,
   });
   const server = createServer(app);
