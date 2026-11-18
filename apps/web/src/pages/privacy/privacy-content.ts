@@ -1,4 +1,9 @@
-import { ACTIVITY_LIMITS, INBOX_LIMITS, NOTIFICATION_LIMITS } from '@atrium/shared';
+import {
+  ACTIVITY_LIMITS,
+  INBOX_LIMITS,
+  NOTIFICATION_LIMITS,
+  WEBHOOK_DELIVERY_RETENTION_DAYS,
+} from '@atrium/shared';
 
 /**
  * The text of the privacy notice (`/privacy`), kept apart from the page so it is easy to review.
@@ -47,6 +52,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
       'API tokens, only if you create them in Settings: the token itself is stored only as a hash, so it cannot be read back; Atrium keeps its name, its first few characters, its access (read or write), the workspaces it is limited to, when it was created, when it expires and when it was last used, until you revoke it or it expires.',
       'Push notifications, only if you turn them on for a device: a device token, the browser and device type, and when it was last used.',
       `Messages you send to the site admins (feedback, appeals, complaints and data requests): the text, your name, email and photo link. Closed conversations are deleted after ${INBOX_LIMITS.retentionDays} days.`,
+      `Webhooks, only if a board owner sets them up: an incoming webhook URL is stored only as a hash (so it cannot be read back) with the hook's name and its owner; an outgoing webhook keeps the address the owner chose, and each delivery (event id, item id and name, who made the change and the changed values, never email addresses) is queued by id and deleted after ${WEBHOOK_DELIVERY_RETENTION_DAYS} days.`,
       `If you use the Atrium API with a personal access token, each call is logged for ${API_AUDIT_RETENTION_DAYS} days: the route, the board id, the result, the time, the token id and your user id, but never the request body and never the token itself.`,
     ],
   },
