@@ -84,7 +84,7 @@ function IconsTab({ value, onPick }: { value: string | null; onPick: (stored: st
                       aria-hidden="true"
                       focusable="false"
                     >
-                      <path d={icon.regular} />
+                      <path d={icon.fill} />
                     </svg>
                   </button>
                 ))}

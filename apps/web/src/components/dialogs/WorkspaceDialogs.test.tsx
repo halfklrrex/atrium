@@ -62,15 +62,15 @@ describe('workspace icon picker in the dialogs', () => {
     expect(mocks.createWorkspace.mock.calls[0]![1]).toMatchObject({ icon: 'ph:rocket-launch' });
   });
 
-  it('keeps the regular weight in the grid, also on the selected icon', async () => {
+  it('keeps the fill weight in the grid, also on the selected icon', async () => {
     renderNew();
     await userEvent.click(screen.getByRole('tab', { name: 'Icons' }));
     await userEvent.type(screen.getByLabelText('Search icons'), 'rocket');
     const button = screen.getByRole('button', { name: 'rocket launch' });
     const def = findWorkspaceIcon('ph:rocket-launch')!;
-    expect(button.querySelector('path')).toHaveAttribute('d', def.regular);
+    expect(button.querySelector('path')).toHaveAttribute('d', def.fill);
     await userEvent.click(button);
-    expect(button.querySelector('path')).toHaveAttribute('d', def.regular);
+    expect(button.querySelector('path')).toHaveAttribute('d', def.fill);
   });
 
   it('moves between icons with the arrow keys and shows an empty state', async () => {
