@@ -826,6 +826,18 @@ service cloud.firestore {
       }
 
       // -------------------------------------------------------------------
+      // boards/{boardId}/webhooks/{webhookId} (P8 PR 6): outgoing webhooks (name, url, events, state;
+      // never the secret). Only board owners read them (an editor or viewer cannot, even though they
+      // read the board); nobody writes, the callables do. `webhookSecrets/{id}` (the signing secret)
+      // and the top-level `webhookDeliveries/{id}` queue have no rule at all: Functions only, default
+      // deny. There is no collection-group rule, so a `collectionGroup('webhooks')` query is refused.
+      // -------------------------------------------------------------------
+      match /webhooks/{webhookId} {
+        allow read: if signedIn() && canManageBoard(boardId);
+        allow write: if false;
+      }
+
+      // -------------------------------------------------------------------
       // boards/{boardId}/automations/{automationId} (P5a): recipes. Everyone who can read the board
       // reads them; only board owners write, with a shape check like `columns`. Rules can't count
       // documents, so the 20-per-board limit is enforced by `validateAutomation` in the UI and again

@@ -89,5 +89,7 @@ export function actionText(
       return 'wrote to the site admins';
     case 'inbox_reply':
       return 'replied to your feedback';
+    case 'webhook_disabled':
+      return n.recipeName ? `Turned off webhook "${n.recipeName}"` : 'Turned off a webhook';
   }
 }

@@ -9,7 +9,7 @@ import { repoRoot } from './env.mjs';
 
 const ENV_FILE = 'functions/.env.atrium-board';
 // Add a key here only if it is non-secret: this file is committed to a public repository.
-const ALLOWED_KEYS = ['ACCOUNT_APPROVAL_REQUIRED', 'MCP_CONNECTOR_ENABLED'];
+const ALLOWED_KEYS = ['ACCOUNT_APPROVAL_REQUIRED', 'MCP_CONNECTOR_ENABLED', 'WEBHOOKS_ENABLED'];
 
 const entries = readFileSync(join(repoRoot, ENV_FILE), 'utf8')
   .split(/\r?\n/)
