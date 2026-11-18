@@ -9,7 +9,7 @@ import { repoRoot } from './env.mjs';
 
 const ENV_FILE = 'functions/.env.atrium-board';
 // Add a key here only if it is non-secret: this file is committed to a public repository.
-const ALLOWED_KEYS = ['ACCOUNT_APPROVAL_REQUIRED', 'MCP_CONNECTOR_ENABLED'];
+const ALLOWED_KEYS = ['ACCOUNT_APPROVAL_REQUIRED', 'MCP_CONNECTOR_ENABLED', 'API_ENABLED'];
 
 const entries = readFileSync(join(repoRoot, ENV_FILE), 'utf8')
   .split(/\r?\n/)
@@ -42,6 +42,14 @@ test('MCP_CONNECTOR_ENABLED is true or false', () => {
   assert.ok(
     value === 'true' || value === 'false',
     `MCP_CONNECTOR_ENABLED must be "true" or "false", got "${value}"`,
+  );
+});
+
+test('API_ENABLED is true or false', () => {
+  const value = entries.find(([key]) => key === 'API_ENABLED')?.[1];
+  assert.ok(
+    value === 'true' || value === 'false',
+    `API_ENABLED must be "true" or "false", got "${value}"`,
   );
 });
 
