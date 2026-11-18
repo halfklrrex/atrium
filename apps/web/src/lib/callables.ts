@@ -18,6 +18,16 @@ import {
   type McpAuthorizeResult,
   type RevokeMcpGrantRequest,
   type RevokeMcpGrantResult,
+  CREATE_API_TOKEN_CALLABLE,
+  REVOKE_API_TOKEN_CALLABLE,
+  createApiTokenRequestSchema,
+  createApiTokenResultSchema,
+  revokeApiTokenRequestSchema,
+  revokeApiTokenResultSchema,
+  type CreateApiTokenRequest,
+  type CreateApiTokenResult,
+  type RevokeApiTokenRequest,
+  type RevokeApiTokenResult,
   LIST_ACCOUNTS_CALLABLE,
   MANAGE_INBOX_THREAD_CALLABLE,
   SEND_INBOX_MESSAGE_CALLABLE,
@@ -533,6 +543,24 @@ export const mcpCalls = {
       REVOKE_MCP_GRANT_CALLABLE,
     )(revokeMcpGrantRequestSchema.parse(request));
     return revokeMcpGrantResultSchema.parse(data);
+  },
+};
+
+/** Settings -> API tokens (P8): personal access tokens. The token is returned once, at creation. */
+export const apiTokenCalls = {
+  create: async (request: CreateApiTokenRequest): Promise<CreateApiTokenResult> => {
+    const { data } = await httpsCallable<CreateApiTokenRequest, unknown>(
+      functions,
+      CREATE_API_TOKEN_CALLABLE,
+    )(createApiTokenRequestSchema.parse(request));
+    return createApiTokenResultSchema.parse(data);
+  },
+  revoke: async (request: RevokeApiTokenRequest): Promise<RevokeApiTokenResult> => {
+    const { data } = await httpsCallable<RevokeApiTokenRequest, unknown>(
+      functions,
+      REVOKE_API_TOKEN_CALLABLE,
+    )(revokeApiTokenRequestSchema.parse(request));
+    return revokeApiTokenResultSchema.parse(data);
   },
 };
 

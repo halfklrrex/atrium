@@ -287,3 +287,13 @@ gcloud run services add-iam-policy-binding mcp --region=europe-west1 --project=a
 ```
 
 3. **Revert** the function PR (the revert deploys). Leftover `mcpTokens`, `mcpAuthRequests` and similar documents expire by TTL; connections can also be revoked one by one in Settings, or by blocking the account.
+
+## Personal API tokens (P8): owner steps after the first deploy
+
+`apiTokenIndex/{sha256hex}` documents carry an `expiresAt` Timestamp. The verifier also checks the expiry itself, so this only removes leftovers. Run once (single line, `--enable-ttl` is required; deletion lags up to about a day). `apiTokenIndex` is its own collection group, so it does not clash with the `entries` policy:
+
+```
+gcloud firestore fields ttls update expiresAt --collection-group=apiTokenIndex --enable-ttl --database=atrium-1 --project=atrium-board
+```
+
+Check with `gcloud firestore fields ttls list --database=atrium-1 --project=atrium-board`. The two new callables (`createApiToken`, `revokeApiToken`) need the usual public invoker binding check after the deploy (the AGENTS.md deploy gotcha). The HTTP API itself ships in a later P8 PR.

@@ -47,6 +47,8 @@ export { leaveBoard } from './callable/leaveBoard';
 export { mcpAuthRequestInfo } from './callable/mcpAuthRequestInfo';
 export { mcpAuthorize } from './callable/mcpAuthorize';
 export { revokeMcpGrant } from './callable/revokeMcpGrant';
+export { createApiToken } from './callable/createApiToken';
+export { revokeApiToken } from './callable/revokeApiToken';
 export { purgeTrash } from './scheduled/purgeTrash';
 export { purgeOrphanUploads } from './scheduled/purgeOrphanUploads';
 export { runTimeAutomations } from './scheduled/runTimeAutomations';
