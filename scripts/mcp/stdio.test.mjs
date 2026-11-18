@@ -7,13 +7,17 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { toolNamesByDomain } from '@atrium/mcp-core';
+import { serverToolNames, toolNamesByDomain } from '@atrium/mcp-core';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const entry = resolve(root, 'scripts/mcp/atrium-mcp.mjs');
 
 /** Every tool the catalogue defines (read from the domain files; no literal count or name list here). */
-const EXPECTED = Object.values(toolNamesByDomain({})).flat().sort();
+const HOSTED_ONLY = new Set(serverToolNames());
+const EXPECTED = Object.values(toolNamesByDomain({}))
+  .flat()
+  .filter((name) => !HOSTED_ONLY.has(name))
+  .sort();
 test('the server lists its tools over stdio', async () => {
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -30,6 +34,8 @@ test('the server lists its tools over stdio', async () => {
   await client.connect(transport);
   try {
     const { tools } = await client.listTools();
+    assert.ok(HOSTED_ONLY.size > 0 && !tools.some((t) => HOSTED_ONLY.has(t.name)));
+    assert.ok(tools.some((t) => t.name === 'atrium_list_files'));
     assert.equal(tools.length, EXPECTED.length);
     assert.deepEqual(tools.map((t) => t.name).sort(), EXPECTED);
     const createItems = tools.find((t) => t.name === 'atrium_create_items');

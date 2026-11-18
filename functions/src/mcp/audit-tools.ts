@@ -10,11 +10,11 @@ import type { McpStore } from './oauth/store';
 export type ToolCallErrorCode =
   'user_error' | 'read_only' | 'rate_limited' | 'daily_limit' | 'unexpected';
 
-/** The id fields a tool call may name, in the order the first one found becomes the audit target. */
-const TARGET_KEYS = ['boardId', 'docId', 'dashboardId', 'teamId', 'viewId'] as const;
+/** The id fields a tool call may name, in the order the first one found becomes the audit target (a file tool's target is the file; its board is recorded as `boardId`). */
+const TARGET_KEYS = ['fileId', 'boardId', 'docId', 'dashboardId', 'teamId', 'viewId'] as const;
 
 /**
- * The first of `boardId`, `docId`, `dashboardId`, `teamId`, `viewId` in a call's arguments, as the
+ * The first of `fileId`, `boardId`, `docId`, `dashboardId`, `teamId`, `viewId` in a call's arguments, as the
  * entry's `targetKind` (`board`, `doc`, ...) and `targetId` (cut to 64 characters). Only an id is ever
  * recorded, never any other argument.
  */

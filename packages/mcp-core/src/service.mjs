@@ -27,6 +27,7 @@ import { createLinkResolver } from './service/links.mjs';
 import { createMirrorReader } from './service/mirror.mjs';
 import { dashboardsService } from './service/dashboards.mjs';
 import { docsService } from './service/docs.mjs';
+import { filesService } from './service/files.mjs';
 import { itemsService } from './service/items.mjs';
 import { membersService } from './service/members.mjs';
 import { myWorkService } from './service/mywork.mjs';
@@ -41,7 +42,7 @@ const MEMBERSHIP_TTL_MS = 60_000;
 
 export const PICK_WORKSPACE_MESSAGE = 'Give workspaceId; call atrium_list_workspaces first.';
 
-export function createService({ client, actor, now = () => new Date() }) {
+export function createService({ client, actor, now = () => new Date(), serverOps }) {
   const uid = assertId(actor?.uid, 'actor.uid');
   const workspaceFilter =
     actor.workspaceFilter == null ? null : assertId(actor.workspaceFilter, 'workspaceFilter');
@@ -450,6 +451,7 @@ export function createService({ client, actor, now = () => new Date() }) {
     ...docsService(helpers),
     ...teamsService(helpers),
     ...viewsService(helpers),
+    ...filesService(helpers, serverOps),
     ...columnsApi,
     ...dashboardsService(helpers),
     async verify() {

@@ -344,12 +344,87 @@ export interface McpService {
   }>;
   /** Startup check: the user exists (and is a member of the filter workspace, when set). */
   verify(): Promise<{ uid: string; workspaces: WorkspaceSummary[] }>;
+  /** False when built without `serverOps`: the tools marked `requires: 'server'` are not registered. */
+  hasServerOps?: boolean;
+  listFiles(args: {
+    boardId: string;
+    itemId?: string;
+    column?: string;
+    includeUpdates?: boolean;
+  }): Promise<Record<string, unknown>>;
+  getFileLink(args: FileTarget): Promise<Record<string, unknown>>;
+  uploadFile(args: {
+    boardId: string;
+    itemId: string;
+    column?: string;
+    name: string;
+    contentType: string;
+    dataBase64: string;
+  }): Promise<Record<string, unknown>>;
+  deleteFile(args: FileTarget): Promise<Record<string, unknown>>;
+}
+
+/** Which file a tool means: a Files column cell, or an update or reply attachment. */
+export interface FileTarget {
+  boardId: string;
+  itemId: string;
+  fileId: string;
+  column?: string;
+  updateId?: string;
+  replyId?: string;
+}
+
+/** A stored file's metadata, as the Files column and update attachments keep it. */
+export interface StoredFile {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
+/**
+ * Operations that need Cloud Storage and the file callables' library code. Only the hosted Function
+ * provides them (`functions/src/mcp/server-ops.ts`); every method acts as `uid`, runs the callables'
+ * own permission checks again and rejects with `McpUserError` for a problem the caller can fix.
+ */
+export interface ServerOps {
+  getFileLink(args: {
+    uid: string;
+    boardId: string;
+    itemId: string;
+    fileId: string;
+    columnId?: string;
+    updateId?: string;
+    replyId?: string;
+  }): Promise<{ url: string; expiresAt: number }>;
+  uploadFile(args: {
+    uid: string;
+    boardId: string;
+    itemId: string;
+    columnId: string;
+    name: string;
+    contentType: string;
+    bytes: Uint8Array;
+  }): Promise<{ file: StoredFile; filesInCell: number }>;
+  deleteFile(args: {
+    uid: string;
+    boardId: string;
+    itemId: string;
+    fileId: string;
+    columnId?: string;
+    updateId?: string;
+    replyId?: string;
+  }): Promise<{ remaining: number }>;
 }
 
 export declare function createService(options: {
   client: FirestoreClient;
   actor: Actor;
   now?: () => Date;
+  /** Provided by the hosted Function only; without it the hosted-only tools are not registered. */
+  serverOps?: ServerOps;
 }): McpService;
 
 export type ToolScope = 'read' | 'write';
@@ -369,6 +444,8 @@ export interface ToolDefinition {
   inputSchema: Record<string, ZodType>;
   /** Read tools work on a read-only connection; write tools need `atrium:write`. */
   scope: ToolScope;
+  /** `'server'`: needs `serverOps`, so only the hosted connector registers it. */
+  requires?: 'server';
   annotations: ToolAnnotations;
   run(args: Record<string, unknown>): Promise<unknown>;
 }
@@ -378,6 +455,9 @@ export declare function defineTools(service: McpService): ToolDefinition[];
 
 /** The tool names of each domain file (boards, items, updates, members, docs), for the count tests and docs. */
 export declare function toolNamesByDomain(service?: Partial<McpService>): Record<string, string[]>;
+
+/** The names of the tools only the hosted connector registers (`requires: 'server'`). */
+export declare function serverToolNames(): string[];
 
 // ---- lower-level helpers (used by tests and the hosted server's own checks) ----------------------
 
