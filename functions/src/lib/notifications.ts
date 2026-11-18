@@ -92,6 +92,7 @@ const KIND_PRIORITY: Record<NotificationKind, number> = {
   account_approved: 0,
   inbox_new: 0,
   inbox_reply: 0,
+  webhook_disabled: 0,
 };
 
 /** The prefs switch behind a kind: `automation_disabled` follows the `automation` switch. */
@@ -102,7 +103,8 @@ const prefKeyOf = (kind: NotificationKind): keyof NotificationPrefs | null => {
     kind === 'account_request' ||
     kind === 'account_approved' ||
     kind === 'inbox_new' ||
-    kind === 'inbox_reply'
+    kind === 'inbox_reply' ||
+    kind === 'webhook_disabled'
   ) {
     return null;
   }

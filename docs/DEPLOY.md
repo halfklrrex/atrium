@@ -335,3 +335,25 @@ curl -i https://atrium-workboards.web.app/api/v1/me
 Rollback: set `API_ENABLED=false` in a PR (about 10 minutes), or remove the binding at once: `gcloud run services remove-iam-policy-binding api --region=europe-west1 --project=atrium-board --member=allUsers --role=roles/run.invoker` (add it back with `add-iam-policy-binding`).
 
 Known cost: `GET /api/v1/items/{id}` and `/items/{id}/updates` without `?board=<boardId>` look the item up on every board the token can read (one Firestore read per board). That is fine for a family-sized workspace, but clients should pass `?board=` (the items list and board routes already return the board id).
+
+## Outgoing webhooks (P8 PR 6): owner steps after the first deploy
+
+The webhooks ship **switched off**: `WEBHOOKS_ENABLED=false` in `functions/.env.atrium-board`. While it is off the five callables (`createWebhook`, `updateWebhook`, `deleteWebhook`, `rotateWebhookSecret`, `testWebhook`) answer `failed-precondition`, the activity trigger queues nothing and the `deliverWebhooks` sweep returns at once. Nothing else needs to change before the first deploy.
+
+1. **Deploy order.** The deploy workflow ships the rules, the new index (`webhookDeliveries (status, nextAttemptAt)` in `firestore.indexes.json`), the callables and the scheduled function. The index builds in a few minutes; the sweep's query fails until it is `READY` (`gcloud firestore indexes composite list --database=atrium-1 --project=atrium-board`), which only matters after the flag is turned on.
+2. **TTL policy** on the queue, so delivery documents disappear 14 days after they were queued. Run once (single line, `--enable-ttl` is required; deletion lags up to about a day). `webhookDeliveries` is its own collection group, so it does not clash with the `entries` policy:
+
+```
+gcloud firestore fields ttls update expiresAt --collection-group=webhookDeliveries --enable-ttl --database=atrium-1 --project=atrium-board
+```
+
+Check with `gcloud firestore fields ttls list --database=atrium-1 --project=atrium-board`. 3. **Scheduler job and invokers.** `deliverWebhooks` is a scheduled function like `runTimeAutomations`: the deploy creates the Cloud Scheduler job (`firebase-schedule-deliverWebhooks-europe-west1`, every minute, `Etc/UTC`) and needs no new IAM role beyond the `roles/cloudscheduler.admin` the deploy account already has for scheduled functions. After the first deploy check that the job exists and is enabled, and that the five new callables carry the public invoker binding (the AGENTS.md deploy gotcha; delete and redeploy one that lacks it):
+
+```
+gcloud scheduler jobs list --location=europe-west1 --project=atrium-board
+gcloud run services get-iam-policy createwebhook --region=europe-west1 --project=atrium-board
+```
+
+(Cloud Run service names are the lower-cased function names: `createwebhook`, `updatewebhook`, `deletewebhook`, `rotatewebhooksecret`, `testwebhook`.) 4. **Enable.** After the UI PR (P8 PR 7) is live, set `WEBHOOKS_ENABLED=true` in a PR. Smoke test: create a webhook on a scratch board (a request-capture service such as a throwaway `https://` receiver), press Test, and see the `ping` arrive within about a minute with a valid `Atrium-Signature`. 5. **Emergency stop.** A PR setting `WEBHOOKS_ENABLED=false` stops new deliveries at once after the deploy (pending ones wait in the queue and expire after 14 days). To stop the sweep without a deploy, pause the job: `gcloud scheduler jobs pause firebase-schedule-deliverWebhooks-europe-west1 --location=europe-west1 --project=atrium-board`.
+
+Outgoing requests are guarded against SSRF (`functions/src/webhooks/ssrf.ts`): https and port 443 only, public addresses only (checked again at every delivery and pinned for the connection), no redirects, 5 second timeout. The signing secret is stored in `boards/{id}/webhookSecrets/{webhookId}` (Functions only), shown once at creation and on rotation.

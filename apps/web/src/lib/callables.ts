@@ -20,6 +20,31 @@ import {
   type RevokeMcpGrantResult,
   CREATE_API_TOKEN_CALLABLE,
   REVOKE_API_TOKEN_CALLABLE,
+  CREATE_WEBHOOK_CALLABLE,
+  DELETE_WEBHOOK_CALLABLE,
+  ROTATE_WEBHOOK_SECRET_CALLABLE,
+  TEST_WEBHOOK_CALLABLE,
+  UPDATE_WEBHOOK_CALLABLE,
+  createWebhookRequestSchema,
+  createWebhookResultSchema,
+  deleteWebhookRequestSchema,
+  deleteWebhookResultSchema,
+  rotateWebhookSecretRequestSchema,
+  rotateWebhookSecretResultSchema,
+  testWebhookRequestSchema,
+  testWebhookResultSchema,
+  updateWebhookRequestSchema,
+  updateWebhookResultSchema,
+  type CreateWebhookRequest,
+  type CreateWebhookResult,
+  type DeleteWebhookRequest,
+  type DeleteWebhookResult,
+  type RotateWebhookSecretRequest,
+  type RotateWebhookSecretResult,
+  type TestWebhookRequest,
+  type TestWebhookResult,
+  type UpdateWebhookRequest,
+  type UpdateWebhookResult,
   createApiTokenRequestSchema,
   createApiTokenResultSchema,
   revokeApiTokenRequestSchema,
@@ -561,6 +586,45 @@ export const apiTokenCalls = {
       REVOKE_API_TOKEN_CALLABLE,
     )(revokeApiTokenRequestSchema.parse(request));
     return revokeApiTokenResultSchema.parse(data);
+  },
+};
+
+/** Board -> Integrations (P8): outgoing webhooks, board owners only. The secret is returned once. */
+export const webhookCalls = {
+  create: async (request: CreateWebhookRequest): Promise<CreateWebhookResult> => {
+    const { data } = await httpsCallable<CreateWebhookRequest, unknown>(
+      functions,
+      CREATE_WEBHOOK_CALLABLE,
+    )(createWebhookRequestSchema.parse(request));
+    return createWebhookResultSchema.parse(data);
+  },
+  update: async (request: UpdateWebhookRequest): Promise<UpdateWebhookResult> => {
+    const { data } = await httpsCallable<UpdateWebhookRequest, unknown>(
+      functions,
+      UPDATE_WEBHOOK_CALLABLE,
+    )(updateWebhookRequestSchema.parse(request));
+    return updateWebhookResultSchema.parse(data);
+  },
+  remove: async (request: DeleteWebhookRequest): Promise<DeleteWebhookResult> => {
+    const { data } = await httpsCallable<DeleteWebhookRequest, unknown>(
+      functions,
+      DELETE_WEBHOOK_CALLABLE,
+    )(deleteWebhookRequestSchema.parse(request));
+    return deleteWebhookResultSchema.parse(data);
+  },
+  rotateSecret: async (request: RotateWebhookSecretRequest): Promise<RotateWebhookSecretResult> => {
+    const { data } = await httpsCallable<RotateWebhookSecretRequest, unknown>(
+      functions,
+      ROTATE_WEBHOOK_SECRET_CALLABLE,
+    )(rotateWebhookSecretRequestSchema.parse(request));
+    return rotateWebhookSecretResultSchema.parse(data);
+  },
+  test: async (request: TestWebhookRequest): Promise<TestWebhookResult> => {
+    const { data } = await httpsCallable<TestWebhookRequest, unknown>(
+      functions,
+      TEST_WEBHOOK_CALLABLE,
+    )(testWebhookRequestSchema.parse(request));
+    return testWebhookResultSchema.parse(data);
   },
 };
 
