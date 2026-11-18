@@ -1,4 +1,6 @@
 import {
+  WEBHOOK_DELIVERY_ERROR_MAX,
+  WEBHOOK_DELIVERY_LIST_DEFAULT,
   WEBHOOK_DELIVERY_RETENTION_DAYS,
   WEBHOOK_MAX_PER_BOARD,
   canManageBoard,
@@ -7,6 +9,8 @@ import {
   type CreateWebhookResult,
   type DeleteWebhookRequest,
   type DeleteWebhookResult,
+  type ListWebhookDeliveriesRequest,
+  type ListWebhookDeliveriesResult,
   type RotateWebhookSecretRequest,
   type RotateWebhookSecretResult,
   type TestWebhookRequest,
@@ -39,12 +43,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const DISABLED_MESSAGE = 'Webhooks are not switched on for this site yet.';
 
-function assertEnabled(deps: ManageDeps): void {
+export function assertEnabled(deps: Pick<ManageDeps, 'enabled'>): void {
   if (!deps.enabled()) throw new HttpsError('failed-precondition', DISABLED_MESSAGE);
 }
 
 /** Board owners only. A board the caller can't read answers `not-found`, like the sharing callables. */
-async function requireBoardOwner(store: WebhookStore, boardId: string, uid: string): Promise<void> {
+export async function requireBoardOwner(
+  store: Pick<WebhookStore, 'getBoardAccess'>,
+  boardId: string,
+  uid: string,
+): Promise<void> {
   const record = await store.getBoardAccess(boardId);
   if (!record?.roles) throw new HttpsError('not-found', 'Board not found.');
   const role = resolveBoardRole(record.board, uid, record.roles[uid]);
@@ -194,4 +202,39 @@ export async function testWebhook(
     expiresAt: now + WEBHOOK_DELIVERY_RETENTION_DAYS * DAY_MS,
   });
   return { webhookId: input.webhookId, deliveryId };
+}
+
+/**
+ * The most recent deliveries of one webhook, for the board owner's delivery log. The queue is
+ * Functions-only, so this is the only way to see it. Rows carry no payload, no secret and no response
+ * body; a webhook that belongs to another board is `not-found`.
+ */
+export async function listWebhookDeliveries(
+  deps: ManageDeps,
+  uid: string,
+  input: ListWebhookDeliveriesRequest,
+): Promise<ListWebhookDeliveriesResult> {
+  assertEnabled(deps);
+  await requireBoardOwner(deps.store, input.boardId, uid);
+  await requireWebhook(deps, input.boardId, input.webhookId);
+  const rows = await deps.store.listDeliveries(
+    input.webhookId,
+    input.limit ?? WEBHOOK_DELIVERY_LIST_DEFAULT,
+  );
+  return {
+    deliveries: rows
+      // The webhook id is unique to its board, but check the delivery's own board as well.
+      .filter(({ doc }) => doc.boardId === input.boardId)
+      .map(({ id, doc }) => ({
+        id,
+        eventType: doc.eventType,
+        status: doc.status,
+        attempt: doc.attempt,
+        lastStatus: doc.lastStatus,
+        lastError:
+          doc.lastError === null ? null : doc.lastError.slice(0, WEBHOOK_DELIVERY_ERROR_MAX),
+        createdAt: doc.createdAt,
+        nextAttemptAt: doc.nextAttemptAt,
+      })),
+  };
 }

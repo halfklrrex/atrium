@@ -178,6 +178,16 @@ export function adminWebhookStore(firestore: Firestore): WebhookStore {
       });
     },
 
+    async listDeliveries(webhookId, limit) {
+      // Needs the composite index `webhookDeliveries (webhookId, createdAt desc)`.
+      const snap = await deliveries
+        .where('webhookId', '==', webhookId)
+        .orderBy('createdAt', 'desc')
+        .limit(limit)
+        .get();
+      return snap.docs.map((d) => ({ id: d.id, doc: fromFirestore<DeliveryRecord>(d)! }));
+    },
+
     async finishDelivery(id, result) {
       await deliveries.doc(id).update(toFirestore(result));
     },

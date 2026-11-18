@@ -107,4 +107,9 @@ export interface WebhookStore {
    */
   claimDelivery(id: string, now: number, leaseMs: number): Promise<DeliveryRecord | null>;
   finishDelivery(id: string, result: DeliveryFinish): Promise<void>;
+  /** The webhook's most recent deliveries, newest first (the owner's delivery log). */
+  listDeliveries(
+    webhookId: string,
+    limit: number,
+  ): Promise<Array<{ id: string; doc: DeliveryRecord }>>;
 }
