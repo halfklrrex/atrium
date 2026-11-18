@@ -31,6 +31,10 @@ const ME = USERS.member;
 
 const functionsOnly = {
   apiUsage: { path: ['apiUsage', 'tok1'], data: { day: '2026-11-18', calls: 1, writes: 0 } },
+  apiUsageHook: {
+    path: ['apiUsage', 'hook_hook1'],
+    data: { day: '2026-11-18', calls: 3, writes: 3 },
+  },
   apiIdempotency: {
     path: ['apiIdempotency', `${ME}_key1`],
     data: { hash: 'abc', state: 'done', status: 201, body: '{}' },
