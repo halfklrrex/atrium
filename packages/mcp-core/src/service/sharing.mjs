@@ -88,6 +88,7 @@ export function sharingService(h, serverOps) {
       const noun = target;
       const notFound = new McpUserError(
         `${noun.charAt(0).toUpperCase()}${noun.slice(1)} "${id}" was not found in your workspaces.`,
+        'not_found',
       );
       const entity = await client.getDoc(`${COLLECTIONS[target]}/${id}`);
       if (!entity || !(await roleOn(entity))) throw notFound;

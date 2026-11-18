@@ -527,6 +527,7 @@ export function dashboardsService(h) {
     const meta = await client.getDocMeta(`dashboards/${dashboardId}`);
     const notFound = new McpUserError(
       `Dashboard "${dashboardId}" was not found in your workspaces.`,
+      'not_found',
     );
     if (!meta) throw notFound;
     const role = await roleOn(meta.data);
@@ -536,13 +537,14 @@ export function dashboardsService(h) {
         meta.data.state === 'deleted'
           ? `Dashboard "${dashboardId}" is in the trash.`
           : `Dashboard "${dashboardId}" is ${meta.data.state}, not active.`,
+        'not_found',
       );
     }
     if (need === 'owner' && role !== 'owner') {
       throw new McpUserError('Only the dashboard owner can do this.');
     }
     if (need === 'edit' && !EDIT_ROLES.includes(role)) {
-      throw new McpUserError('You can only view this dashboard.');
+      throw new McpUserError('You can only view this dashboard.', 'forbidden');
     }
     return { id: dashboardId, dash: meta.data, updateTime: meta.updateTime, role };
   }
@@ -820,6 +822,7 @@ export function dashboardsService(h) {
       if (!CREATE_BOARD_ROLES.includes(ws.role)) {
         throw new McpUserError(
           `Creating a dashboard needs the member role or higher in workspace "${ws.name}" (you are a ${ws.role}).`,
+          'forbidden',
         );
       }
       const chosen = pickBoards(await workspaceBoards(ws.id), boards, `workspace "${ws.name}"`);

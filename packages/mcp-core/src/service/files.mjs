@@ -55,7 +55,7 @@ export function filesService(h, serverOps) {
     assertId(itemId, 'itemId');
     const item = await client.getDoc(`boards/${boardId}/items/${itemId}`);
     if (!item || item.state === 'deleted') {
-      throw new McpUserError(`Item "${itemId}" was not found on this board.`);
+      throw new McpUserError(`Item "${itemId}" was not found on this board.`, 'not_found');
     }
     return item;
   }
@@ -113,6 +113,7 @@ export function filesService(h, serverOps) {
     const notFound = () =>
       new McpUserError(
         `File "${fileId}" was not found on this item. Call atrium_list_files for its files.`,
+        'not_found',
       );
     if (updateId !== undefined) {
       assertId(updateId, 'updateId');

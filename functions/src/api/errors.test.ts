@@ -15,6 +15,20 @@ describe('toApiError', () => {
     expect(toApiError(new McpUserError(message))).toMatchObject({ status, code });
   });
 
+  it.each([
+    ['not_found', 404],
+    ['forbidden', 403],
+    ['invalid', 400],
+    ['conflict', 409],
+    ['read_only', 403],
+  ] as const)('uses the code %s before the wording', (code, status) => {
+    // The message would read as a 404 by wording; the code wins.
+    expect(toApiError(new McpUserError('Board "b" was not found.', code))).toMatchObject({
+      status,
+      code,
+    });
+  });
+
   it('maps zod issues, body parser errors and unknown errors', () => {
     const zod = z.object({ a: z.number() }).safeParse({ a: 'x' }).error!;
     expect(toApiError(zod)).toMatchObject({ status: 400, code: 'invalid' });

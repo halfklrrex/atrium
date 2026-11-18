@@ -32,7 +32,7 @@ export const errorBody = (code: ApiErrorCode, message: string) => ({ error: { co
 /**
  * Maps whatever a route threw to the API's error model. The service signals every caller-fixable
  * problem with `McpUserError` (one class, the message says which), so the class is told apart by its
- * wording: a missing board or item (and one outside the token's workspaces, which reads the same) is
+ * `code` (set at the throw sites) and, for a site without one, by its wording: a missing board or item (and one outside the token's workspaces, which reads the same) is
  * 404, a missing role is 403, anything else the caller can fix is 400. Everything unknown is a
  * generic 500 whose message never carries the cause.
  */
@@ -45,6 +45,21 @@ export function toApiError(error: unknown): ApiError {
   }
   if (error instanceof McpUserError) {
     const text = error.message;
+    switch (error.code) {
+      case 'not_found':
+        return new ApiError(404, 'not_found', text);
+      case 'forbidden':
+        return new ApiError(403, 'forbidden', text);
+      case 'conflict':
+        return new ApiError(409, 'conflict', text);
+      case 'read_only':
+        return new ApiError(403, 'read_only', text);
+      case 'invalid':
+        return new ApiError(400, 'invalid', text);
+      default:
+        break;
+    }
+    // Fallback for a throw site that has no code yet: the wording.
     if (/was not found|, not active\.$|is (archived|deleted)\.$/.test(text)) {
       return new ApiError(404, 'not_found', text);
     }
