@@ -131,6 +131,16 @@ export const MOBILE_SCREENS: MobileScreen[] = [
     },
   },
   {
+    name: 'developers',
+    title: 'Developer guide',
+    signedOut: true,
+    open: async (page) => {
+      await page.goto('/developers');
+      await expect(page.getByRole('heading', { name: 'Developers', level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Webhooks', level: 2 })).toBeVisible();
+    },
+  },
+  {
     name: 'home',
     title: 'Home',
     open: async (page) => {
@@ -405,6 +415,7 @@ export const MOBILE_SCREENS: MobileScreen[] = [
 export const BASELINE_SCREENS = [
   'login',
   'privacy',
+  'developers',
   'home',
   'workspace',
   'sidebar-drawer',

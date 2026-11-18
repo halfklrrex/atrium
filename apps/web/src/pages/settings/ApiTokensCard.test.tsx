@@ -1,6 +1,7 @@
 import type * as Callables from '../../lib/callables';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiTokenDoc } from '../../data';
 import { ApiTokensCard } from './ApiTokensCard';
@@ -77,13 +78,33 @@ describe('ApiTokensCard', () => {
 
   it('shows nothing but the header while loading', () => {
     mocks.loading = true;
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole('heading', { name: 'API tokens' })).toBeVisible();
     expect(screen.queryByText(/No API tokens/)).toBeNull();
   });
 
+  it('links to the developer guide', () => {
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'API and webhooks guide' })).toHaveAttribute(
+      'href',
+      '/developers',
+    );
+  });
+
   it('explains the empty state', () => {
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     expect(
       screen.getByText('No API tokens. Create one to use Atrium from scripts and Shortcuts.'),
     ).toBeVisible();
@@ -91,13 +112,21 @@ describe('ApiTokensCard', () => {
 
   it('says when the tokens could not load', () => {
     mocks.error = new Error('denied');
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load your API tokens.');
   });
 
   it('lists a token with its prefix, scopes and restriction', () => {
     mocks.tokens = [token({ scopes: ['read', 'write'], workspaceIds: ['w1', 'w2'] })];
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     expect(screen.getByText('Shortcuts')).toBeVisible();
     expect(screen.getByText('atrp_abc…')).toBeVisible();
     expect(
@@ -110,14 +139,22 @@ describe('ApiTokensCard', () => {
 
   it('dims an expired token and labels it', () => {
     mocks.tokens = [token({ expiresAt: at(Date.now() - DAY) })];
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     expect(screen.getByText('Shortcuts (Expired)')).toBeVisible();
     expect(screen.getByText(/· expired /)).toBeVisible();
   });
 
   it('asks before revoking, then revokes the token', async () => {
     mocks.tokens = [token()];
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Revoke Shortcuts' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Revoke Shortcuts?')).toBeVisible();
@@ -128,7 +165,11 @@ describe('ApiTokensCard', () => {
 
   it('does nothing when the revoke confirmation is canceled', async () => {
     mocks.tokens = [token()];
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Revoke Shortcuts' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
@@ -138,7 +179,11 @@ describe('ApiTokensCard', () => {
   it('shows why a revoke failed', async () => {
     mocks.tokens = [token()];
     mocks.revoke.mockRejectedValue({ code: 'functions/not-found', message: 'No such token.' });
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Revoke Shortcuts' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Revoke' }));
@@ -146,7 +191,11 @@ describe('ApiTokensCard', () => {
   });
 
   async function openCreate() {
-    render(<ApiTokensCard />);
+    render(
+      <MemoryRouter>
+        <ApiTokensCard />
+      </MemoryRouter>,
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Create token' }));
     return screen.findByRole('dialog');
   }

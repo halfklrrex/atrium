@@ -47,6 +47,11 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
                 </Link>
               </li>
               <li>
+                <Link to="/developers" onClick={onClose}>
+                  Developers
+                </Link>
+              </li>
+              <li>
                 <a href={links.licence} target="_blank" rel="noopener noreferrer">
                   Licence
                 </a>
