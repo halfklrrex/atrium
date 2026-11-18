@@ -71,8 +71,8 @@ export interface FirestoreClient {
 /** Who the service acts as: an Atrium user, optionally limited to one workspace. */
 export interface Actor {
   uid: string;
-  /** When set, only this workspace (and its boards) is visible; the actor must be a member. */
-  workspaceFilter?: string | null;
+  /** When set, only this workspace, or these (a restricted API token), and their boards are visible; an empty list shows none. */
+  workspaceFilter?: string | string[] | null;
 }
 
 export interface WorkspaceSummary {
@@ -157,6 +157,25 @@ export interface McpService {
     group?: string;
     values?: Record<string, unknown>;
   }): Promise<{ id: string; updated: string[] }>;
+  /** The board an item or subitem lives on; `boardId` is an optional hint. Missing and unreadable are the same error. */
+  locateItem(args: { itemId: string; boardId?: string }): Promise<{ boardId: string }>;
+  /** One item or subitem with cells keyed by column id (`values`) and title (`valuesByTitle`), subitems nested. */
+  getItem(args: { itemId: string; boardId?: string }): Promise<Record<string, unknown>>;
+  findItems(args: {
+    boardId: string;
+    name?: string;
+    group?: string;
+    where?: { column: string; equals: string | number | boolean | null }[];
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    total: number;
+    offset: number;
+    shown: number;
+    items: Record<string, unknown>[];
+    nextOffset?: number;
+    notes?: string[];
+  }>;
   restoreItem(args: { boardId: string; itemId: string }): Promise<unknown>;
   moveItem(args: {
     boardId: string;

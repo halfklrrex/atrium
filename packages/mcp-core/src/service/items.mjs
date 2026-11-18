@@ -99,8 +99,82 @@ export function itemsService(h) {
     readCell,
     prepareMirrors,
     boardMembers,
+    roleOn,
+    listWorkspaces,
   } = h;
+
+  /**
+   * The board an item (or subitem) lives on, for callers that only know the item id (the public API's
+   * `GET /items/{id}`). `boardId` is an optional hint that skips the search. Only boards the actor can
+   * read are looked at, so an item elsewhere reads exactly like a missing one.
+   */
+  async function locateItem({ itemId, boardId }) {
+    assertId(itemId, 'itemId');
+    const notFound = new McpUserError(`Item "${itemId}" was not found in your workspaces.`);
+    const isActive = (doc) => doc && doc.state === 'active';
+    if (boardId !== undefined) {
+      await loadBoard(boardId, 'read');
+      if (!isActive(await client.getDoc(`boards/${boardId}/items/${itemId}`))) throw notFound;
+      return { boardId };
+    }
+    const boardIds = [];
+    for (const ws of await listWorkspaces()) {
+      for (const row of await client.runQuery('boards', { workspaceId: ws.id })) {
+        if (row.data.state === 'active' && (await roleOn(row.data))) boardIds.push(row.id);
+      }
+    }
+    for (let i = 0; i < boardIds.length; i += 10) {
+      const chunk = boardIds.slice(i, i + 10);
+      const docs = await Promise.all(
+        chunk.map((b) => client.getDoc(`boards/${b}/items/${itemId}`)),
+      );
+      const at = docs.findIndex(isActive);
+      if (at >= 0) return { boardId: chunk[at] };
+    }
+    throw notFound;
+  }
+
   return {
+    locateItem,
+    /** One item or subitem with its cells keyed by column id and by title, subitems nested. */
+    async getItem({ itemId, boardId }) {
+      const located = await locateItem({ itemId, boardId });
+      const { board, workspaceId } = await loadBoard(located.boardId, 'read');
+      const item = await loadItem(located.boardId, itemId);
+      const isSub = Boolean(item.parentItemId);
+      const columns = columnsForItem(board, item);
+      const titles = new Map();
+      const taken = new Set();
+      for (const c of sortedByPosition(columns)) {
+        const dup = taken.has(c.title.toLowerCase());
+        taken.add(c.title.toLowerCase());
+        titles.set(c.id, dup ? `${c.title} (${c.id})` : c.title);
+      }
+      const context = await readContext(located.boardId, workspaceId, board.columns);
+      const subs = isSub ? [] : await subitemDocs(located.boardId, itemId);
+      const doc = { id: itemId, data: item };
+      await prepareMirrors(context, [doc, ...subs], board.columns);
+      const groupTitle = board.groups.find((g) => g.id === item.groupId)?.title ?? item.groupId;
+      const shape = (d, cols) => ({
+        id: d.id,
+        seq: d.data.seq ?? null,
+        name: d.data.name,
+        parentItemId: d.data.parentItemId ?? null,
+        createdAt: iso(d.data.createdAt),
+        updatedAt: iso(d.data.updatedAt),
+        values: readValues(context, d, cols, (c) => c.id),
+        valuesByTitle: readValues(context, d, cols, (c) => titles.get(c.id) ?? c.title),
+      });
+      return {
+        ...shape(doc, columns),
+        boardId: located.boardId,
+        workspaceId,
+        group: { id: item.groupId, title: groupTitle },
+        ...(subs.length > 0
+          ? { subitems: subs.map((s) => shape(s, subitemColumnsOf(board))) }
+          : {}),
+      };
+    },
     async findItems({ boardId, name, group, where = [], limit = 25, offset = 0 }) {
       const { board } = await loadBoard(boardId, 'read');
       const groupId = group !== undefined ? findGroup(board, group).id : null;
