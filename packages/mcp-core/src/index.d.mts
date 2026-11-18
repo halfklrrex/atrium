@@ -4,8 +4,11 @@
 import type { ZodType } from 'zod';
 
 /** A problem the caller can fix (bad input, wrong board, no permission). Shown as a plain message. */
+export type McpUserErrorCode = 'not_found' | 'forbidden' | 'invalid' | 'conflict' | 'read_only';
 export declare class McpUserError extends Error {
-  constructor(message: string);
+  /** A machine code the HTTP API maps to a status; absent on sites that have not set one. */
+  readonly code?: McpUserErrorCode;
+  constructor(message: string, code?: McpUserErrorCode);
 }
 
 /** Ids that tools accept: a plain id, never a path. */

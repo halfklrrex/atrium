@@ -44,7 +44,10 @@ export function docsService(h) {
   async function loadDoc(docId, need = 'edit', { states = ['active'] } = {}) {
     assertId(docId, 'docId');
     const meta = await client.getDocMeta(`docs/${docId}`);
-    const notFound = new McpUserError(`Doc "${docId}" was not found in your workspaces.`);
+    const notFound = new McpUserError(
+      `Doc "${docId}" was not found in your workspaces.`,
+      'not_found',
+    );
     if (!meta) throw notFound;
     const role = await roleOn(meta.data);
     if (!role) throw notFound;
@@ -53,13 +56,14 @@ export function docsService(h) {
         meta.data.state === 'deleted'
           ? `Doc "${docId}" is in the trash.`
           : `Doc "${docId}" is ${meta.data.state}, not active.`,
+        'not_found',
       );
     }
     if (need === 'owner' && role !== 'owner') {
       throw new McpUserError('Only the doc owner can do this.');
     }
     if (need === 'edit' && !EDIT_ROLES.includes(role)) {
-      throw new McpUserError('You can only view this doc.');
+      throw new McpUserError('You can only view this doc.', 'forbidden');
     }
     return { id: docId, doc: meta.data, updateTime: meta.updateTime, role };
   }
@@ -169,6 +173,7 @@ export function docsService(h) {
       if (!CREATE_BOARD_ROLES.includes(ws.role)) {
         throw new McpUserError(
           `Creating a doc needs the member role or higher in workspace "${ws.name}" (you are a ${ws.role}).`,
+          'forbidden',
         );
       }
       // The end of the workspace root: after the last root position among boards, dashboards and docs.

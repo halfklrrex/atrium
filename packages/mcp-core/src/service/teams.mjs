@@ -59,6 +59,7 @@ export function teamsService(h) {
     const names = [...teams.values()].map((t) => t.name).sort();
     throw new McpUserError(
       `Team "${text}" was not found.` + (names.length ? ` Teams: ${names.join(', ')}.` : ''),
+      'not_found',
     );
   }
 
@@ -191,7 +192,7 @@ export function teamsService(h) {
       const found = findTeam(teams, ref);
       const path = `workspaces/${ws.id}/teams/${found.id}`;
       const meta = await client.getDocMeta(path);
-      if (!meta) throw new McpUserError(`Team "${ref}" was not found.`);
+      if (!meta) throw new McpUserError(`Team "${ref}" was not found.`, 'not_found');
       const patch = {};
       if (name !== undefined) {
         patch.name = cleanName(name);

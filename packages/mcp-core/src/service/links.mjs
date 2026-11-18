@@ -28,7 +28,10 @@ function linkSession({ client, roleOn, itemsOf }) {
     }
     const found = await boardCache.get(boardId);
     if (!found) {
-      throw new McpUserError(`Board "${boardId}" was not found among the boards you can read.`);
+      throw new McpUserError(
+        `Board "${boardId}" was not found among the boards you can read.`,
+        'not_found',
+      );
     }
     return found;
   }
@@ -81,7 +84,11 @@ function linkSession({ client, roleOn, itemsOf }) {
           );
         }
         const found = await itemIn(boardId, itemId);
-        if (!found) throw new McpUserError(`Item "${itemId}" was not found on board "${boardId}".`);
+        if (!found)
+          throw new McpUserError(
+            `Item "${itemId}" was not found on board "${boardId}".`,
+            'not_found',
+          );
         linked.push({ boardId, itemId: found });
         continue;
       }
@@ -135,7 +142,7 @@ function linkSession({ client, roleOn, itemsOf }) {
       }
       const found = docs.find((d) => d.id === entry);
       const id = found ? found.id : await itemIn(boardId, entry.trim(), { parentItemId });
-      if (!id) throw new McpUserError(`Item "${entry}" was not found on this board.`);
+      if (!id) throw new McpUserError(`Item "${entry}" was not found on this board.`, 'not_found');
       const doc = docs.find((d) => d.id === id);
       if ((doc.data.parentItemId ?? null) !== parentItemId) {
         throw new McpUserError(

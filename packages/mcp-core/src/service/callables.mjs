@@ -90,6 +90,7 @@ export function callablesService(h, serverOps) {
       if (column.migrating) {
         throw new McpUserError(
           `Column "${column.title}" is changing type; try again in a few minutes.`,
+          'conflict',
         );
       }
       const target = String(toType ?? '').trim();
@@ -255,7 +256,7 @@ export function callablesService(h, serverOps) {
       assertId(itemId, 'itemId');
       const item = await client.getDoc(`boards/${boardId}/items/${itemId}`);
       if (!item || item.state === 'deleted') {
-        throw new McpUserError(`Item "${itemId}" was not found on this board.`);
+        throw new McpUserError(`Item "${itemId}" was not found on this board.`, 'not_found');
       }
       const done = await ops.stopTimeTracking({ uid, boardId, itemId, columnId: column.id });
       return {
