@@ -80,8 +80,10 @@ export const activityDataSchema = z.object({
   notified: z.number().int().min(0).max(10).optional(),
   /** Entries caused by an automation: the depth of the chain (a user action is 0, so absent). */
   depth: z.number().int().min(0).max(3).optional(),
-  /** `item_created` by a form submission. */
-  source: z.literal('form').optional(),
+  /** `item_created` by a form submission or an incoming webhook. */
+  source: z.enum(['form', 'webhook']).optional(),
+  /** `item_created` by an incoming webhook: the hook's name at that time. */
+  webhookName: text.optional(),
   /** `automation_ran` and entries an automation wrote: the automation id. */
   automationId: idSchema.optional(),
   /** `required_reverted`: titles of the required columns that were empty (max 10). */

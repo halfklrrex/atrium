@@ -47,3 +47,4 @@ export * from './slug';
 export * from './mcp';
 export * from './api-tokens';
 export * from './webhooks';
+export * from './incoming-hooks';
