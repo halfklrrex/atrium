@@ -17,22 +17,22 @@ const values = z.record(z.string(), z.unknown());
 const idParam = (raw: unknown) => String(raw);
 
 const newItem = z.strictObject({ name, group: group.optional(), values: values.optional() });
-const createBody = z.union([
+export const createBody = z.union([
   z.strictObject({ items: z.array(newItem).min(1).max(MAX_ITEMS) }),
   newItem,
 ]);
-const patchBody = z.strictObject({
+export const patchBody = z.strictObject({
   name: name.optional(),
   group: group.optional(),
   values: values.optional(),
 });
-const subitemsBody = z.strictObject({
+export const subitemsBody = z.strictObject({
   items: z
     .array(z.strictObject({ name, values: values.optional() }))
     .min(1)
     .max(MAX_ITEMS),
 });
-const updateBody = z.strictObject({ text: z.string().trim().min(1).max(50000) });
+export const updateBody = z.strictObject({ text: z.string().trim().min(1).max(50000) });
 const hint = z.object({ board: z.string().min(1).max(128).optional() });
 
 const parseBody = <T extends z.ZodType>(schema: T, body: unknown): z.infer<T> =>
