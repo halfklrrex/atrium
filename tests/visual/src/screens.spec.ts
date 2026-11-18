@@ -687,7 +687,10 @@ for (const theme of ['light', 'dark'] as const) {
           .getByRole('main')
           .getByRole('button', { name: 'Options for Product roadmap' })
           .click();
-        await page.getByRole('menuitem', { name: 'Integrations' }).click();
+        // Vibe menu items only react once the pointer has settled on them.
+        const entry = page.getByRole('menuitem', { name: 'Integrations' });
+        await entry.hover();
+        await entry.click({ delay: 100 });
         const dialog = page.getByRole('dialog', { name: 'Integrations' });
         await expect(dialog).toBeVisible();
         await expect(dialog.getByText('Team chat relay')).toBeVisible();
