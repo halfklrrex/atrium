@@ -4,7 +4,7 @@ import { WorkspaceTile } from './WorkspaceTile';
 import { findWorkspaceIcon } from './workspace-icons/icons';
 
 describe('WorkspaceTile', () => {
-  it('renders a Phosphor icon as an inline svg using the regular weight', () => {
+  it('renders a Phosphor icon as an inline svg using the fill weight', () => {
     const { container } = render(
       <WorkspaceTile icon="ph:rocket-launch" color="#579bfc" name="Rocket" />,
     );
@@ -14,7 +14,7 @@ describe('WorkspaceTile', () => {
     expect(svg).toHaveAttribute('fill', 'currentColor');
     expect(svg?.getAttribute('data-icon-key')).toBe('rocket-launch');
     const def = findWorkspaceIcon('ph:rocket-launch');
-    expect(svg?.querySelector('path')).toHaveAttribute('d', def?.regular);
+    expect(svg?.querySelector('path')).toHaveAttribute('d', def?.fill);
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
   });
 

@@ -5,8 +5,8 @@
   --atrium-icon-picker-height: 224px;
 
   /* Glyph size per workspace tile size. Whole pixels, and tile size minus glyph size is even, so the
-     icon sits on the pixel grid and the regular weight's strokes stay sharp (docs/specs/BUG-workspace-icons-blurry.md). */
-  --atrium-tile-glyph-xs: 14px;
+     icon sits on the pixel grid and the fill weight's cut-outs stay sharp (docs/specs/BUG-workspace-icons-blurry.md). */
+  --atrium-tile-glyph-xs: 16px;
   --atrium-tile-glyph-sm: 16px;
   --atrium-tile-glyph-md: 24px;
   --atrium-tile-glyph-lg: 32px;
