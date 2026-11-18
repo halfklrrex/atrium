@@ -1,4 +1,8 @@
 import {
+  INCOMING_HOOK_BASE_URL,
+  INCOMING_HOOK_BODY_MAX_BYTES,
+  INCOMING_HOOK_CALLS_PER_MINUTE,
+  INCOMING_HOOK_DAILY_CALLS,
   WEBHOOK_DISABLE_AFTER_FAILURES,
   WEBHOOK_PAYLOAD_MAX_BYTES,
   WEBHOOK_RETRY_DELAYS_MS,
@@ -213,3 +217,59 @@ export const WEBHOOK_FACTS = {
   payloadMaxKb: WEBHOOK_PAYLOAD_MAX_BYTES / 1024,
   signatureVersion: WEBHOOK_SIGNATURE_VERSION,
 };
+
+/** The incoming-webhook route (`functions/src/api/hooks.ts`); it is outside `/api/v1`, so it is not in API_ROUTES. */
+export const INCOMING_HOOK_PATH = '/api/hooks/{token}';
+
+export const INCOMING_HOOK_FACTS = {
+  callsPerMinute: INCOMING_HOOK_CALLS_PER_MINUTE,
+  dailyCalls: INCOMING_HOOK_DAILY_CALLS,
+  bodyMaxKb: INCOMING_HOOK_BODY_MAX_BYTES / 1024,
+};
+
+export const CURL_INCOMING_HOOK = `curl -X POST ${INCOMING_HOOK_BASE_URL}HOOK_ID.SECRET \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: order-1042" \\
+  -d '{ "name": "Order 1042", "group": "New", "values": { "Status": "Working on it", "Notes": "Paid by card" } }'`;
+
+export const INCOMING_HOOK_RESPONSE_EXAMPLE = `{ "id": "ITEM_ID", "boardId": "BOARD_ID" }`;
+
+export const INCOMING_HOOK_FIELDS: { name: string; meaning: string }[] = [
+  { name: 'name', meaning: 'Required. The new item name, 1 to 255 characters.' },
+  {
+    name: 'values',
+    meaning:
+      'Optional. An object of cell values keyed by column id or column title, in the same format as the API.',
+  },
+  {
+    name: 'group',
+    meaning:
+      "Optional. A group id or title. Without it the item goes to the hook's default group, or the board's first group.",
+  },
+];
+
+export const INCOMING_HOOK_RESPONSES: { status: string; meaning: string }[] = [
+  { status: '201', meaning: 'The item was created. The body is the new item id and the board id.' },
+  {
+    status: '400',
+    meaning:
+      'The body or a value is wrong, or you named a locked, calculated or Atrium-managed column. Nothing is created.',
+  },
+  {
+    status: '404',
+    meaning:
+      'Unknown, disabled or wrong URL. It is always the same answer, so a guess learns nothing.',
+  },
+  {
+    status: '409',
+    meaning:
+      'The data changed while the call ran, or its Idempotency-Key is still running. Try again.',
+  },
+  { status: '413', meaning: `The body is over ${INCOMING_HOOK_BODY_MAX_BYTES / 1024} KB.` },
+  { status: '422', meaning: 'The Idempotency-Key was used with a different body.' },
+  {
+    status: '429',
+    meaning: 'Over the limit for this hook. Wait for the Retry-After seconds.',
+  },
+  { status: '503', meaning: 'Incoming webhooks are switched off.' },
+];

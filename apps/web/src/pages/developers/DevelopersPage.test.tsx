@@ -1,4 +1,10 @@
-import { WEBHOOK_DISABLE_AFTER_FAILURES, WEBHOOK_RETRY_DELAYS_MS } from '@atrium/shared';
+import {
+  INCOMING_HOOK_BODY_MAX_BYTES,
+  INCOMING_HOOK_CALLS_PER_MINUTE,
+  INCOMING_HOOK_DAILY_CALLS,
+  WEBHOOK_DISABLE_AFTER_FAILURES,
+  WEBHOOK_RETRY_DELAYS_MS,
+} from '@atrium/shared';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
@@ -11,7 +17,11 @@ import {
   API_DAILY_WRITES,
   API_ERROR_CODES,
   API_ROUTES,
+  CURL_INCOMING_HOOK,
   CURL_READ,
+  INCOMING_HOOK_FACTS,
+  INCOMING_HOOK_PATH,
+  INCOMING_HOOK_RESPONSES,
   OPENAPI_PATH,
   VERIFY_NODE,
   VERIFY_PYTHON,
@@ -64,6 +74,7 @@ describe('DevelopersPage', () => {
       'Limits',
       'Idempotency',
       'Webhooks',
+      'Incoming webhooks',
       'OpenAPI',
     ]) {
       expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument();
@@ -114,6 +125,28 @@ describe('DevelopersPage', () => {
     expect(screen.getByText(/After 20 failed deliveries in a row/)).toBeInTheDocument();
     expect(screen.getByText(/must start with https:\/\//)).toBeInTheDocument();
     expect(screen.getByText(/more than 5 minutes old/)).toBeInTheDocument();
+  });
+
+  it('documents the incoming webhook route and pins its limits to the source', () => {
+    renderSignedOut();
+    expect([
+      INCOMING_HOOK_CALLS_PER_MINUTE,
+      INCOMING_HOOK_DAILY_CALLS,
+      INCOMING_HOOK_BODY_MAX_BYTES,
+    ]).toEqual([60, 1000, 64 * 1024]);
+    expect(INCOMING_HOOK_FACTS).toEqual({ callsPerMinute: 60, dailyCalls: 1000, bodyMaxKb: 64 });
+    expect(INCOMING_HOOK_PATH).toBe('/api/hooks/{token}');
+    expect(screen.getByText(/60 calls a minute and 1,000 a day per hook/)).toBeInTheDocument();
+    expect(screen.getByText(/The body can be 64 KB at most/)).toBeInTheDocument();
+    expect(screen.getByText(/Webhook: <name>/)).toBeInTheDocument();
+    expect(CURL_INCOMING_HOOK).toContain('/api/hooks/HOOK_ID.SECRET');
+    expect(CURL_INCOMING_HOOK).toContain('Idempotency-Key');
+    expect(screen.getByLabelText('curl: incoming webhook')).toBeInTheDocument();
+    const answers = screen.getByRole('region', { name: 'Incoming webhook answers' });
+    for (const { status } of INCOMING_HOOK_RESPONSES) expect(answers).toHaveTextContent(status);
+    expect(answers).toHaveTextContent('Unknown, disabled or wrong URL');
+    expect(answers).toHaveTextContent('64 KB');
+    expect(screen.getAllByText(/Board menu > Integrations/)).toHaveLength(2);
   });
 
   it('links to the OpenAPI document and back to the app', () => {
