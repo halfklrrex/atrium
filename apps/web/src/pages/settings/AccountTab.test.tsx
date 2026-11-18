@@ -16,6 +16,7 @@ vi.mock('../../auth/auth-context', () => ({
   }),
 }));
 vi.mock('./ConnectedAppsCard', () => ({ ConnectedAppsCard: () => <p>connected apps</p> }));
+vi.mock('./ApiTokensCard', () => ({ ApiTokensCard: () => <p>api tokens</p> }));
 vi.mock('../../auth/useIsSiteAdmin', () => ({ useIsSiteAdmin: () => mocks.admin }));
 
 describe('AccountTab', () => {
@@ -29,6 +30,12 @@ describe('AccountTab', () => {
     expect(screen.getByText('Google')).toBeVisible();
     expect(screen.getByText('avery@example.com')).toBeVisible();
     expect(screen.queryByText('You are a site admin.')).toBeNull();
+  });
+
+  it('shows the connected apps and API tokens cards', () => {
+    render(<AccountTab />);
+    expect(screen.getByText('connected apps')).toBeVisible();
+    expect(screen.getByText('api tokens')).toBeVisible();
   });
 
   it('says so for a site admin', () => {
