@@ -2375,3 +2375,50 @@ export async function removeFilesBoard(): Promise<void> {
   const firestore = adminDb();
   await firestore.recursiveDelete(firestore.collection('boards').doc(IDS.files));
 }
+
+/**
+ * P8 PR 7b: two outgoing webhooks (one healthy, one switched off after repeated failures) and one
+ * incoming hook on the roadmap board, as the Functions write them. Remove with `clearIntegrations`.
+ */
+export async function seedIntegrations(): Promise<void> {
+  const board = adminDb().collection('boards').doc(IDS.roadmap);
+  const batch = adminDb().batch();
+  batch.set(board.collection('webhooks').doc('visual-chat'), {
+    name: 'Team chat relay',
+    url: 'https://hooks.example.com/atrium/events',
+    events: ['*'],
+    enabled: true,
+    createdBy: AVERY.uid,
+    createdAt: ago(5 * DAY),
+    consecutiveFailures: 0,
+    disabledReason: null,
+    lastDeliveryAt: ago(2 * HOUR),
+  });
+  batch.set(board.collection('webhooks').doc('visual-audit'), {
+    name: 'Audit log',
+    url: 'https://audit.example.com/ingest',
+    events: ['item_created', 'item_deleted', 'value_changed'],
+    enabled: false,
+    createdBy: AVERY.uid,
+    createdAt: ago(4 * DAY),
+    consecutiveFailures: 20,
+    disabledReason: 'Turned off after 20 failed deliveries in a row',
+    lastDeliveryAt: ago(DAY),
+  });
+  batch.set(board.collection('incomingHooks').doc('visual-form-hook1234'), {
+    name: 'Contact form',
+    enabled: true,
+    createdBy: AVERY.uid,
+    createdAt: ago(3 * DAY),
+    lastUsedAt: ago(3 * HOUR),
+    defaultGroupId: 'roadmap-vf',
+  });
+  await batch.commit();
+}
+
+export async function clearIntegrations(): Promise<void> {
+  const firestore = adminDb();
+  const board = firestore.collection('boards').doc(IDS.roadmap);
+  await firestore.recursiveDelete(board.collection('webhooks'));
+  await firestore.recursiveDelete(board.collection('incomingHooks'));
+}

@@ -155,243 +155,245 @@ export function IntegrationsDialog({ boardId, onClose }: { boardId: string; onCl
 
   return (
     <>
-      <Modal
-        id="integrations-dialog"
-        show={overlay === null}
-        size="large"
-        aria-label="Integrations"
-        closeButtonAriaLabel="Close"
-        onClose={onClose}
-      >
-        <ModalBasicLayout>
-          <ModalHeader title="Integrations" />
-          <ModalContent>
-            <div className={styles.body}>
-              {featureOff ? (
-                <p className={styles.notice} role="status">
-                  {WEBHOOKS_OFF_NOTICE} The owner of this site can switch them on. Nothing here
-                  works until then.
-                </p>
-              ) : null}
-              {failure ? (
-                <p className={styles.errorText} role="alert">
-                  {failure}
-                </p>
-              ) : null}
-
-              <section className={styles.section} aria-labelledby="integrations-outgoing">
-                <div className={styles.sectionHeader}>
-                  <h3 id="integrations-outgoing" className={styles.sectionTitle}>
-                    Outgoing webhooks
-                  </h3>
-                  <Button
-                    kind="secondary"
-                    size="small"
-                    disabled={webhookAtLimit}
-                    onClick={() => setOverlay({ type: 'addWebhook' })}
-                  >
-                    Add webhook
-                  </Button>
-                </div>
-                <p className={styles.hint}>
-                  Atrium sends a signed message to your address when something happens on this
-                  board.{' '}
-                  {webhookAtLimit
-                    ? `A board can have ${WEBHOOK_MAX_PER_BOARD} webhooks. Delete one to add another.`
-                    : null}
-                </p>
-                {hooks.loading ? (
-                  <p className={styles.hint}>Loading webhooks…</p>
-                ) : hooks.error ? (
+      {overlay === null ? (
+        <Modal
+          id="integrations-dialog"
+          show
+          size="large"
+          aria-label="Integrations"
+          closeButtonAriaLabel="Close"
+          onClose={onClose}
+        >
+          <ModalBasicLayout>
+            <ModalHeader title="Integrations" />
+            <ModalContent>
+              <div className={styles.body}>
+                {featureOff ? (
+                  <p className={styles.notice} role="status">
+                    {WEBHOOKS_OFF_NOTICE} The owner of this site can switch them on. Nothing here
+                    works until then.
+                  </p>
+                ) : null}
+                {failure ? (
                   <p className={styles.errorText} role="alert">
-                    Could not load the webhooks.
+                    {failure}
                   </p>
-                ) : hooks.data.length === 0 ? (
-                  <p className={styles.hint}>
-                    No webhooks yet. Add one to send this board&apos;s events to your own address.
-                  </p>
-                ) : (
-                  <ul className={styles.list} aria-label="Outgoing webhooks">
-                    {hooks.data.map((hook) => (
-                      <li key={hook.id} className={styles.row}>
-                        <span className={styles.rowText}>
-                          <span className={styles.rowTitle}>{hook.name}</span>
-                          <span className={styles.rowMeta}>
-                            {urlHost(hook.url)} · {summarizeEvents(hook.events)}
-                          </span>
-                          <span
-                            className={
-                              hook.enabled
-                                ? styles.rowMeta
-                                : `${styles.rowMeta} ${styles.rowMetaWarn}`
-                            }
-                          >
-                            {describeWebhookStatus(hook)} · {hook.consecutiveFailures}{' '}
-                            {hook.consecutiveFailures === 1 ? 'failure' : 'failures'} in a row ·
-                            last delivery {describeTime(hook.lastDeliveryAt?.toMillis())}
-                          </span>
-                        </span>
-                        <span className={styles.rowActions}>
-                          <span className={styles.switchLabel}>
-                            <Toggle
-                              isSelected={hook.enabled}
-                              onChange={() => void setWebhookEnabled(hook, !hook.enabled)}
-                              aria-label={`Enable ${hook.name}`}
-                              areLabelsHidden
-                            />
-                          </span>
-                          <Button
-                            kind="tertiary"
-                            size="small"
-                            onClick={() => void testWebhook(hook)}
-                            aria-label={`Test ${hook.name}`}
-                          >
-                            Test
-                          </Button>
-                          <Button
-                            kind="tertiary"
-                            size="small"
-                            onClick={() => setOverlay({ type: 'deliveries', hook })}
-                            aria-label={`Deliveries of ${hook.name}`}
-                          >
-                            Deliveries
-                          </Button>
-                          <Button
-                            kind="tertiary"
-                            size="small"
-                            onClick={() => setOverlay({ type: 'editWebhook', hook })}
-                            aria-label={`Edit ${hook.name}`}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            kind="tertiary"
-                            size="small"
-                            onClick={() =>
-                              setOverlay({ type: 'confirmWebhook', action: 'rotate', hook })
-                            }
-                            aria-label={`Rotate secret of ${hook.name}`}
-                          >
-                            Rotate secret
-                          </Button>
-                          <Button
-                            kind="tertiary"
-                            size="small"
-                            onClick={() =>
-                              setOverlay({ type: 'confirmWebhook', action: 'delete', hook })
-                            }
-                            aria-label={`Delete ${hook.name}`}
-                          >
-                            Delete
-                          </Button>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+                ) : null}
 
-              <section className={styles.section} aria-labelledby="integrations-incoming">
-                <div className={styles.sectionHeader}>
-                  <h3 id="integrations-incoming" className={styles.sectionTitle}>
-                    Incoming webhooks
-                  </h3>
-                  <Button
-                    kind="secondary"
-                    size="small"
-                    disabled={incomingAtLimit}
-                    onClick={() => setOverlay({ type: 'addIncoming' })}
-                  >
-                    Add incoming webhook
-                  </Button>
-                </div>
-                <p className={styles.hint}>
-                  Anything that can send a web request can add an item to this board. Treat the URL
-                  like a password.{' '}
-                  {incomingAtLimit
-                    ? `A board can have ${INCOMING_HOOK_MAX_PER_BOARD} incoming webhooks. Delete one to add another.`
-                    : null}
-                </p>
-                {incoming.loading ? (
-                  <p className={styles.hint}>Loading webhooks…</p>
-                ) : incoming.error ? (
-                  <p className={styles.errorText} role="alert">
-                    Could not load the incoming webhooks.
-                  </p>
-                ) : incoming.data.length === 0 ? (
+                <section className={styles.section} aria-labelledby="integrations-outgoing">
+                  <div className={styles.sectionHeader}>
+                    <h3 id="integrations-outgoing" className={styles.sectionTitle}>
+                      Outgoing webhooks
+                    </h3>
+                    <Button
+                      kind="secondary"
+                      size="small"
+                      disabled={webhookAtLimit}
+                      onClick={() => setOverlay({ type: 'addWebhook' })}
+                    >
+                      Add webhook
+                    </Button>
+                  </div>
                   <p className={styles.hint}>
-                    No incoming webhooks yet. Add one to create items from other tools.
+                    Atrium sends a signed message to your address when something happens on this
+                    board.{' '}
+                    {webhookAtLimit
+                      ? `A board can have ${WEBHOOK_MAX_PER_BOARD} webhooks. Delete one to add another.`
+                      : null}
                   </p>
-                ) : (
-                  <ul className={styles.list} aria-label="Incoming webhooks">
-                    {incoming.data.map((hook) => (
-                      <li key={hook.id} className={styles.row}>
-                        <span className={styles.rowText}>
-                          <span className={styles.rowTitle}>
-                            {hook.name}{' '}
-                            <span className={styles.rowMeta}>(…{shortId(hook.id)})</span>
+                  {hooks.loading ? (
+                    <p className={styles.hint}>Loading webhooks…</p>
+                  ) : hooks.error ? (
+                    <p className={styles.errorText} role="alert">
+                      Could not load the webhooks.
+                    </p>
+                  ) : hooks.data.length === 0 ? (
+                    <p className={styles.hint}>
+                      No webhooks yet. Add one to send this board&apos;s events to your own address.
+                    </p>
+                  ) : (
+                    <ul className={styles.list} aria-label="Outgoing webhooks">
+                      {hooks.data.map((hook) => (
+                        <li key={hook.id} className={styles.row}>
+                          <span className={styles.rowText}>
+                            <span className={styles.rowTitle}>{hook.name}</span>
+                            <span className={styles.rowMeta}>
+                              {urlHost(hook.url)} · {summarizeEvents(hook.events)}
+                            </span>
+                            <span
+                              className={
+                                hook.enabled
+                                  ? styles.rowMeta
+                                  : `${styles.rowMeta} ${styles.rowMetaWarn}`
+                              }
+                            >
+                              {describeWebhookStatus(hook)} · {hook.consecutiveFailures}{' '}
+                              {hook.consecutiveFailures === 1 ? 'failure' : 'failures'} in a row ·
+                              last delivery {describeTime(hook.lastDeliveryAt?.toMillis())}
+                            </span>
                           </span>
-                          <span className={styles.rowMeta}>
-                            {hook.enabled ? 'Active' : 'Disabled'} · last used{' '}
-                            {describeTime(hook.lastUsedAt?.toMillis())} · adds to{' '}
-                            {groupTitle(hook.defaultGroupId)}
+                          <span className={styles.rowActions}>
+                            <span className={styles.switchLabel}>
+                              <Toggle
+                                isSelected={hook.enabled}
+                                onChange={() => void setWebhookEnabled(hook, !hook.enabled)}
+                                aria-label={`Enable ${hook.name}`}
+                                areLabelsHidden
+                              />
+                            </span>
+                            <Button
+                              kind="tertiary"
+                              size="small"
+                              onClick={() => void testWebhook(hook)}
+                              aria-label={`Test ${hook.name}`}
+                            >
+                              Test
+                            </Button>
+                            <Button
+                              kind="tertiary"
+                              size="small"
+                              onClick={() => setOverlay({ type: 'deliveries', hook })}
+                              aria-label={`Deliveries of ${hook.name}`}
+                            >
+                              Deliveries
+                            </Button>
+                            <Button
+                              kind="tertiary"
+                              size="small"
+                              onClick={() => setOverlay({ type: 'editWebhook', hook })}
+                              aria-label={`Edit ${hook.name}`}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              kind="tertiary"
+                              size="small"
+                              onClick={() =>
+                                setOverlay({ type: 'confirmWebhook', action: 'rotate', hook })
+                              }
+                              aria-label={`Rotate secret of ${hook.name}`}
+                            >
+                              Rotate secret
+                            </Button>
+                            <Button
+                              kind="tertiary"
+                              size="small"
+                              onClick={() =>
+                                setOverlay({ type: 'confirmWebhook', action: 'delete', hook })
+                              }
+                              aria-label={`Delete ${hook.name}`}
+                            >
+                              Delete
+                            </Button>
                           </span>
-                        </span>
-                        <span className={styles.rowActions}>
-                          <span className={styles.switchLabel}>
-                            <Toggle
-                              isSelected={hook.enabled}
-                              onChange={() => void setIncomingEnabled(hook, !hook.enabled)}
-                              aria-label={`Enable ${hook.name}`}
-                              areLabelsHidden
-                            />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                <section className={styles.section} aria-labelledby="integrations-incoming">
+                  <div className={styles.sectionHeader}>
+                    <h3 id="integrations-incoming" className={styles.sectionTitle}>
+                      Incoming webhooks
+                    </h3>
+                    <Button
+                      kind="secondary"
+                      size="small"
+                      disabled={incomingAtLimit}
+                      onClick={() => setOverlay({ type: 'addIncoming' })}
+                    >
+                      Add incoming webhook
+                    </Button>
+                  </div>
+                  <p className={styles.hint}>
+                    Anything that can send a web request can add an item to this board. Treat the
+                    URL like a password.{' '}
+                    {incomingAtLimit
+                      ? `A board can have ${INCOMING_HOOK_MAX_PER_BOARD} incoming webhooks. Delete one to add another.`
+                      : null}
+                  </p>
+                  {incoming.loading ? (
+                    <p className={styles.hint}>Loading webhooks…</p>
+                  ) : incoming.error ? (
+                    <p className={styles.errorText} role="alert">
+                      Could not load the incoming webhooks.
+                    </p>
+                  ) : incoming.data.length === 0 ? (
+                    <p className={styles.hint}>
+                      No incoming webhooks yet. Add one to create items from other tools.
+                    </p>
+                  ) : (
+                    <ul className={styles.list} aria-label="Incoming webhooks">
+                      {incoming.data.map((hook) => (
+                        <li key={hook.id} className={styles.row}>
+                          <span className={styles.rowText}>
+                            <span className={styles.rowTitle}>
+                              {hook.name}{' '}
+                              <span className={styles.rowMeta}>(…{shortId(hook.id)})</span>
+                            </span>
+                            <span className={styles.rowMeta}>
+                              {hook.enabled ? 'Active' : 'Disabled'} · last used{' '}
+                              {describeTime(hook.lastUsedAt?.toMillis())} · adds to{' '}
+                              {groupTitle(hook.defaultGroupId)}
+                            </span>
                           </span>
-                          <Button
-                            kind="tertiary"
-                            size="small"
-                            onClick={() => setOverlay({ type: 'editIncoming', hook })}
-                            aria-label={`Edit ${hook.name}`}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            kind="tertiary"
-                            size="small"
-                            onClick={() =>
-                              setOverlay({ type: 'confirmIncoming', action: 'rotate', hook })
-                            }
-                            aria-label={`Rotate URL of ${hook.name}`}
-                          >
-                            Rotate URL
-                          </Button>
-                          <Button
-                            kind="tertiary"
-                            size="small"
-                            onClick={() =>
-                              setOverlay({ type: 'confirmIncoming', action: 'delete', hook })
-                            }
-                            aria-label={`Delete ${hook.name}`}
-                          >
-                            Delete
-                          </Button>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p className={styles.hint}>
-                  Send a POST with a JSON body. <code>name</code> is the item name;{' '}
-                  <code>values</code> sets columns by name or id; <code>group</code> is optional.
-                </p>
-                <pre className={styles.code} aria-label="Example request">
-                  {CURL_EXAMPLE}
-                </pre>
-              </section>
-            </div>
-          </ModalContent>
-        </ModalBasicLayout>
-        <ModalFooter primaryButton={{ text: 'Done', onClick: onClose }} />
-      </Modal>
+                          <span className={styles.rowActions}>
+                            <span className={styles.switchLabel}>
+                              <Toggle
+                                isSelected={hook.enabled}
+                                onChange={() => void setIncomingEnabled(hook, !hook.enabled)}
+                                aria-label={`Enable ${hook.name}`}
+                                areLabelsHidden
+                              />
+                            </span>
+                            <Button
+                              kind="tertiary"
+                              size="small"
+                              onClick={() => setOverlay({ type: 'editIncoming', hook })}
+                              aria-label={`Edit ${hook.name}`}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              kind="tertiary"
+                              size="small"
+                              onClick={() =>
+                                setOverlay({ type: 'confirmIncoming', action: 'rotate', hook })
+                              }
+                              aria-label={`Rotate URL of ${hook.name}`}
+                            >
+                              Rotate URL
+                            </Button>
+                            <Button
+                              kind="tertiary"
+                              size="small"
+                              onClick={() =>
+                                setOverlay({ type: 'confirmIncoming', action: 'delete', hook })
+                              }
+                              aria-label={`Delete ${hook.name}`}
+                            >
+                              Delete
+                            </Button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className={styles.hint}>
+                    Send a POST with a JSON body. <code>name</code> is the item name;{' '}
+                    <code>values</code> sets columns by name or id; <code>group</code> is optional.
+                  </p>
+                  <pre className={styles.code} aria-label="Example request">
+                    {CURL_EXAMPLE}
+                  </pre>
+                </section>
+              </div>
+            </ModalContent>
+          </ModalBasicLayout>
+          <ModalFooter primaryButton={{ text: 'Done', onClick: onClose }} />
+        </Modal>
+      ) : null}
 
       {overlay?.type === 'addWebhook' ? (
         <WebhookFormDialog
