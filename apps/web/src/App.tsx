@@ -14,6 +14,7 @@ import { InvitePage } from './pages/InvitePage';
 import { LoginPage } from './pages/LoginPage';
 import { MyWorkPage } from './pages/MyWorkPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { DevelopersPage } from './pages/developers/DevelopersPage';
 import { PrivacyPage } from './pages/privacy/PrivacyPage';
 import { SettingsIndexRoute } from './pages/settings/SettingsIndex';
 import { SettingsPage } from './pages/settings/SettingsPage';
@@ -26,6 +27,7 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/developers" element={<DevelopersPage />} />
       <Route element={<RequireAuth />}>
         <Route path="forms/:boardId/:viewId" element={<FormPage />} />
         <Route path="connect" element={<ConnectPage />} />

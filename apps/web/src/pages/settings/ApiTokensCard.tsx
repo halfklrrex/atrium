@@ -1,5 +1,6 @@
 import { Button } from '@vibe/core';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { ConfirmDialog } from '../../components/board-table/ConfirmDialog';
 import { useApiTokens, useWorkspaces, type ApiTokenDoc } from '../../data';
@@ -75,6 +76,9 @@ export function ApiTokensCard() {
           })}
         </ul>
       )}
+      <p className={styles.rowValue}>
+        <Link to="/developers">API and webhooks guide</Link>
+      </p>
       {failure ? (
         <p className={styles.rowValue} role="alert">
           {failure}

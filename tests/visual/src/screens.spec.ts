@@ -139,6 +139,14 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `privacy-${theme}`);
       });
 
+      test('developers', async ({ page }) => {
+        await page.goto('/developers');
+        await expect(page.getByRole('heading', { name: 'Developers', level: 1 })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Webhooks', level: 2 })).toBeVisible();
+        await expect(page).toHaveTitle('Developers · Atrium');
+        await shoot(page, `developers-${theme}`);
+      });
+
       test('login logo is a PNG srcset image on a 3x screen', async ({ browser }) => {
         // WebKit blurs SVG filter art, so the logo ships as 1x/2x/3x PNGs (no screenshot here).
         const context = await browser.newContext({
