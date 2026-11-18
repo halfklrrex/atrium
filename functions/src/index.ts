@@ -65,3 +65,4 @@ export { purgeOldNotifications } from './scheduled/purgeOldNotifications';
 export { onActivityCreated } from './triggers/onActivityCreated';
 export { onAutomationWritten } from './triggers/onAutomationWritten';
 export { mcp } from './mcp';
+export { api } from './api';

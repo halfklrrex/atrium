@@ -6,6 +6,7 @@
     "types": ["node"],
     "paths": {
       "@atrium/shared": ["../packages/shared/src/index.ts"],
+      "@atrium/mcp-core/fake-client": ["../packages/mcp-core/src/fake-client.d.mts"],
       "@atrium/mcp-core": [
         "../packages/mcp-core/src/index.d.mts",
         "../packages/mcp-core/src/index.mjs"

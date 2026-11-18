@@ -12,7 +12,10 @@
       "types": "./src/index.d.mts",
       "default": "./src/index.mjs"
     },
-    "./fake-client": "./src/fake-client.mjs"
+    "./fake-client": {
+      "types": "./src/fake-client.d.mts",
+      "default": "./src/fake-client.mjs"
+    }
   },
   "sideEffects": false,
   "dependencies": {
