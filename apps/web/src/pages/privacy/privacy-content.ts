@@ -14,6 +14,8 @@ export const PRIVACY_LAST_UPDATED = '18 November 2026';
 export const TRASH_RETENTION_DAYS = 30;
 /** The Firestore scheduled backup of the app database keeps each backup 98 days (retention 8467200s). */
 export const BACKUP_RETENTION_DAYS = 98;
+/** `system/apiAudit/entries` carries `expiresAt` = 90 days (functions/src/api/audit.ts, `API_AUDIT_TTL_MS`). */
+export const API_AUDIT_RETENTION_DAYS = 90;
 /** Cloud Logging `_Default` bucket retention (`gcloud logging buckets describe _Default`). */
 export const LOG_RETENTION_DAYS = 30;
 
@@ -45,6 +47,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
       'API tokens, only if you create them in Settings: the token itself is stored only as a hash, so it cannot be read back; Atrium keeps its name, its first few characters, its access (read or write), the workspaces it is limited to, when it was created, when it expires and when it was last used, until you revoke it or it expires.',
       'Push notifications, only if you turn them on for a device: a device token, the browser and device type, and when it was last used.',
       `Messages you send to the site admins (feedback, appeals, complaints and data requests): the text, your name, email and photo link. Closed conversations are deleted after ${INBOX_LIMITS.retentionDays} days.`,
+      `If you use the Atrium API with a personal access token, each call is logged for ${API_AUDIT_RETENTION_DAYS} days: the route, the board id, the result, the time, the token id and your user id, but never the request body and never the token itself.`,
     ],
   },
   {
