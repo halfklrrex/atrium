@@ -247,7 +247,16 @@ export function buildColumn({ title, type, settings, existingColumns, newId = ne
 
 // ---- items -------------------------------------------------------------------------------------
 
-export function buildItemDoc({ uid, name, groupId, position, values, now, parentItemId = null }) {
+export function buildItemDoc({
+  uid,
+  name,
+  groupId,
+  position,
+  values,
+  now,
+  parentItemId = null,
+  via,
+}) {
   const stamp = ts(now);
   const doc = {
     name: name.trim(),
@@ -261,6 +270,8 @@ export function buildItemDoc({ uid, name, groupId, position, values, now, parent
     createdBy: uid,
     updatedAt: stamp,
     updatedBy: uid,
+    // Functions-only marker (rules refuse it from clients); set for items an incoming webhook creates.
+    ...(via ? { updatedVia: via } : {}),
   };
   parseOrThrow(itemSchema, doc, 'The item');
   return doc;
