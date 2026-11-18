@@ -125,6 +125,9 @@ function setup(options: { locked?: boolean; types?: string[] } = {}) {
     putObject: async (path, bytes, contentType) => {
       objects.set(path, { bytes, contentType });
     },
+    runSharing: async () => {
+      throw new Error('sharing is not used by the file tests');
+    },
   });
   return { tx, ops, objects, deleted, signed };
 }

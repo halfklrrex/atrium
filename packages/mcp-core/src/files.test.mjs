@@ -156,6 +156,7 @@ test('hosted-only tools are registered only when the service has serverOps', () 
   assert.deepEqual(serverOnly.sort(), [
     'atrium_delete_file',
     'atrium_get_file_link',
+    'atrium_set_access',
     'atrium_upload_file',
   ]);
   assert.equal(hosted.length, all.length);

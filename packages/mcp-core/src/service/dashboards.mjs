@@ -792,6 +792,7 @@ export function dashboardsService(h) {
         name: dash.name,
         kind: dash.kind,
         role,
+        access: await h.accessEntries(dash),
         updatedAt: iso(dash.updatedAt),
         boards: boardIds.map((id) => ({
           id,

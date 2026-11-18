@@ -362,6 +362,14 @@ export interface McpService {
     dataBase64: string;
   }): Promise<Record<string, unknown>>;
   deleteFile(args: FileTarget): Promise<Record<string, unknown>>;
+  setAccess(args: {
+    target: 'board' | 'doc' | 'dashboard';
+    id: string;
+    kind?: 'main' | 'private' | 'shareable';
+    person?: { who: string; role: 'owner' | 'editor' | 'viewer' | null };
+    dryRun?: boolean;
+    allowDataLoss?: boolean;
+  }): Promise<Record<string, unknown>>;
 }
 
 /** Which file a tool means: a Files column cell, or an update or reply attachment. */
@@ -389,7 +397,29 @@ export interface StoredFile {
  * provides them (`functions/src/mcp/server-ops.ts`); every method acts as `uid`, runs the callables'
  * own permission checks again and rejects with `McpUserError` for a problem the caller can fix.
  */
+export interface SharingState {
+  kind: 'main' | 'private' | 'shareable';
+  access: Record<string, 'owner' | 'editor' | 'viewer'>;
+}
+
 export interface ServerOps {
+  /**
+   * Changes a board, doc or dashboard's sharing with the sharing callables' library code, acting as
+   * `uid`. `dryRun` runs the same checks and reports the states without writing. `roles` is the
+   * workspace's member roles (who counts as a member).
+   */
+  setAccess(args: {
+    uid: string;
+    target: 'board' | 'doc' | 'dashboard';
+    id: string;
+    kind?: 'main' | 'private' | 'shareable';
+    person?: { uid: string; role: 'owner' | 'editor' | 'viewer' | null };
+    dryRun?: boolean;
+  }): Promise<{
+    before: SharingState;
+    after: SharingState;
+    roles: Record<string, 'owner' | 'admin' | 'member' | 'viewer'>;
+  }>;
   getFileLink(args: {
     uid: string;
     boardId: string;

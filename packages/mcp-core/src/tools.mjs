@@ -14,6 +14,7 @@ import { fileTools } from './tools/files.mjs';
 import { itemTools } from './tools/items.mjs';
 import { memberTools } from './tools/members.mjs';
 import { myWorkTools } from './tools/mywork.mjs';
+import { sharingTools } from './tools/sharing.mjs';
 import { teamTools } from './tools/teams.mjs';
 import { updateTools } from './tools/updates.mjs';
 import { viewTools } from './tools/views.mjs';
@@ -31,6 +32,7 @@ export const DOMAINS = {
   columns: columnTools,
   dashboards: dashboardTools,
   files: fileTools,
+  sharing: sharingTools,
 };
 
 /** The registration order of the tools that existed before the split (a parity test pins it). */

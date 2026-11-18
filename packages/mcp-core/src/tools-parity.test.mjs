@@ -124,6 +124,7 @@ const DOMAIN_TOOLS = {
     'atrium_restore_dashboard',
   ],
   files: ['atrium_list_files', 'atrium_get_file_link', 'atrium_upload_file', 'atrium_delete_file'],
+  sharing: ['atrium_set_access'],
 };
 
 test('every domain file lists exactly the tools asserted here, and every tool is in one file', () => {

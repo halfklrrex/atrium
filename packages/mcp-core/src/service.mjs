@@ -31,6 +31,7 @@ import { filesService } from './service/files.mjs';
 import { itemsService } from './service/items.mjs';
 import { membersService } from './service/members.mjs';
 import { myWorkService } from './service/mywork.mjs';
+import { sharingService } from './service/sharing.mjs';
 import { teamsService } from './service/teams.mjs';
 import { updatesService } from './service/updates.mjs';
 import { viewsService } from './service/views.mjs';
@@ -387,6 +388,19 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     return out;
   }
 
+  /**
+   * Who is listed on a board, doc or dashboard (its own `access` map; no extra rights needed):
+   * `{ uid, name, role }` by name. A main object lists only the people given a role explicitly.
+   */
+  async function accessEntries(entity) {
+    const entries = Object.entries(entity.access ?? {});
+    if (entries.length === 0) return [];
+    const profiles = await memberProfiles(entity.workspaceId);
+    return entries
+      .map(([who, role]) => ({ uid: who, name: memberName(profiles.get(who), who), role }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.uid.localeCompare(b.uid));
+  }
+
   const iso = (value) => (value instanceof Date ? value.toISOString() : null);
 
   const sortedPositions = (docs) => docs.map((d) => d.data.position);
@@ -432,6 +446,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     readValues,
     prepareMirrors,
     boardMembers,
+    accessEntries,
     iso,
     sortedPositions,
     subitemDocs,
@@ -452,6 +467,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     ...teamsService(helpers),
     ...viewsService(helpers),
     ...filesService(helpers, serverOps),
+    ...sharingService(helpers, serverOps),
     ...columnsApi,
     ...dashboardsService(helpers),
     async verify() {

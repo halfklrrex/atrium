@@ -146,6 +146,7 @@ export function docsService(h) {
         name: loaded.doc.name,
         kind: loaded.doc.kind,
         role: loaded.role,
+        access: await h.accessEntries(loaded.doc),
         rev: body?.rev ?? 0,
         updatedAt: iso(body?.updatedAt ?? loaded.doc.updatedAt),
         updatedBy: body?.updatedBy
