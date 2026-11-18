@@ -105,10 +105,10 @@ accessUids: string[]                       // always equals keys(access); rule-e
 position: string                           // fractional index within its folder (or the workspace root)
 icon: string|null                          // reserved, null for now
 columns: ColumnDef[]                       // ordered by position
-subitemColumns: ColumnDef[]
+subitemColumns: ColumnDef[]               // retired (SUBITEMS-as-items): always []. Subitems use `columns`; the rules refuse any other value
 groups: GroupDef[]                         // { id, title, color, position, collapsed? }
 itemTerminology: string                    // "item", "task", ...
-derivedColumnIds: string[]                 // ids of derived columns (columns + subitemColumns). Written ONLY by the onBoardColumnsWritten function; clients create boards with [] and can never change it. Older boards may lack it (reads as [])
+derivedColumnIds: string[]                 // ids of derived columns (columns; subitems share them). Written ONLY by the onBoardColumnsWritten function; clients create boards with [] and can never change it. Older boards may lack it (reads as [])
 serverManagedColumnIds: string[]           // FW2: ids of server-managed columns (time tracking, files, buttons), written only by Cloud Functions. Same rules and same writer as derivedColumnIds
 state: 'active'|'archived'|'deleted', deletedAt|null
 createdAt, createdBy, updatedAt
@@ -121,13 +121,13 @@ Columns and groups live inside the board document. They're small, change togethe
 ### 5.5 `boards/{boardId}/items/{itemId}`
 ```
 name, groupId, position,
-parentItemId: string|null                  // non-null ⇒ subitem (uses board.subitemColumns)
+parentItemId: string|null                  // non-null ⇒ subitem (uses the board's `columns`, like an item)
 values: { [columnId]: ColumnValue }        // monday-compatible JSON per column type
 state: 'active'|'archived'|'deleted', deletedAt|null
 createdAt, createdBy, updatedAt, updatedBy
 seq?: int                                  // account-wide item number (1, 2, 3, ...; never reused). Server-assigned by onItemCreated; clients can't write it. Drives the Item ID column
 boardSeq?: int                             // per-board creation number (subitems have their own sequence). Server-assigned; drives the Auto number column
-assigneeUids?: string[]                    // sorted unique uids of the `person` entries across the board's People columns (subitemColumns for subitems). Server-maintained index for My Work; clients can't write it
+assigneeUids?: string[]                    // sorted unique uids of the `person` entries across the board's People columns (subitems use the same columns). Server-maintained index for My Work; clients can't write it
 nameTokens?: string[]                      // search tokens of `name` (decision 4 below). Server-maintained; clients can't write it
 description?: { doc, text } | null         // rich-text description (ProseMirror JSON plus capped plain text for search)
 descriptionImages?: { [fileId]: { name, size, mimeType, uploadedAt, uploadedBy } }   // images used in the description. Functions-only
@@ -155,7 +155,7 @@ descriptionImages?: { [fileId]: { name, size, mimeType, uploadedAt, uploadedBy }
 
 **Item index fields (P3 My Work and global search).** Firestore cannot find "items assigned to me" from `values.<colId>.personsAndTeams[]` (column ids differ per board and the uid is nested in an array of maps), nor search names. So the `onItemPeopleAssigned` trigger (name kept to avoid a delete and recreate on deploy) maintains two flat arrays on every item through the Admin SDK, as metadata: no `updatedAt` / `updatedBy`. Spec: `docs/specs/P3-my-work-global-search.md`.
 
-- **`assigneeUids`**: sorted unique uids of the `kind: 'person'` entries across the board's People columns (`subitemColumns` for subitems). **`nameTokens`**: lowercase, diacritics stripped (NFKD), split on anything that is not a letter or digit, every prefix of each word from 2 to 15 characters, unique, at most 100. The pure functions are in `packages/shared/src/item-index.ts` (`assigneeUidsOf`, `nameTokensOf`, `searchWordsOf`, `itemIndexFields`, `ITEM_INDEX_LIMITS`).
+- **`assigneeUids`**: sorted unique uids of the `kind: 'person'` entries across the board's People columns (subitems use the same columns). **`nameTokens`**: lowercase, diacritics stripped (NFKD), split on anything that is not a letter or digit, every prefix of each word from 2 to 15 characters, unique, at most 100. The pure functions are in `packages/shared/src/item-index.ts` (`assigneeUidsOf`, `nameTokensOf`, `searchWordsOf`, `itemIndexFields`, `ITEM_INDEX_LIMITS`).
 - **Server-managed, not derived:** the fields are real stored values written only by Functions. They are in neither item key list of `firestore.rules`, so clients can't create, change or remove them (no rules change; `tests/rules/src/item-index.test.ts`). Duplicating items never copies them: new items are built from explicit keys. They read as `[]` while absent.
 - **Maintenance** (`syncItemIndexFields`, `functions/src/lib/item-index.ts`): returns early unless `name` or `values` changed or a field is missing; reads the board only when `values` changed (or `assigneeUids` is missing), sharing that single read with the assigned notifications (`withSharedBoardRead`); writes both fields with one `update` only when either differs, with a `lastUpdateTime` precondition so a late event can't overwrite the index of a newer write (that write has its own event). Its own write retriggers the function and finds nothing to do. Deleted items are skipped (restoring one heals it).
 - **Index hint, not authority:** the web recomputes `assigneeUids` from the item's values and the board's current columns and drops rows that no longer match. A deleted People column leaves a stale hint until the item's next write.
@@ -259,7 +259,7 @@ type ValidationResult = { ok: true } | { ok: false; message: string };
 - **`validateValue(value, settings, ctx?)`** is optional and pure: rules beyond `valueSchema` that need the settings (for example rating <= limit). It runs only for non-empty values that already passed the schema.
 - **Registry helpers:** `isDerived(type)`, `computeValue(def, ctx)` (null for unknown or non-derived types and for invalid settings), `validateCell(def, value, ctx?)` and `derivedColumnIds(columns)`. `validateCell` is the one gate for writes: it **rejects every value for a derived type, `null` included**, with "This column is calculated automatically"; otherwise it runs `valueSchema` and then `validateValue`. Empty cells are valid. Unknown types are refused with a message instead of throwing.
 - **Client:** `tableActions.setCell` calls `validateCell` first and shows a refusal in an error toast without writing. Derived cells render `computeValue(...)` read-only (no editor, no toggle, Delete does nothing). New items, duplicated items and new boards never carry derived values. A future CSV or paste path must call `validateCell` per cell too.
-- **Server enforcement:** `boards/{id}.derivedColumnIds` lists the derived column ids of `columns` and `subitemColumns` (sub-items share the `items` collection). The `onBoardColumnsWritten` Cloud Function (`onDocumentWritten` on `boards/{boardId}` with `database: FIRESTORE_DATABASE_ID`, function region `europe-west1`, trigger on the `eur3` database) recomputes it with the shared registry (`nextDerivedColumnIds` in `@atrium/shared`) and writes it back only when the sorted list changed, inside a transaction on the current document, so it is idempotent and its own write doesn't loop. The rules:
+- **Server enforcement:** `boards/{id}.derivedColumnIds` lists the derived column ids of `columns` (subitems share the `items` collection and the columns). The `onBoardColumnsWritten` Cloud Function (`onDocumentWritten` on `boards/{boardId}` with `database: FIRESTORE_DATABASE_ID`, function region `europe-west1`, trigger on the `eur3` database) recomputes it with the shared registry (`nextDerivedColumnIds` in `@atrium/shared`) and writes it back only when the sorted list changed, inside a transaction on the current document, so it is idempotent and its own write doesn't loop. The rules:
   - board **create** must carry `derivedColumnIds == []`;
   - board **update** can never change `derivedColumnIds` (it isn't in the editable key list);
   - item **create** may not contain any key of `derivedColumnIds` in `values`;
@@ -275,7 +275,7 @@ type ValidationResult = { ok: true } | { ok: false; message: string };
 Decision (2026-10-25): some column types are written **only by Cloud Functions**, through the Admin SDK, which bypasses rules: **`time_tracking`** (start and stop through a callable that stamps server time and uid), **`files`** (upload and delete through callables that write trusted metadata) and **`button`** (no stored value; a click appends to `boards/{id}/activity` through a callable). Without enforcement a board editor could write those `values.<colId>` cells directly and the callables' guarantees would be advisory. FW2 closes the gap with the same mechanism as `derivedColumnIds`.
 
 - **`serverManaged: true`** on a `ColumnType` marks such a type. Unlike `derived` it stores a value and clients still read it, but they can never write it. Registry helpers: `isServerManaged(type)` and `serverManagedColumnIds(columns)`. `validateCell` rejects every value for a server-managed type, `null` included, with "This column is updated by Atrium automatically" (derived types keep "This column is calculated automatically"). Server-managed and derived types also can't carry a column `defaultValue`.
-- **Server enforcement:** `boards/{id}.serverManagedColumnIds` is maintained by the **same** `onBoardColumnsWritten` function as `derivedColumnIds`. It computes both lists with `nextColumnIdLists` in `@atrium/shared` (columns plus `subitemColumns`, sorted), and writes both fields in one transaction on the current document only when either one differs, so it stays idempotent and its own write doesn't loop. The rules:
+- **Server enforcement:** `boards/{id}.serverManagedColumnIds` is maintained by the **same** `onBoardColumnsWritten` function as `derivedColumnIds`. It computes both lists with `nextColumnIdLists` in `@atrium/shared` (the board's `columns`, sorted), and writes both fields in one transaction on the current document only when either one differs, so it stays idempotent and its own write doesn't loop. The rules:
   - board **create** must carry `serverManagedColumnIds == []`;
   - board **update** can never change `serverManagedColumnIds` (not in the editable key list);
   - item **create** and **update** refuse any key of `derivedColumnIds` **or** `serverManagedColumnIds` in `values` (`blockedColumnIds()`, one board `get()` per evaluation, the one `canEditBoard()` already did); a stale or server-written value that is left alone doesn't block other edits;
