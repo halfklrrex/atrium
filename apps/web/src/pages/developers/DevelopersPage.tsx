@@ -9,10 +9,16 @@ import {
   API_DAILY_WRITES,
   API_ERROR_CODES,
   API_ROUTES,
+  CURL_INCOMING_HOOK,
   CURL_READ,
   CURL_WRITE,
   ERROR_EXAMPLE,
   IDEMPOTENCY_HOURS,
+  INCOMING_HOOK_FACTS,
+  INCOMING_HOOK_FIELDS,
+  INCOMING_HOOK_PATH,
+  INCOMING_HOOK_RESPONSE_EXAMPLE,
+  INCOMING_HOOK_RESPONSES,
   OPENAPI_PATH,
   VERIFY_NODE,
   VERIFY_PYTHON,
@@ -33,6 +39,7 @@ const SECTIONS = [
   ['limits', 'Limits'],
   ['idempotency', 'Idempotency'],
   ['webhooks', 'Webhooks'],
+  ['incoming-webhooks', 'Incoming webhooks'],
   ['openapi', 'OpenAPI'],
 ] as const;
 
@@ -209,9 +216,10 @@ export function DevelopersPage() {
 
         <Section id="webhooks" title="Webhooks">
           <p className={styles.text}>
-            Webhooks are set up per board by its owners: an address, and which events to send.
-            Atrium then sends a POST with a JSON body (up to {WEBHOOK_FACTS.payloadMaxKb} KB) every
-            time one of those events happens. The address must start with https://.
+            Webhooks are set up per board by its owners, in Board menu &gt; Integrations: an
+            address, and which events to send. Atrium then sends a POST with a JSON body (up to{' '}
+            {WEBHOOK_FACTS.payloadMaxKb} KB) every time one of those events happens. The address
+            must start with https://.
           </p>
           <Heading type="h3" className={styles.subTitle}>
             Payload
@@ -255,10 +263,85 @@ export function DevelopersPage() {
           </p>
         </Section>
 
+        <Section id="incoming-webhooks" title="Incoming webhooks">
+          <p className={styles.text}>
+            An incoming webhook is a secret address that creates one item on a board when something
+            sends it a POST. Use it from a form tool, a payment service or a script that cannot hold
+            a personal token. Board owners create the address in Board menu &gt; Integrations. It is
+            shown once, so copy it then; treat the whole address like a password. You can turn it
+            off, replace its secret or delete it in the same place. Items it creates belong to the
+            person who made the hook, and the activity log shows them as{' '}
+            <code>Webhook: &lt;name&gt;</code>. The route is <code>POST {INCOMING_HOOK_PATH}</code>{' '}
+            on the site root, not under the base address above, and it needs no Authorization
+            header.
+          </p>
+          <Code label="curl: incoming webhook">{CURL_INCOMING_HOOK}</Code>
+          <Heading type="h3" className={styles.subTitle}>
+            Body
+          </Heading>
+          <p className={styles.text}>
+            Send JSON. Other keys are refused. Locked columns, calculated columns and columns Atrium
+            fills in itself (such as files and time tracking) cannot be set.
+          </p>
+          <dl className={styles.defs}>
+            {INCOMING_HOOK_FIELDS.map((field) => (
+              <div key={field.name} className={styles.def}>
+                <dt>
+                  <code>{field.name}</code>
+                </dt>
+                <dd>{field.meaning}</dd>
+              </div>
+            ))}
+          </dl>
+          <Heading type="h3" className={styles.subTitle}>
+            Answers
+          </Heading>
+          <Code label="incoming webhook answer">{INCOMING_HOOK_RESPONSE_EXAMPLE}</Code>
+          <div
+            className={styles.tableBox}
+            role="region"
+            aria-label="Incoming webhook answers"
+            tabIndex={0}
+          >
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Status</th>
+                  <th scope="col">Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {INCOMING_HOOK_RESPONSES.map((entry) => (
+                  <tr key={entry.status}>
+                    <td>{entry.status}</td>
+                    <td>{entry.meaning}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Heading type="h3" className={styles.subTitle}>
+            Limits and retries
+          </Heading>
+          <ul className={styles.list}>
+            <li>
+              {INCOMING_HOOK_FACTS.callsPerMinute} calls a minute and{' '}
+              {INCOMING_HOOK_FACTS.dailyCalls.toLocaleString('en-US')} a day per hook. The day ends
+              at 00:00 UTC.
+            </li>
+            <li>The body can be {INCOMING_HOOK_FACTS.bodyMaxKb} KB at most.</li>
+            <li>
+              Add an <code>Idempotency-Key</code> header, as above, so a retry cannot create the
+              item twice. It is kept per hook for {IDEMPOTENCY_HOURS} hours.
+            </li>
+          </ul>
+        </Section>
+
         <Section id="openapi" title="OpenAPI">
           <p className={styles.text}>
             The machine-readable description of every route is{' '}
-            <a href={OPENAPI_PATH}>{OPENAPI_PATH}</a> (OpenAPI 3.1). It needs no token.
+            <a href={OPENAPI_PATH}>{OPENAPI_PATH}</a> (OpenAPI 3.1). It needs no token. It also
+            describes the incoming webhook route.
           </p>
         </Section>
 
