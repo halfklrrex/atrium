@@ -122,6 +122,7 @@ export function boardsService(h) {
         name: board.name,
         description: board.description,
         kind: board.kind,
+        access: await h.accessEntries(board),
         columns: sortedByPosition(board.columns).map((c) => ({
           id: c.id,
           title: c.title,

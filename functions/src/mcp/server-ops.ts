@@ -1,7 +1,28 @@
 import { McpUserError, type ServerOps } from '@atrium/mcp-core';
 import { getStorage } from 'firebase-admin/storage';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { adminFileStorageBucket, adminUpdateAttachmentTx, db } from '../lib/admin';
+import {
+  DASHBOARD_LIMITS,
+  DOC_LIMITS,
+  type BoardKind,
+  type BoardRole,
+  type WorkspaceRole,
+} from '@atrium/shared';
+import {
+  adminBoardSharingTx,
+  adminDashboardSharingTx,
+  adminDocSharingTx,
+  adminFileStorageBucket,
+  adminUpdateAttachmentTx,
+  db,
+} from '../lib/admin';
+import {
+  setBoardAccessInTransaction,
+  setBoardKindInTransaction,
+  type BoardSharingTx,
+} from '../lib/board-sharing';
+import type { DashboardSharingTx } from '../lib/dashboard-sharing';
+import { setEntityAccessInTransaction, type EntitySharingTx } from '../lib/entity-sharing';
 import {
   deleteFileAttachmentInTransaction,
   finalizeFileUploadInTransaction,
@@ -28,6 +49,20 @@ export interface ServerOpsDeps {
   bucket: FileStorageBucket;
   /** Writes an object directly (the connector sends bytes instead of using an upload URL). */
   putObject(storagePath: string, bytes: Uint8Array, contentType: string): Promise<void>;
+  /** Runs `fn` in one Firestore transaction with the sharing callables' store adapters. */
+  runSharing<T>(fn: (stores: SharingStores) => Promise<T>): Promise<T>;
+}
+
+/** The three sharing callables' transaction adapters, all bound to the same Firestore transaction. */
+export interface SharingStores {
+  board: BoardSharingTx;
+  doc: EntitySharingTx;
+  dashboard: DashboardSharingTx;
+}
+
+interface SharingState {
+  kind: BoardKind;
+  access: Record<string, BoardRole>;
 }
 
 const USER_CODES = new Set([
@@ -49,9 +84,118 @@ async function asUserError<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
+/** The workspace's roles and the object's sharing before and after one change (which may be a dry run). */
+interface SharingOutcome {
+  before: SharingState;
+  after: SharingState;
+  roles: Record<string, WorkspaceRole>;
+}
+
+const stateOf = (e: { kind: BoardKind; access: Record<string, BoardRole> }): SharingState => ({
+  kind: e.kind,
+  access: { ...e.access },
+});
+
 export function createServerOps(deps: ServerOpsDeps): ServerOps {
-  const { runTransaction, bucket, putObject } = deps;
+  const { runTransaction, bucket, putObject, runSharing } = deps;
   return {
+    setAccess: (args) =>
+      asUserError(() =>
+        runSharing(async (stores): Promise<SharingOutcome> => {
+          const { uid, id, kind, person, dryRun } = args;
+          let before: SharingState | undefined;
+          let roles: Record<string, WorkspaceRole> = {};
+          let pending: SharingState | undefined;
+          const rolesOf = async (
+            read: (workspaceId: string) => Promise<Record<string, WorkspaceRole> | null>,
+            workspaceId: string,
+          ) => {
+            const found = await read(workspaceId);
+            if (found) roles = found;
+            return found;
+          };
+          // Writes are held back until the library has finished reading (a Firestore transaction
+          // reads before it writes) and are dropped for a dry run.
+          const flush = (write: () => void) => {
+            if (!dryRun) write();
+          };
+          if (args.target === 'doc' || args.target === 'dashboard') {
+            const entityTx: EntitySharingTx =
+              args.target === 'doc'
+                ? stores.doc
+                : {
+                    getEntity: (entityId) => stores.dashboard.getDashboard(entityId),
+                    getWorkspaceRoles: (w) => stores.dashboard.getWorkspaceRoles(w),
+                    writeSharing: (a, b, c) => stores.dashboard.writeSharing(a, b, c),
+                  };
+            const wrapped: EntitySharingTx = {
+              getEntity: async (entityId) => {
+                const found = await entityTx.getEntity(entityId);
+                if (found) before ??= stateOf(found);
+                return found;
+              },
+              getWorkspaceRoles: (w) => rolesOf((x) => entityTx.getWorkspaceRoles(x), w),
+              writeSharing: (a, next, c) => {
+                pending = stateOf(next);
+                flush(() => entityTx.writeSharing(a, next, c));
+              },
+            };
+            const noun = args.target;
+            const result = await setEntityAccessInTransaction(
+              {
+                noun,
+                accessEntries:
+                  noun === 'doc' ? DOC_LIMITS.accessEntries : DASHBOARD_LIMITS.accessEntries,
+              },
+              wrapped,
+              uid,
+              { id, kind, person },
+            );
+            return { before: before!, after: pending ?? stateOf(result), roles };
+          }
+
+          // Boards: a kind change and a person change are two library calls, so the second one reads
+          // the state the first would have written, and everything is written at the end.
+          const base = stores.board;
+          const activity: Parameters<BoardSharingTx['appendActivity']>[] = [];
+          const buffered: BoardSharingTx = {
+            getBoard: async (boardId) => {
+              const found = await base.getBoard(boardId);
+              if (!found) return found;
+              before ??= stateOf(found);
+              return pending ? { ...found, ...pending, access: { ...pending.access } } : found;
+            },
+            getWorkspaceRoles: (w) => rolesOf((x) => base.getWorkspaceRoles(x), w),
+            writeSharing: (_boardId, next) => {
+              pending = stateOf(next);
+            },
+            getMemberProfiles: (w, uids) => base.getMemberProfiles(w, uids),
+            appendActivity: (boardId, docs) => {
+              activity.push([boardId, docs]);
+            },
+          };
+          const current = await buffered.getBoard(id);
+          if (!current) throw new HttpsError('not-found', 'Board not found.');
+          let last: { kind: BoardKind; access: Record<string, BoardRole> } = current;
+          if (kind !== undefined && kind !== current.kind) {
+            last = await setBoardKindInTransaction(buffered, uid, { boardId: id, kind });
+          }
+          if (person) {
+            last = await setBoardAccessInTransaction(buffered, uid, {
+              boardId: id,
+              uid: person.uid,
+              role: person.role,
+            });
+          }
+          const after = pending ?? stateOf(last);
+          if (pending && !dryRun) {
+            base.writeSharing(id, pending, uid);
+            for (const [boardId, docs] of activity) base.appendActivity(boardId, docs);
+          }
+          return { before: before!, after, roles };
+        }),
+      ),
+
     getFileLink: (args) =>
       asUserError(async () => {
         const { uid, boardId, itemId, fileId } = args;
@@ -147,6 +291,16 @@ export function adminServerOps(): ServerOps {
     runTransaction: (fn) => {
       const firestore = db();
       return firestore.runTransaction((tx) => fn(adminUpdateAttachmentTx(firestore, tx)));
+    },
+    runSharing: (fn) => {
+      const firestore = db();
+      return firestore.runTransaction((tx) =>
+        fn({
+          board: adminBoardSharingTx(firestore, tx),
+          doc: adminDocSharingTx(firestore, tx),
+          dashboard: adminDashboardSharingTx(firestore, tx),
+        }),
+      );
     },
     bucket: adminFileStorageBucket(),
     putObject: async (storagePath, bytes, contentType) => {
