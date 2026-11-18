@@ -1,4 +1,5 @@
 import type {
+  ApiToken,
   Board,
   BoardTemplate,
   BoardView,
@@ -44,6 +45,8 @@ export type FavoriteDoc = WithId<Favorite>;
 export type RecentDoc = WithId<Recent>;
 export type NotificationDoc = WithId<Notification>;
 export type McpGrantDoc = WithId<McpGrant>;
+/** `users/{uid}/apiTokens/{id}`: a personal access token's metadata (P8). The token itself is never stored. */
+export type ApiTokenDoc = WithId<ApiToken>;
 /** `workspaces/{id}/members/{uid}`: the uid is the document id. */
 export type MemberDoc = WithId<WorkspaceMember>;
 export type InviteDoc = WithId<WorkspaceInvite>;
