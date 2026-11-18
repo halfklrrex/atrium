@@ -803,10 +803,11 @@ export function viewsService(h) {
       if (!canEditRole(loaded.role)) {
         throw new McpUserError(
           `You can only view this board; only editors can ${verb} a shared view. Personal views are yours to change.`,
+          'forbidden',
         );
       }
     } else if (view.data.ownerId !== uid) {
-      throw new McpUserError(`View "${view.data.name}" was not found on this board.`);
+      throw new McpUserError(`View "${view.data.name}" was not found on this board.`, 'not_found');
     }
   }
 
@@ -936,6 +937,7 @@ export function viewsService(h) {
       if (!personal && !canEditRole(loaded.role)) {
         throw new McpUserError(
           'You can only view this board. Viewers can create personal views: give personal: true.',
+          'forbidden',
         );
       }
       if (type === 'form' && personal) {

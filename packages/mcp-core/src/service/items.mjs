@@ -110,7 +110,10 @@ export function itemsService(h) {
    */
   async function locate({ itemId, boardId }) {
     assertId(itemId, 'itemId');
-    const notFound = new McpUserError(`Item "${itemId}" was not found in your workspaces.`);
+    const notFound = new McpUserError(
+      `Item "${itemId}" was not found in your workspaces.`,
+      'not_found',
+    );
     const isActive = (doc) => doc && doc.state === 'active';
     if (boardId !== undefined) {
       const loaded = await loadBoard(boardId, 'read');
@@ -357,7 +360,8 @@ export function itemsService(h) {
       const loaded = await loadBoard(boardId, 'edit');
       assertId(itemId, 'itemId');
       const item = await client.getDoc(`boards/${boardId}/items/${itemId}`);
-      if (!item) throw new McpUserError(`Item "${itemId}" was not found on this board.`);
+      if (!item)
+        throw new McpUserError(`Item "${itemId}" was not found on this board.`, 'not_found');
       if (item.state === 'active') throw new McpUserError(`Item "${itemId}" is already active.`);
       if (!['archived', 'deleted'].includes(item.state)) {
         throw new McpUserError(`Item "${itemId}" is ${item.state} and cannot be restored.`);
@@ -570,7 +574,7 @@ export function itemsService(h) {
       for (let attempt = 0; ; attempt += 1) {
         const meta = await client.getDocMeta(path);
         if (!meta || meta.data.state !== 'active') {
-          throw new McpUserError(`Item "${itemId}" was not found on this board.`);
+          throw new McpUserError(`Item "${itemId}" was not found on this board.`, 'not_found');
         }
         const raw = meta.data.values?.[target.id]?.votersIds;
         const current = Array.isArray(raw) ? raw : [];
@@ -756,16 +760,21 @@ export function itemsService(h) {
       const target = await loadBoard(targetBoardId, 'read');
       // A viewer on the target reads as "not found", like a board outside the memberships.
       if (!EDIT_ROLES.includes(target.role)) {
-        throw new McpUserError(`Board "${targetBoardId}" was not found in your workspaces.`);
+        throw new McpUserError(
+          `Board "${targetBoardId}" was not found in your workspaces.`,
+          'not_found',
+        );
       }
       if (target.workspaceId !== source.workspaceId) {
         throw new McpUserError("Moving to another workspace isn't supported yet.");
       }
       assertId(itemId, 'itemId');
       const meta = await client.getDocMeta(`boards/${boardId}/items/${itemId}`);
-      if (!meta) throw new McpUserError(`Item "${itemId}" was not found on this board.`);
+      if (!meta)
+        throw new McpUserError(`Item "${itemId}" was not found on this board.`, 'not_found');
       const item = meta.data;
-      if (item.state !== 'active') throw new McpUserError(`Item "${itemId}" is ${item.state}.`);
+      if (item.state !== 'active')
+        throw new McpUserError(`Item "${itemId}" is ${item.state}.`, 'not_found');
       if (item.parentItemId) {
         throw new McpUserError('Move its parent instead: a subitem cannot be moved on its own.');
       }

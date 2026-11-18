@@ -1,8 +1,14 @@
 /** A problem the caller can fix (bad input, wrong board, no permission). Shown as a plain message. */
 export class McpUserError extends Error {
-  constructor(message) {
+  /**
+   * @param {string} message
+   * @param {'not_found' | 'forbidden' | 'invalid' | 'conflict' | 'read_only'} [code] an optional machine
+   *   code (the HTTP API maps it to a status); the message and the MCP behavior are unchanged.
+   */
+  constructor(message, code) {
     super(message);
     this.name = 'McpUserError';
+    if (code !== undefined) this.code = code;
   }
 }
 

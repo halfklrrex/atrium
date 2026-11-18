@@ -21,7 +21,8 @@ export function updatesService(h) {
   async function loadUpdate(boardId, itemId, updateId, replyId) {
     assertId(updateId, 'updateId');
     const update = await client.getDoc(`boards/${boardId}/items/${itemId}/updates/${updateId}`);
-    if (!update) throw new McpUserError(`Update "${updateId}" was not found on this item.`);
+    if (!update)
+      throw new McpUserError(`Update "${updateId}" was not found on this item.`, 'not_found');
     if (replyId === undefined)
       return {
         update,
@@ -31,7 +32,8 @@ export function updatesService(h) {
     assertId(replyId, 'replyId');
     const path = `boards/${boardId}/items/${itemId}/updates/${updateId}/replies/${replyId}`;
     const reply = await client.getDoc(path);
-    if (!reply) throw new McpUserError(`Reply "${replyId}" was not found on this update.`);
+    if (!reply)
+      throw new McpUserError(`Reply "${replyId}" was not found on this update.`, 'not_found');
     return { update, target: reply, path };
   }
 
@@ -193,6 +195,7 @@ export function updatesService(h) {
             replyId === undefined
               ? `Update "${updateId}" was not found on this item.`
               : `Reply "${replyId}" was not found on this update.`,
+            'not_found',
           );
         }
         const current = Array.isArray(meta.data.likes) ? meta.data.likes : [];

@@ -220,6 +220,7 @@ export function boardsService(h) {
       if (!CREATE_BOARD_ROLES.includes(ws.role)) {
         throw new McpUserError(
           `Creating a board needs the member role or higher in workspace "${ws.name}" (you are a ${ws.role}).`,
+          'forbidden',
         );
       }
       let template = null;
@@ -233,6 +234,7 @@ export function boardsService(h) {
           if (!saved) {
             throw new McpUserError(
               `Template "${templateId}" was not found. Call atrium_list_templates.`,
+              'not_found',
             );
           }
           const structure = templateStructureSchema.safeParse(saved.structure);
@@ -422,6 +424,7 @@ export function boardsService(h) {
         if (target.migrating) {
           throw new McpUserError(
             `Column "${target.title}" is changing type; try again in a minute.`,
+            'conflict',
           );
         }
         const patch = { columns: board.columns.filter((c) => c.id !== target.id) };

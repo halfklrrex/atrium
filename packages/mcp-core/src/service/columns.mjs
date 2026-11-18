@@ -76,6 +76,7 @@ export function columnsService(h) {
     }
     throw new McpUserError(
       `Board "${ref}" was not found among the boards you can read in this workspace.`,
+      'not_found',
     );
   }
 

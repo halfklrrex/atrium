@@ -111,6 +111,7 @@ export function createService({
     if (!found) {
       throw new McpUserError(
         `Workspace "${workspaceId}" was not found among your workspaces. Call atrium_list_workspaces.`,
+        'not_found',
       );
     }
     return found;
@@ -167,20 +168,24 @@ export function createService({
     assertId(boardId, 'boardId');
     const meta = await client.getDocMeta(`boards/${boardId}`);
     // Same message for "missing" and "not yours": never reveal boards outside the memberships.
-    const notFound = new McpUserError(`Board "${boardId}" was not found in your workspaces.`);
+    const notFound = new McpUserError(
+      `Board "${boardId}" was not found in your workspaces.`,
+      'not_found',
+    );
     if (!meta) throw notFound;
     const role = await roleOn(meta.data);
     if (!role) throw notFound;
     if (!states.includes(meta.data.state)) {
-      throw new McpUserError(`Board "${boardId}" is ${meta.data.state}, not active.`);
+      throw new McpUserError(`Board "${boardId}" is ${meta.data.state}, not active.`, 'not_found');
     }
     if (need === 'owner' && role !== 'owner') {
       throw new McpUserError(
         ownerMessage ?? "Changing a board's structure needs the board owner role.",
+        'forbidden',
       );
     }
     if (need === 'edit' && !EDIT_ROLES.includes(role)) {
-      throw new McpUserError('You can only view this board.');
+      throw new McpUserError('You can only view this board.', 'forbidden');
     }
     return {
       id: boardId,
@@ -223,10 +228,13 @@ export function createService({
   /** Checks that a person may write this column on this board; returns nothing. */
   function assertWritableColumn(loaded, column) {
     if (column.migrating) {
-      throw new McpUserError(`Column "${column.title}" is changing type; try again in a minute.`);
+      throw new McpUserError(
+        `Column "${column.title}" is changing type; try again in a minute.`,
+        'conflict',
+      );
     }
     if ((loaded.board.columnLocks ?? []).includes(column.id) && loaded.role !== 'owner') {
-      throw new McpUserError(`Column "${column.title}" is locked to board owners.`);
+      throw new McpUserError(`Column "${column.title}" is locked to board owners.`, 'forbidden');
     }
   }
 
@@ -295,8 +303,9 @@ export function createService({
   async function loadItem(boardId, itemId) {
     assertId(itemId, 'itemId');
     const item = await client.getDoc(`boards/${boardId}/items/${itemId}`);
-    if (!item) throw new McpUserError(`Item "${itemId}" was not found on this board.`);
-    if (item.state !== 'active') throw new McpUserError(`Item "${itemId}" is ${item.state}.`);
+    if (!item) throw new McpUserError(`Item "${itemId}" was not found on this board.`, 'not_found');
+    if (item.state !== 'active')
+      throw new McpUserError(`Item "${itemId}" is ${item.state}.`, 'not_found');
     return item;
   }
 
