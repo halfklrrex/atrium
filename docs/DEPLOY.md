@@ -318,7 +318,6 @@ The audit entries (`system/apiAudit/entries`, 90 days, field `expiresAt`) live i
 gcloud firestore fields ttls update expiresAt --collection-group=apiIdempotency --enable-ttl --database=atrium-1 --project=atrium-board
 ```
 
-
 2. **Invoker check.** After the first deploy, the policy must list `allUsers` with `roles/run.invoker`; if it does not, delete the function and redeploy (the AGENTS.md deploy gotcha):
 
 ```
