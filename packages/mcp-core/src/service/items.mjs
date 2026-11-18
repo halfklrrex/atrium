@@ -22,7 +22,7 @@ import {
 } from '../description.mjs';
 import { MAX_ITEMS_PER_CALL, MAX_MOVED_SUBITEMS, EDIT_ROLES } from './constants.mjs';
 import { memberResolver, resolveMentions } from '../updates.mjs';
-import { labelSummary } from './shared.mjs';
+import { labelSummary, uniqueColumnTitles } from './shared.mjs';
 
 /** Milliseconds of a stored timestamp (Date, Firestore timestamp or ISO string). */
 const millis = (value) =>
@@ -108,48 +108,52 @@ export function itemsService(h) {
    * `GET /items/{id}`). `boardId` is an optional hint that skips the search. Only boards the actor can
    * read are looked at, so an item elsewhere reads exactly like a missing one.
    */
-  async function locateItem({ itemId, boardId }) {
+  async function locate({ itemId, boardId }) {
     assertId(itemId, 'itemId');
     const notFound = new McpUserError(`Item "${itemId}" was not found in your workspaces.`);
     const isActive = (doc) => doc && doc.state === 'active';
     if (boardId !== undefined) {
-      await loadBoard(boardId, 'read');
-      if (!isActive(await client.getDoc(`boards/${boardId}/items/${itemId}`))) throw notFound;
-      return { boardId };
+      const loaded = await loadBoard(boardId, 'read');
+      const item = await client.getDoc(`boards/${boardId}/items/${itemId}`);
+      if (!isActive(item)) throw notFound;
+      return { boardId, board: loaded.board, workspaceId: loaded.workspaceId, item };
     }
-    const boardIds = [];
+    const boards = [];
     for (const ws of await listWorkspaces()) {
       for (const row of await client.runQuery('boards', { workspaceId: ws.id })) {
-        if (row.data.state === 'active' && (await roleOn(row.data))) boardIds.push(row.id);
+        if (row.data.state === 'active' && (await roleOn(row.data))) boards.push(row);
       }
     }
-    for (let i = 0; i < boardIds.length; i += 10) {
-      const chunk = boardIds.slice(i, i + 10);
+    for (let i = 0; i < boards.length; i += 10) {
+      const chunk = boards.slice(i, i + 10);
       const docs = await Promise.all(
-        chunk.map((b) => client.getDoc(`boards/${b}/items/${itemId}`)),
+        chunk.map((b) => client.getDoc(`boards/${b.id}/items/${itemId}`)),
       );
       const at = docs.findIndex(isActive);
-      if (at >= 0) return { boardId: chunk[at] };
+      if (at >= 0) {
+        const row = chunk[at];
+        // Role and state were checked above, so the board need not be loaded again.
+        return {
+          boardId: row.id,
+          board: row.data,
+          workspaceId: row.data.workspaceId,
+          item: docs[at],
+        };
+      }
     }
     throw notFound;
   }
+  const locateItem = async (args) => ({ boardId: (await locate(args)).boardId });
 
   return {
     locateItem,
     /** One item or subitem with its cells keyed by column id and by title, subitems nested. */
     async getItem({ itemId, boardId }) {
-      const located = await locateItem({ itemId, boardId });
-      const { board, workspaceId } = await loadBoard(located.boardId, 'read');
-      const item = await loadItem(located.boardId, itemId);
+      const located = await locate({ itemId, boardId });
+      const { board, workspaceId, item } = located;
       const isSub = Boolean(item.parentItemId);
       const columns = columnsForItem(board, item);
-      const titles = new Map();
-      const taken = new Set();
-      for (const c of sortedByPosition(columns)) {
-        const dup = taken.has(c.title.toLowerCase());
-        taken.add(c.title.toLowerCase());
-        titles.set(c.id, dup ? `${c.title} (${c.id})` : c.title);
-      }
+      const titles = uniqueColumnTitles(columns);
       const context = await readContext(located.boardId, workspaceId, board.columns);
       const subs = isSub ? [] : await subitemDocs(located.boardId, itemId);
       const doc = { id: itemId, data: item };
@@ -175,7 +179,15 @@ export function itemsService(h) {
           : {}),
       };
     },
-    async findItems({ boardId, name, group, where = [], limit = 25, offset = 0 }) {
+    async findItems({
+      boardId,
+      name,
+      group,
+      where = [],
+      limit = 25,
+      offset = 0,
+      uniqueTitles = false,
+    }) {
       const { board } = await loadBoard(boardId, 'read');
       const groupId = group !== undefined ? findGroup(board, group).id : null;
       const filters = where.map((w) => {
@@ -227,6 +239,7 @@ export function itemsService(h) {
             (a.data.position < b.data.position ? -1 : a.data.position > b.data.position ? 1 : 0) ||
             (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
         );
+      const rowTitles = uniqueTitles ? uniqueColumnTitles(board.columns) : null;
       const pageDocs = found.slice(offset, offset + limit);
       await prepareMirrors(context, pageDocs, board.columns);
       const page = pageDocs.map((d) => ({
@@ -234,7 +247,7 @@ export function itemsService(h) {
         seq: d.data.seq ?? null,
         name: d.data.name,
         group: groupTitle.get(d.data.groupId) ?? d.data.groupId,
-        values: readValues(context, d, board.columns, (c) => c.title),
+        values: readValues(context, d, board.columns, (c) => rowTitles?.get(c.id) ?? c.title),
       }));
       return {
         ...(context.notes?.length ? { notes: context.notes } : {}),

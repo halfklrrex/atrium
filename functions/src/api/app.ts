@@ -21,6 +21,7 @@ import type { RouteDef } from './routes/types';
 
 export const API_BASE_PATH = '/api/v1';
 export const API_BODY_LIMIT = '256kb';
+export const API_BODY_LIMIT_BYTES = 256 * 1024;
 export const API_DISABLED_MESSAGE = 'The Atrium API is not enabled.';
 export const RATE_LIMIT_MESSAGE = 'Too many requests. Wait a minute and try again.';
 export const DAILY_LIMIT_MESSAGE = 'Daily limit reached. Try again tomorrow.';
@@ -72,23 +73,41 @@ export function createApiApp(deps: ApiAppDeps): Express {
     send(res, new ApiError(503, 'api_disabled', API_DISABLED_MESSAGE));
   });
 
+  // The Functions Framework may already have parsed the body (up to 32 MB, kept in `rawBody`), in which
+  // case `express.json` never runs its own limit. So check the announced and the buffered size first.
+  app.use((req, res, next) => {
+    const announced = Number(req.headers['content-length'] ?? 0);
+    const raw = (req as Request & { rawBody?: Buffer | string }).rawBody;
+    if (announced > API_BODY_LIMIT_BYTES || (raw?.length ?? 0) > API_BODY_LIMIT_BYTES) {
+      return send(
+        res,
+        new ApiError(413, 'invalid', 'The request body is too large (256 KB at most).'),
+      );
+    }
+    next();
+  });
   app.use(express.json({ limit: API_BODY_LIMIT }));
 
   const audit = (entry: Omit<ApiAuditEntry, 'at' | 'expiresAt'>) =>
     writeApiAudit(deps.audit, deps.now(), entry);
 
+  // The per-IP failure window is a best-effort brake on guessing, not a security boundary: behind
+  // Hosting `req.ip` is the real client, but a direct call to the run.app URL can spoof
+  // X-Forwarded-For. So it is consulted only after a token FAILED verification and never turns a valid
+  // token away.
   const authenticate = async (req: Request, res: Response, next: NextFunction) => {
-    const ip = req.ip ?? 'unknown';
-    if (deps.ipFailures.over(ip)) {
-      return send(
-        res,
-        new ApiError(429, 'rate_limited', IP_LIMIT_MESSAGE, { 'Retry-After': '3600' }),
-      );
-    }
     try {
       res.locals.auth = await deps.verify(req.headers.authorization);
     } catch (error) {
+      // Anything but a refused credential (a Firestore outage, a bug) is a 5xx, not an auth failure.
       if (!(error instanceof ApiAuthError)) throw error;
+      const ip = req.ip ?? 'unknown';
+      if (deps.ipFailures.over(ip)) {
+        return send(
+          res,
+          new ApiError(429, 'rate_limited', IP_LIMIT_MESSAGE, { 'Retry-After': '3600' }),
+        );
+      }
       deps.ipFailures.take(ip);
       await audit({
         kind: 'auth_failed',
@@ -108,19 +127,36 @@ export function createApiApp(deps: ApiAppDeps): Express {
   };
 
   // Every guard answer below is audited like a call, so a runaway client shows up in the log.
+  // Rejections must stay cheap: at most one audit entry per key per minute for rate-limit rejections,
+  // and a reached daily cap is remembered until the next UTC day (no Firestore work per rejection).
+  const rejectedAuditAt = new Map<string, number>();
+  const dailyBlocked = new Map<string, { day: string; scope: 'calls' | 'writes' }>();
+  const MAX_TRACKED = 5000;
+  const trim = <V>(map: Map<string, V>) => {
+    if (map.size > MAX_TRACKED) map.delete(map.keys().next().value as string);
+  };
+
   const guard = async (req: Request, res: Response, next: NextFunction) => {
     const auth = res.locals.auth as ApiAuthInfo;
     const key = auth.tokenId ?? auth.uid;
     const reject = async (error: ApiError) => {
-      await audit({
-        kind: 'call',
-        method: req.method,
-        ok: false,
-        status: error.status,
-        error: error.code,
-        uid: auth.uid,
-        ...(auth.tokenId ? { tokenId: auth.tokenId } : {}),
-      });
+      const quiet = error.code === 'rate_limited';
+      const last = rejectedAuditAt.get(key);
+      if (!quiet || last === undefined || deps.now() - last >= 60_000) {
+        if (quiet) {
+          rejectedAuditAt.set(key, deps.now());
+          trim(rejectedAuditAt);
+        }
+        await audit({
+          kind: 'call',
+          method: req.method,
+          ok: false,
+          status: error.status,
+          error: error.code,
+          uid: auth.uid,
+          ...(auth.tokenId ? { tokenId: auth.tokenId } : {}),
+        });
+      }
       send(res, error);
     };
     const write = isWrite(req.method);
@@ -132,6 +168,17 @@ export function createApiApp(deps: ApiAppDeps): Express {
           : new ApiError(403, 'forbidden', 'This token does not allow Read.'),
       );
     }
+    const dailyLimit = () =>
+      reject(
+        new ApiError(429, 'rate_limited', DAILY_LIMIT_MESSAGE, {
+          'Retry-After': String(secondsUntilNextUtcDay(deps.now())),
+        }),
+      );
+    const today = usageDay(deps.now());
+    const blocked = dailyBlocked.get(key);
+    if (blocked && blocked.day === today && (blocked.scope === 'calls' || write)) {
+      return dailyLimit();
+    }
     if (!deps.limiter.take(key)) {
       return reject(
         new ApiError(429, 'rate_limited', RATE_LIMIT_MESSAGE, {
@@ -139,13 +186,11 @@ export function createApiApp(deps: ApiAppDeps): Express {
         }),
       );
     }
-    const verdict = await deps.usage.consume(key, usageDay(deps.now()), write);
+    const verdict = await deps.usage.consume(key, today, write);
     if (verdict !== 'ok') {
-      return reject(
-        new ApiError(429, 'rate_limited', DAILY_LIMIT_MESSAGE, {
-          'Retry-After': String(secondsUntilNextUtcDay(deps.now())),
-        }),
-      );
+      dailyBlocked.set(key, { day: today, scope: verdict });
+      trim(dailyBlocked);
+      return dailyLimit();
     }
     next();
   };

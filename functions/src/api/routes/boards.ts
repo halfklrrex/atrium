@@ -43,6 +43,8 @@ export const boardRoutes: RouteDef[] = [
         ...(query.group !== undefined ? { group: query.group } : {}),
         limit: query.limit,
         offset,
+        // Two columns may share a title; key rows as `Title (columnId)` for the later one.
+        uniqueTitles: true,
       });
       return {
         boardId,

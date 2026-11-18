@@ -2,6 +2,8 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createService } from '@atrium/mcp-core';
 import { createFakeClient } from '@atrium/mcp-core/fake-client';
+import { InvalidTokenError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
+import express from 'express';
 import { logger } from 'firebase-functions/v2';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MinuteLimiter, usageDay, type UsageStore, type UsageVerdict } from '../mcp/limits';
@@ -109,7 +111,16 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((s) => new Promise((resolve) => s.close(resolve))));
 });
 
-async function start(options: { enabled?: boolean; perMinute?: number; usage?: UsageStore } = {}) {
+async function start(
+  options: {
+    enabled?: boolean;
+    perMinute?: number;
+    usage?: UsageStore;
+    verifyOAuthToken?: ApiAuthDeps['verifyOAuthToken'];
+    extraDocs?: Record<string, Record<string, unknown>>;
+    boardColumns?: unknown[];
+  } = {},
+) {
   const clock = { now: T0 };
   const store = new FakeApiTokenStore();
   for (const uid of [ME, VIEWER, STRANGER]) store.accounts.set(uid, 'approved');
@@ -118,14 +129,16 @@ async function start(options: { enabled?: boolean; perMinute?: number; usage?: U
   store.memberships.set(VIEWER, new Set(['w1']));
   store.memberships.set(STRANGER, new Set());
   store.memberships.set(BLOCKED, new Set(['w1']));
-  const client = createFakeClient(seed());
+  const client = createFakeClient({ ...seed(), ...options.extraDocs });
   const audit: ApiAuditEntry[] = [];
   const auditStore: ApiAuditStore = { append: async (entry) => void audit.push(entry) };
   const authDeps: ApiAuthDeps = {
     store,
-    verifyOAuthToken: async () => {
-      throw new Error('not an OAuth token');
-    },
+    verifyOAuthToken:
+      options.verifyOAuthToken ??
+      (async () => {
+        throw new InvalidTokenError('not an OAuth token');
+      }),
     now: () => clock.now,
   };
   const state = { enabled: options.enabled ?? true };
@@ -137,6 +150,7 @@ async function start(options: { enabled?: boolean; perMinute?: number; usage?: U
       createService({
         client,
         actor: { uid: auth.uid, workspaceFilter: auth.workspaceIds },
+        hideEmails: true,
         now: () => new Date(clock.now),
       }),
     usage,
@@ -160,14 +174,14 @@ async function start(options: { enabled?: boolean; perMinute?: number; usage?: U
       ...(input.workspaceIds ? { workspaceIds: input.workspaceIds } : {}),
       expiresInDays: 90,
     });
-  const get = async (path: string, token?: string) => {
+  const get = async (path: string, token?: string, headers: Record<string, string> = {}) => {
     const res = await fetch(`${base}${path}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
     });
     const text = await res.text();
     return { res, status: res.status, body: text ? JSON.parse(text) : null, text };
   };
-  return { base, clock, store, state, usage, audit, make, get };
+  return { base, clock, store, state, usage, audit, make, get, auditStore };
 }
 
 describe('kill switch', () => {
@@ -231,16 +245,83 @@ describe('authentication', () => {
     expect(body.error.code).toBe('forbidden');
   });
 
-  it('answers 429 to an IP that keeps failing, even with a valid token afterwards', async () => {
+  it('throttles an IP that keeps failing, but never turns a valid token away', async () => {
     const h = await start();
     const { token } = await h.make(ME);
     for (let n = 0; n < 3; n += 1) expect((await h.get('/me', 'bad')).status).toBe(401);
-    const blocked = await h.get('/me', token);
+    const blocked = await h.get('/me', 'bad');
     expect(blocked.status).toBe(429);
     expect(blocked.res.headers.get('retry-after')).toBe('3600');
     expect(blocked.body.error.code).toBe('rate_limited');
-    h.clock.now += 61 * 60_000;
+    // The valid token still works from the same address.
     expect((await h.get('/me', token)).status).toBe(200);
+    h.clock.now += 61 * 60_000;
+    expect((await h.get('/me', 'bad')).status).toBe(401);
+  });
+
+  it('a spoofed X-Forwarded-For cannot lock out a valid token', async () => {
+    const h = await start();
+    const { token } = await h.make(ME);
+    const spoof = { 'X-Forwarded-For': '203.0.113.9, 198.51.100.7, 192.0.2.1' };
+    for (let n = 0; n < 6; n += 1) await h.get('/me', 'bad', spoof);
+    expect((await h.get('/me', token, spoof)).status).toBe(200);
+    expect((await h.get('/me', token)).status).toBe(200);
+  });
+
+  it('an OAuth verifier outage is a 500, not a 401, and is not counted against the IP', async () => {
+    const h = await start({
+      verifyOAuthToken: async () => {
+        throw new Error('firestore unavailable');
+      },
+    });
+    vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    for (let n = 0; n < 5; n += 1) {
+      const { status, body } = await h.get('/me', 'oauth-ish-token');
+      expect(status).toBe(500);
+      expect(body.error.code).toBe('internal');
+    }
+    expect(h.audit.filter((e) => e.kind === 'auth_failed')).toHaveLength(0);
+  });
+
+  it('refuses a body over 256 KB with 413, by Content-Length and by a pre-parsed rawBody', async () => {
+    const h = await start();
+    const { token } = await h.make(ME);
+    const big = await fetch(`${h.base}/me`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pad: 'x'.repeat(300 * 1024) }),
+    });
+    expect(big.status).toBe(413);
+    expect(((await big.json()) as { error: { code: string } }).error.code).toBe('invalid');
+
+    // Like the Functions Framework: a parser ahead of the app has buffered the body into rawBody.
+    const { createApiApp: make } = await import('./app');
+    const inner = make({
+      isEnabled: () => true,
+      verify: async () => {
+        throw new Error('must not be reached');
+      },
+      createService: () => {
+        throw new Error('must not be reached');
+      },
+      usage: new FakeUsage(),
+      limiter: new MinuteLimiter(5),
+      ipFailures: new MinuteLimiter(5),
+      audit: { append: async () => undefined },
+      now: () => T0,
+    });
+    const outer = express();
+    outer.use((req, _res, next) => {
+      (req as unknown as { rawBody: Buffer }).rawBody = Buffer.alloc(300 * 1024);
+      next();
+    });
+    outer.use(inner);
+    const server = createServer(outer);
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as AddressInfo).port;
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/me`);
+    expect(res.status).toBe(413);
   });
 });
 
@@ -472,6 +553,90 @@ describe('errors, logs and audit', () => {
     const text = JSON.stringify(h.audit);
     expect(text).not.toContain(token);
     expect(text).not.toContain('group=g1');
+  });
+});
+
+describe('emails and duplicate titles', () => {
+  const nameless = {
+    'workspaces/w1': workspace('Home', {
+      [ME]: 'owner',
+      [VIEWER]: 'viewer',
+      'u-nameless': 'member',
+    }),
+    'workspaces/w1/members/u-nameless': { email: 'nameless@example.com' },
+    'boards/b1/items/i1/updates/up2': {
+      authorId: 'u-nameless',
+      authorName: 'nameless@example.com',
+      content: 'from a member without a name',
+      createdAt: new Date(T0 + 1000),
+      updatedAt: new Date(T0 + 1000),
+      likes: [],
+      mentions: [],
+      attachments: [],
+      repliesCount: 0,
+    },
+    'boards/b1/items/i1': item('Item 1', 'a1', { values: { note: 'n' }, createdBy: 'u-nameless' }),
+  };
+
+  it('never shows an email address in members, items or updates', async () => {
+    const h = await start({ extraDocs: nameless });
+    const { token } = await h.make(ME);
+    const members = await h.get('/boards/b1/members', token);
+    expect(members.text).not.toContain('@');
+    expect(members.body.members.map((m: { name: string }) => m.name)).toContain('A member');
+    const one = await h.get('/items/i1', token);
+    expect(one.status).toBe(200);
+    expect(one.text).not.toContain('@');
+    const updates = await h.get('/items/i1/updates', token);
+    expect(updates.text).not.toContain('@');
+    expect(updates.text).toContain('A member');
+    expect((await h.get('/boards/b1', token)).text).not.toContain('@example.com');
+  });
+
+  it('keeps both columns of a shared title in the items list', async () => {
+    const h = await start({
+      extraDocs: {
+        'boards/b1': board('w1', 'Chores', {
+          columns: [column('note', 'text', 'Note', 'a0'), column('note2', 'text', 'Note', 'a1')],
+        }),
+        'boards/b1/items/i1': item('Item 1', 'a1', { values: { note: 'first', note2: 'second' } }),
+      },
+    });
+    const { token } = await h.make(ME);
+    const page = await h.get('/boards/b1/items?limit=1', token);
+    expect(page.body.items[0].values).toEqual({ Note: 'first', 'Note (note2)': 'second' });
+    const one = await h.get('/items/i1', token);
+    expect(one.body.valuesByTitle).toEqual({ Note: 'first', 'Note (note2)': 'second' });
+  });
+});
+
+describe('cheap rejections', () => {
+  it('audits at most one rate-limit rejection per token per minute', async () => {
+    const h = await start({ perMinute: 1 });
+    const { token } = await h.make(ME);
+    expect((await h.get('/me', token)).status).toBe(200);
+    for (let n = 0; n < 5; n += 1) expect((await h.get('/me', token)).status).toBe(429);
+    expect(h.audit.filter((e) => e.error === 'rate_limited')).toHaveLength(1);
+    h.clock.now += 61_000;
+    expect((await h.get('/me', token)).status).toBe(200);
+    expect((await h.get('/me', token)).status).toBe(429);
+    expect(h.audit.filter((e) => e.error === 'rate_limited')).toHaveLength(2);
+  });
+
+  it('remembers a reached daily cap until the next UTC day without asking the store again', async () => {
+    const usage = new FakeUsage(1);
+    const spy = vi.spyOn(usage, 'consume');
+    const h = await start({ usage });
+    const { token } = await h.make(ME);
+    expect((await h.get('/me', token)).status).toBe(200);
+    expect((await h.get('/me', token)).status).toBe(429);
+    h.clock.now += 61_000; // the minute window is not the reason now
+    for (let n = 0; n < 4; n += 1) expect((await h.get('/me', token)).status).toBe(429);
+    expect(spy).toHaveBeenCalledTimes(2);
+    h.clock.now += 24 * 60 * 60_000; // the next UTC day: counted again
+    (usage as FakeUsage).seen.length = 0;
+    expect((await h.get('/me', token)).status).toBe(200);
+    expect(spy).toHaveBeenCalledTimes(3);
   });
 });
 

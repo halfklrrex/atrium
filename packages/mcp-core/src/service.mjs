@@ -43,9 +43,18 @@ export { MAX_ITEMS_PER_CALL };
 /** How long a workspace membership lookup is reused (bounds how long a removal takes to bite). */
 const MEMBERSHIP_TTL_MS = 60_000;
 
+export const NEUTRAL_MEMBER_NAME = 'A member';
+
 export const PICK_WORKSPACE_MESSAGE = 'Give workspaceId; call atrium_list_workspaces first.';
 
-export function createService({ client, actor, now = () => new Date(), serverOps }) {
+export function createService({
+  client,
+  actor,
+  now = () => new Date(),
+  serverOps,
+  // The public API sets this: names never fall back to an email address and email fields are left out.
+  hideEmails = false,
+}) {
   const uid = assertId(actor?.uid, 'actor.uid');
   // One workspace id, a list of them (a restricted API token), or none.
   const filterIds =
@@ -317,7 +326,13 @@ export function createService({ client, actor, now = () => new Date(), serverOps
   }
 
   /** What a member doc shows of a person: the name (display name, else email, else uid). */
-  const memberName = (profile, memberUid) => profile?.displayName || profile?.email || memberUid;
+  const memberName = (profile, memberUid) =>
+    hideEmails
+      ? profile?.displayName || NEUTRAL_MEMBER_NAME
+      : profile?.displayName || profile?.email || memberUid;
+  /** A stored display name that is an email address (some accounts have no name) is never shown with hideEmails. */
+  const safeName = (name) =>
+    hideEmails && typeof name === 'string' && name.includes('@') ? NEUTRAL_MEMBER_NAME : name;
 
   /** The shared profile fields a member doc carries and the person has set: title, location, time zone. */
   function sharedProfile(profile) {
@@ -393,7 +408,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
       out.push({
         uid: memberUid,
         name: memberName(profile, memberUid),
-        email: profile.email ?? null,
+        ...(hideEmails ? {} : { email: profile.email ?? null }),
         role,
         ...sharedProfile(profile),
       });
@@ -450,6 +465,8 @@ export function createService({ client, actor, now = () => new Date(), serverOps
     memberProfiles,
     teamsOf,
     memberName,
+    safeName,
+    hideEmails,
     sharedProfile,
     readContext,
     readCell,

@@ -168,6 +168,8 @@ export interface McpService {
     where?: { column: string; equals: string | number | boolean | null }[];
     limit?: number;
     offset?: number;
+    /** Key each row's values by `Title (columnId)` when two columns share a title (as getBoard does). */
+    uniqueTitles?: boolean;
   }): Promise<{
     total: number;
     offset: number;
@@ -551,6 +553,8 @@ export declare function createService(options: {
   now?: () => Date;
   /** Provided by the hosted Function only; without it the hosted-only tools are not registered. */
   serverOps?: ServerOps;
+  /** The public API sets this: names never fall back to an email address and email fields are omitted. */
+  hideEmails?: boolean;
 }): McpService;
 
 export type ToolScope = 'read' | 'write';
