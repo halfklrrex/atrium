@@ -296,4 +296,34 @@ gcloud run services add-iam-policy-binding mcp --region=europe-west1 --project=a
 gcloud firestore fields ttls update expiresAt --collection-group=apiTokenIndex --enable-ttl --database=atrium-1 --project=atrium-board
 ```
 
-Check with `gcloud firestore fields ttls list --database=atrium-1 --project=atrium-board`. The two new callables (`createApiToken`, `revokeApiToken`) need the usual public invoker binding check after the deploy (the AGENTS.md deploy gotcha). The HTTP API itself ships in a later P8 PR.
+Check with `gcloud firestore fields ttls list --database=atrium-1 --project=atrium-board`. The two new callables (`createApiToken`, `revokeApiToken`) need the usual public invoker binding check after the deploy (the AGENTS.md deploy gotcha). The HTTP API is described in the next section.
+
+## The public HTTP API (P8): deploy checks
+
+The API is the Cloud Function `api` (`europe-west1`) behind the Hosting rewrite `/api/**` on the canonical site (`https://atrium-workboards.web.app/api/v1/...`). The normal deploy on merge ships the function (public invoker) and the rewrite, with **no new IAM roles, secrets or schedulers**. It ships **disabled**: `API_ENABLED=false` in `functions/.env.atrium-board` makes every route answer `503 {"error":{"code":"api_disabled",...}}`. **Keep it `false` at the first deploy**, run the checks below, and flip it in a separate enable PR. Spec: `docs/specs/P8-public-api-and-webhooks.md` (sections 4, 6 and 10).
+
+Owner or lead steps after the first deploy (single-line `gcloud`, project `atrium-board`, database `atrium-1`):
+
+1. **TTL on the daily counters.** `apiUsage/{tokenId or uid}` carries an `expiresAt` Timestamp (pushed out on each counted call). It is its own collection group:
+
+```
+gcloud firestore fields ttls update expiresAt --collection-group=apiUsage --enable-ttl --database=atrium-1 --project=atrium-board
+```
+
+The audit entries (`system/apiAudit/entries`, 90 days, field `expiresAt`) live in the `entries` collection group, which already has the TTL policy created for the MCP audit log (see "The hosted MCP connector"). Confirm with `gcloud firestore fields ttls list --database=atrium-1 --project=atrium-board` that both `entries` and `apiUsage` are ACTIVE.
+
+2. **Invoker check.** After the first deploy, the policy must list `allUsers` with `roles/run.invoker`; if it does not, delete the function and redeploy (the AGENTS.md deploy gotcha):
+
+```
+gcloud run services get-iam-policy api --region=europe-west1 --project=atrium-board
+```
+
+3. **Smoke test while disabled.** `503` with `Cache-Control: no-store`:
+
+```
+curl -i https://atrium-workboards.web.app/api/v1/me
+```
+
+4. **Enable.** Merge the enable PR (`API_ENABLED=true`). Then the same curl returns `401` with `WWW-Authenticate: Bearer realm="atrium"`, and with a personal token (Settings, Account, API tokens) `curl -i -H "Authorization: Bearer atrp_..." https://atrium-workboards.web.app/api/v1/me` returns `200`. Also try `/api/v1/workspaces` and `/api/v1/boards/<id>/items?limit=5`.
+
+Rollback: set `API_ENABLED=false` in a PR (about 10 minutes), or remove the binding at once: `gcloud run services remove-iam-policy-binding api --region=europe-west1 --project=atrium-board --member=allUsers --role=roles/run.invoker` (add it back with `add-iam-policy-binding`).
