@@ -85,6 +85,6 @@ test('the error codes on the page equal the API error codes', () => {
   const union = errors.match(/export type ApiErrorCode =([^;]+);/)?.[1] ?? '';
   const codes = sorted([...union.matchAll(/'(\w+)'/g)].map((m) => m[1]));
   const page = read('apps/web/src/pages/developers/developers-content.ts');
-  const documented = sorted([...page.matchAll(/\{ code: '(\w+)'/g)].map((m) => m[1]));
+  const documented = sorted([...page.matchAll(/\bcode:\s*'(\w+)'/g)].map((m) => m[1]));
   assert.deepEqual(documented, codes);
 });
