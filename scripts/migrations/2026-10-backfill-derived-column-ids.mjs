@@ -30,7 +30,6 @@ import { SeedError, createClient } from '../showcase/seed-showcase.mjs';
 const BATCH_SIZE = 400; // Firestore allows 500 writes per commit.
 const FIELDS = [
   'columns',
-  'subitemColumns',
   'derivedColumnIds',
   'serverManagedColumnIds',
   'requiredColumnIds',

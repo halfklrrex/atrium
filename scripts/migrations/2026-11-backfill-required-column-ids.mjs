@@ -23,7 +23,7 @@ import { FIRESTORE_DATABASE_ID, nextRequiredColumnIds } from '@atrium/shared';
 import { SeedError, createClient } from '../showcase/seed-showcase.mjs';
 
 const BATCH_SIZE = 400; // Firestore allows 500 writes per commit.
-const FIELDS = ['columns', 'subitemColumns', 'requiredColumnIds'];
+const FIELDS = ['columns', 'requiredColumnIds'];
 
 const HELP = `Backfill boards.requiredColumnIds (REQ-1). Dry run unless --apply is given.
 

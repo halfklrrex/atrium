@@ -65,9 +65,9 @@ function fakeClient(docs) {
 const board = {
   columns: [
     { id: 'owner', type: 'people' },
+    { id: 'sub_owner', type: 'people' },
     { id: 'status', type: 'status' },
   ],
-  subitemColumns: [{ id: 'sub_owner', type: 'people' }],
 };
 
 const item = (name, extra = {}) => ({
@@ -81,7 +81,7 @@ const item = (name, extra = {}) => ({
 
 const fixture = () => ({
   'boards/b1': structuredClone(board),
-  'boards/b2': { columns: [], subitemColumns: [] },
+  'boards/b2': { columns: [] },
   'boards/b1/items/i1': item('Plan Q3', { values: { owner: people('u2', 'u1') } }),
   'boards/b1/items/s1': item('Sub', {
     parentItemId: 'i1',
@@ -98,7 +98,11 @@ test('fills both fields from the board columns and the item name', async () => {
   const get = (path) => client.store.get(path);
   assert.deepEqual(get('boards/b1/items/i1').assigneeUids, ['u1', 'u2']);
   assert.deepEqual(get('boards/b1/items/i1').nameTokens, ['pl', 'pla', 'plan', 'q3']);
-  assert.deepEqual(get('boards/b1/items/s1').assigneeUids, ['u9'], 'subitems use subitemColumns');
+  assert.deepEqual(
+    get('boards/b1/items/s1').assigneeUids,
+    ['u1', 'u9'],
+    'subitems use the board columns',
+  );
   assert.deepEqual(get('boards/b2/items/j1').assigneeUids, []);
   assert.deepEqual(get('boards/b2/items/j1').nameTokens, ['ca', 'caf', 'cafe']);
 });
@@ -200,7 +204,7 @@ test('race: an item written mid-run is re-read and planned again', async () => {
   };
   await runBackfill({ client, apply: true, log: quiet });
   assert.deepEqual(client.store.get('boards/b1/items/i1').nameTokens, ['pl', 'pla', 'plan', 'q4']);
-  assert.deepEqual(client.store.get('boards/b1/items/s1').assigneeUids, ['u9']);
+  assert.deepEqual(client.store.get('boards/b1/items/s1').assigneeUids, ['u1', 'u9']);
 });
 
 test('every write carries an updateTime precondition', async () => {

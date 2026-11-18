@@ -26,7 +26,7 @@ import { SeedError, createClient } from '../showcase/seed-showcase.mjs';
 /** Items per commit; one write each, well under Firestore's 500. */
 export const CHUNK_SIZE = 400;
 const MAX_ATTEMPTS = 10;
-const BOARD_FIELDS = ['columns', 'subitemColumns'];
+const BOARD_FIELDS = ['columns'];
 const ITEM_FIELDS = ['name', 'values', 'parentItemId', 'state', 'dateKeys'];
 
 const HELP = `Backfill items.dateKeys (P5d time-based automations). Dry run unless --apply is given.
@@ -80,12 +80,13 @@ const sameList = (a, b) =>
 
 /**
  * Pure: the fields to write for one item, or `null` when it needs nothing (deleted, or already right).
- * @param {{ columns?: unknown[], subitemColumns?: unknown[] }} board
+ * @param {{ columns?: unknown[] }} board
  * @param {Record<string, unknown>} item  decoded item fields
  */
 export function planItem(board, item) {
   if (item.state === 'deleted') return null;
-  const columns = (item.parentItemId != null ? board.subitemColumns : board.columns) ?? [];
+  // Subitems share the board's columns (SUBITEMS-as-items).
+  const columns = board.columns ?? [];
   const dateKeys = dateKeysOf(item.values, columns);
   if (sameList(item.dateKeys, dateKeys)) return null;
   return { dateKeys };

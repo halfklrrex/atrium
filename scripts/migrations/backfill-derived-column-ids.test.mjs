@@ -42,7 +42,6 @@ function fakeClient(boards) {
       assert.equal(collection, 'boards');
       assert.deepEqual(fields, [
         'columns',
-        'subitemColumns',
         'derivedColumnIds',
         'serverManagedColumnIds',
         'requiredColumnIds',

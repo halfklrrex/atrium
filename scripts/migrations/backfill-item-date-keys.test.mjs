@@ -65,9 +65,9 @@ const board = {
   columns: [
     { id: 'due', type: 'date' },
     { id: 'start', type: 'date' },
+    { id: 'sub_due', type: 'date' },
     { id: 'status', type: 'status' },
   ],
-  subitemColumns: [{ id: 'sub_due', type: 'date' }],
 };
 
 const item = (name, extra = {}) => ({
@@ -81,13 +81,13 @@ const item = (name, extra = {}) => ({
 
 const fixture = () => ({
   'boards/b1': structuredClone(board),
-  'boards/b2': { columns: [], subitemColumns: [] },
+  'boards/b2': { columns: [] },
   'boards/b1/items/i1': item('Plan', {
     values: { start: { date: '2026-12-01' }, due: { date: '2026-11-20', time: '09:00:00' } },
   }),
   'boards/b1/items/s1': item('Sub', {
     parentItemId: 'i1',
-    values: { due: { date: '2026-01-01' }, sub_due: { date: '2026-11-21' } },
+    values: { due: { date: '2026-11-19' }, sub_due: { date: '2026-11-21' } },
   }),
   'boards/b2/items/j1': item('Café', { values: { due: { date: '2026-11-20' } } }),
   'boards/b1/items/gone': item('Removed', {
@@ -96,13 +96,13 @@ const fixture = () => ({
   }),
 });
 
-test('fills sorted dateKeys from the date columns, subitems use subitemColumns', async () => {
+test('fills sorted dateKeys from the date columns, subitems use the board columns', async () => {
   const client = fakeClient(fixture());
   const result = await runBackfill({ client, apply: true, log: quiet });
   assert.equal(result.written, 3);
   const get = (path) => client.store.get(path);
   assert.deepEqual(get('boards/b1/items/i1').dateKeys, ['due:2026-11-20', 'start:2026-12-01']);
-  assert.deepEqual(get('boards/b1/items/s1').dateKeys, ['sub_due:2026-11-21']);
+  assert.deepEqual(get('boards/b1/items/s1').dateKeys, ['due:2026-11-19', 'sub_due:2026-11-21']);
   assert.deepEqual(get('boards/b2/items/j1').dateKeys, [], 'a board without date columns');
 });
 
@@ -171,7 +171,10 @@ test('race: an item written mid-run is re-read and planned again', async () => {
   };
   await runBackfill({ client, apply: true, log: quiet });
   assert.deepEqual(client.store.get('boards/b1/items/i1').dateKeys, ['due:2026-12-24']);
-  assert.deepEqual(client.store.get('boards/b1/items/s1').dateKeys, ['sub_due:2026-11-21']);
+  assert.deepEqual(client.store.get('boards/b1/items/s1').dateKeys, [
+    'due:2026-11-19',
+    'sub_due:2026-11-21',
+  ]);
 });
 
 test('every write carries an updateTime precondition', async () => {

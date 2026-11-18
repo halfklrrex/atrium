@@ -30,7 +30,7 @@ function fakeClient(boards) {
     store,
     async listAllDocs(collection, { fields } = {}) {
       assert.equal(collection, 'boards');
-      assert.deepEqual(fields, ['columns', 'subitemColumns', 'requiredColumnIds']);
+      assert.deepEqual(fields, ['columns', 'requiredColumnIds']);
       return [...store].map(([id, data]) => ({ id, data: structuredClone(data) }));
     },
     async commit(writes) {
@@ -50,7 +50,7 @@ function fakeClient(boards) {
 const legacy = { id: 'legacy', data: { columns: [col('t')] } };
 const legacyRequired = {
   id: 'legacyRequired',
-  data: { columns: [col('r', true), col('t', false)], subitemColumns: [col('s', true)] },
+  data: { columns: [col('r', true), col('t', false), col('s', true)] },
 };
 const ready = { id: 'ready', data: { columns: [col('t')], requiredColumnIds: [] } };
 const readyRequired = {

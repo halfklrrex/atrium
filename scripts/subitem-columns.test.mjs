@@ -1,7 +1,7 @@
-// SUBITEMS-as-items guard: `board.subitemColumns` is being retired, and every reader must go through
-// `columnsForItem` (packages/shared/src/subitems.ts). This fails on a read of `subitemColumns` in a
-// file that is not on the allow list. Each follow-up PR shrinks the list; PR 6 leaves the schema
-// and the migration. Tests, and the places named below, may use the field.
+// SUBITEMS-as-items guard: `board.subitemColumns` is retired (always `[]`), and every reader gets a
+// subitem's columns from `columnsForItem` (packages/shared/src/subitems.ts), which is `board.columns`.
+// This fails on a mention of `subitemColumns` in a file that is not on the allow list. Tests, and the
+// places named below, may use the field.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -15,55 +15,29 @@ const SOURCE_FILE = /\.(?:ts|tsx|mjs|cjs|js)$/;
 const TEST_FILE = /(?:\.test\.|\.spec\.|(?:^|[\\/])tests?[\\/])/;
 
 /**
- * Source files that may still mention `subitemColumns`, with why. The first group is permanent
- * (schema, helper, migration); the rest is the legacy surface that PRs 2 to 6 convert.
+ * Source files that may mention `subitemColumns`, with why. Nothing reads the field any more:
+ * subitems share `board.columns`. Every entry below only declares the field or writes `[]`.
  */
 const ALLOWED = new Map([
-  // Permanent.
-  ['packages/shared/src/subitems.ts', 'columnsForItem and the migration plan'],
-  ['packages/shared/src/schemas/board.ts', 'the deprecated schema field'],
+  ['packages/shared/src/subitems.ts', 'the migration plan names the legacy lists it merges'],
   [
-    'packages/shared/src/derived-ids.ts',
-    'derived / required / server-managed id lists span both lists',
-  ],
-  ['scripts/migrations/2026-11-merge-subitem-columns.mjs', 'the migration'],
-  // Transition: legacy code paths removed by SUBITEMS PRs 2 to 6.
-  ['packages/shared/src/boards.ts', 'new boards are created with []'],
-  ['packages/shared/src/schemas/column-type-change.ts', 'the legacy column scope'],
-  ['packages/shared/src/schemas/template.ts', 'templates carry []'],
-  ['packages/shared/src/templates/built-in.ts', 'built-in templates carry []'],
-  ['packages/shared/src/item-index.ts', 'the index board shape (passed to columnsForItem)'],
-  ['functions/src/lib/activity.ts', 'the board shape (passed to columnsForItem)'],
-  ['functions/src/lib/notifications.ts', 'the board shape (passed to columnsForItem)'],
-  ['functions/src/lib/required-revert.ts', 'the board shape (passed to columnsForItem)'],
-  ['functions/src/lib/column-type-change.ts', 'the legacy column scope'],
-  ['functions/src/lib/admin.ts', 'loads the board; legacy column scope'],
-  ['functions/src/lib/admin-notifications.ts', 'loads the board'],
-  ['functions/src/lib/admin-required-revert.ts', 'loads the board'],
-  ['functions/src/lib/admin-activity.ts', 'loads the board'],
-  [
-    'scripts/migrations/2026-11-backfill-item-date-keys.mjs',
-    'older backfill, run before the merge',
-  ],
-  ['scripts/migrations/2026-11-backfill-item-index.mjs', 'older backfill, run before the merge'],
-  ['scripts/migrations/2026-11-backfill-required-column-ids.mjs', 'older backfill'],
-  ['scripts/migrations/2026-10-backfill-derived-column-ids.mjs', 'older backfill'],
-  ['scripts/showcase/data.mjs', 'the showcase board carries []'],
-  ['scripts/e2e-membership.mjs', 'board fixture with []'],
-  [
-    'apps/web/src/components/board-table/table-actions.ts',
-    'legacy column scope (until the migration ran)',
+    'packages/shared/src/schemas/board.ts',
+    'the deprecated schema field (old documents still parse)',
   ],
   [
-    'apps/web/src/components/board-table/vote-cap.ts',
-    'counts vote columns across both lists of the board structure state (matches voteColumnIds)',
+    'packages/shared/src/schemas/template.ts',
+    'the template schema and the saved structure carry [] (the rules require the key, and []).',
   ],
+  [
+    'packages/shared/src/schemas/column-type-change.ts',
+    'the wire format of the type-change callable and of stored snapshots keeps the old scope value',
+  ],
+  ['packages/shared/src/boards.ts', 'new boards are created with [] (the rules require the key)'],
+  ['packages/shared/src/templates/built-in.ts', 'built-in templates carry [] (the rules need it)'],
   ['apps/web/src/data/firestore.ts', 'new and duplicated boards are created with []'],
-  ['apps/web/src/data/structure-writes.ts', 'legacy column scope (until the migration ran)'],
-  [
-    'packages/mcp-core/src/service/boards.mjs',
-    'legacy boards (not yet migrated) still list their subitem columns',
-  ],
+  ['scripts/migrations/2026-11-merge-subitem-columns.mjs', 'the migration'],
+  ['scripts/showcase/data.mjs', 'the showcase board carries [] (the rules require the key)'],
+  ['scripts/e2e-membership.mjs', 'board fixture written with [] (the rules require the key)'],
 ]);
 
 function sourceFiles(dir) {
