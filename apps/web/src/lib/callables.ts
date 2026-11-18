@@ -25,6 +25,31 @@ import {
   ROTATE_WEBHOOK_SECRET_CALLABLE,
   TEST_WEBHOOK_CALLABLE,
   UPDATE_WEBHOOK_CALLABLE,
+  CREATE_INCOMING_HOOK_CALLABLE,
+  DELETE_INCOMING_HOOK_CALLABLE,
+  LIST_WEBHOOK_DELIVERIES_CALLABLE,
+  ROTATE_INCOMING_HOOK_SECRET_CALLABLE,
+  UPDATE_INCOMING_HOOK_CALLABLE,
+  createIncomingHookRequestSchema,
+  createIncomingHookResultSchema,
+  deleteIncomingHookRequestSchema,
+  deleteIncomingHookResultSchema,
+  listWebhookDeliveriesRequestSchema,
+  listWebhookDeliveriesResultSchema,
+  rotateIncomingHookSecretRequestSchema,
+  rotateIncomingHookSecretResultSchema,
+  updateIncomingHookRequestSchema,
+  updateIncomingHookResultSchema,
+  type CreateIncomingHookRequest,
+  type CreateIncomingHookResult,
+  type DeleteIncomingHookRequest,
+  type DeleteIncomingHookResult,
+  type ListWebhookDeliveriesRequest,
+  type ListWebhookDeliveriesResult,
+  type RotateIncomingHookSecretRequest,
+  type RotateIncomingHookSecretResult,
+  type UpdateIncomingHookRequest,
+  type UpdateIncomingHookResult,
   createWebhookRequestSchema,
   createWebhookResultSchema,
   deleteWebhookRequestSchema,
@@ -625,6 +650,50 @@ export const webhookCalls = {
       TEST_WEBHOOK_CALLABLE,
     )(testWebhookRequestSchema.parse(request));
     return testWebhookResultSchema.parse(data);
+  },
+  /** The most recent deliveries of a webhook (never payloads or the secret). */
+  listDeliveries: async (
+    request: ListWebhookDeliveriesRequest,
+  ): Promise<ListWebhookDeliveriesResult> => {
+    const { data } = await httpsCallable<ListWebhookDeliveriesRequest, unknown>(
+      functions,
+      LIST_WEBHOOK_DELIVERIES_CALLABLE,
+    )(listWebhookDeliveriesRequestSchema.parse(request));
+    return listWebhookDeliveriesResultSchema.parse(data);
+  },
+};
+
+/** Board -> Integrations (P8): incoming webhooks, board owners only. The URL (with the secret) is returned once. */
+export const incomingHookCalls = {
+  create: async (request: CreateIncomingHookRequest): Promise<CreateIncomingHookResult> => {
+    const { data } = await httpsCallable<CreateIncomingHookRequest, unknown>(
+      functions,
+      CREATE_INCOMING_HOOK_CALLABLE,
+    )(createIncomingHookRequestSchema.parse(request));
+    return createIncomingHookResultSchema.parse(data);
+  },
+  update: async (request: UpdateIncomingHookRequest): Promise<UpdateIncomingHookResult> => {
+    const { data } = await httpsCallable<UpdateIncomingHookRequest, unknown>(
+      functions,
+      UPDATE_INCOMING_HOOK_CALLABLE,
+    )(updateIncomingHookRequestSchema.parse(request));
+    return updateIncomingHookResultSchema.parse(data);
+  },
+  rotateSecret: async (
+    request: RotateIncomingHookSecretRequest,
+  ): Promise<RotateIncomingHookSecretResult> => {
+    const { data } = await httpsCallable<RotateIncomingHookSecretRequest, unknown>(
+      functions,
+      ROTATE_INCOMING_HOOK_SECRET_CALLABLE,
+    )(rotateIncomingHookSecretRequestSchema.parse(request));
+    return rotateIncomingHookSecretResultSchema.parse(data);
+  },
+  remove: async (request: DeleteIncomingHookRequest): Promise<DeleteIncomingHookResult> => {
+    const { data } = await httpsCallable<DeleteIncomingHookRequest, unknown>(
+      functions,
+      DELETE_INCOMING_HOOK_CALLABLE,
+    )(deleteIncomingHookRequestSchema.parse(request));
+    return deleteIncomingHookResultSchema.parse(data);
   },
 };
 

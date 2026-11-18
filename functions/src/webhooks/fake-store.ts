@@ -106,6 +106,13 @@ export function fakeWebhookStore(): FakeWebhookStore {
       deliveries.set(id, { ...d, nextAttemptAt: now + leaseMs });
       return before;
     },
+    async listDeliveries(webhookId, limit) {
+      return [...deliveries.entries()]
+        .filter(([, d]) => d.webhookId === webhookId)
+        .sort((a, b) => b[1].createdAt - a[1].createdAt || (a[0] < b[0] ? -1 : 1))
+        .slice(0, limit)
+        .map(([id, doc]) => ({ id, doc: { ...doc } }));
+    },
     async finishDelivery(id, result) {
       const d = deliveries.get(id);
       if (!d) throw new Error('NOT_FOUND');
