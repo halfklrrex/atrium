@@ -453,7 +453,7 @@ service cloud.firestore {
             && s.keys().hasOnly(['columns', 'subitemColumns', 'groups', 'itemTerminology'])
             && s.keys().hasAll(['columns', 'subitemColumns', 'groups', 'itemTerminology'])
             && s.columns is list && s.columns.size() <= 60
-            && s.subitemColumns is list && s.subitemColumns.size() <= 60
+            && s.subitemColumns == []
             && s.groups is list && s.groups.size() >= 1 && s.groups.size() <= 100
             && s.itemTerminology is string && s.itemTerminology.size() >= 1
             && s.itemTerminology.size() <= 40;
@@ -734,7 +734,7 @@ service cloud.firestore {
           && d.accessUids == [uid()]
           && d.position is string && d.position.size() >= 1 && d.position.size() <= 64
           && d.icon == null
-          && d.columns is list && d.subitemColumns is list && d.groups is list
+          && d.columns is list && d.subitemColumns == [] && d.groups is list
           && d.derivedColumnIds == []
           && d.serverManagedColumnIds == []
           && d.requiredColumnIds == []
@@ -763,7 +763,7 @@ service cloud.firestore {
         let role = boardRole(resource.data);
         return role in ['owner', 'editor']
           && changed.hasOnly(['folderId', 'position', 'name', 'description', 'columns',
-                              'subitemColumns', 'groups', 'itemTerminology', 'state', 'deletedAt',
+                              'groups', 'itemTerminology', 'state', 'deletedAt',
                               'columnLocks', 'updatedAt', 'updatedBy'])
           && request.resource.data.get('updatedBy', null) == uid()
           && (!changed.hasAny(['state', 'deletedAt', 'columnLocks']) || role == 'owner')
