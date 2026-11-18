@@ -358,10 +358,8 @@ function ColumnMenu({ column, group }: { column: ColumnView | null; group: Group
   // Derived and server-managed columns are never filled by a person, so they cannot be required.
   const canBeRequired = !!column && !isClientReadOnlyType(column.def.type);
   // Rows this menu's column writes to. Subitems share the board's columns, so a column holds
-  // values on every row; a board not yet migrated has separate lists: top-level items, or the
-  // subitems of the block.
-  const scopeItems = () =>
-    env.getItems().filter((i) => (env.legacySubitems ? subitems || !i.parentItemId : true));
+  // values on every row.
+  const scopeItems = () => env.getItems();
   // The Required switch's note: the cap block when turning it on would pass the rules' limit, else
   // how many items are empty today (nothing is rewritten).
   const requiredNote = !column

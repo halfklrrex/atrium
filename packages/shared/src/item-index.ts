@@ -24,7 +24,6 @@ export interface IndexColumn {
 
 export interface ItemIndexBoard {
   columns: ReadonlyArray<IndexColumn>;
-  subitemColumns?: ReadonlyArray<IndexColumn>;
 }
 
 export interface ItemIndexSource {

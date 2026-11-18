@@ -415,10 +415,7 @@ export function createService({ client, actor, now = () => new Date(), serverOps
       .sort((a, b) => (a.data.position < b.data.position ? -1 : 1));
   }
 
-  /**
-   * The columns a board's subitems use: the board's own columns (subitems share them), or, on a
-   * board the subitem-column migration has not reached yet, its legacy subitem columns.
-   */
+  /** The columns a board's subitems use: the board's own columns (subitems share them). */
   const subitemColumnsOf = (board) => columnsForSubitems(board);
 
   // The helpers every domain module works with; they close over the client, the actor and the caches.

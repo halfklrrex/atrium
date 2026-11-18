@@ -42,7 +42,6 @@ class FakeStore implements NotificationStore {
       { id: 'backup', type: 'people' },
       { id: 'status', type: 'status' },
     ],
-    subitemColumns: [{ id: 'subowner', type: 'people' }],
   };
   roles: Record<string, WorkspaceRole> = { [AVERY]: 'owner', [BLAKE]: 'member', [CASEY]: 'member' };
   prefs = new Map<string, Partial<NotificationPrefs>>();
@@ -133,17 +132,9 @@ describe('addedPeople', () => {
     expect(addedPeople(board, false, { owner: people(BLAKE) }, { owner: null })).toEqual([]);
   });
 
-  it('uses the board columns for a subitem once the board has no subitemColumns', () => {
-    const migrated = { ...board, subitemColumns: [] } as NotificationBoard;
-    expect(addedPeople(migrated, true, {}, { owner: people(BLAKE) })).toEqual([
+  it('uses the board columns for a subitem', () => {
+    expect(addedPeople(board, true, {}, { owner: people(BLAKE) })).toEqual([
       { uid: BLAKE, kind: 'assigned', columnId: 'owner' },
-    ]);
-  });
-
-  it('uses subitemColumns for a subitem', () => {
-    expect(addedPeople(board, true, {}, { owner: people(BLAKE) })).toEqual([]);
-    expect(addedPeople(board, true, {}, { subowner: people(BLAKE) })).toEqual([
-      { uid: BLAKE, kind: 'assigned', columnId: 'subowner' },
     ]);
   });
 });

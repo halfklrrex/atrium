@@ -13,7 +13,6 @@ import { columnRegistry } from './columns';
 /** The fields of a board document this logic reads. Anything else is ignored. */
 export interface BoardColumnsData {
   columns?: unknown;
-  subitemColumns?: unknown;
   derivedColumnIds?: unknown;
   serverManagedColumnIds?: unknown;
   requiredColumnIds?: unknown;
@@ -29,7 +28,7 @@ export interface BoardColumnsData {
 export const REQUIRED_COLUMN_RULE_CAP = 10;
 
 /**
- * How many vote columns (columns and subitem columns together) the Firestore rules check by value
+ * How many vote columns (subitems share the board's columns) the Firestore rules check by value
  * (vote integrity). Like {@link REQUIRED_COLUMN_RULE_CAP}, `firestore.rules` unrolls the check over
  * the first 10 entries of `voteColumnIds` and refuses writes to a later one (fail closed), so the
  * web refuses to add an 11th vote column. Keep equal to the unrolled helper in `firestore.rules`.
@@ -41,15 +40,14 @@ export const VOTE_COLUMN_CAP_MESSAGE = `A board can have at most ${VOTE_COLUMN_R
 
 /**
  * True when turning one more column into a vote column (a new column or a type change to `vote`)
- * would push the board past {@link VOTE_COLUMN_RULE_CAP}. Columns and sub-item columns count
- * together. Other types are never limited.
+ * would push the board past {@link VOTE_COLUMN_RULE_CAP}. Other types are never limited.
  */
 export function voteCapExceeded(
   toType: string,
-  board: { columns?: readonly ColumnDef[] | null; subitemColumns?: readonly ColumnDef[] | null },
+  board: { columns?: readonly ColumnDef[] | null },
 ): boolean {
   if (toType !== 'vote') return false;
-  const all = [...(board.columns ?? []), ...(board.subitemColumns ?? [])];
+  const all = board.columns ?? [];
   return all.filter((c) => c.type === 'vote').length >= VOTE_COLUMN_RULE_CAP;
 }
 
@@ -74,9 +72,9 @@ function columnDefsOf(list: unknown): ColumnDef[] {
   );
 }
 
-/** Every column def of the board: sub-items live in the same `items` collection, so they count too. */
+/** Every column def of the board: subitems share the board's columns, so these are all of them. */
 function allColumnDefs(data: BoardColumnsData): ColumnDef[] {
-  return [...columnDefsOf(data.columns), ...columnDefsOf(data.subitemColumns)];
+  return columnDefsOf(data.columns);
 }
 
 const uniqueSorted = (ids: readonly string[]): string[] => [...new Set(ids)].sort();

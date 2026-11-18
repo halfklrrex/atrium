@@ -19,7 +19,6 @@ export function adminRequiredRevertStore(firestore: Firestore): RequiredRevertSt
       if (!snap.exists) return null;
       return {
         columns: snap.get('columns') ?? [],
-        subitemColumns: snap.get('subitemColumns') ?? [],
         requiredColumnIds: snap.get('requiredColumnIds') ?? [],
       } satisfies RequiredRevertBoard;
     },

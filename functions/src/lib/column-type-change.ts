@@ -48,7 +48,6 @@ export interface ChangeBoardData {
   workspaceId: string;
   access: Record<string, BoardRole>;
   columns: ColumnDef[];
-  subitemColumns: ColumnDef[];
   columnLocks?: string[];
 }
 
@@ -157,18 +156,14 @@ const typeLabel = (type: string): string => columnRegistry.find(type)?.label ?? 
 const hasValue = (value: unknown): boolean => value !== undefined && value !== null;
 
 /**
- * Which items a column's type change covers. Subitems share the board's columns once the board has
- * no legacy `subitemColumns` (SUBITEMS-as-items), so a change to a board column then converts the
- * subitems' values too; on a not yet migrated board the split stays as it was.
+ * Which items a column's type change covers: every item, subitems included, because subitems
+ * share the board's columns (SUBITEMS-as-items). The `scope` of a request or an old snapshot is
+ * kept for the wire format, but there is only one column list now.
  */
-const inScope = (item: MigrationItem, scope: ColumnScope, board: ChangeBoardData): boolean => {
-  const subitem = !!item.parentItemId;
-  if (scope === 'subitemColumns') return subitem;
-  return !subitem || board.subitemColumns.length === 0;
-};
+const inScope = (_item: MigrationItem, _scope: ColumnScope, _board: ChangeBoardData): boolean =>
+  true;
 
-const columnsOf = (board: ChangeBoardData, scope: ColumnScope): ColumnDef[] =>
-  scope === 'columns' ? board.columns : board.subitemColumns;
+const columnsOf = (board: ChangeBoardData, _scope: ColumnScope): ColumnDef[] => board.columns;
 
 /** The column def without the fields only these functions write. */
 function stripServerFields(column: ColumnDef): ColumnDef {

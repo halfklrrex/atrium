@@ -71,39 +71,20 @@ export function subitemsByParent<
 }
 
 /**
- * The columns an item's cells use. Subitems share the board's columns (SUBITEMS-as-items).
- * Transition only: a board that still has legacy `subitemColumns` (not migrated yet) keeps them
- * for its subitems. PR 6 removes the fallback.
+ * The columns an item's cells use: always the board's columns. Subitems share them (SUBITEMS-as-items).
+ * The `item` argument is kept so every call site still says whose cells it means; it no longer
+ * changes the result.
  */
 export function columnsForItem<C>(
-  board: { columns: readonly C[]; subitemColumns?: readonly C[] | null },
-  item: { parentItemId?: string | null },
+  board: { columns: readonly C[] },
+  _item?: { parentItemId?: string | null },
 ): readonly C[] {
-  if (
-    isSubitem({ parentItemId: item.parentItemId ?? null }) &&
-    (board.subitemColumns?.length ?? 0) > 0
-  ) {
-    return board.subitemColumns as readonly C[];
-  }
   return board.columns;
 }
 
-/**
- * The columns a board's subitems use (same as `columnsForItem` for any subitem). Callers that
- * render subitem blocks, views or exports and have no particular subitem at hand use this.
- */
-export function columnsForSubitems<C>(board: {
-  columns: readonly C[];
-  subitemColumns?: readonly C[] | null;
-}): readonly C[] {
-  return columnsForItem(board, { parentItemId: 'subitem' });
-}
-
-/** True while the board still has legacy subitem columns (not yet merged by the migration). */
-export function hasLegacySubitemColumns(board: {
-  subitemColumns?: readonly unknown[] | null;
-}): boolean {
-  return (board.subitemColumns?.length ?? 0) > 0;
+/** The columns a board's subitems use: the board's columns. */
+export function columnsForSubitems<C>(board: { columns: readonly C[] }): readonly C[] {
+  return board.columns;
 }
 
 // ---------------------------------------------------------------------------------------------

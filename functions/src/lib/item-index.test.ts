@@ -14,7 +14,6 @@ const board = {
     { id: 'due', type: 'date' },
     { id: 'start', type: 'date' },
   ],
-  subitemColumns: [{ id: 'sub_owner', type: 'people' }],
 };
 
 const people = (...ids: string[]) => ({
@@ -124,24 +123,8 @@ describe('syncItemIndexFields', () => {
     });
   });
 
-  it('uses the subitem columns for a subitem', async () => {
+  it('indexes a subitem from the board People columns', async () => {
     const store = new FakeStore();
-    await syncItemIndexFields(
-      store,
-      change({
-        after: {
-          name: 'Sub',
-          parentItemId: 'p1',
-          values: { owner: people('u1'), sub_owner: people('u9') },
-        },
-      }),
-    );
-    expect(store.writes[0]?.fields).toMatchObject({ assigneeUids: ['u9'] });
-  });
-
-  it('indexes a subitem from the board People columns once the board has no subitem columns', async () => {
-    const store = new FakeStore();
-    store.board = { ...board, subitemColumns: [] };
     await syncItemIndexFields(
       store,
       change({

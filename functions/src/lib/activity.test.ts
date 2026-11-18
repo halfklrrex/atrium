@@ -27,7 +27,6 @@ const BOARD: ActivityBoard = {
     { id: 'calc', title: 'Calc', type: 'formula', settings: {} },
     { id: 'n', title: 'Budget', type: 'numbers', settings: {} },
   ],
-  subitemColumns: [{ id: 'sub', title: 'Sub text', type: 'text', settings: {} }],
   groups: [
     { id: 'g1', title: 'To do' },
     { id: 'g2', title: 'Done' },
@@ -215,31 +214,14 @@ describe('diffItemActivity', () => {
     expect(plan).toEqual([]);
   });
 
-  it('uses the subitem columns for a subitem', () => {
-    const sub = { ...base, parentItemId: 'p1' };
-    const plan = diffItemActivity(
-      {
-        before: { ...sub, values: { sub: 'a' } },
-        after: { ...edit({ values: { sub: 'b' } }), parentItemId: 'p1' },
-      },
-      BOARD,
-      profiles,
-    );
-    expect(plan[0]).toMatchObject({
-      kind: 'value_changed',
-      fields: { parentItemId: 'p1', columnId: 'sub', columnTitle: 'Sub text' },
-    });
-  });
-
-  it('labels a subitem change with the board column title once the board has no subitem columns', () => {
-    const migrated: ActivityBoard = { ...BOARD, subitemColumns: [] };
+  it('labels a subitem change with the board column title', () => {
     const sub = { ...base, parentItemId: 'p1' };
     const plan = diffItemActivity(
       {
         before: { ...sub, values: { status: 'a' } },
         after: { ...edit({ values: { status: 'b' } }), parentItemId: 'p1' },
       },
-      migrated,
+      BOARD,
       profiles,
     );
     expect(plan[0]).toMatchObject({

@@ -1242,40 +1242,6 @@ test('subitems: one level only, an editor can create them, a subitem can be dele
   assert.deepEqual(client.docs.get(`boards/${fresh.id}`).data.subitemColumns, []);
 });
 
-test('subitems on a board not yet migrated keep using its legacy subitem columns', async () => {
-  const { service, client, boardId, itemId } = await itemFixture();
-  const board = client.docs.get(`boards/${boardId}`).data;
-  board.subitemColumns = [
-    {
-      id: 'legacy_note',
-      type: 'text',
-      title: 'Legacy note',
-      position: 'a0',
-      settings: {},
-    },
-  ];
-  const { created } = await service.createSubitems({
-    boardId,
-    itemId,
-    subitems: [{ name: 'Old', values: { 'Legacy note': 'hi' } }],
-  });
-  assert.equal(
-    client.docs.get(`boards/${boardId}/items/${created[0].id}`).data.values.legacy_note,
-    'hi',
-  );
-  const listed = await service.listSubitems({ boardId, itemId });
-  assert.deepEqual(
-    listed.columns.map((c) => c.title),
-    ['Legacy note'],
-  );
-  const full = await service.getBoard({ boardId });
-  assert.deepEqual(
-    full.subitemColumns.map((c) => c.title),
-    ['Legacy note'],
-  );
-  assert.equal(full.items.find((i) => i.id === itemId).subitems[0].values['Legacy note'], 'hi');
-});
-
 test('duplicateItem copies values and subitems next to the original, without calculated cells', async () => {
   const { service, client, boardId } = await itemFixture();
   const { created } = await service.createItems({

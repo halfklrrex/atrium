@@ -2,10 +2,7 @@ import {
   canEditBoard,
   canManageBoard,
   columnRegistry,
-  columnsForSubitems,
-  hasLegacySubitemColumns,
   resolveBoardRole,
-  type ColumnDef,
   type GroupDef,
 } from '@atrium/shared';
 import {
@@ -129,8 +126,6 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
 
   // Structure arrays come from every board snapshot; keep the same objects while nothing changed.
   const columnDefs = useDeepStable(board.columns);
-  const subitemDefs = useDeepStable(columnsForSubitems(board) as ColumnDef[]);
-  const legacySubitems = hasLegacySubitemColumns(board);
   const groupDefs = useDeepStable(board.groups);
   const columnLocks = useDeepStable(board.columnLocks ?? []);
   const boardLocks = useMemo(() => ({ columnLocks }), [columnLocks]);
@@ -142,14 +137,9 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       hiddenIds.length === 0 ? allColumns : allColumns.filter((c) => !hiddenIds.includes(c.def.id)),
     [allColumns, hiddenIds],
   );
-  // Subitems share the board's columns (hidden ones follow the view); a board not yet migrated
-  // still renders its own subitem columns.
-  const legacyViews = useMemo(
-    () => (legacySubitems ? buildColumnViews(subitemDefs) : null),
-    [legacySubitems, subitemDefs],
-  );
-  const subColumns = legacyViews ?? columns;
-  const subModelColumns = legacyViews ?? allColumns;
+  // Subitems share the board's columns (hidden ones follow the view).
+  const subColumns = columns;
+  const subModelColumns = allColumns;
   // Groups just added here show at once; the board snapshot replaces them when it catches up.
   const pendingGroups = useTableStore((s) => s.pendingGroups);
   const groups = useMemo(
@@ -232,29 +222,14 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       boardId,
       uid,
       columns: columnDefs,
-      subColumns: subitemDefs,
+      subColumns: columnDefs,
       board: boardLocks,
       boardRole,
       requiredColumnIds: board.requiredColumnIds,
       getItems,
       getGroups,
     }),
-    [
-      boardId,
-      uid,
-      columnDefs,
-      subitemDefs,
-      boardLocks,
-      boardRole,
-      board.requiredColumnIds,
-      getItems,
-      getGroups,
-    ],
-  );
-  // The same context for the cells of a subitem (what the keyboard writes to).
-  const subitemCtx = useMemo<TableCtx>(
-    () => ({ ...ctx, columns: subitemDefs, scope: legacySubitems ? 'subitems' : 'columns' }),
-    [ctx, subitemDefs, legacySubitems],
+    [boardId, uid, columnDefs, boardLocks, boardRole, board.requiredColumnIds, getItems, getGroups],
   );
 
   const onResize = useCallback(
@@ -289,7 +264,6 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       columns,
       allColumns,
       subColumns,
-      legacySubitems,
       groups,
       nameWidth: savedNameWidth,
       ctx,
@@ -309,7 +283,6 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       columns,
       allColumns,
       subColumns,
-      legacySubitems,
       groups,
       savedNameWidth,
       ctx,
@@ -505,7 +478,7 @@ export function BoardTable({ board, userLookup: userLookupProp }: BoardTableProp
       : undefined;
     const parentId = activeDoc?.parentItemId ?? null;
     const scopeColumns = parentId ? subColumns : columns;
-    const scopeCtx = parentId ? subitemCtx : ctx;
+    const scopeCtx = ctx;
     const rowIds = visibleRowIds(
       modelsRef.current,
       useTablePrefs.getState().collapsed[boardId] ?? [],

@@ -75,7 +75,6 @@ export function adminActivityStore(firestore: Firestore): ActivityStore {
       return {
         workspaceId: str(snap.get('workspaceId')) ?? '',
         columns: snap.get('columns') ?? [],
-        subitemColumns: snap.get('subitemColumns') ?? [],
         groups: snap.get('groups') ?? [],
       };
     },

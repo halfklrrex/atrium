@@ -58,13 +58,12 @@ class FakeStore implements ColumnTypeChangeStore {
   dropChunks = false;
   writeBatches: number[] = [];
 
-  constructor(columns: ColumnDef[], subitemColumns: ColumnDef[] = []) {
+  constructor(columns: ColumnDef[]) {
     this.board = {
       kind: 'main',
       workspaceId: 'ws1',
       access: { [OWNER]: 'owner' as BoardRole, [EDITOR]: 'editor', [VIEWER]: 'viewer' },
       columns,
-      subitemColumns,
       columnLocks: [],
     };
   }
@@ -131,14 +130,14 @@ class FakeStore implements ColumnTypeChangeStore {
     write: ColumnWrite,
   ) {
     this.tick('updateColumn');
-    const list = this.board[scope];
+    const list = this.board.columns;
     const current = structuredClone(list.find((c) => c.id === columnId) ?? null);
     const next = decide(current, structuredClone(this.board));
     // Like the real transaction: returning the current def unchanged writes nothing, logs nothing.
     if (next === current) return;
     this.boardWrites.push({ updatedBy: write.updatedBy });
     if (write.activity) this.activity.push({ ...write.activity, actor: write.updatedBy });
-    this.board[scope] = list.map((c) => (c.id === columnId ? structuredClone(next) : c));
+    this.board.columns = list.map((c) => (c.id === columnId ? structuredClone(next) : c));
     if (snapshotPatch) {
       const meta = this.snapshots.get(snapshotPatch.snapshotId)!;
       this.snapshots.set(snapshotPatch.snapshotId, { ...meta, ...snapshotPatch.patch });
@@ -162,8 +161,8 @@ class FakeStore implements ColumnTypeChangeStore {
     return `snap${this.ids}`;
   }
 
-  column(scope: ColumnScope = 'columns', id = 'budget') {
-    return this.board[scope].find((c) => c.id === id)!;
+  column(_scope: ColumnScope = 'columns', id = 'budget') {
+    return this.board.columns.find((c) => c.id === id)!;
   }
   valuesOf(columnId = 'budget') {
     return Object.fromEntries(
@@ -314,20 +313,6 @@ describe('changeColumnType: happy path', () => {
     await changeColumnTypeLogic(store2, EDITOR, toNumbers());
     expect(store2.column().defaultValue).toBeUndefined();
   });
-
-  it('works on the subitem columns and only touches subitems', async () => {
-    const store = new FakeStore([], [textColumn('sub')]);
-    store.addItem('parent', { sub: 'parent value' });
-    store.addItem('child', { sub: '7' }, 'parent');
-    const result = await changeColumnTypeLogic(store, EDITOR, {
-      ...toNumbers(),
-      columnId: 'sub',
-      scope: 'subitemColumns',
-    });
-    expect(result.converted).toBe(1);
-    expect(store.column('subitemColumns', 'sub').type).toBe('numbers');
-    expect(store.valuesOf('sub')).toEqual({ child: 7, parent: 'parent value' });
-  });
 });
 
 describe('previewColumnTypeChangeLogic', () => {
@@ -368,7 +353,7 @@ describe('previewColumnTypeChangeLogic', () => {
 });
 
 describe('changeColumnType: subitems share the board columns (SUBITEMS-as-items)', () => {
-  it('converts the subitems values too once the board has no legacy subitem columns, and Undo restores them', async () => {
+  it('converts the subitems values too, and Undo restores them', async () => {
     const store = new FakeStore([textColumn()]);
     store.addItem('parent', { budget: '5' });
     store.addItem('child', { budget: '7' }, 'parent');
@@ -379,14 +364,6 @@ describe('changeColumnType: subitems share the board columns (SUBITEMS-as-items)
     await revertColumnTypeLogic(store, EDITOR, { boardId: 'b1', snapshotId: result.snapshotId });
     expect(store.valuesOf()).toEqual({ child: '7', parent: '5' });
     expect(store.column().type).toBe('text');
-  });
-
-  it('keeps the old split on a board that still has legacy subitem columns', async () => {
-    const store = new FakeStore([textColumn()], [textColumn('sub')]);
-    store.addItem('parent', { budget: '5' });
-    store.addItem('child', { budget: 'stray', sub: '7' }, 'parent');
-    await changeColumnTypeLogic(store, EDITOR, toNumbers());
-    expect(store.valuesOf()).toEqual({ child: 'stray', parent: 5 });
   });
 });
 
@@ -819,9 +796,9 @@ describe('changeColumnType: vote column cap', () => {
   const voteColumn = (id: string): ColumnDef => ({ ...textColumn(id), type: 'vote', title: id });
   const toVote = () => toNumbers({ toType: 'vote', toSettings: {} });
 
-  it('refuses converting to an 11th vote column (subitem columns count too) and changes nothing', async () => {
+  it('refuses converting to an 11th vote column and changes nothing', async () => {
     const votes = Array.from({ length: 10 }, (_, n) => voteColumn(`v${n}`));
-    const store = new FakeStore([textColumn(), ...votes.slice(0, 5)], votes.slice(5));
+    const store = new FakeStore([textColumn(), ...votes]);
     const error = await expectCode(
       changeColumnTypeLogic(store, OWNER, toVote()),
       'failed-precondition',

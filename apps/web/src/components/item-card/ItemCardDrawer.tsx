@@ -1,11 +1,4 @@
-import {
-  canEditBoard,
-  columnsForItem,
-  columnsForSubitems,
-  hasLegacySubitemColumns,
-  resolveBoardRole,
-  type ColumnDef,
-} from '@atrium/shared';
+import { canEditBoard, columnsForItem, resolveBoardRole, type ColumnDef } from '@atrium/shared';
 import {
   Button,
   IconButton,
@@ -77,17 +70,7 @@ export function ItemCardDrawer() {
   );
   const { data: updates } = useItemUpdates(activeBoardId ?? undefined, activeItemId ?? undefined);
   const { data: board } = useBoard(activeBoardId ?? undefined);
-  const activityColumns = useMemo(
-    () =>
-      board
-        ? [
-            ...board.columns,
-            // A board not yet migrated: its legacy subitem columns also label activity.
-            ...(hasLegacySubitemColumns(board) ? columnsForSubitems(board) : []),
-          ]
-        : [],
-    [board],
-  );
+  const activityColumns = useMemo(() => (board ? board.columns : []), [board]);
   // Listen to the history only while its tab is showing.
   const activity = useItemActivity(
     activeTab === 'activity' ? (activeBoardId ?? undefined) : undefined,

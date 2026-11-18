@@ -28,8 +28,7 @@ const BOARD: RequiredRevertBoard = {
     col('owner', 'people', 'Owner', true),
     col('notes', 'text', 'Notes', true),
   ],
-  subitemColumns: [col('sst', 'status', 'Sub status'), col('sn', 'text', 'Sub note', true)],
-  requiredColumnIds: ['owner', 'notes', 'sn'],
+  requiredColumnIds: ['owner', 'notes'],
 };
 const FILLED = { owner: { personsAndTeams: [{ id: 'u1', kind: 'person' }] }, notes: 'x' };
 
@@ -199,27 +198,13 @@ describe('revertDoneWithEmptyRequired', () => {
     });
   });
 
-  it('uses the board columns for a subitem once the board has no subitem columns', async () => {
+  it('uses the board columns for a subitem', async () => {
     const after = { st: { index: 1 } };
-    const mem = memoryStore({ ...BOARD, subitemColumns: [] }, after);
+    const mem = memoryStore(BOARD, after);
     const out = await revertDoneWithEmptyRequired(
       mem.store,
       event({ st: { index: 0 } }, after, { parentItemId: 'p1' }),
     );
     expect(out.reverted).toBe(true);
-  });
-
-  it('uses the subitem columns for a subitem', async () => {
-    const after = { sst: { index: 1 } };
-    const mem = memoryStore(BOARD, after);
-    const out = await revertDoneWithEmptyRequired(
-      mem.store,
-      event({ sst: { index: 0 } }, after, { parentItemId: 'p1' }),
-    );
-    expect(out).toEqual({ reverted: true, columnIds: ['sst'] });
-    expect(mem.state.entries[0]!.doc).toMatchObject({
-      data: { missingTitles: ['Sub note'] },
-      parentItemId: 'p1',
-    });
   });
 });

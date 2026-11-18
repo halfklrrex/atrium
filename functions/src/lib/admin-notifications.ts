@@ -29,7 +29,6 @@ export function adminNotificationStore(
         workspaceId: str(snap.get('workspaceId')) ?? '',
         access: snap.get('access') ?? {},
         columns: snap.get('columns') ?? [],
-        subitemColumns: snap.get('subitemColumns') ?? [],
       };
     },
     async getWorkspaceRoles(workspaceId) {

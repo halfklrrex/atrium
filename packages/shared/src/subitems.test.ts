@@ -4,7 +4,6 @@ import {
   columnsForItem,
   columnsForSubitems,
   defaultSubitemColumns,
-  hasLegacySubitemColumns,
   isSubitem,
   planSubitemColumnMerge,
   subitemsByParent,
@@ -62,35 +61,18 @@ describe('subitem helpers', () => {
   });
 });
 
-describe('columnsForItem', () => {
+describe('columnsForItem / columnsForSubitems', () => {
   const columns = ['c1'];
-  const legacy = ['s1'];
-  it('gives an item the board columns', () => {
-    expect(columnsForItem({ columns, subitemColumns: legacy }, { parentItemId: null })).toBe(
-      columns,
-    );
-    expect(columnsForItem({ columns, subitemColumns: legacy }, {})).toBe(columns);
-  });
-  it('gives a subitem the board columns once the board has no subitem columns', () => {
-    expect(columnsForItem({ columns, subitemColumns: [] }, { parentItemId: 'p' })).toBe(columns);
+  it('always gives the board columns, for an item and for a subitem', () => {
+    expect(columnsForItem({ columns }, { parentItemId: null })).toBe(columns);
+    expect(columnsForItem({ columns }, {})).toBe(columns);
     expect(columnsForItem({ columns }, { parentItemId: 'p' })).toBe(columns);
-    expect(columnsForItem({ columns, subitemColumns: null }, { parentItemId: 'p' })).toBe(columns);
-  });
-  it('keeps the legacy subitem columns for a subitem until the board is migrated', () => {
-    expect(columnsForItem({ columns, subitemColumns: legacy }, { parentItemId: 'p' })).toBe(legacy);
-  });
-});
-
-describe('columnsForSubitems / hasLegacySubitemColumns', () => {
-  const columns = ['c1'];
-  const legacy = ['s1'];
-  it('uses the board columns, or the legacy subitem columns until migrated', () => {
-    expect(columnsForSubitems({ columns, subitemColumns: [] })).toBe(columns);
     expect(columnsForSubitems({ columns })).toBe(columns);
-    expect(columnsForSubitems({ columns, subitemColumns: legacy })).toBe(legacy);
-    expect(hasLegacySubitemColumns({ subitemColumns: legacy })).toBe(true);
-    expect(hasLegacySubitemColumns({ subitemColumns: [] })).toBe(false);
-    expect(hasLegacySubitemColumns({})).toBe(false);
+  });
+  it('ignores a leftover subitemColumns field on an old board document', () => {
+    const board = { columns, subitemColumns: ['s1'] };
+    expect(columnsForItem(board, { parentItemId: 'p' })).toBe(columns);
+    expect(columnsForSubitems(board)).toBe(columns);
   });
 });
 

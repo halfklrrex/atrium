@@ -129,7 +129,6 @@ const textColumns = (n: number): ColumnDef[] =>
 
 let mockColumns: ColumnDef[] = KEY_COLUMNS;
 let mockItems: ItemDoc[] = [];
-let mockSubitemColumns: ColumnDef[] = [];
 let mockRole: 'owner' | 'viewer' = 'owner';
 let mockUpdateList: ItemUpdateDoc[] = mockUpdates;
 const feedProps = vi.hoisted(() => ({ last: null as Record<string, unknown> | null }));
@@ -148,7 +147,6 @@ vi.mock('../../data/hooks', () => ({
       id: 'b1',
       name: 'Product roadmap',
       columns: mockColumns,
-      subitemColumns: mockSubitemColumns,
       access: { u1: mockRole },
       groups: [{ id: 'g1', title: 'Core boards', color: '#579bfc', position: 'a0' }],
     }),
@@ -201,7 +199,6 @@ describe('ItemCardDrawer', () => {
     mockActivityBoardId = undefined;
     mockColumns = KEY_COLUMNS;
     mockItems = [];
-    mockSubitemColumns = [];
     mockRole = 'owner';
     mockUpdateList = mockUpdates;
     feedProps.last = null;
@@ -536,7 +533,8 @@ describe('ItemCardDrawer', () => {
       values: index === undefined ? {} : { sst: { index } },
     });
     const withSubs = () => {
-      mockSubitemColumns = [
+      // Subitems share the board's columns.
+      mockColumns = [
         {
           ...subStatus,
           settings: {
