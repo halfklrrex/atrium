@@ -1,3 +1,10 @@
+import {
+  INCOMING_HOOK_BASE_URL,
+  INCOMING_HOOK_BODY_MAX_BYTES,
+  INCOMING_HOOK_CALLS_PER_MINUTE,
+  INCOMING_HOOK_DAILY_CALLS,
+  incomingHookBodySchema,
+} from '@atrium/shared';
 import { z } from 'zod';
 import {
   API_CALLS_PER_MINUTE,
@@ -263,6 +270,56 @@ const OPERATIONS: Record<string, Operation> = {
   },
 };
 
+/**
+ * The incoming-webhook route lives outside `/api/v1` and takes no bearer token (the secret in the path is
+ * the credential), so it is a separate path with its own `servers` entry (a Path Item may override the
+ * document's servers in OpenAPI 3.1). The key is the real path. `scripts/api-parity.test.mjs` checks it
+ * against `functions/src/api/hooks.ts`.
+ */
+const HOOK_SERVER_URL = new URL(INCOMING_HOOK_BASE_URL).origin;
+const HOOK_OPERATIONS: Record<string, Json> = {
+  'POST /api/hooks/{token}': {
+    operationId: 'postApiHooksToken',
+    summary: 'Create an item through an incoming webhook',
+    description: `Creates one item on the hook's board, as the person who made the hook. Board owners create the URL in the app (Board menu > Integrations); it is shown once. The \`{token}\` is the last part of that URL (\`{hookId}.{secret}\`), so treat the whole URL as a secret. Up to ${INCOMING_HOOK_CALLS_PER_MINUTE} calls a minute and ${INCOMING_HOOK_DAILY_CALLS.toLocaleString('en-US')} a day per hook; the body is at most ${INCOMING_HOOK_BODY_MAX_BYTES / 1024} KB. Locked, derived and server-managed columns are refused, and a refused call creates nothing.`,
+    tags: ['Incoming webhooks'],
+    security: [],
+    servers: [{ url: HOOK_SERVER_URL }],
+    parameters: [
+      {
+        name: 'token',
+        in: 'path',
+        required: true,
+        description: 'The hook token, `{hookId}.{secret}`.',
+        schema: { type: 'string' },
+      },
+      param('IdempotencyKey'),
+    ],
+    requestBody: {
+      required: true,
+      content: { 'application/json': { schema: bodySchema(incomingHookBodySchema) } },
+    },
+    responses: {
+      '201': jsonResponse('The new item.', {
+        type: 'object',
+        required: ['id', 'boardId'],
+        properties: { id: { type: 'string' }, boardId: { type: 'string' } },
+      }),
+      '400': errorRef('Invalid'),
+      '404': errorResponse(
+        'Unknown, disabled or wrong URL, or the hook can no longer create items. Always the same answer, so a guess learns nothing (`not_found`).',
+      ),
+      '409': errorRef('Conflict'),
+      '413': errorResponse(
+        `The body is over ${INCOMING_HOOK_BODY_MAX_BYTES / 1024} KB (\`invalid\`).`,
+      ),
+      '422': errorRef('IdempotencyMismatch'),
+      '429': errorRef('HookRateLimited'),
+      '503': errorRef('Disabled'),
+    },
+  },
+};
+
 const retryAfter = {
   'Retry-After': {
     description: 'Seconds to wait before trying again.',
@@ -270,11 +327,13 @@ const retryAfter = {
   },
 };
 
-const errorResponse = (description: string, extra: Json = {}) => ({
-  description,
-  content: { 'application/json': { schema: ref('Error') } },
-  ...extra,
-});
+function errorResponse(description: string, extra: Json = {}) {
+  return {
+    description,
+    content: { 'application/json': { schema: ref('Error') } },
+    ...extra,
+  };
+}
 
 export function buildOpenApiDocument(): Json {
   const paths: Record<string, Record<string, Json>> = {};
@@ -309,6 +368,11 @@ export function buildOpenApiDocument(): Json {
     (paths[path] ??= {})[method.toLowerCase()] = operation;
   }
 
+  for (const [key, operation] of Object.entries(HOOK_OPERATIONS)) {
+    const [method, path] = key.split(' ') as [string, string];
+    (paths[path] ??= {})[method.toLowerCase()] = operation;
+  }
+
   return {
     openapi: '3.1.0',
     info: {
@@ -317,7 +381,12 @@ export function buildOpenApiDocument(): Json {
       description: `Personal-token API for Atrium. Each token allows ${API_CALLS_PER_MINUTE} calls a minute, ${API_DAILY_CALLS} calls a day and ${API_DAILY_WRITES} writes a day. Send \`Idempotency-Key\` on POST to make a retry safe (kept ${IDEMPOTENCY_TTL_MS / 3600000} hours).`,
     },
     servers: [{ url: 'https://atrium-workboards.web.app/api/v1' }],
-    tags: [{ name: 'Account' }, { name: 'Boards' }, { name: 'Items' }],
+    tags: [
+      { name: 'Account' },
+      { name: 'Boards' },
+      { name: 'Items' },
+      { name: 'Incoming webhooks' },
+    ],
     security: [{ bearerAuth: [] }],
     paths,
     components: {
@@ -402,6 +471,10 @@ export function buildOpenApiDocument(): Json {
           { headers: retryAfter },
         ),
         Disabled: errorResponse('The API is switched off (`api_disabled`).'),
+        HookRateLimited: errorResponse(
+          `Over ${INCOMING_HOOK_CALLS_PER_MINUTE} calls a minute (wait 60 seconds), or over ${INCOMING_HOOK_DAILY_CALLS.toLocaleString('en-US')} a day for this hook (wait until 00:00 UTC) (\`rate_limited\`).`,
+          { headers: retryAfter },
+        ),
       },
     },
   };

@@ -30,13 +30,26 @@ const fromRoutes = sorted(
     ),
 );
 
-const fromOpenApi = sorted(
+// The incoming-webhook route (functions/src/api/hooks.ts) is outside /api/v1: its base path is a constant
+// and its routes are `router.post('/:token', ...)` calls. Its OpenAPI key is the full path.
+const hooksSource = read('functions/src/api/hooks.ts');
+const hooksBase = hooksSource.match(/export const HOOKS_BASE_PATH = '([^']+)'/)?.[1] ?? '';
+const fromHooks = sorted(
+  [...hooksSource.matchAll(/router\.(get|post|patch|put|delete)\('(\/[^']*)'/g)].map(
+    (m) => `${m[1].toUpperCase()} ${toOpenApiPath(hooksBase + m[2])}`,
+  ),
+);
+
+const allFromOpenApi = sorted(
   [
     ...read('functions/src/api/openapi.ts').matchAll(
       /^\s*'(GET|POST|PATCH|PUT|DELETE) (\/[^']*)':/gm,
     ),
   ].map((m) => `${m[1]} ${m[2]}`),
 );
+// The /api/v1 entries (the strict check below) and the hook entries (checked on their own).
+const fromOpenApi = allFromOpenApi.filter((r) => !r.split(' ')[1].startsWith(`${hooksBase}/`));
+const hooksFromOpenApi = allFromOpenApi.filter((r) => r.split(' ')[1].startsWith(`${hooksBase}/`));
 
 const fromPage = sorted(
   [
@@ -57,6 +70,35 @@ test('every route has an OpenAPI entry and every OpenAPI path has a route', () =
   const extra = fromOpenApi.filter((r) => !fromRoutes.includes(r));
   assert.deepEqual(missing, [], `routes with no OpenAPI entry: ${missing.join(', ')}`);
   assert.deepEqual(extra, [], `OpenAPI entries with no route: ${extra.join(', ')}`);
+});
+
+test('the incoming-webhook route has an OpenAPI entry, and only that one', () => {
+  assert.equal(hooksBase, '/api/hooks');
+  assert.deepEqual(fromHooks, ['POST /api/hooks/{token}']);
+  assert.deepEqual(hooksFromOpenApi, fromHooks);
+});
+
+test('the /developers page documents the incoming-webhook route', () => {
+  const page = read('apps/web/src/pages/developers/developers-content.ts');
+  for (const route of fromHooks) {
+    const path = route.split(' ')[1].replace('{token}', '');
+    assert.ok(page.includes(path), `${path} not on the page`);
+  }
+  assert.match(page, /INCOMING_HOOK_CALLS_PER_MINUTE/);
+  assert.match(page, /INCOMING_HOOK_DAILY_CALLS/);
+  assert.match(page, /INCOMING_HOOK_BODY_MAX_BYTES/);
+});
+
+test('the incoming-webhook limits are the shared constants the page and the document read', () => {
+  const shared = read('packages/shared/src/incoming-hooks.ts');
+  assert.match(shared, /INCOMING_HOOK_CALLS_PER_MINUTE = 60;/);
+  assert.match(shared, /INCOMING_HOOK_DAILY_CALLS = 1000;/);
+  assert.match(shared, /INCOMING_HOOK_BODY_MAX_BYTES = 64 \* 1024;/);
+  const openapi = read('functions/src/api/openapi.ts');
+  for (const name of ['INCOMING_HOOK_CALLS_PER_MINUTE', 'INCOMING_HOOK_DAILY_CALLS']) {
+    assert.match(openapi, new RegExp(name));
+  }
+  assert.match(openapi, /INCOMING_HOOK_BODY_MAX_BYTES/);
 });
 
 test('the /developers route table matches the routes', () => {
