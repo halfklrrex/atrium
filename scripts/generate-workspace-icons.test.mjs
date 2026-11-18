@@ -17,14 +17,14 @@ test('the curated list has unique, valid keys', () => {
   for (const key of keys) assert.match(key, ICON_KEY_PATTERN);
 });
 
-test('every curated icon exists in the package, in the regular weight', () => {
-  // render() throws when a regular file is missing or is not a single path.
+test('every curated icon exists in the package, in the fill weight', () => {
+  // render() throws when a fill file is missing or is not a single path.
   const output = render();
   for (const g of GROUPS) assert.ok(g.icons.length > 0, `group ${g.id} is empty`);
   const count = GROUPS.reduce((n, g) => n + g.icons.length, 0);
   assert.ok(count >= 190 && count <= 210, `expected 190 to 210 icons, got ${count}`);
-  assert.equal(output.match(/regular: "/g)?.length, count);
-  assert.ok(!output.includes('fill:'), 'only the regular weight is shipped');
+  assert.equal(output.match(/fill: "/g)?.length, count);
+  assert.ok(!output.includes('regular:'), 'only the fill weight is shipped');
 });
 
 test('the generator is deterministic', () => {
