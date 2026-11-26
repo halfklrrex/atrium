@@ -3,6 +3,7 @@ import {
   DESCRIPTION_IMAGE_TYPES,
   isDescriptionImageType,
 } from '@atrium/shared';
+import { Selection, TextSelection } from '@tiptap/pm/state';
 import type { Editor } from '@tiptap/react';
 import { descriptionImageCalls, describeCallableError, docImageCalls } from '../../lib/callables';
 import {
@@ -161,11 +162,22 @@ export async function uploadDescriptionImage(
   if (previewUrl) previews.set(uploadId, previewUrl);
   // Insert after the selection's end: a placeholder just added is selected, and replacing it
   // would drop the earlier image of a multi-image paste.
-  if (position === undefined)
-    editor.chain().focus().insertContentAt(editor.state.selection.to, placeholder).run();
-  else editor.chain().focus().insertContentAt(position, placeholder).run();
+  // updateSelection: false keeps the caret out of the placeholder, so typing while the upload runs
+  // goes after it; focus is only restored when the editor already has it.
+  const at0 = position === undefined ? editor.state.selection.to : position;
+  const chain = editor.isFocused ? editor.chain().focus() : editor.chain();
+  chain.insertContentAt(at0, placeholder, { updateSelection: false }).run();
   const inserted = findUpload(editor, uploadId);
-  if (inserted) onInserted?.(inserted.pos + inserted.size);
+  if (inserted) {
+    const end = inserted.pos + inserted.size;
+    // Inserting a block can leave a non-text selection (e.g. when it replaced an empty paragraph).
+    // Park the caret right after the placeholder so typing during the upload lands there.
+    if (!(editor.state.selection instanceof TextSelection)) {
+      const { tr } = editor.state;
+      editor.view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(end), 1)));
+    }
+    onInserted?.(end);
+  }
   setProgress(uploadId, 0);
   let keepPreview = false;
 
@@ -195,6 +207,7 @@ export async function uploadDescriptionImage(
         .insertContentAt(
           { from: at.pos, to: at.pos + at.size },
           { type: 'image', attrs: { fileId: done.fileId, alt: '', width: null } },
+          { updateSelection: false },
         )
         .run();
     }
