@@ -8,6 +8,9 @@ on:
   # Lets "Update visual baselines" start CI for the commit it pushes (pushes made with the default
   # GITHUB_TOKEN do not start workflows by themselves, but workflow_dispatch is allowed).
   workflow_dispatch:
+  # Nightly visual run (the screenshot jobs only run on this schedule and on workflow_dispatch).
+  schedule:
+    - cron: '0 3 * * *'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -65,8 +68,12 @@ jobs:
   # The image tag must equal the exact @playwright/test version (scripts/visual-ci.test.mjs checks).
   # To change baselines on purpose, run the "Update visual baselines" workflow: docs/visual-testing.md.
   visual:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: visual-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --ipc=host --init

@@ -1,6 +1,6 @@
 # Visual testing
 
-Screenshot tests guard the look of the key screens. Every PR renders them again in CI and compares them with the committed baselines, so a UI change can't slip in unnoticed and every intentional one shows up as an image diff you can review. The suite lives in `tests/visual/` (package `@atrium/visual-tests`, built on Playwright). The spec is `docs/specs/VF2-visual-regression.md`.
+Screenshot tests guard the look of the key screens. They run in CI nightly and on demand (Actions → CI → Run workflow on a branch), not on every PR. They compare the screens with the committed baselines, so a UI change can't slip in unnoticed for long and every intentional one shows up as an image diff you can review. UI authors run `pnpm test:visual` locally, or dispatch CI on their branch, when they want a check. The suite lives in `tests/visual/` (package `@atrium/visual-tests`, built on Playwright). The spec is `docs/specs/VF2-visual-regression.md`.
 
 ## What is covered
 
@@ -55,7 +55,7 @@ The audit job is `visual-mobile-audit` in `.github/workflows/ci.yml`: the same c
 
 Baselines are the **Linux** images made in CI's container. Fonts and anti-aliasing differ per OS, so never commit images from your own machine (Windows and macOS images are gitignored).
 
-1. Push your branch and open the PR. The `visual` job fails if your change moved any pixels. That is expected.
+1. Push your branch and dispatch CI on it (or just run the update workflow in the next step). The `visual` job fails if your change moved any pixels. That is expected.
 2. In GitHub, open **Actions → Update visual baselines → Run workflow**, pick your branch and run it. From a terminal: `gh workflow run update-visual-baselines.yml -f branch=<your-branch>`, then `gh run watch`.
 3. The workflow reruns the suite in the same container with `--update-snapshots`, commits the changed PNGs to your branch as "chore: update visual baselines", checks that a plain second run passes, and starts CI for the new commit. It refuses to run on `main`.
 4. Open the PR's **Files changed** tab and review the image diffs (GitHub shows the old and new image side by side, with swipe and onion-skin views). Only merge when every changed image is intended.
