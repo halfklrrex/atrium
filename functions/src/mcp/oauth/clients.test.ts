@@ -8,10 +8,11 @@ import { CLAUDE_REDIRECT, DAY, LOOPBACK_REDIRECT, T0, harness, rejection } from 
 import { authCodeRequestId, hashSecret, newAuthCode, newToken, secretMatchesHash } from './tokens';
 
 describe('the redirect allow-list', () => {
-  it('accepts the Claude callbacks and loopback /callback on any port', () => {
+  it('accepts the Claude and Antigravity callbacks and loopback /callback on any port', () => {
     for (const uri of [
       'https://claude.ai/api/mcp/auth_callback',
       'https://claude.com/api/mcp/auth_callback',
+      'https://antigravity.google/oauth-callback',
       'http://localhost/callback',
       'http://localhost:3000/callback',
       'http://127.0.0.1:65535/callback',
@@ -25,12 +26,23 @@ describe('the redirect allow-list', () => {
       'https://evil.example.com/api/mcp/auth_callback',
       'https://claude.ai.evil.example.com/api/mcp/auth_callback',
       'https://claude.ai/api/mcp/other',
+      'https://claude.ai/oauth-callback',
       'https://claude.ai/api/mcp/auth_callback/',
       'https://claude.ai/api/mcp/auth_callback?x=1',
       'https://claude.ai/api/mcp/auth_callback#frag',
       'https://claude.ai:8443/api/mcp/auth_callback',
       'https://user:pw@claude.ai/api/mcp/auth_callback',
       'http://claude.ai/api/mcp/auth_callback',
+      'https://antigravity.google.evil.example.com/oauth-callback',
+      'https://evil.antigravity.google/oauth-callback',
+      'https://antigravity.google/other',
+      'https://antigravity.google/api/mcp/auth_callback',
+      'https://antigravity.google/oauth-callback/',
+      'https://antigravity.google/oauth-callback?x=1',
+      'https://antigravity.google/oauth-callback#frag',
+      'https://antigravity.google:8443/oauth-callback',
+      'https://user:pw@antigravity.google/oauth-callback',
+      'http://antigravity.google/oauth-callback',
       'https://localhost:3000/callback',
       'http://localhost:3000/other',
       'http://localhost:3000/callback?x=1',
@@ -114,6 +126,16 @@ describe('registerClient', () => {
       ).toBeInstanceOf(InvalidClientMetadataError);
     }
     expect(h.store.clients.size).toBe(0);
+  });
+
+  it('registers a client with the Antigravity callback', async () => {
+    const h = harness();
+    const client = await h.provider.clientsStore.registerClient({
+      redirect_uris: ['https://antigravity.google/oauth-callback'],
+      client_name: 'Antigravity',
+    });
+    expect(client.redirect_uris).toEqual(['https://antigravity.google/oauth-callback']);
+    expect(client.token_endpoint_auth_method).toBe('none');
   });
 
   it('keeps client_name to one clean line of at most 100 characters', async () => {

@@ -6,12 +6,15 @@ import type { McpClientDoc, McpStore } from './store';
 
 /**
  * Dynamic Client Registration (OPS4 decision D3): every client is public (no secret, PKCE only) and
- * may only redirect to the four callbacks Claude uses. Anything else is refused at registration,
- * so `/authorize` never sees an unknown redirect.
+ * may only redirect to the explicit allow-listed client callbacks. Anything else is refused at
+ * registration, so `/authorize` never sees an unknown redirect.
  */
 
-const CLAUDE_HOSTS: ReadonlySet<string> = new Set(['claude.ai', 'claude.com']);
-const CLAUDE_CALLBACK_PATH = '/api/mcp/auth_callback';
+const HTTPS_CALLBACK_PATHS: ReadonlyMap<string, string> = new Map([
+  ['claude.ai', '/api/mcp/auth_callback'],
+  ['claude.com', '/api/mcp/auth_callback'],
+  ['antigravity.google', '/oauth-callback'],
+]);
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1']);
 const LOOPBACK_CALLBACK_PATH = '/callback';
 
@@ -19,9 +22,10 @@ export const MCP_GRANT_TYPES = ['authorization_code', 'refresh_token'] as const;
 export const MCP_RESPONSE_TYPES = ['code'] as const;
 
 /**
- * `https://claude.ai/api/mcp/auth_callback`, the same on `claude.com`, or `http://localhost:<any
- * port>/callback` / `http://127.0.0.1:<any port>/callback` (Claude Code picks a free port). No
- * credentials, query or fragment in any of them.
+ * `https://claude.ai/api/mcp/auth_callback`, the same on `claude.com`,
+ * `https://antigravity.google/oauth-callback`, or `http://localhost:<any port>/callback` /
+ * `http://127.0.0.1:<any port>/callback` (Claude Code picks a free port). No credentials, query or
+ * fragment in any of them, and HTTPS callbacks forbid an explicit non-default port.
  */
 export function isAllowedRedirectUri(uri: string): boolean {
   let url: URL;
@@ -31,8 +35,9 @@ export function isAllowedRedirectUri(uri: string): boolean {
     return false;
   }
   if (url.username || url.password || url.search || url.hash) return false;
-  if (url.protocol === 'https:' && CLAUDE_HOSTS.has(url.hostname)) {
-    return url.port === '' && url.pathname === CLAUDE_CALLBACK_PATH;
+  if (url.protocol === 'https:') {
+    const expectedPath = HTTPS_CALLBACK_PATHS.get(url.hostname);
+    return expectedPath !== undefined && url.port === '' && url.pathname === expectedPath;
   }
   if (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)) {
     return url.pathname === LOOPBACK_CALLBACK_PATH;
