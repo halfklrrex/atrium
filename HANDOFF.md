@@ -31,6 +31,16 @@ Session notes live in `docs/handoff/`. Each agent writes its own dated file (`YY
 - **No open-PR limits** (owner, 2026-11-04). Pace is set by usage and the owner's availability; hot-spot PRs merge in order and rebase.
 - **Folders:** `D:\DevProjects\Atrium\atrium-cl` (Ophelia, offset 0) and `atrium-ag` (Ava, offset 100). Avoid offset 30 (port 9180 is often taken).
 
+## Open work (2026-11-26)
+
+Supersedes the 2026-11-18 section where they differ.
+
+- **Merged 2026-11-26:** #344 (MCP clients may also redirect to `https://antigravity.google/oauth-callback`; owner accepted widening OPS4 D3; the code was deployed earlier from a working copy, which AGENTS.md rule 5 forbids: Actions deploys `main`) and #345 (a finished image upload no longer selects the image, so typing doesn't replace it; spec `docs/specs/BUG-paste-image-selection.md`; owner check pending, monday 3392276749).
+- **Signed off by the owner 2026-11-26:** filled workspace icons (#338), MCP batch 2 ("everything looks fine").
+- **Logged, not started:** VF bulk-selection action bar and toast wording vs monday (monday 3392276921; from the owner's recordings in the local, untracked `[Felix Items]/` folder).
+- **Waiting on the owner:** the P8 enable decision (monday items for tokens, webhooks and the Integrations UI); the P8 flags stay off until then.
+- **Next:** the VF bulk-bar pass, GDPR G1/G2 (spec `docs/specs/GDPR-2-export-and-deletion.md`, nothing built), email digests (stop before the provider).
+
 ## Open work (2026-11-18)
 
 - **P8 public API and webhooks: all code is written (2026-11-18, end of day); nothing is switched on yet.** Spec `docs/specs/P8-public-api-and-webhooks.md`; the owner approved every section 12 default. **Merged:** personal tokens #327, the Settings API tokens card #329, the `api` function with read routes #330 (ultrareview findings fixed), write routes with Idempotency-Key and machine error codes #334, outgoing webhooks backend #333, OpenAPI plus the public `/developers` page #335, incoming webhooks and the delivery-log callable #337, incoming hooks in the OpenAPI document and on `/developers` #340, and the Integrations dialog in the board menu (owners only) #342. **Rules that bit us today:** no merge commits on a PR branch (GitHub can't rebase-merge them and force-push is blocked), so rebase onto `origin/main` before pushing or open a `-2` branch; the "Update visual baselines" job has a 30-minute timeout and the suite now needs about 30 (a PR to raise it to 60 is blocked because this machine's GitHub token lacks the `workflow` scope: the owner runs `gh auth refresh -s workflow` or edits `timeout-minutes` on GitHub; until then a cancelled run can still have committed some baselines, so check the branch); a workflow push does not trigger CI (push an empty commit); Vibe menu items need `hover()` then `click({ delay: 100 })` in visual specs; exact heading locators (`exact: true`) once two headings share a word.
