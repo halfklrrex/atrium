@@ -238,3 +238,54 @@ describe('composer image paste speed', () => {
     await waitFor(() => expect(imageIds()).toEqual(['f1', 'f2', 'f3']));
   });
 });
+
+describe('composer image paste keeps the caret', () => {
+  const type = (text: string) => {
+    const { view } = holder.editor;
+    view.dispatch(view.state.tr.insertText(text));
+  };
+  const gate = () => {
+    let release: (v: unknown) => void = () => {};
+    mocks.requestUpload.mockResolvedValue({ uploadUrl: 'https://u', headers: {}, fileId: 'f1' });
+    mocks.finalize.mockReturnValue(new Promise((r) => (release = r)));
+    mocks.getUrl.mockResolvedValue({ url: 'https://img/x', expiresAt: Date.now() + 3_600_000 });
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    return () => release({ fileId: 'f1' });
+  };
+
+  it('keeps text typed while uploading and does not select the finished image', async () => {
+    const release = gate();
+    render(<Harness />);
+    holder.editor.commands.focus('end');
+    paste(new File(['x'], 'a.png', { type: 'image/png' }));
+    await waitFor(() => expect(JSON.stringify(holder.editor.getJSON())).toContain('imageUpload'));
+    type('abc');
+    release();
+    await waitFor(() => expect(JSON.stringify(holder.editor.getJSON())).toContain('"image"'));
+    expect(holder.editor.getText()).toContain('abc');
+    expect(holder.editor.state.selection.constructor.name).not.toBe('NodeSelection');
+    type('d');
+    expect(JSON.stringify(holder.editor.getJSON())).toContain('"image"');
+    expect(holder.editor.getText()).toContain('d');
+  });
+
+  it('leaves the caret alone when the upload fails', async () => {
+    mocks.requestUpload.mockRejectedValue(new Error('nope'));
+    render(<Harness />);
+    paste(new File(['x'], 'a.png', { type: 'image/png' }));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalled());
+    expect(holder.editor.state.selection.constructor.name).not.toBe('NodeSelection');
+    type('ok');
+    expect(holder.editor.getText()).toContain('ok');
+  });
+
+  it('does not steal focus when the editor is not focused', async () => {
+    mocks.requestUpload.mockReturnValue(new Promise(() => {}));
+    render(<Harness />);
+    const focus = vi.spyOn(holder.editor.view, 'focus');
+    expect(holder.editor.isFocused).toBe(false);
+    paste(new File(['x'], 'a.png', { type: 'image/png' }));
+    await waitFor(() => expect(JSON.stringify(holder.editor.getJSON())).toContain('imageUpload'));
+    expect(focus).not.toHaveBeenCalled();
+  });
+});
