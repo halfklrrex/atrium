@@ -143,6 +143,12 @@ describe('BoardTable', () => {
     const bar = screen.getByRole('region', { name: 'Selected items' });
     expect(within(bar).getByText('Items selected')).toBeInTheDocument();
     expect(bar).toHaveTextContent('2');
+    for (const label of ['Duplicate', 'Export', 'Archive', 'Delete', 'Move to']) {
+      expect(within(bar).getByRole('button', { name: label })).toBeInTheDocument();
+    }
+    await userEvent.click(within(bar).getByRole('button', { name: 'Move to' }));
+    expect(await screen.findByRole('menuitem', { name: 'Beta' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
     await userEvent.click(within(bar).getByRole('button', { name: 'Delete' }));
     await waitFor(() =>
       expect(mocks.setState).toHaveBeenCalledWith('u1', 'b1', ['i1', 'i3'], 'deleted'),

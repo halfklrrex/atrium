@@ -153,7 +153,8 @@ describe('planBulkApply', () => {
   });
 
   it('words the summary without hiding skips', () => {
-    expect(bulkSummary(9, 9, 0)).toBe('Updated 9 items');
+    expect(bulkSummary(9, 9, 0)).toBe('We successfully updated 9 items');
+    expect(bulkSummary(1, 1, 0)).toBe('We successfully updated 1 item');
     expect(bulkSummary(7, 9, 2)).toBe('Updated 7 of 9 items; 2 skipped (locked or required)');
   });
 });
@@ -323,7 +324,7 @@ describe('bulk edit in the table', () => {
     expect(useTableStore.getState().selected.size).toBe(3);
 
     await waitFor(() =>
-      expect(useToastStore.getState().toasts.at(-1)?.text).toBe('Updated 3 items'),
+      expect(useToastStore.getState().toasts.at(-1)?.text).toBe('We successfully updated 3 items'),
     );
     const toast = useToastStore.getState().toasts.at(-1)!;
     expect(toast.action?.label).toBe('Undo');
@@ -356,7 +357,7 @@ describe('bulk edit in the table', () => {
       });
       const toasts = useToastStore.getState().toasts;
       expect(toasts).toHaveLength(1);
-      expect(toasts[0]).toMatchObject({ id: pending.id, text: 'Updated 2 items' });
+      expect(toasts[0]).toMatchObject({ id: pending.id, text: 'We successfully updated 2 items' });
       expect(toasts[0]!.loading).toBeUndefined();
     } finally {
       vi.useRealTimers();
