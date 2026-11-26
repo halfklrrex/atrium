@@ -1,14 +1,6 @@
-import {
-  Button,
-  Dialog,
-  DialogContentContainer,
-  IconButton,
-  Menu,
-  MenuButton,
-  MenuItem,
-} from '@vibe/core';
-import { Archive, Close, Delete, Download, Duplicate } from '@vibe/icons';
-import { useMemo } from 'react';
+import { Dialog, DialogContentContainer, Icon, IconButton, Menu, MenuItem } from '@vibe/core';
+import { Archive, Close, Delete, Download, Duplicate, MoveArrowRight } from '@vibe/icons';
+import { forwardRef, type ComponentPropsWithoutRef, useMemo } from 'react';
 import { buildBoardCsvRows, type BoardCsvInput } from '../boards/board-export';
 import { runExport, type ExportFormat } from '../boards/export-run';
 import { buildBoardWorkbookData } from '../boards/workbook-data';
@@ -16,6 +8,24 @@ import { tableActions } from './table-actions';
 import { useTableEnv } from './table-env';
 import { useTableStore } from './table-store';
 import styles from './table.module.css';
+
+interface BatchActionProps extends ComponentPropsWithoutRef<'button'> {
+  icon: typeof Archive;
+  label: string;
+}
+
+/** One bar action, monday-style: a 16-px icon stacked over a small label. */
+const BatchAction = forwardRef<HTMLButtonElement, BatchActionProps>(function BatchAction(
+  { icon, label, ...rest },
+  ref,
+) {
+  return (
+    <button ref={ref} type="button" className={styles.batchAction} {...rest}>
+      <Icon icon={icon} size={16} />
+      <span>{label}</span>
+    </button>
+  );
+});
 
 /** monday's floating bar for the selected items: count, group dots and the batch actions. */
 export function BatchBar() {
@@ -84,9 +94,7 @@ export function BatchBar() {
         </DialogContentContainer>
       }
     >
-      <Button kind="tertiary" size="small" leftIcon={Download} aria-haspopup="menu">
-        Export
-      </Button>
+      <BatchAction icon={Download} label="Export" aria-haspopup="menu" />
     </Dialog>
   );
   const afterAction = (ok: boolean | void) => {
@@ -109,10 +117,9 @@ export function BatchBar() {
         <span className={styles.batchActions}>
           {env.canEdit ? (
             <>
-              <Button
-                kind="tertiary"
-                size="small"
-                leftIcon={Duplicate}
+              <BatchAction
+                icon={Duplicate}
+                label="Duplicate"
                 onClick={() =>
                   void tableActions
                     .duplicateItems(
@@ -122,55 +129,51 @@ export function BatchBar() {
                     )
                     .then(clear)
                 }
-              >
-                Duplicate
-              </Button>
+              />
             </>
           ) : null}
           {exportButton}
           {env.canEdit ? (
             <>
-              <Button
-                kind="tertiary"
-                size="small"
-                leftIcon={Archive}
+              <BatchAction
+                icon={Archive}
+                label="Archive"
                 onClick={() =>
                   void tableActions.retireItems(ctx, ids, 'archived').then(afterAction)
                 }
-              >
-                Archive
-              </Button>
-              <Button
-                kind="tertiary"
-                size="small"
-                leftIcon={Delete}
+              />
+              <BatchAction
+                icon={Delete}
+                label="Delete"
                 onClick={() => void tableActions.retireItems(ctx, ids, 'deleted').then(afterAction)}
+              />
+              <Dialog
+                showTrigger={['click']}
+                hideTrigger={['clickoutside', 'esckey', 'onContentClick']}
+                position="top-start"
+                moveBy={{ main: 0, secondary: 0 }}
+                content={
+                  <DialogContentContainer>
+                    <Menu id="batch-move-menu" size="medium">
+                      {env.groups.map((group) => (
+                        <MenuItem
+                          key={group.id}
+                          title={group.title}
+                          onClick={() => {
+                            const target =
+                              env.getModels().find((m) => m.group.id === group.id)?.all ?? [];
+                            void tableActions
+                              .moveItemsToGroup(ctx, items, group.id, target)
+                              .then(clear);
+                          }}
+                        />
+                      ))}
+                    </Menu>
+                  </DialogContentContainer>
+                }
               >
-                Delete
-              </Button>
-              <MenuButton
-                text="Move to"
-                componentPosition="end"
-                size="small"
-                closeMenuOnItemClick
-                dialogPosition="top-start"
-              >
-                <Menu id="batch-move-menu" size="medium">
-                  {env.groups.map((group) => (
-                    <MenuItem
-                      key={group.id}
-                      title={group.title}
-                      onClick={() => {
-                        const target =
-                          env.getModels().find((m) => m.group.id === group.id)?.all ?? [];
-                        void tableActions
-                          .moveItemsToGroup(ctx, items, group.id, target)
-                          .then(clear);
-                      }}
-                    />
-                  ))}
-                </Menu>
-              </MenuButton>
+                <BatchAction icon={MoveArrowRight} label="Move to" aria-haspopup="menu" />
+              </Dialog>
             </>
           ) : null}
           <IconButton

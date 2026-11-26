@@ -94,7 +94,8 @@ export function planBulkApply(input: BulkPlanInput): BulkPlan {
 
 /** Toast text after applying: never hides skipped rows. */
 export function bulkSummary(updated: number, total: number, skipped: number): string {
-  if (skipped === 0) return `Updated ${updated} items`;
+  if (skipped === 0)
+    return `We successfully updated ${updated} ${updated === 1 ? 'item' : 'items'}`;
   return `Updated ${updated} of ${total} items; ${skipped} skipped (locked or required)`;
 }
 

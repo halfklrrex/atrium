@@ -8,11 +8,11 @@ The owner's side-by-side screen recordings (2026-11-07). Two frames are saved fo
 
 ## Differences to close
 
-| | monday | Atrium today |
-|---|---|---|
-| Layout of each action | icon **above** a small label, each action a compact vertical button | icon and label side by side |
-| Actions shown | count circle, "Items selected", Duplicate, Export, Archive, Delete, Move to, close X (monday also has Convert and Apps: **leave those out**, Atrium has neither) | count, text, group dots, divider, Duplicate, Export, Archive, Delete, "Move to" with a trailing chevron, close |
-| Toast after a bulk edit | "We successfully updated N items" with an Undo link | "Updated N items" |
+|                         | monday                                                                                                                                                           | Atrium today                                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Layout of each action   | icon **above** a small label, each action a compact vertical button                                                                                              | icon and label side by side                                                                                    |
+| Actions shown           | count circle, "Items selected", Duplicate, Export, Archive, Delete, Move to, close X (monday also has Convert and Apps: **leave those out**, Atrium has neither) | count, text, group dots, divider, Duplicate, Export, Archive, Delete, "Move to" with a trailing chevron, close |
+| Toast after a bulk edit | "We successfully updated N items" with an Undo link                                                                                                              | "Updated N items"                                                                                              |
 
 ## Changes (all in `apps/web/src/components/board-table`)
 
