@@ -86,7 +86,8 @@ The documentation must always match the latest changes. Update as you go, not at
    - Ava (Antigravity) uses `D:\DevProjects\Atrium\atrium-ag`, with branches `ag/<short-task>`.
    - Never edit files in another agent's working copy (its folder on disk). Branches on GitHub are different. As lead, Ophelia may push to `ag/*` branches; see "Who's who" above.
 3. **Start from fresh `main`.** Run `git fetch && git switch -c <branch> origin/main`. Before opening a PR, rebase on `origin/main` and re-run the checks.
-4. **Merge only through pull requests.** CI (lint, typecheck, unit tests, rules tests, build) must be green. Don't push to `main` directly.
+4. **Merge only through pull requests.** CI (lint, typecheck, unit tests, rules tests, build) must be green.
+   - **The `visual` screenshot job no longer runs on PRs** (owner decision, 2026-11-26): it runs nightly and on demand (Actions → CI → Run workflow on your branch). For UI work, run `pnpm test:visual` locally or dispatch CI on your branch when you want the check, and run the baselines workflow when a change moves pixels on purpose. A red nightly run is fixed before new UI work. Don't push to `main` directly.
    - **PR description:** what changed, which Roadmap item, and the visual QA screenshots for UI work.
    - **When the PR opens:** set Status to **Pending Merge** and put the PR link in Spec / PR.
    - **Close-out:** after the merge, set Status to Done, or to In review if the owner still needs to look at it (any visible UI change).
